@@ -2,9 +2,13 @@
 
 **Research snapshot date:** 2026-08-10  
 **Repository:** `C:\Dev\psyche-os`  
-**Status:** active  
+**Status:** complete — research foundation converged
 **Production implementation:** prohibited in this plan  
 **Real personal data:** prohibited; `REAL_DATA_GATE = CLOSED`
+
+**Completion snapshot:** 2026-08-10
+**RESEARCH_CONVERGED:** `true`
+**Next authorized scope:** F0 secure foundation with synthetic fixtures only
 
 ## Inputs and path resolution
 
@@ -34,22 +38,22 @@ Only then may the final artifacts state `RESEARCH_CONVERGED = true`. This does n
 
 | ID | Workstream | Main questions | Required output | Status |
 |---|---|---|---|---|
-| A | Baseline audit | What v1 proposes, assumes, gets right, overstates, or leaves unspecified | `docs/reviews/V1_CRITICAL_AUDIT.md` | In progress |
-| B | Assumption inventory | Which scientific and architectural assumptions are load-bearing and falsifiable | Audit and dossier sections | In progress |
-| C1 | Clinical and dimensional science | Proper role of ICD/DSM, phenomenology, dimensional models, impairment, differential reasoning | Research dossier and v2 scientific model | Pending |
-| C2 | Development, personality, memory, trauma | Trait/state/context, lifespan limits, attachment, memory reconstruction, anti-suggestion | Dossier, ontology, safety rules | Pending |
-| C3 | Psychometrics and EMA | Validity, licensing, translation, repeated measurement, burden, idiographic inference | Dossier, governance, assessment contract | Pending |
-| C4 | Sleep, cognition, substances, physical context | Measurement hierarchy and confound boundaries | Dossier, Sleep OS and confound design | Pending |
-| C5 | Longitudinal statistics and N-of-1 | Honest within-person inference, multiplicity, missingness, causal limits | Dossier, statistical and N-of-1 contract | Pending |
-| C6 | Positive functioning and interventions | Conditions for thriving, evidence registry, self-help/clinician boundaries | Dossier, ontology, intervention registry contract | Pending |
-| D | AI and mental-health safety | Sycophancy, dependence, reassurance, delusion/mania, crisis, false-memory harms | `docs/architecture/MENTAL_HEALTH_AI_SAFETY.md` | Pending |
-| E | Privacy and security | Assets, trust boundaries, encryption/key/backup/deletion, prompt injection, third-party data | Privacy/security model and threat model | Pending |
-| F | Regulatory and governance | EU AI Act, GDPR, Moldova, FDA/MDR boundary, scientific update lifecycle | Governance and regulatory posture | Pending |
-| G | Architecture and lifetime durability | Canonical store, temporal model, migrations, export, deletion, offline/provider failure | Competing architectures and final design | Pending |
-| H | UX and lifetime adherence | Burden, long-term value, retrieval, correction, non-chat information architecture | Red team, v2 UX contract | Pending |
-| I | Independent reconstruction | What design follows from requirements without inheriting v1 | `docs/reviews/INDEPENDENT_REBUILD.md` | Pending |
-| J | Convergence and decisions | Which design wins, what survives, changes, or is rejected | Decision log and final architecture | Pending |
-| K | Final audits and validation | Does the complete foundation satisfy science, safety, security, durability, and consistency | Final report and validation record | Pending |
+| A | Baseline audit | What v1 proposes, assumes, gets right, overstates, or leaves unspecified | `docs/reviews/V1_CRITICAL_AUDIT.md` | Completed |
+| B | Assumption inventory | Which scientific and architectural assumptions are load-bearing and falsifiable | Audit and dossier sections | Completed |
+| C1 | Clinical and dimensional science | Proper role of ICD/DSM, phenomenology, dimensional models, impairment, differential reasoning | Research dossier and v2 scientific model | Completed |
+| C2 | Development, personality, memory, trauma | Trait/state/context, lifespan limits, attachment, memory reconstruction, anti-suggestion | Dossier, ontology, safety rules | Completed |
+| C3 | Psychometrics and EMA | Validity, licensing, translation, repeated measurement, burden, idiographic inference | Dossier, governance, assessment contract | Completed |
+| C4 | Sleep, cognition, substances, physical context | Measurement hierarchy and confound boundaries | Dossier, Sleep OS and confound design | Completed |
+| C5 | Longitudinal statistics and N-of-1 | Honest within-person inference, multiplicity, missingness, causal limits | Dossier, statistical and N-of-1 contract | Completed |
+| C6 | Positive functioning and interventions | Conditions for thriving, evidence registry, self-help/clinician boundaries | Dossier, ontology, intervention registry contract | Completed |
+| D | AI and mental-health safety | Sycophancy, dependence, reassurance, delusion/mania, crisis, false-memory harms | `docs/architecture/MENTAL_HEALTH_AI_SAFETY.md` | Completed |
+| E | Privacy and security | Assets, trust boundaries, encryption/key/backup/deletion, prompt injection, third-party data | Privacy/security model and threat model | Completed |
+| F | Regulatory and governance | EU AI Act, GDPR, Moldova, FDA/MDR boundary, scientific update lifecycle | Governance and regulatory posture | Completed |
+| G | Architecture and lifetime durability | Canonical store, temporal model, migrations, export, deletion, offline/provider failure | Competing architectures and final design | Completed |
+| H | UX and lifetime adherence | Burden, long-term value, retrieval, correction, non-chat information architecture | Red team, v2 UX contract | Completed |
+| I | Independent reconstruction | What design follows from requirements without inheriting v1 | `docs/reviews/INDEPENDENT_REBUILD.md` | Completed |
+| J | Convergence and decisions | Which design wins, what survives, changes, or is rejected | Decision log and final architecture | Completed |
+| K | Final audits and validation | Does the complete foundation satisfy science, safety, security, durability, and consistency | Final report and validation record | Completed |
 
 ## Evidence workflow
 
@@ -71,25 +75,25 @@ Score epistemic correctness, queryability, auditability, deletion, portability, 
 
 ## Required artifacts checklist
 
-- [ ] `docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md`
-- [ ] `docs/research/PSYCHE_OS_RESEARCH_DOSSIER_2026.md`
-- [ ] `docs/research/SOURCE_REGISTRY.yaml`
+- [x] `docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md`
+- [x] `docs/research/PSYCHE_OS_RESEARCH_DOSSIER_2026.md`
+- [x] `docs/research/SOURCE_REGISTRY.yaml`
 - [x] `docs/research/EXECUTION_PLAN.md`
-- [ ] `docs/reviews/V1_CRITICAL_AUDIT.md`
-- [ ] `docs/reviews/INDEPENDENT_REBUILD.md`
-- [ ] `docs/reviews/RED_TEAM_REPORT.md`
-- [ ] `docs/DECISION_LOG.md`
-- [ ] `CONSTITUTION.md`
-- [ ] `docs/SCIENTIFIC_GOVERNANCE.md`
-- [ ] `docs/architecture/DATA_MODEL.md`
-- [ ] `docs/architecture/SYSTEM_ARCHITECTURE.md`
-- [ ] `docs/architecture/PRIVACY_SECURITY_MODEL.md`
-- [ ] `docs/architecture/MENTAL_HEALTH_AI_SAFETY.md`
-- [ ] `docs/architecture/THREAT_MODEL.md`
-- [ ] `ontology/psyche_domains.yaml`
-- [ ] `docs/ROADMAP.md`
-- [ ] `docs/prompts/F0_IMPLEMENTATION_PROMPT.md`
-- [ ] `docs/FINAL_RESEARCH_REPORT.md`
+- [x] `docs/reviews/V1_CRITICAL_AUDIT.md`
+- [x] `docs/reviews/INDEPENDENT_REBUILD.md`
+- [x] `docs/reviews/RED_TEAM_REPORT.md`
+- [x] `docs/DECISION_LOG.md`
+- [x] `CONSTITUTION.md`
+- [x] `docs/SCIENTIFIC_GOVERNANCE.md`
+- [x] `docs/architecture/DATA_MODEL.md`
+- [x] `docs/architecture/SYSTEM_ARCHITECTURE.md`
+- [x] `docs/architecture/PRIVACY_SECURITY_MODEL.md`
+- [x] `docs/architecture/MENTAL_HEALTH_AI_SAFETY.md`
+- [x] `docs/architecture/THREAT_MODEL.md`
+- [x] `ontology/psyche_domains.yaml`
+- [x] `docs/ROADMAP.md`
+- [x] `docs/prompts/F0_IMPLEMENTATION_PROMPT.md`
+- [x] `docs/FINAL_RESEARCH_REPORT.md`
 
 ## Validation checklist
 
@@ -104,6 +108,13 @@ Score epistemic correctness, queryability, auditability, deletion, portability, 
 - `RESEARCH_CONVERGED`, `REAL_DATA_GATE`, and implementation readiness agree across all final artifacts.
 - Git/workspace status is understood and validation results are recorded.
 
-## Decision posture at start
+## Completion evidence
 
-No v1 stack or architecture choice is accepted yet. v1 is treated as a serious hypothesis. The current provisional boundary is only that canonical evidence must remain local-first, provider-independent, inspectable, correctable, deletable, exportable, and usable without an LLM; research may strengthen or replace the concrete design.
+- v1 was treated as a hypothesis; 60+ concepts and 44 hidden assumptions were audited.
+- The registry contains 155 stable records representing 153 unique serious sources; every registered ID is cited and no unknown citation remains.
+- Independent reconstruction compared four designs; the final system selects a hybrid bitemporal relational canonical store with encrypted source objects and rebuildable projections.
+- Scientific, clinical/safety, statistical, privacy/security, deletion, UX, schema and 1/5/20/40-year red teams recorded 70 risks and four final audit passes with applied corrections.
+- The ontology validates with 44 unique domains, 18 layer contracts, 17 evidence-kind contracts and no completeness claim.
+- `python scripts/validate_research_foundation.py` reports 19/19 artifacts, zero errors, and only two duplicate-heading warnings in preserved historical inputs.
+- `git diff --check` passes; no vault/database/key/export artefact or common plaintext secret signature is present.
+- Final decision: build the bounded Personal Evidence & Reflection System and only the synthetic F0 foundation next. `REAL_DATA_GATE = CLOSED` with all 12 runtime/review requirements unsatisfied.
