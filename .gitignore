@@ -1,0 +1,36 @@
+# Real or potentially sensitive runtime data must never enter Git.
+/data/
+/private/
+/backups/
+/imports/
+/exports/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.psychebackup
+
+# Secrets and local configuration.
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+
+# Temporary and generated files.
+*.tmp
+*.temp
+*.log
+.cache/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+dist/
+build/
+
+# Local research scratch space; durable evidence belongs in docs/research/.
+scratch/
+tmp/
