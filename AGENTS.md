@@ -5,6 +5,7 @@
 - During the research rebuild, follow `docs/research/EXECUTION_PLAN.md`.
 - Preserve `docs/specs/PSYCHE_OS_MASTER_SPEC_v1.0_2026-08-10.md` and `docs/prompts/PSYCHE_OS_FINAL_RESEARCH_MASTER_PROMPT_CODEX_SOL_ULTRA.md` unchanged as historical inputs.
 - After research convergence, `docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md` is the authoritative product and architecture specification.
+- During implementation, resolve authority in this order: `CONSTITUTION.md` → v2 master specification → explicitly accepted ADR/`docs/DECISION_LOG.md` entry → `docs/ROADMAP.md` and `docs/development/EPIC_MAP.md` → current epic prompt → implementation detail. Do not silently resolve a material conflict.
 
 ## Non-negotiable rules
 
@@ -24,3 +25,11 @@
 - Keep major architecture choices in `docs/DECISION_LOG.md` with alternatives, uncertainty, and review triggers.
 - Validate YAML, internal paths, Markdown links where practical, terminology, licensing notes, and the absence of secrets or personal data before declaring work complete.
 
+## Development delivery
+
+- The compact project state is `docs/development/STATE.yaml`; update it only at epic boundaries. The epic plan is `docs/development/EPIC_MAP.md`.
+- Run the current prompt named by `STATE.yaml`. The initial implementation prompt is `docs/prompts/deepseek/E00_F0_IMPLEMENTATION.md`; later prompts are prepared just in time from `docs/prompts/deepseek/EPIC_IMPLEMENTATION_TEMPLATE.md`.
+- Use targeted tests while iterating and the risk-appropriate final gate once. Every added check must cover a named realistic failure; no arbitrary coverage target or duplicate test theater.
+- A material conflict with the Constitution, master specification, or accepted architecture requires `docs/development/ARCHITECTURE_DEVIATION_TEMPLATE.md` and focused review. Stop only the blocked portion.
+- Validate this delivery layer with `python scripts/dev/validate_orchestration.py`; validate the frozen research foundation with `python scripts/validate_research_foundation.py`.
+- Do not push automatically. Record only accepted epic commits in `STATE.yaml`.

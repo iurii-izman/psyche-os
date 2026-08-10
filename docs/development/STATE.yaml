@@ -1,0 +1,41 @@
+schema_version: "1.0"
+project: "psyche-os"
+
+research:
+  converged: true
+
+real_data_gate:
+  state: "CLOSED"
+  authority: "docs/architecture/REAL_DATA_GATE.yaml"
+
+current_epic:
+  id: "E00"
+  name: "Minimal Irreversible Secure Core"
+  status: "READY"
+  risk: "RISK-H"
+  prompt: "docs/prompts/deepseek/E00_F0_IMPLEMENTATION.md"
+  codex_review_required: true
+
+accepted_epics: []
+
+next_epic:
+  id: "E01"
+  status: "PLANNED"
+  prompt: null
+  preparation_prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
+
+architecture:
+  constitution: "CONSTITUTION.md"
+  master_spec: "docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md"
+  decision_log: "docs/DECISION_LOG.md"
+  roadmap: "docs/ROADMAP.md"
+  epic_map: "docs/development/EPIC_MAP.md"
+
+git:
+  branch: "codex/deepseek-development-system"
+  prepared_from_commit: "eff1a97"
+  accepted_commit: null
+
+next_action:
+  prompt: "docs/prompts/deepseek/E00_F0_IMPLEMENTATION.md"
+  instruction: "Run E00 with DeepSeek V4 Pro using the repository at C:\\Dev\\psyche-os."
