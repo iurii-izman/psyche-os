@@ -1,0 +1,1171 @@
+sources:
+  - id: "CLIN-001"
+    title: "Rediscovering psychopathology: the epistemology and phenomenology of the psychiatric object"
+    authors_or_organization: "Parnas J.; Sass L. A.; Zahavi D."
+    type: "peer-reviewed conceptual review"
+    publication: "Schizophrenia Bulletin 39(2):270-277"
+    publication_date: "2013-03-01"
+    url: "https://doi.org/10.1093/schbul/sbs153"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "psychiatric_phenomenology"
+      - "clinical_ontology"
+      - "provenance"
+    project_implications:
+      - "Preserve verbatim report separately from normalized phenomenology and interpretation."
+      - "Model form, content, context, course, distress and relation to experience as distinct fields."
+    limitations:
+      - "Conceptual and clinically oriented rather than a validation study."
+      - "Emphasis on psychosis phenomenology limits direct generalization to every domain."
+    rights_notes: "Publisher copyright applies; cite and link, do not reproduce article text beyond licensed quotation limits."
+    superseded: false
+    review_due: "2030-08-10"
+
+  - id: "CLIN-002"
+    title: "Clinical descriptions and diagnostic requirements for ICD-11 mental, behavioural and neurodevelopmental disorders (CDDR)"
+    authors_or_organization: "World Health Organization"
+    type: "official international diagnostic reference"
+    publication: "World Health Organization; ISBN 978-92-4-007726-3"
+    publication_date: "2024-03-08"
+    url: "https://www.who.int/publications/i/item/9789240077263"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "ICD-11"
+      - "psychiatric_classification"
+      - "PTSD_CPTSD_grief_dissociation"
+      - "neurodevelopment"
+      - "substance_and_behavioral_disorders"
+    project_implications:
+      - "Use ICD-11 as a versioned clinical terminology reference, not as an autonomous diagnostic algorithm."
+      - "Keep classification mappings separate from phenomena, functioning and research dimensions."
+      - "Record system, release, code or URI, mapping source, date, status and uncertainty."
+    limitations:
+      - "Designed for trained health professionals and clinical judgement."
+      - "Classification requirements do not establish a single etiology or individual causal explanation."
+    rights_notes: "WHO publication is licensed CC BY-NC-ND 3.0 IGO; no adaptation or translation without permission and no embedded diagnostic text without rights review."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-003"
+    title: "The ICD-11 developmental field study of reliability of diagnoses of high-burden mental disorders: results among adult patients in mental health settings of 13 countries"
+    authors_or_organization: "Reed G. M. et al."
+    type: "multinational diagnostic field study"
+    publication: "World Psychiatry 17(2):174-186"
+    publication_date: "2018-06-01"
+    url: "https://doi.org/10.1002/wps.20524"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T4_strong_primary_or_field_evidence"
+    domains:
+      - "ICD-11"
+      - "diagnostic_reliability"
+      - "psychiatric_classification"
+    project_implications:
+      - "Represent diagnostic mappings with category-specific uncertainty rather than a uniform confidence flag."
+      - "Preserve supporting and contradicting evidence even when a documented classification exists."
+    limitations:
+      - "Covers selected high-burden disorders and participating clinical centres."
+      - "Joint-rater reliability does not establish validity, etiology or ordinary test-retest performance."
+    rights_notes: "Open-access article under the licence stated by the journal; retain citation and verify licence before reuse of tables or figures."
+    superseded: false
+    review_due: "2030-08-10"
+
+  - id: "CLIN-004"
+    title: "Scientific validation of the ICD-11 CDDR"
+    authors_or_organization: "Maj M."
+    type: "peer-reviewed validation commentary and synthesis"
+    publication: "World Psychiatry 23(3):358-359"
+    publication_date: "2024-10-01"
+    url: "https://pubmed.ncbi.nlm.nih.gov/39279399/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "ICD-11"
+      - "diagnostic_validation"
+      - "PTSD_CPTSD_grief"
+    project_implications:
+      - "Treat CDDR as a scientifically developed clinical reference while retaining professional-scope boundaries."
+      - "Use system-specific and versioned records for newer categories such as CPTSD and prolonged grief disorder."
+    limitations:
+      - "Short expert synthesis rather than an independent systematic review."
+      - "Validation of a classification does not authorize consumer self-diagnosis or algorithmic diagnosis."
+    rights_notes: "Article reuse is governed by the journal licence; cite and link, and verify terms before reproducing content."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-005"
+    title: "DSM-5-TR and official updates to DSM-5-TR criteria and text through September 2025"
+    authors_or_organization: "American Psychiatric Association"
+    type: "official proprietary diagnostic reference and update log"
+    publication: "Diagnostic and Statistical Manual of Mental Disorders, Fifth Edition, Text Revision"
+    publication_date: "2025-09-01"
+    url: "https://www.psychiatry.org/psychiatrists/practice/dsm/updates-to-dsm/updates-to-dsm-5-tr-criteria-text"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "DSM-5-TR"
+      - "psychiatric_classification"
+      - "versioning"
+      - "rights"
+    project_implications:
+      - "Use DSM-5-TR as a secondary, versioned crosswalk for US records and research comparability."
+      - "Store edition and update date; never treat an edition as timeless."
+      - "Do not embed criteria, manuals or proprietary assessment items without a licence."
+    limitations:
+      - "Proprietary clinical classification, not a standalone evidence synthesis for every category."
+      - "Crosswalks with ICD are not lossless and may change with updates."
+    rights_notes: "DSM-5-TR is copyrighted and proprietary to the American Psychiatric Association; citation and linking only unless explicit permission or licence is obtained."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-006"
+    title: "About Research Domain Criteria (RDoC)"
+    authors_or_organization: "National Institute of Mental Health"
+    type: "official live research framework"
+    publication: "NIMH Research Domain Criteria"
+    publication_date: "n.d. (live framework snapshot)"
+    url: "https://www.nimh.nih.gov/research/research-funded-by-nimh/rdoc/about-rdoc"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "RDoC"
+      - "transdiagnostic_research"
+      - "development_and_environment"
+    project_implications:
+      - "Allow RDoC only as a versioned research lens, never a diagnosis or replacement for ICD or DSM."
+      - "Do not represent self-report as evidence at neural-circuit, physiology or genetic units of analysis."
+    limitations:
+      - "Dynamic heuristic framework whose matrix and constructs can change."
+      - "Does not provide a validated personal score or clinical decision rule."
+    rights_notes: "US government web content is generally reusable subject to page-specific notices; cite the snapshot and verify third-party material."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-007"
+    title: "The Hierarchical Taxonomy of Psychopathology (HiTOP): A Quantitative Nosology Based on Consensus of Evidence"
+    authors_or_organization: "Kotov R. et al.; HiTOP Consortium"
+    type: "peer-reviewed consensus review"
+    publication: "Annual Review of Clinical Psychology 17:83-108"
+    publication_date: "2021-05-07"
+    url: "https://doi.org/10.1146/annurev-clinpsy-081219-093304"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "HiTOP"
+      - "dimensional_psychopathology"
+      - "comorbidity"
+      - "heterogeneity"
+    project_implications:
+      - "Use HiTOP as an optional versioned research mapping from narrow phenomena to dimensions and spectra."
+      - "Retain source indicators and hierarchy level rather than only an aggregate label."
+    limitations:
+      - "Consensus taxonomy remains incomplete and is being revised."
+      - "Evidence for structure does not by itself prove causal mechanisms or treatment utility."
+    rights_notes: "Publisher copyright applies; cite DOI and do not reproduce protected tables or text without permission."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-008"
+    title: "Meta-analysis of structural evidence for the Hierarchical Taxonomy of Psychopathology (HiTOP) model"
+    authors_or_organization: "Ringwald W. R.; Forbes M. K.; Wright A. G. C."
+    type: "meta-analysis"
+    publication: "Psychological Medicine 53(2):533-546"
+    publication_date: "2021-06-15"
+    url: "https://doi.org/10.1017/S0033291721001902"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "HiTOP"
+      - "structural_validity"
+      - "dimensional_psychopathology"
+    project_implications:
+      - "Treat spectra as optional aggregate views and keep the underlying indicators and model version."
+      - "Do not infer causality or clinical utility from structural fit."
+    limitations:
+      - "Meta-analysis used 23 DSM diagnoses rather than the complete set of narrow signs and symptoms."
+      - "Some forms of psychopathology were underrepresented."
+    rights_notes: "Publisher copyright applies; bibliographic use and linking are permitted, while reuse of article content requires licence review."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-009"
+    title: "The p Factor: One General Psychopathology Factor in the Structure of Psychiatric Disorders?"
+    authors_or_organization: "Caspi A. et al."
+    type: "longitudinal cohort study"
+    publication: "Clinical Psychological Science 2(2):119-137"
+    publication_date: "2014-03-01"
+    url: "https://doi.org/10.1177/2167702613497473"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T4_strong_primary_or_field_evidence"
+    domains:
+      - "p_factor"
+      - "psychopathology_covariance"
+      - "longitudinal_research"
+    project_implications:
+      - "At most treat a p-factor as a research-only summary tied to a specified model and indicator set."
+      - "Never expose it as a diagnosis, cause, essence or global personal mental-health score."
+    limitations:
+      - "Findings depend on one cohort, selected indicators and factor specification."
+      - "A latent factor is not automatically a biological or causal entity."
+    rights_notes: "Publisher copyright applies; cite DOI, with no reproduction of protected text, tables or figures."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "CLIN-010"
+    title: "A critical evaluation of the p-factor literature"
+    authors_or_organization: "Watts A. L.; Greene A. L.; Bonifay W.; Fried E. I."
+    type: "critical peer-reviewed review"
+    publication: "Nature Reviews Psychology 3:108-122"
+    publication_date: "2023-12-22"
+    url: "https://doi.org/10.1038/s44159-023-00260-2"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "p_factor"
+      - "latent_variable_validity"
+      - "science_theatre_risk"
+    project_implications:
+      - "Reject the p-factor as root ontology, causal entity, personal score or explanation of a specific phenomenon."
+      - "If used in research, store formula, indicators, calibration population, alternatives and model uncertainty."
+    limitations:
+      - "Critical perspective rather than a quantitative meta-analysis."
+      - "Does not imply that all hierarchical or general-factor analyses are useless."
+    rights_notes: "Springer Nature copyright applies; cite and link and do not reproduce protected content."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-011"
+    title: "Empirical, theoretical, and practical advantages of the HEXACO model of personality structure"
+    authors_or_organization: "Ashton M. C.; Lee K."
+    type: "peer-reviewed theoretical and empirical review"
+    publication: "Personality and Social Psychology Review 11(2):150-166"
+    publication_date: "2007-05-01"
+    url: "https://doi.org/10.1177/1088868306294907"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "HEXACO"
+      - "personality_structure"
+      - "trait_crosswalk"
+    project_implications:
+      - "Preserve HEXACO as a source-native alternative model."
+      - "Treat Big Five to HEXACO conversion as lossy and never reduce Honesty-Humility to a renamed Big Five domain."
+    limitations:
+      - "Authored by principal model developers and not evidence that HEXACO is a final universal ontology."
+      - "Instrument, language and population remain relevant."
+    rights_notes: "Publisher copyright applies; cite DOI and verify any instrument-specific permissions separately."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "CLIN-012"
+    title: "Personality traits across cultures"
+    authors_or_organization: "Church A. T."
+    type: "cross-cultural review"
+    publication: "Current Opinion in Psychology 8:22-30"
+    publication_date: "2016-04-01"
+    url: "https://doi.org/10.1016/j.copsyc.2015.09.014"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "Big_Five"
+      - "cross_cultural_validity"
+      - "measurement_invariance"
+    project_implications:
+      - "Require language, culture, measure version, calibration sample and invariance evidence for trait interpretation."
+      - "Do not apply universal percentile labels or assume translated scales are automatically equivalent."
+    limitations:
+      - "Review predates some recent global datasets and many populations remain underrepresented."
+      - "Factor replication does not mean cultural identity is exhausted by the trait model."
+    rights_notes: "Elsevier copyright applies; cite and link, with no reuse of protected content without permission."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-013"
+    title: "Toward a structure- and process-integrated view of personality: Traits as density distributions of states"
+    authors_or_organization: "Fleeson W."
+    type: "experience-sampling primary research"
+    publication: "Journal of Personality and Social Psychology 80(6):1011-1027"
+    publication_date: "2001-06-01"
+    url: "https://doi.org/10.1037/0022-3514.80.6.1011"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T4_strong_primary_or_field_evidence"
+    domains:
+      - "state_trait_distinction"
+      - "personality"
+      - "experience_sampling"
+    project_implications:
+      - "Store momentary states and context separately from longitudinal trait estimates."
+      - "Require repeated observations and an explicit aggregation window before deriving a trait hypothesis."
+    limitations:
+      - "Short sampling windows and self-report-heavy studies."
+      - "Does not validate inference of traits from arbitrary digital traces."
+    rights_notes: "APA publisher copyright applies; cite DOI and do not reproduce protected content."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "CLIN-014"
+    title: "Personality stability and change: A meta-analysis of longitudinal studies"
+    authors_or_organization: "Bleidorn W. et al."
+    type: "meta-analysis of longitudinal studies"
+    publication: "Psychological Bulletin 148(7-8):588-619"
+    publication_date: "2022-07-01"
+    url: "https://doi.org/10.1037/bul0000365"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "Big_Five"
+      - "lifespan_trait_change"
+      - "longitudinal_measurement"
+    project_implications:
+      - "Give every trait estimate a validity interval, age, instrument, respondent and uncertainty."
+      - "Model stability and change together; never present a personality profile as lifelong and immutable."
+    limitations:
+      - "Heterogeneity in measures, intervals, cohorts and facets."
+      - "Observed score change can include measurement and response-shift effects."
+    rights_notes: "APA publisher copyright applies; citation and linking only unless reuse is licensed."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-015"
+    title: "Individual differences in personality trait changes across the lifespan: A meta-analysis of longitudinal studies"
+    authors_or_organization: "Haehner P.; Hopwood C. J.; Schellenberg L.; Schwaba T.; Bleidorn W."
+    type: "meta-analysis of longitudinal studies"
+    publication: "Psychological Bulletin 152(4):420-447"
+    publication_date: "2026-04-01"
+    url: "https://pubmed.ncbi.nlm.nih.gov/42423713/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "personality"
+      - "individual_differences_in_change"
+      - "lifespan"
+    project_implications:
+      - "Represent uncertainty and individual heterogeneity in change rather than imposing a normative trajectory."
+      - "Interpret longer-interval and facet-level change with instrument-aware uncertainty."
+    limitations:
+      - "Meta-analytic estimates inherit heterogeneity and selective availability of longitudinal datasets."
+      - "The analysis does not identify the cause of an individual's score change."
+    rights_notes: "APA publisher copyright applies; PubMed metadata may be cited, while article content requires publisher permission."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "CLIN-016"
+    title: "Theoretical propositions of life-span developmental psychology: On the dynamics between growth and decline"
+    authors_or_organization: "Baltes P. B."
+    type: "foundational lifespan-development theory"
+    publication: "Developmental Psychology 23(5):611-626"
+    publication_date: "1987-09-01"
+    url: "https://doi.org/10.1037/0012-1649.23.5.611"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "lifespan_development"
+      - "plasticity"
+      - "context_and_cohort"
+    project_implications:
+      - "Treat age periods as navigation context, not rigid normative stages."
+      - "Record domain-specific gains, losses, historical context and cohort."
+    limitations:
+      - "Foundational metatheory, not an individual prediction model."
+      - "Specific propositions require contemporary domain-specific evidence."
+    rights_notes: "APA publisher copyright applies; cite DOI and do not reproduce protected article content."
+    superseded: false
+    review_due: "2031-08-10"
+
+  - id: "CLIN-017"
+    title: "Equifinality and multifinality in developmental psychopathology"
+    authors_or_organization: "Cicchetti D.; Rogosch F. A."
+    type: "foundational conceptual paper"
+    publication: "Development and Psychopathology 8(4):597-600"
+    publication_date: "1996-12-01"
+    url: "https://doi.org/10.1017/S0954579400007318"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "developmental_psychopathology"
+      - "equifinality"
+      - "multifinality"
+      - "causal_inference"
+    project_implications:
+      - "Store developmental links as hypotheses with alternatives, moderators and protective factors."
+      - "Reject reverse causal reconstruction of childhood from current symptoms."
+    limitations:
+      - "Brief conceptual paper, not a quantified personal-risk model."
+      - "Does not identify which pathway applies to a particular person."
+    rights_notes: "Cambridge University Press copyright applies; cite and link only unless reuse is licensed."
+    superseded: false
+    review_due: "2031-08-10"
+
+  - id: "CLIN-018"
+    title: "Narrative Identity"
+    authors_or_organization: "McAdams D. P.; McLean K. C."
+    type: "peer-reviewed research review"
+    publication: "Current Directions in Psychological Science 22(3):233-238"
+    publication_date: "2013-06-01"
+    url: "https://doi.org/10.1177/0963721413475622"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "narrative_identity"
+      - "autobiographical_meaning"
+      - "development"
+    project_implications:
+      - "Store narrative interpretation as a dated, authored version separate from raw memories and event candidates."
+      - "Permit multiple narratives and explicit revision rather than one canonical life story."
+    limitations:
+      - "Narrative coherence and meaning do not establish historical accuracy."
+      - "Cultural and linguistic context shapes narrative form."
+    rights_notes: "SAGE copyright applies; cite DOI and do not reproduce protected content without permission."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "CLIN-019"
+    title: "Early childhood attachment stability and change: a meta-analysis"
+    authors_or_organization: "Opie J. E. et al."
+    type: "meta-analysis"
+    publication: "Attachment & Human Development 23(6):897-930"
+    publication_date: "2020-08-10"
+    url: "https://pubmed.ncbi.nlm.nih.gov/32772822/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "attachment"
+      - "early_development"
+      - "stability_and_change"
+    project_implications:
+      - "Model attachment-related observations as relationship-, context- and time-specific dimensions."
+      - "Reject immutable attachment-style identity labels and deterministic caregiver blame."
+    limitations:
+      - "Stability estimates vary with method, interval and sample, with publication-bias concerns."
+      - "Early-childhood attachment findings cannot be directly converted into adult diagnosis or individual causation."
+    rights_notes: "Article is available through PubMed Central under its stated terms; verify the article licence before reuse of content."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-020"
+    title: "VA/DoD Clinical Practice Guideline for Management of Posttraumatic Stress Disorder and Acute Stress Disorder"
+    authors_or_organization: "US Department of Veterans Affairs; US Department of Defense"
+    type: "evidence-graded clinical practice guideline"
+    publication: "VA/DoD Clinical Practice Guideline, Version 4.0"
+    publication_date: "2023-06-01"
+    url: "https://healthquality.va.gov/HEALTHQUALITY/guidelines/MH/ptsd/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "PTSD"
+      - "acute_stress"
+      - "trauma_assessment"
+      - "treatment_boundary"
+    project_implications:
+      - "Keep exposure, symptoms, course, impairment and diagnosis as separate records."
+      - "Do not make PSYCHE OS an autonomous trauma-treatment or treatment-selection system."
+    limitations:
+      - "Adult VA/DoD population and service context limit generalization."
+      - "The PDF was administratively edited in 2024; current version should be rechecked."
+    rights_notes: "US government guideline; cite official source and verify reuse terms for contributed or third-party material."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "CLIN-021"
+    title: "Enhancing Conceptual Clarity regarding the Construct of Moral Injury"
+    authors_or_organization: "Frankfurt O'Brien S.; Baptista I.; Szeszko P. R."
+    type: "peer-reviewed conceptual review"
+    publication: "Psychotherapy and Psychosomatics"
+    publication_date: "2024-10-07"
+    url: "https://pubmed.ncbi.nlm.nih.gov/39374594/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "moral_injury"
+      - "trauma_related_formulation"
+      - "construct_validity"
+    project_implications:
+      - "Represent moral injury only as an optional formulation involving event or appraisal, values, responsibility and consequences."
+      - "Do not treat moral injury as a settled diagnosis or as proof that an event occurred."
+    limitations:
+      - "Construct boundaries and operational definitions remain contested."
+      - "Clinical populations and measures are heterogeneous."
+    rights_notes: "Publisher copyright applies; PubMed metadata may be cited and article content requires licence review."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "CLIN-022"
+    title: "Trajectories of resilience and dysfunction following potential trauma: A review and statistical evaluation"
+    authors_or_organization: "Galatzer-Levy I. R.; Huang S. H.; Bonanno G. A."
+    type: "systematic review and statistical synthesis"
+    publication: "Clinical Psychology Review 63"
+    publication_date: "2018-07-01"
+    url: "https://pubmed.ncbi.nlm.nih.gov/29902711/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "resilience"
+      - "trauma_trajectories"
+      - "recovery"
+    project_implications:
+      - "Allow resilient, recovery, delayed and fluctuating courses rather than assuming chronic dysfunction."
+      - "Record strengths and supportive conditions without making resilience a moral obligation."
+    limitations:
+      - "Trajectory estimates depend on sample, outcome, number of waves and modelling choices."
+      - "A modal group-level trajectory cannot predict an individual's path."
+    rights_notes: "Elsevier copyright applies; cite and link, and do not reuse protected content without permission."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-023"
+    title: "Hypnotic suggestibility in dissociative and related disorders: A meta-analysis"
+    authors_or_organization: "Wieder L.; Brown R. J.; Thompson T.; Terhune D. B."
+    type: "meta-analysis"
+    publication: "Neuroscience & Biobehavioral Reviews 139:104751"
+    publication_date: "2022-06-26"
+    url: "https://pubmed.ncbi.nlm.nih.gov/35760389/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "dissociation"
+      - "suggestibility"
+      - "hypnosis"
+      - "memory_safety"
+    project_implications:
+      - "Prohibit hypnosis, regression, guided imagery and recovered-memory elicitation."
+      - "Treat dissociative phenomena as heterogeneous reports and never as proof of trauma etiology."
+    limitations:
+      - "Heterogeneous diagnostic groups and methods, with evidence of publication bias."
+      - "Group differences do not establish suggestibility or memory in an individual."
+    rights_notes: "Elsevier copyright applies; cite PubMed or DOI and do not reproduce article content without permission."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-024"
+    title: "What science tells us about false and repressed memories"
+    authors_or_organization: "Otgaar H.; Howe M. L.; Patihis L."
+    type: "peer-reviewed evidence review"
+    publication: "Memory 30(1):16-21"
+    publication_date: "2021-01-12"
+    url: "https://pubmed.ncbi.nlm.nih.gov/33435830/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "false_memory"
+      - "repressed_memory_controversy"
+      - "suggestibility"
+    project_implications:
+      - "Never infer historical truth from confidence, vividness, detail or emotional intensity."
+      - "Reject techniques that presuppose hidden or repressed events and log interviewer prompts as possible contamination."
+    limitations:
+      - "Brief review of a contested literature with heterogeneous laboratory and real-world paradigms."
+      - "Does not justify dismissing uncertain, delayed or changing reports as false."
+    rights_notes: "Taylor & Francis copyright applies; cite and link and avoid reproducing protected text."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "CLIN-025"
+    title: "Source monitoring"
+    authors_or_organization: "Johnson M. K.; Hashtroudi S.; Lindsay D. S."
+    type: "foundational theoretical and empirical review"
+    publication: "Psychological Bulletin 114(1):3-28"
+    publication_date: "1993-07-01"
+    url: "https://pubmed.ncbi.nlm.nih.gov/8346328/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "source_monitoring"
+      - "autobiographical_memory"
+      - "reconstructive_memory"
+    project_implications:
+      - "Store source attribution separately from memory content and permit mixed or uncertain sources."
+      - "Separate direct recollection, hearsay, documents, dreams and inference."
+    limitations:
+      - "Foundational and old review; later work refines mechanisms and boundary conditions."
+      - "Framework does not adjudicate the truth of a particular memory."
+    rights_notes: "APA publisher copyright applies; PubMed citation may be used, article content remains protected."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "CLIN-026"
+    title: "Structured forensic interview protocols improve the quality and informativeness of investigative interviews with children: A review of research using the NICHD Investigative Interview Protocol"
+    authors_or_organization: "Lamb M. E.; Orbach Y.; Hershkowitz I.; Esplin P. W.; Horowitz D."
+    type: "systematic narrative review of protocol research"
+    publication: "Child Abuse & Neglect 31(11-12):1201-1231"
+    publication_date: "2007-11-01"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC2180422/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "anti_suggestive_interviewing"
+      - "free_recall"
+      - "child_forensic_interviewing"
+    project_implications:
+      - "Use open invitations and free recall before focused prompts, and explicitly permit not knowing or not remembering."
+      - "Never market PSYCHE OS as a forensic interview or evidence-adjudication system."
+    limitations:
+      - "Research concerns trained forensic interviews with children, not consumer autobiographical journaling."
+      - "Import only general anti-suggestive principles, not forensic authority or protected protocol text."
+    rights_notes: "Open-access manuscript is available in PubMed Central; verify the displayed licence and protocol rights before reuse."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-027"
+    title: "Agreement Between Prospective and Retrospective Measures of Childhood Maltreatment: A Systematic Review and Meta-analysis"
+    authors_or_organization: "Baldwin J. R.; Reuben A.; Newbury J. B.; Danese A."
+    type: "systematic review and meta-analysis"
+    publication: "JAMA Psychiatry 76(6):584-593"
+    publication_date: "2019-06-01"
+    url: "https://pubmed.ncbi.nlm.nih.gov/30892562/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "retrospective_report"
+      - "prospective_records"
+      - "childhood_maltreatment"
+      - "causal_inference"
+    project_implications:
+      - "Keep retrospective reports and contemporaneous or prospective records as separate evidence types."
+      - "Do not invalidate one source because it disagrees with another, and do not infer causal certainty from recall."
+    limitations:
+      - "Measures, thresholds and sampling frames varied across studies."
+      - "Poor agreement does not reveal which source is correct in a particular case."
+    rights_notes: "Article is accessible through PubMed Central under its stated terms; figures and text require licence verification before reuse."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-028"
+    title: "Practitioner review: do performance-based measures and ratings of executive function assess the same construct?"
+    authors_or_organization: "Toplak M. E.; West R. F.; Stanovich K. E."
+    type: "systematic practitioner review"
+    publication: "Journal of Child Psychology and Psychiatry 54(2):131-143"
+    publication_date: "2013-02-01"
+    url: "https://pubmed.ncbi.nlm.nih.gov/23057693/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "executive_function"
+      - "neuropsychology"
+      - "self_report_vs_performance"
+    project_implications:
+      - "Keep subjective complaint, ecological rating and performance task as separate evidence layers."
+      - "Do not interpret a browser task or questionnaire as a clinician neuropsychological assessment."
+    limitations:
+      - "Evidence base is especially focused on children and adolescents."
+      - "Weak correlations can reflect construct and method differences rather than invalidity of either measure."
+    rights_notes: "Wiley copyright applies; cite PubMed or DOI and do not reproduce protected content."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-029"
+    title: "Attention deficit hyperactivity disorder: diagnosis and management (NG87)"
+    authors_or_organization: "National Institute for Health and Care Excellence"
+    type: "evidence-based clinical guideline"
+    publication: "NICE guideline NG87"
+    publication_date: "2018-03-14"
+    url: "https://www.nice.org.uk/guidance/ng87/chapter/recommendations"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "ADHD"
+      - "adult_neurodevelopment"
+      - "screening_limits"
+      - "differential_assessment"
+    project_implications:
+      - "A screening result can create a concern or referral prompt but never an ADHD diagnosis."
+      - "Require developmental history, impairment, multiple settings, alternatives and collateral evidence where available with consent."
+    limitations:
+      - "UK healthcare pathway and scope; applicability differs by jurisdiction and age group."
+      - "Guideline updates and surveillance decisions must be monitored."
+    rights_notes: "Reuse is subject to NICE copyright and reuse terms; do not embed proprietary or third-party assessment items."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-030"
+    title: "Revisiting ADHD age-of-onset in adults: to what extent should we rely on the recall of childhood symptoms?"
+    authors_or_organization: "Breda V. et al."
+    type: "longitudinal cohort study"
+    publication: "Psychological Medicine"
+    publication_date: "2019-04-10"
+    url: "https://pubmed.ncbi.nlm.nih.gov/30968792/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T4_strong_primary_or_field_evidence"
+    domains:
+      - "ADHD"
+      - "retrospective_onset"
+      - "adult_assessment"
+    project_implications:
+      - "Treat absence of recalled childhood symptoms as weak negative evidence rather than proof of absence."
+      - "Keep recalled onset, contemporaneous records and collateral report separate."
+    limitations:
+      - "One cohort and specific recall interval and measures."
+      - "Does not establish or refute adult ADHD in an individual."
+    rights_notes: "Cambridge University Press copyright applies; cite PubMed or DOI and do not reproduce protected text."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-031"
+    title: "Autism spectrum disorder in adults: diagnosis and management (CG142)"
+    authors_or_organization: "National Institute for Health and Care Excellence"
+    type: "evidence-based clinical guideline"
+    publication: "NICE clinical guideline CG142"
+    publication_date: "2012-06-27"
+    url: "https://www.nice.org.uk/guidance/CG142/chapter/Recommendations"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "autism"
+      - "adult_neurodevelopment"
+      - "comprehensive_assessment"
+      - "differential_assessment"
+    project_implications:
+      - "Use a screen only to support referral or further assessment, never as diagnosis."
+      - "Keep early development, direct observation, functioning, informant data and differential context distinct."
+    limitations:
+      - "UK service context and an older original publication, although NICE reviewed the guideline in 2025."
+      - "Collateral history may be unavailable and should then be marked unknown, not absent."
+    rights_notes: "Reuse is subject to NICE copyright and reuse terms; do not copy screening items without separate permission."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-032"
+    title: "The Effectiveness of RAADS-R as a Screening Tool for Adult ASD Populations"
+    authors_or_organization: "Jones S. L.; Johnson M.; Alty B.; Adamou M."
+    type: "clinical referral-sample validation study"
+    publication: "Autism Research and Treatment 2021:9974791"
+    publication_date: "2021-09-11"
+    url: "https://pubmed.ncbi.nlm.nih.gov/34552768/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T4_strong_primary_or_field_evidence"
+    domains:
+      - "autism"
+      - "adult_screening"
+      - "predictive_validity"
+    project_implications:
+      - "Reject single-score adult autism diagnosis and make predictive validity population-specific."
+      - "Preserve screening score as one source among developmental, functional and observational evidence."
+    limitations:
+      - "Small, specific adult referral population; not a universal test of RAADS-R in every setting."
+      - "A poor predictive result does not mean a person's autism concern is invalid."
+    rights_notes: "Open-access article under its publisher licence; assessment-item rights must still be checked separately."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "CLIN-033"
+    title: "Camouflaging in autism: A systematic review"
+    authors_or_organization: "Cook J.; Hull L.; Crane L.; Mandy W."
+    type: "systematic review"
+    publication: "Clinical Psychology Review 89:102080"
+    publication_date: "2021-09-06"
+    url: "https://pubmed.ncbi.nlm.nih.gov/34563942/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "autism"
+      - "camouflaging"
+      - "adult_retrospective_limits"
+    project_implications:
+      - "Allow masking or camouflaging as a reported contextual phenomenon without making it an unfalsifiable diagnostic explanation."
+      - "Do not use a low screening score alone to close meaningful concerns."
+    limitations:
+      - "Studies and definitions were heterogeneous and often relied on self-report."
+      - "Evidence does not validate retrospective diagnosis from camouflaging reports alone."
+    rights_notes: "Elsevier copyright applies; cite and link, and do not reproduce article content without permission."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-034"
+    title: "Emotion regulation in mental disorders: A systematic review and multilevel meta-analysis of transdiagnostic and disorder-specific impairments"
+    authors_or_organization: "Clamor A.; Lincoln T. M.; Schulze L."
+    type: "systematic review and multilevel meta-analysis"
+    publication: "Psychological Bulletin 152(2):157-200"
+    publication_date: "2026-02-01"
+    url: "https://pubmed.ncbi.nlm.nih.gov/42024315/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "emotion_regulation"
+      - "transdiagnostic_processes"
+      - "mental_disorders"
+    project_implications:
+      - "Represent emotion-regulation patterns as contextual and probabilistic rather than diagnostic identities."
+      - "Do not translate group associations into an individual causal mechanism."
+    limitations:
+      - "Much of the contributing evidence is self-report and associational."
+      - "Temporal direction, disorder heterogeneity and common-method variance constrain causal interpretation."
+    rights_notes: "APA publisher copyright applies; PubMed metadata may be cited and protected article content cannot be copied without permission."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "CLIN-035"
+    title: "Emotion regulation and mental health across cultures: a systematic review and meta-analysis"
+    authors_or_organization: "Chen M. S.; Cai Q.; Omari D.; Sanghvi D. E.; Lyu S.; Bonanno G. A."
+    type: "systematic review and meta-analysis"
+    publication: "Nature Human Behaviour 9:1176-1200"
+    publication_date: "2025-04-15"
+    url: "https://www.nature.com/articles/s41562-025-02168-8"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "emotion_regulation"
+      - "cross_cultural_psychology"
+      - "positive_functioning"
+    project_implications:
+      - "Do not label suppression, reappraisal or another strategy universally adaptive or maladaptive."
+      - "Record culture, goal, situation, timing and short- versus long-term outcomes."
+    limitations:
+      - "Meta-analysis is dominated by the two most-studied strategies and available country-level moderators."
+      - "Mostly observational associations cannot determine what strategy will help an individual."
+    rights_notes: "Springer Nature copyright applies; abstract-level citation and linking are permitted, while full-content reuse needs permission."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-036"
+    title: "Behavioural activation therapy for depression in adults"
+    authors_or_organization: "Uphoff E.; Ekers D.; Robertson L.; Dawson S.; Sanger E.; South E.; Samaan Z.; Richards D.; Meader N.; Churchill R."
+    type: "Cochrane systematic review"
+    publication: "Cochrane Database of Systematic Reviews 2020(7):CD013305"
+    publication_date: "2020-07-06"
+    url: "https://www.cochrane.org/evidence/CD013305_behavioural-activation-therapy-depression-adults"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "behavioral_activation"
+      - "depression"
+      - "behavior_science"
+    project_implications:
+      - "Activity and context loops may be tracked as evidence-informed observations, not universal treatment prescriptions."
+      - "Personal activity-mood correlations remain associations unless a suitable design supports more."
+    limitations:
+      - "Certainty was generally low to moderate and evidence was mainly short-term."
+      - "Clinical treatment evidence does not validate an autonomous consumer intervention."
+    rights_notes: "Cochrane content is copyrighted; cite and link, and do not reproduce review text, forest plots or proprietary material."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "CLIN-037"
+    title: "International Classification of Functioning, Disability and Health (ICF)"
+    authors_or_organization: "World Health Organization"
+    type: "official international classification framework"
+    publication: "World Health Organization"
+    publication_date: "2001-05-22"
+    url: "https://www.who.int/standards/classifications/international-classification-of-functioning-disability-and-health"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "ICF"
+      - "functioning"
+      - "disability"
+      - "environmental_factors"
+    project_implications:
+      - "Make activities, participation and environmental barriers or facilitators a layer separate from diagnosis and symptoms."
+      - "Model functioning as person-context interaction rather than an intrinsic deficit score."
+    limitations:
+      - "Broad classification framework, not an individual diagnostic or causal model."
+      - "Personal factors are not fully classified and implementations require governance."
+    rights_notes: "Use is subject to current WHO classification licensing and attribution terms; verify codes, translations and AI use before distribution."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-038"
+    title: "Measuring health and disability: Manual for WHO Disability Assessment Schedule (WHODAS 2.0)"
+    authors_or_organization: "Ustun T. B.; Kostanjsek N.; Chatterji S.; Rehm J.; World Health Organization"
+    type: "official measurement manual"
+    publication: "World Health Organization; ISBN 9789241547598"
+    publication_date: "2010-01-01"
+    url: "https://www.who.int/publications/i/item/measuring-health-and-disability-manual-for-who-disability-assessment-schedule-%28-whodas-2.0%29/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "WHODAS_2_0"
+      - "functioning_measurement"
+      - "disability"
+    project_implications:
+      - "Require instrument version, language, administration mode, recall window and deterministic scoring provenance."
+      - "Keep domain scores separate from totals and do not treat WHODAS as diagnosis or quality of life."
+    limitations:
+      - "Generic disability measure; psychometric performance and factor structure vary across settings."
+      - "Different lengths and respondent modes are not interchangeable."
+    rights_notes: "WHO manual and instrument have licensing, translation and attribution requirements; do not embed items or scoring text until rights are verified."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-039"
+    title: "The World Health Organization quality of life assessment (WHOQOL): position paper from the World Health Organization"
+    authors_or_organization: "WHOQOL Group"
+    type: "international conceptual and measurement framework"
+    publication: "Social Science & Medicine 41(10):1403-1409"
+    publication_date: "1995-11-01"
+    url: "https://doi.org/10.1016/0277-9536(95)00112-K"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T3_framework_or_consensus"
+    domains:
+      - "quality_of_life"
+      - "cross_cultural_measurement"
+      - "subjective_evaluation"
+    project_implications:
+      - "Keep subjective quality of life separate from functioning and symptom burden."
+      - "Record culture, values, goals, expectations and assessment period."
+    limitations:
+      - "Subjective ratings are affected by response shift and current context."
+      - "The position paper does not make one QoL instrument or threshold universally valid."
+    rights_notes: "Elsevier and WHO rights apply; cite DOI and verify permissions for instrument items and translations."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "CLIN-040"
+    title: "Mental illness and/or mental health? Investigating axioms of the complete state model of health"
+    authors_or_organization: "Keyes C. L. M."
+    type: "population empirical study"
+    publication: "Journal of Consulting and Clinical Psychology 73(3):539-548"
+    publication_date: "2005-06-01"
+    url: "https://pubmed.ncbi.nlm.nih.gov/15982151/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T4_strong_primary_or_field_evidence"
+    domains:
+      - "positive_mental_health"
+      - "dual_continuum"
+      - "flourishing"
+    project_implications:
+      - "Measure positive functioning independently from symptoms and diagnosis."
+      - "Do not infer absence of mental-health problems from high well-being or diagnosis from low well-being."
+    limitations:
+      - "One population and a specific operationalization of the dual-continuum model."
+      - "Exact flourishing cutoffs are not universal personal truths."
+    rights_notes: "APA publisher copyright applies; PubMed citation is usable, protected article and measure content require permission."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "CLIN-041"
+    title: "Are character strength-based positive interventions effective for eliciting positive behavioral outcomes? A meta-analytic review"
+    authors_or_organization: "Bates-Krakoff J. et al."
+    type: "meta-analysis"
+    publication: "International Journal of Wellbeing 12(3)"
+    publication_date: "2022-10-01"
+    url: "https://doi.org/10.5502/ijw.v12i3.2111"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "strengths"
+      - "positive_psychology"
+      - "behavioral_outcomes"
+    project_implications:
+      - "Represent strengths as observed capacities, resources and successful person-by-context patterns."
+      - "Do not canonize one strengths taxonomy or substitute strengths exercises for indicated care."
+    limitations:
+      - "Few eligible behavioral-outcome studies, heterogeneous interventions and a small-to-moderate pooled effect."
+      - "Publication and design quality constrain treatment claims."
+    rights_notes: "Open-access journal terms apply; cite DOI and verify the article licence and any third-party taxonomy rights."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "CLIN-042"
+    title: "The Alcohol, Smoking and Substance Involvement Screening Test (ASSIST): manual for use in primary care"
+    authors_or_organization: "Humeniuk R. E.; Henry-Edwards S.; Ali R. L.; Poznyak V.; Monteiro M. G.; World Health Organization"
+    type: "official screening manual"
+    publication: "World Health Organization"
+    publication_date: "2010-01-01"
+    url: "https://www.who.int/publications/i/item/978924159938-2"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "substance_use"
+      - "screening"
+      - "primary_care"
+    project_implications:
+      - "Separate use, frequency or dose, context, tolerance or withdrawal reports, control and harms."
+      - "Treat screening as risk identification, not diagnosis, and compute any licensed score deterministically."
+    limitations:
+      - "Primary-care screening context and training requirements."
+      - "Does not replace clinical assessment or establish a substance-use disorder by itself."
+    rights_notes: "WHO copyrighted manual; obtain permission and verify translation, item and scoring rights before embedding any content."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-043"
+    title: "Gambling-related harms: identification, assessment and management (NG248)"
+    authors_or_organization: "National Institute for Health and Care Excellence"
+    type: "evidence-based clinical guideline"
+    publication: "NICE guideline NG248"
+    publication_date: "2025-01-28"
+    url: "https://www.nice.org.uk/guidance/ng248"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "gambling"
+      - "behavioral_addiction"
+      - "harm_and_safeguarding"
+      - "suicide_risk"
+    project_implications:
+      - "Use non-moral language and represent financial, relational, occupational, health and safeguarding harms separately."
+      - "Do not generalize gambling evidence to every high-frequency digital behavior."
+    limitations:
+      - "UK adult service context and a specific recognized behavioral disorder."
+      - "Guidance does not validate generic technology-addiction categories."
+    rights_notes: "Reuse is subject to NICE copyright and reuse terms; cite and link and verify rights before embedding tools."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-044"
+    title: "A meta-review of screening and treatment of electronic 'addictions'"
+    authors_or_organization: "Hogan J. N.; Heyman R. E.; Smith Slep A. M."
+    type: "meta-review of systematic reviews and meta-analyses"
+    publication: "Clinical Psychology Review 113:102468"
+    publication_date: "2024-08-08"
+    url: "https://pubmed.ncbi.nlm.nih.gov/39168052/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T2_systematic_review_or_meta_analysis"
+    domains:
+      - "electronic_addictions"
+      - "internet_use"
+      - "smartphone_use"
+      - "construct_validity"
+    project_implications:
+      - "Reject generic internet, smartphone or social-media addiction diagnoses without a recognized versioned classification and impairment evidence."
+      - "Store observable behavior, control, priority, context, benefits and harms rather than a moralized label."
+    limitations:
+      - "Underlying reviews use inconsistent constructs, measures and intervention definitions."
+      - "Insufficient consensus prevents strong screening or treatment recommendations."
+    rights_notes: "Elsevier copyright applies; a PMC version is available, but verify its licence before reuse beyond citation."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "CLIN-045"
+    title: "The American Psychiatric Association Practice Guidelines for the Psychiatric Evaluation of Adults, Third Edition"
+    authors_or_organization: "American Psychiatric Association"
+    type: "professional clinical practice guideline"
+    publication: "American Psychiatric Association Practice Guidelines"
+    publication_date: "2016-01-01"
+    url: "https://psychiatryonline.org/doi/10.1176/appi.books.9780890426760.pe02"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "psychiatric_evaluation"
+      - "medical_confounding"
+      - "medication_and_substances"
+      - "differential_assessment"
+    project_implications:
+      - "Track medical, medication, sleep, pain and substance contributors as uncertainty or documented context, not AI diagnoses."
+      - "Use explicit statuses such as not assessed, possible contributor, user-reported evaluated and clinician documented."
+    limitations:
+      - "Professional US guideline and older edition; it is not a consumer diagnostic workflow."
+      - "Individual medical differentials require qualified assessment."
+    rights_notes: "APA proprietary copyrighted guideline; citation and linking only, with no copying of protected text or forms."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "CLIN-046"
+    title: "Ethics and governance of artificial intelligence for health: Guidance on large multi-modal models"
+    authors_or_organization: "World Health Organization"
+    type: "official ethics and governance guidance"
+    publication: "World Health Organization; ISBN 978-92-4-008475-9"
+    publication_date: "2025-03-25"
+    url: "https://www.who.int/publications/i/item/9789240084759"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "mental_health_AI"
+      - "health_AI_governance"
+      - "privacy"
+      - "bias_and_safety"
+    project_implications:
+      - "Define intended uses, stakeholder accountability, transparency, auditing, privacy and post-release monitoring."
+      - "Treat LMM output as fallible proposals and provide abstention and human escalation."
+    limitations:
+      - "Broad health-AI guidance rather than a validated mental-health product specification."
+      - "Fast-moving technology and regulation require frequent review; the guidance was initially announced before the current web publication date."
+    rights_notes: "WHO copyright and publication licence apply; cite and link and verify the PDF licence before adapting text or figures."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-047"
+    title: "Health advisory: Use of generative AI chatbots and wellness applications for mental health"
+    authors_or_organization: "American Psychological Association"
+    type: "professional health advisory"
+    publication: "American Psychological Association"
+    publication_date: "2025-11-01"
+    url: "https://www.apa.org/topics/artificial-intelligence-machine-learning/health-advisory-chatbots-wellness-apps"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T1_official_classification_or_guideline"
+    domains:
+      - "mental_health_AI"
+      - "chatbots"
+      - "consumer_safety"
+      - "dependency"
+    project_implications:
+      - "Never position a general chatbot or wellness application as a replacement for a qualified mental-health provider."
+      - "Prohibit simulated professional authority, exclusivity and unsupported claims of efficacy or monitoring."
+    limitations:
+      - "Professional advisory synthesizes an emerging evidence base rather than providing product-specific trial evidence."
+      - "Regulatory and model landscapes change rapidly."
+    rights_notes: "APA copyright applies; cite and link, and do not reproduce the advisory beyond permitted quotation."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-048"
+    title: "Expressing stigma and inappropriate responses prevents LLMs from safely replacing mental health providers"
+    authors_or_organization: "Moore J.; Grabb D.; Agnew W.; Klyman K.; Chancellor S.; Ong D. C.; Haber N."
+    type: "peer-reviewed model evaluation"
+    publication: "Proceedings of the 2025 ACM Conference on Fairness, Accountability, and Transparency:599-627"
+    publication_date: "2025-06-23"
+    url: "https://doi.org/10.1145/3715275.3732039"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T4_strong_primary_or_field_evidence"
+    domains:
+      - "mental_health_AI"
+      - "stigma"
+      - "delusion_reinforcement"
+      - "crisis_response"
+    project_implications:
+      - "Do not use LLMs as therapists or autonomous clinical decision-makers."
+      - "Require reality-safe response tests, crisis tests, bias tests and model-version regression tests."
+    limitations:
+      - "Results are model-, prompt- and time-specific and do not estimate population incidence of harm."
+      - "Evaluation scenarios cannot capture every longitudinal interaction pattern."
+    rights_notes: "ACM copyright or article-specific licence applies; cite DOI and do not reproduce protected content without permission."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-049"
+    title: "Sycophantic AI decreases prosocial intentions and promotes dependence"
+    authors_or_organization: "Cheng M.; Lee C.; Khadpe P.; Yu S.; Han D.; Jurafsky D."
+    type: "peer-reviewed multi-study experimental research"
+    publication: "Science 391(6792):eaec8352"
+    publication_date: "2026-03-26"
+    url: "https://doi.org/10.1126/science.aec8352"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T4_strong_primary_or_field_evidence"
+    domains:
+      - "AI_sycophancy"
+      - "dependence"
+      - "interpersonal_advice"
+      - "behavioral_safety"
+    project_implications:
+      - "Validate emotion without affirming unverified premises and never optimize for agreement or retention."
+      - "Ban exclusivity, guilt, dependency cues and repeated reassurance loops."
+    limitations:
+      - "Experimental interpersonal-advice contexts are not the same as clinical populations or long-term outcomes."
+      - "Models and interfaces will change, requiring replication and product-specific evaluation."
+    rights_notes: "AAAS copyright applies; cite DOI and do not reproduce protected article content."
+    superseded: false
+    review_due: "2027-02-01"
+
+  - id: "CLIN-050"
+    title: "Evaluation of Alignment Between Large Language Models and Expert Clinicians in Suicide Risk Assessment"
+    authors_or_organization: "McBain R. K.; Cantor J. H.; Zhang L. A.; Baker O.; Zhang F.; Burnett A.; Kofner A.; Breslau J.; Stein B. D.; Mehrotra A.; Yu H."
+    type: "peer-reviewed comparative model evaluation"
+    publication: "Psychiatric Services 76(11):944-950"
+    publication_date: "2025-08-26"
+    url: "https://pubmed.ncbi.nlm.nih.gov/41174947/"
+    accessed_at: "2026-08-10"
+    evidence_tier: "T4_strong_primary_or_field_evidence"
+    domains:
+      - "suicide_risk"
+      - "mental_health_AI"
+      - "clinical_alignment"
+      - "crisis_safety"
+    project_implications:
+      - "Do not rely on an LLM alone for suicide-risk classification, especially at intermediate levels."
+      - "Use a conservative deterministic safety state machine, human escalation and current localized resources."
+    limitations:
+      - "Limited number of models and assessment questions; no real-world crisis outcome validation."
+      - "Model versions change rapidly and alignment with experts is not equivalent to safety or efficacy."
+    rights_notes: "APA Publishing copyright applies; a PMC manuscript may be available, but reuse requires checking its stated licence."
+    superseded: false
+    review_due: "2027-02-01"

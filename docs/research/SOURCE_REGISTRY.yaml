@@ -1,0 +1,3573 @@
+schema_version: '2.0'
+snapshot_date: '2026-08-10'
+registry_status: research_final
+source_record_count: 155
+unique_source_count: 153
+source_files:
+- docs/research/workstreams/SOURCES_CLINICAL.yaml
+- docs/research/workstreams/SOURCES_MEASUREMENT.yaml
+- docs/research/workstreams/SOURCES_SECURITY_ARCHITECTURE.yaml
+normalization_note: Stable workstream IDs are preserved. Evidence tiers are source-workstream classifications and are not
+  a universal numeric truth score. Each source must be appraised for relevance, independence, population, method, currentness,
+  limitations and rights in context.
+sources:
+- id: ARCH-001
+  title: Regulatory framework for artificial intelligence
+  authors_or_organization: European Commission
+  type: official_regulatory_overview
+  publication: European Commission
+  publication_date: '2026'
+  url: https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official
+  domains:
+  - regulation
+  - eu_ai_act
+  currentness: Current implementation timeline checked on snapshot date; recheck before release.
+  project_implications:
+  - Maintain intended-use and transparency controls; do not infer risk class from marketing labels alone.
+  limitations:
+  - Commission summary; consolidated legal text and later implementing acts control.
+  rights_notes: Citation and link only; official public webpage.
+  superseded: false
+  review_due: '2026-11-10'
+- id: ARCH-002
+  title: Regulation (EU) 2024/1689 — Artificial Intelligence Act
+  authors_or_organization: European Parliament and Council of the European Union
+  type: binding_legal_text
+  publication: European Parliament and Council of the European Union
+  publication_date: '2024'
+  url: https://eur-lex.europa.eu/eli/reg/2024/1689/oj
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_law
+  domains:
+  - regulation
+  - eu_ai_act
+  currentness: Official Journal text; application phases and amendments remain time-sensitive.
+  project_implications:
+  - Record provider/deployer role, intended use, user-facing AI disclosure, and prohibited/high-risk feature analysis.
+  limitations:
+  - Qualification requires jurisdiction-specific legal analysis.
+  rights_notes: Official legal text; cite, do not reproduce wholesale.
+  superseded: false
+  review_due: '2026-11-10'
+- id: ARCH-003
+  title: Commission publishes guidelines on transparency obligations for certain AI systems
+  authors_or_organization: European Commission
+  type: official_guidance_notice
+  publication: European Commission
+  publication_date: '2026'
+  url: https://digital-strategy.ec.europa.eu/en/news/commission-publishes-guidelines-transparency-obligations-providers-and-deployers-certain-ai-systems
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official
+  domains:
+  - regulation
+  - transparency
+  - generative_ai
+  currentness: New 2026 guidance; recheck final code/guidance status before distribution.
+  project_implications:
+  - Make AI-generated interaction and content provenance visible and durable.
+  limitations:
+  - Guidance does not replace the Regulation or fact-specific advice.
+  rights_notes: Citation and link only; official public webpage.
+  superseded: false
+  review_due: '2026-11-10'
+- id: ARCH-004
+  title: Regulation (EU) 2016/679 — General Data Protection Regulation
+  authors_or_organization: European Parliament and Council of the European Union
+  type: binding_legal_text
+  publication: European Parliament and Council of the European Union
+  publication_date: '2016'
+  url: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_law
+  domains:
+  - privacy
+  - health_data
+  - gdpr
+  currentness: Consolidated applicability must be checked for deployment and controller/processor roles.
+  project_implications:
+  - Treat psychological and health inferences as deeply sensitive; implement minimization, purpose, rights, DPIA, security,
+    and transfer controls.
+  limitations:
+  - Household, research, and territorial scope are fact-dependent.
+  rights_notes: Official legal text; cite, do not reproduce wholesale.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-005
+  title: Guidelines 4/2019 on Article 25 Data Protection by Design and by Default
+  authors_or_organization: European Data Protection Board
+  type: regulator_guideline
+  publication: European Data Protection Board
+  publication_date: '2020'
+  url: https://www.edpb.europa.eu/sites/default/files/files/file1/edpb_guidelines_201904_dataprotection_by_design_and_by_default_v2.0_en.pdf
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official
+  domains:
+  - privacy
+  - privacy_by_design
+  currentness: Final guideline; EDPB 2026 summary also checked.
+  project_implications:
+  - Encode minimization and restrictive defaults in architecture, not merely policy text.
+  limitations:
+  - Requires contextual implementation and legal accountability.
+  rights_notes: Citation and link only; official public document.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-006
+  title: National legislation — Law No. 133/2011 on personal data protection
+  authors_or_organization: National Center for Personal Data Protection of Moldova
+  type: official_legal_portal
+  publication: National Center for Personal Data Protection of Moldova
+  publication_date: '2026'
+  url: https://datepersonale.md/en/legislation/national-legislation/law/
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official
+  domains:
+  - privacy
+  - moldova
+  currentness: Current regime on snapshot date.
+  project_implications:
+  - Map controller duties and current national requirements before any non-household processing.
+  limitations:
+  - English portal is informational; Romanian official legal text controls.
+  rights_notes: Citation and link only.
+  superseded: false
+  review_due: '2026-08-24'
+- id: ARCH-007
+  title: Law No. 195/2024 on the protection of personal data
+  authors_or_organization: Republic of Moldova
+  type: binding_legal_text
+  publication: Republic of Moldova
+  publication_date: '2024'
+  url: https://www.legis.md/cautare/downloadpdf/144681
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_law
+  domains:
+  - privacy
+  - moldova
+  - gdpr_alignment
+  currentness: Scheduled to enter into force on 2026-08-23; verify commencement and implementing practice.
+  project_implications:
+  - Design immediately to the stricter upcoming rights, governance, and security posture.
+  limitations:
+  - Legal interpretation and transition arrangements require Moldova counsel.
+  rights_notes: Official legal text; citation and link only.
+  superseded: false
+  review_due: '2026-08-24'
+- id: ARCH-008
+  title: Transfers of personal data abroad
+  authors_or_organization: National Center for Personal Data Protection of Moldova
+  type: regulator_guidance
+  publication: National Center for Personal Data Protection of Moldova
+  publication_date: '2026'
+  url: https://datepersonale.md/en/data-controller/data-transfers/
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official
+  domains:
+  - privacy
+  - cross_border_transfer
+  - moldova
+  currentness: Current under pre-2026 transition regime; recheck after Law No. 195/2024 commencement.
+  project_implications:
+  - A cloud call is a governed disclosure/transfer, not merely a technical setting.
+  limitations:
+  - Will require update under the new law.
+  rights_notes: Citation and link only.
+  superseded: false
+  review_due: '2026-08-24'
+- id: ARCH-009
+  title: Protocol amending Convention 108 published for Moldova
+  authors_or_organization: National Center for Personal Data Protection of Moldova
+  type: official_treaty_notice
+  publication: National Center for Personal Data Protection of Moldova
+  publication_date: '2026'
+  url: https://datepersonale.md/en/protocol-amending-convention-for-the-protection-of-individuals-with-regard-to-automatic-processing-of-personal-data-published-in-the-official-gazette/
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official
+  domains:
+  - privacy
+  - moldova
+  - convention_108_plus
+  currentness: Entry into force reported for 2026-08-23; verify after that date.
+  project_implications:
+  - Keep lifecycle, transparency, and international-transfer governance reviewable.
+  limitations:
+  - Treaty effects require legal interpretation.
+  rights_notes: Citation and link only.
+  superseded: false
+  review_due: '2026-08-24'
+- id: ARCH-010
+  title: Clinical Decision Support Software — Guidance for Industry and FDA Staff
+  authors_or_organization: U.S. Food and Drug Administration
+  type: regulator_guidance
+  publication: U.S. Food and Drug Administration
+  publication_date: '2026'
+  url: https://www.fda.gov/regulatory-information/search-fda-guidance-documents/clinical-decision-support-software
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official
+  domains:
+  - regulation
+  - medical_device
+  - clinical_decision_support
+  currentness: Final January 2026 guidance; recheck before US distribution.
+  project_implications:
+  - Patient/caregiver diagnosis or treatment functions can be device functions; reflection disclaimers cannot override actual
+    intended use.
+  limitations:
+  - Nonbinding guidance; device status is feature- and claim-specific.
+  rights_notes: Citation and link only; US government source.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-011
+  title: MDCG 2019-11 rev.1 — Qualification and classification of software
+  authors_or_organization: European Commission Medical Device Coordination Group
+  type: regulator_guidance
+  publication: European Commission Medical Device Coordination Group
+  publication_date: '2025'
+  url: https://health.ec.europa.eu/latest-updates/update-mdcg-2019-11-rev1-qualification-and-classification-software-regulation-eu-2017745-and-2025-06-17_en
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official
+  domains:
+  - regulation
+  - eu_mdr
+  - medical_device_software
+  currentness: Revision 1 current on snapshot date; related classification guidance updated in 2026.
+  project_implications:
+  - Maintain a formal intended-purpose boundary and pre-release qualification review.
+  limitations:
+  - Guidance is not individualized legal classification.
+  rights_notes: Citation and link only; official public webpage.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-012
+  title: Ethics and governance of artificial intelligence for health
+  authors_or_organization: World Health Organization
+  type: international_guidance
+  publication: World Health Organization
+  publication_date: '2021'
+  url: https://www.who.int/publications/i/item/9789240029200
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_consensus
+  domains:
+  - ai_safety
+  - health
+  - ethics
+  currentness: Foundational guidance; newer WHO large multimodal model guidance also reviewed.
+  project_implications:
+  - Preserve autonomy, transparency, accountability, inclusiveness, and safety; do not delegate clinical authority to a model.
+  limitations:
+  - High-level governance guidance, not a product-specific control standard.
+  rights_notes: Citation and link only; WHO copyright.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-013
+  title: 'Health advisory: Use of generative AI chatbots and wellness applications for mental health'
+  authors_or_organization: American Psychological Association
+  type: professional_health_advisory
+  publication: American Psychological Association
+  publication_date: '2025'
+  url: https://www.apa.org/topics/artificial-intelligence-machine-learning/health-advisory-chatbots-wellness-apps
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_professional_guidance
+  domains:
+  - mental_health_ai
+  - relationship_safety
+  - youth
+  currentness: Current advisory checked on snapshot date.
+  project_implications:
+  - Avoid anthropomorphic dependency cues, limit relational illusion, make limitations salient, and validate safety before
+    mental-health use.
+  limitations:
+  - Advisory reflects an emerging evidence base and is not a clinical protocol.
+  rights_notes: Citation and link only; APA copyright.
+  superseded: false
+  review_due: '2027-02-10'
+  same_source_as:
+  - CLIN-047
+- id: ARCH-014
+  title: Artificial Intelligence Risk Management Framework (AI RMF 1.0)
+  authors_or_organization: National Institute of Standards and Technology
+  type: risk_management_framework
+  publication: National Institute of Standards and Technology
+  publication_date: '2023'
+  url: https://www.nist.gov/itl/ai-risk-management-framework
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_standard_body
+  domains:
+  - ai_safety
+  - governance
+  - evaluation
+  currentness: AI RMF 1.0 remains published; NIST revision work is active.
+  project_implications:
+  - Govern, map, measure, and manage model risks with versioned evidence and monitoring.
+  limitations:
+  - Voluntary and outcome-oriented; does not prescribe product controls.
+  rights_notes: Citation and link only; NIST public document.
+  superseded: false
+  review_due: '2026-11-10'
+- id: ARCH-015
+  title: 'Artificial Intelligence Risk Management Framework: Generative Artificial Intelligence Profile (NIST AI 600-1)'
+  authors_or_organization: National Institute of Standards and Technology
+  type: risk_management_profile
+  publication: National Institute of Standards and Technology
+  publication_date: '2024'
+  url: https://doi.org/10.6028/NIST.AI.600-1
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_standard_body
+  domains:
+  - generative_ai
+  - safety
+  - evaluation
+  currentness: Final profile; review with AI RMF updates.
+  project_implications:
+  - Test confabulation, harmful content, privacy, information integrity, anthropomorphism, and human-AI configuration risks.
+  limitations:
+  - Broad cross-sector profile; mental-health controls need domain adaptation.
+  rights_notes: Citation and link only; NIST public document.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-016
+  title: NIST Privacy Framework 1.0
+  authors_or_organization: National Institute of Standards and Technology
+  type: privacy_risk_framework
+  publication: National Institute of Standards and Technology
+  publication_date: '2020'
+  url: https://www.nist.gov/privacy-framework/privacy-framework
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_standard_body
+  domains:
+  - privacy
+  - risk_management
+  currentness: Final stable version; PF 1.1 was not yet final on snapshot date.
+  project_implications:
+  - Manage privacy as effects on people, not only confidentiality or compliance.
+  limitations:
+  - Voluntary framework; contextual tailoring required.
+  rights_notes: Citation and link only; NIST public document.
+  superseded: false
+  review_due: '2026-11-10'
+- id: ARCH-017
+  title: Privacy Framework 1.1 project and Initial Public Draft status
+  authors_or_organization: National Institute of Standards and Technology
+  type: draft_status_page
+  publication: National Institute of Standards and Technology
+  publication_date: '2026'
+  url: https://www.nist.gov/privacy-framework/new-projects/privacy-framework-version-11
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_draft
+  domains:
+  - privacy
+  - currentness
+  currentness: Page updated 2026-04-01 and states final 1.1 is forthcoming.
+  project_implications:
+  - Do not mislabel the initial public draft as a final standard; schedule update.
+  limitations:
+  - Draft content can change.
+  rights_notes: Citation and link only.
+  superseded: false
+  review_due: '2026-11-10'
+- id: ARCH-018
+  title: The NIST Cybersecurity Framework (CSF) 2.0
+  authors_or_organization: National Institute of Standards and Technology
+  type: cybersecurity_framework
+  publication: National Institute of Standards and Technology
+  publication_date: '2024'
+  url: https://www.nist.gov/publications/nist-cybersecurity-framework-csf-20
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_standard_body
+  domains:
+  - security
+  - governance
+  - incident_readiness
+  currentness: Final 2.0 framework.
+  project_implications:
+  - Cover Govern, Identify, Protect, Detect, Respond, and Recover rather than treating encryption as the whole program.
+  limitations:
+  - Outcome taxonomy, not a prescriptive implementation baseline.
+  rights_notes: Citation and link only; NIST public document.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-019
+  title: NIST SP 800-53 Rev. 5, Release 5.2.0 — Security and Privacy Controls
+  authors_or_organization: National Institute of Standards and Technology
+  type: security_control_catalog
+  publication: National Institute of Standards and Technology
+  publication_date: '2025'
+  url: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_standard_body
+  domains:
+  - security
+  - privacy
+  - controls
+  currentness: Release 5.2.0 planning note checked; tailor rather than claim compliance.
+  project_implications:
+  - Use selected controls for access, audit, contingency, media, development, integrity, and supply chain assurance.
+  limitations:
+  - Large federal catalog; no blanket compliance claim is justified.
+  rights_notes: Citation and link only; NIST public document.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-020
+  title: NIST Key Management Guidelines
+  authors_or_organization: National Institute of Standards and Technology
+  type: cryptographic_guidance
+  publication: National Institute of Standards and Technology
+  publication_date: '2020'
+  url: https://csrc.nist.gov/projects/key-management/key-management-guidelines
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_standard_body
+  domains:
+  - security
+  - key_management
+  - cryptography
+  currentness: SP 800-57 Part 1 Rev.5 final remains current; Rev.6 draft activity noted.
+  project_implications:
+  - Define generation, storage, wrapping, rotation, recovery, compromise, and destruction lifecycles.
+  limitations:
+  - Implementation profile and algorithms must be selected for the deployment.
+  rights_notes: Citation and link only; NIST public document.
+  superseded: false
+  review_due: '2026-11-10'
+- id: ARCH-021
+  title: NIST SP 800-111 — Guide to Storage Encryption Technologies for End User Devices
+  authors_or_organization: National Institute of Standards and Technology
+  type: storage_encryption_guidance
+  publication: National Institute of Standards and Technology
+  publication_date: '2007'
+  url: https://csrc.nist.gov/pubs/sp/800/111/final
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_standard_body
+  domains:
+  - security
+  - storage_encryption
+  currentness: Older but still final; supplement with modern algorithms and platform guidance.
+  project_implications:
+  - Threat-model file/folder, volume, database, and removable-media protection separately.
+  limitations:
+  - Predates current AEAD and modern endpoint environments.
+  rights_notes: Citation and link only; NIST public document.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-022
+  title: RFC 9106 — Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work
+  authors_or_organization: Internet Engineering Task Force
+  type: internet_standard
+  publication: Internet Engineering Task Force
+  publication_date: '2021'
+  url: https://www.rfc-editor.org/info/rfc9106
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_normative_standard
+  domains:
+  - cryptography
+  - password_kdf
+  - recovery
+  currentness: Current informational RFC for Argon2 parameter guidance.
+  project_implications:
+  - Use Argon2id with per-vault salt and benchmarked versioned parameters for recovery-secret wrapping.
+  limitations:
+  - Parameters must be benchmarked and periodically reviewed; not a full key-management design.
+  rights_notes: Citation and link only; RFC terms apply.
+  superseded: false
+  review_due: '2027-08-10'
+- id: ARCH-023
+  title: RFC 5116 — An Interface and Algorithms for Authenticated Encryption
+  authors_or_organization: Internet Engineering Task Force
+  type: internet_standard
+  publication: Internet Engineering Task Force
+  publication_date: '2008'
+  url: https://www.rfc-editor.org/info/rfc5116
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_normative_standard
+  domains:
+  - cryptography
+  - aead
+  currentness: Stable AEAD interface principles; algorithm choice requires current review.
+  project_implications:
+  - Use authenticated encryption with unique nonces and authenticated versioned metadata; never design custom cryptography.
+  limitations:
+  - Does not itself prescribe the entire vault envelope.
+  rights_notes: Citation and link only; RFC terms apply.
+  superseded: false
+  review_due: '2027-08-10'
+- id: ARCH-024
+  title: CryptProtectData function (DPAPI)
+  authors_or_organization: Microsoft
+  type: platform_documentation
+  publication: Microsoft
+  publication_date: '2026'
+  url: https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_vendor_primary
+  domains:
+  - security
+  - windows
+  - key_wrapping
+  currentness: Current Microsoft platform documentation on snapshot date.
+  project_implications:
+  - Use DPAPI only as a convenience wrapping path; provide independent recovery because binding is normally user/computer
+    scoped.
+  limitations:
+  - Vendor-specific behavior and endpoint compromise remain in scope.
+  rights_notes: Citation and link only; Microsoft documentation terms apply.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-025
+  title: Storing cryptographic keys in the Keychain
+  authors_or_organization: Apple
+  type: platform_documentation
+  publication: Apple
+  publication_date: '2026'
+  url: https://developer.apple.com/documentation/security/storing-keys-in-the-keychain
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_vendor_primary
+  domains:
+  - security
+  - apple
+  - key_wrapping
+  currentness: Current Apple platform documentation on snapshot date.
+  project_implications:
+  - Abstract OS-keystore wrapping behind a platform adapter and retain separate recovery.
+  limitations:
+  - Vendor-specific; entitlement, sync, and access-control details require implementation review.
+  rights_notes: Citation and link only; Apple documentation terms apply.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-026
+  title: SQLCipher Design
+  authors_or_organization: Zetetic
+  type: vendor_technical_documentation
+  publication: Zetetic
+  publication_date: '2026'
+  url: https://www.zetetic.net/sqlcipher/design/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_primary_implementation
+  domains:
+  - security
+  - database_encryption
+  - sqlite
+  currentness: Current design page; build/version/license must be pinned during implementation.
+  project_implications:
+  - SQLCipher is a plausible local encrypted relational profile, not a substitute for blob, key, backup, and metadata controls.
+  limitations:
+  - Vendor documentation; independent implementation audit is still required.
+  rights_notes: Citation/link only; distribution subject to SQLCipher license and attribution review.
+  superseded: false
+  review_due: '2026-11-10'
+- id: ARCH-027
+  title: Temporary Files Used By SQLite
+  authors_or_organization: SQLite Project
+  type: primary_technical_documentation
+  publication: SQLite Project
+  publication_date: '2026'
+  url: https://www.sqlite.org/tempfiles.html
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_project_primary
+  domains:
+  - security
+  - sqlite
+  - metadata_leakage
+  currentness: Living upstream documentation checked on snapshot date.
+  project_implications:
+  - Control journals, WAL, temp databases, statement journals, and OS temp locations within the encrypted boundary.
+  limitations:
+  - Exact behavior depends on SQLite build/configuration and VFS.
+  rights_notes: Citation and link only; SQLite documentation.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-028
+  title: SQLite Online Backup API
+  authors_or_organization: SQLite Project
+  type: primary_technical_documentation
+  publication: SQLite Project
+  publication_date: '2026'
+  url: https://www.sqlite.org/backup.html
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_project_primary
+  domains:
+  - backup
+  - sqlite
+  - recovery
+  currentness: Living upstream documentation checked on snapshot date.
+  project_implications:
+  - Create consistent snapshots through supported APIs, then wrap/authenticate and restore-test them.
+  limitations:
+  - Consistency is not encryption, retention, or successful recovery.
+  rights_notes: Citation and link only; SQLite documentation.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-029
+  title: SQLite PRAGMA secure_delete
+  authors_or_organization: SQLite Project
+  type: primary_technical_documentation
+  publication: SQLite Project
+  publication_date: '2026'
+  url: https://www.sqlite.org/pragma.html#pragma_secure_delete
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_project_primary
+  domains:
+  - deletion
+  - sqlite
+  - residual_data
+  currentness: Living upstream documentation checked on snapshot date.
+  project_implications:
+  - Do not promise secure deletion based only on a PRAGMA; encrypted storage and key/backup lifecycle remain essential.
+  limitations:
+  - Shadow tables, filesystems, SSDs, backups, and exported copies can retain content.
+  rights_notes: Citation and link only; SQLite documentation.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-030
+  title: SQLite As An Application File Format
+  authors_or_organization: SQLite Project
+  type: primary_technical_documentation
+  publication: SQLite Project
+  publication_date: '2026'
+  url: https://www.sqlite.org/appfileformat.html
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_project_primary
+  domains:
+  - durability
+  - sqlite
+  - portability
+  currentness: Living upstream documentation checked on snapshot date.
+  project_implications:
+  - A documented SQLite snapshot can complement open JSONL/Markdown export, subject to encryption and validation.
+  limitations:
+  - A database file is not independently understandable without schema documentation and migration tooling.
+  rights_notes: Citation and link only; SQLite documentation.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-031
+  title: OWASP LLM01:2025 Prompt Injection
+  authors_or_organization: OWASP Foundation
+  type: security_risk_guidance
+  publication: OWASP Foundation
+  publication_date: '2025'
+  url: https://genai.owasp.org/llmrisk/llm01-prompt-injection/
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_security_consensus
+  domains:
+  - security
+  - prompt_injection
+  - imports
+  currentness: OWASP GenAI 2025 risk entry current on snapshot date.
+  project_implications:
+  - Separate imported data from instructions; bound tools and privileges; treat indirect/multimodal injection as expected.
+  limitations:
+  - No complete prevention technique is known; defense in depth and impact limitation are required.
+  rights_notes: Citation and link only; OWASP license applies.
+  superseded: false
+  review_due: '2026-11-10'
+- id: ARCH-032
+  title: OWASP LLM07:2025 System Prompt Leakage
+  authors_or_organization: OWASP Foundation
+  type: security_risk_guidance
+  publication: OWASP Foundation
+  publication_date: '2025'
+  url: https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_security_consensus
+  domains:
+  - security
+  - llm
+  - policy_enforcement
+  currentness: OWASP GenAI 2025 risk entry current on snapshot date.
+  project_implications:
+  - Never place secrets in prompts or rely on hidden instructions as authorization/security policy.
+  limitations:
+  - Risk taxonomy, not formal assurance.
+  rights_notes: Citation and link only; OWASP license applies.
+  superseded: false
+  review_due: '2026-11-10'
+- id: ARCH-033
+  title: OWASP File Upload Cheat Sheet
+  authors_or_organization: OWASP Foundation
+  type: security_practice_guidance
+  publication: OWASP Foundation
+  publication_date: '2026'
+  url: https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_security_consensus
+  domains:
+  - security
+  - imports
+  - file_handling
+  currentness: Living cheat sheet checked on snapshot date.
+  project_implications:
+  - Allowlist types, verify signatures, rename, limit size/depth, isolate storage, scan, and authorize import.
+  limitations:
+  - Must be adapted to offline desktop threat model and parser set.
+  rights_notes: Citation and link only; OWASP license applies.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-034
+  title: OWASP Input Validation Cheat Sheet
+  authors_or_organization: OWASP Foundation
+  type: security_practice_guidance
+  publication: OWASP Foundation
+  publication_date: '2026'
+  url: https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_security_consensus
+  domains:
+  - security
+  - validation
+  - imports
+  currentness: Living cheat sheet checked on snapshot date.
+  project_implications:
+  - Validate syntax and semantics at trust boundaries; schema validation alone is insufficient.
+  limitations:
+  - General web guidance; desktop parser and archive controls need additional rules.
+  rights_notes: Citation and link only; OWASP license applies.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-035
+  title: OWASP Logging Cheat Sheet
+  authors_or_organization: OWASP Foundation
+  type: security_practice_guidance
+  publication: OWASP Foundation
+  publication_date: '2026'
+  url: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_security_consensus
+  domains:
+  - security
+  - logging
+  - privacy
+  currentness: Living cheat sheet checked on snapshot date.
+  project_implications:
+  - Exclude health content, secrets, tokens, and raw prompts; sanitize and protect bounded operational logs.
+  limitations:
+  - Logging needs product-specific event taxonomy and retention.
+  rights_notes: Citation and link only; OWASP license applies.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-036
+  title: OWASP Cross Site Scripting Prevention Cheat Sheet
+  authors_or_organization: OWASP Foundation
+  type: security_practice_guidance
+  publication: OWASP Foundation
+  publication_date: '2026'
+  url: https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_security_consensus
+  domains:
+  - security
+  - rendering
+  - xss
+  currentness: Living cheat sheet checked on snapshot date.
+  project_implications:
+  - Treat imported/model text as untrusted and use contextual encoding/sanitization in any webview.
+  limitations:
+  - Framework-specific rendering rules still need tests.
+  rights_notes: Citation and link only; OWASP license applies.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-037
+  title: NIST SP 800-218 — Secure Software Development Framework (SSDF) Version 1.1
+  authors_or_organization: National Institute of Standards and Technology
+  type: secure_development_standard
+  publication: National Institute of Standards and Technology
+  publication_date: '2022'
+  url: https://csrc.nist.gov/pubs/sp/800/218/final
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_standard_body
+  domains:
+  - security
+  - secure_development
+  - supply_chain
+  currentness: Final 1.1; monitor newer SSDF profiles/updates.
+  project_implications:
+  - Protect code, review dependencies, produce provenance, verify releases, and respond to vulnerabilities.
+  limitations:
+  - Practice framework; controls must be concretized in CI and release process.
+  rights_notes: Citation and link only; NIST public document.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-038
+  title: Software Bill of Materials Resources
+  authors_or_organization: Cybersecurity and Infrastructure Security Agency
+  type: government_resource_library
+  publication: Cybersecurity and Infrastructure Security Agency
+  publication_date: '2026'
+  url: https://www.cisa.gov/topics/cyber-threats-and-advisories/sbom/sbomresourceslibrary
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official
+  domains:
+  - security
+  - sbom
+  - supply_chain
+  currentness: Current resource hub checked on snapshot date.
+  project_implications:
+  - Pin dependencies and emit an SBOM/provenance record for distributable builds.
+  limitations:
+  - Resource hub, not one conformance specification.
+  rights_notes: Citation and link only; US government source.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-039
+  title: Your data — OpenAI API data controls and retention
+  authors_or_organization: OpenAI
+  type: provider_primary_documentation
+  publication: OpenAI
+  publication_date: '2026'
+  url: https://developers.openai.com/api/docs/guides/your-data#default-usage-policies-by-endpoint
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_vendor_primary
+  domains:
+  - privacy
+  - cloud
+  - llm_provider
+  - retention
+  currentness: Time-sensitive provider policy checked on snapshot date; capture a policy snapshot at every integration release.
+  project_implications:
+  - No provider-side canonical memory; minimize each call; distinguish training, abuse logs, application state, ZDR/MAM, cache,
+    residency, and third-party services.
+  limitations:
+  - Provider policy can change and eligibility/exceptions are account- and endpoint-specific.
+  rights_notes: Citation and link only; OpenAI documentation terms apply.
+  superseded: false
+  review_due: '2026-09-10'
+- id: ARCH-040
+  title: OpenAI API model guidance — persisted reasoning and prompt caching
+  authors_or_organization: OpenAI
+  type: provider_primary_documentation
+  publication: OpenAI
+  publication_date: '2026'
+  url: https://developers.openai.com/api/docs/guides/latest-model
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_vendor_primary
+  domains:
+  - llm_provider
+  - prompt_caching
+  - state
+  currentness: Current model guidance checked on snapshot date.
+  project_implications:
+  - Provider/model features and persisted state are optional adapters; explicitly configure storage/cache and regression-test
+    snapshots.
+  limitations:
+  - Version-specific and rapidly changing; not a privacy guarantee.
+  rights_notes: Citation and link only; OpenAI documentation terms apply.
+  superseded: false
+  review_due: '2026-09-10'
+- id: ARCH-041
+  title: 'PROV-O: The PROV Ontology'
+  authors_or_organization: World Wide Web Consortium
+  type: w3c_recommendation
+  publication: World Wide Web Consortium
+  publication_date: '2013'
+  url: https://www.w3.org/TR/prov-o/
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_normative_standard
+  domains:
+  - provenance
+  - data_model
+  currentness: Stable W3C Recommendation.
+  project_implications:
+  - Model source/derived entities, activities, and agents with explicit derivation; adopt only the needed subset.
+  limitations:
+  - Generic ontology; direct wholesale use would add unnecessary complexity.
+  rights_notes: Citation and link only; W3C document license applies.
+  superseded: false
+  review_due: '2028-08-10'
+- id: ARCH-042
+  title: JSON Schema Draft 2020-12
+  authors_or_organization: JSON Schema project / IETF contributors
+  type: data_validation_specification
+  publication: JSON Schema project / IETF contributors
+  publication_date: '2022'
+  url: https://json-schema.org/draft/2020-12
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_normative_standard
+  domains:
+  - data_model
+  - schema
+  - export
+  currentness: Current stable draft used for the export schema contract.
+  project_implications:
+  - Version and validate portable JSON/JSONL records; retain schemas with exports.
+  limitations:
+  - Syntactic validation cannot establish semantic truth or provenance.
+  rights_notes: Citation and link only; specification terms apply.
+  superseded: false
+  review_due: '2027-08-10'
+- id: ARCH-043
+  title: RFC 8785 — JSON Canonicalization Scheme (JCS)
+  authors_or_organization: Internet Engineering Task Force
+  type: internet_standard
+  publication: Internet Engineering Task Force
+  publication_date: '2020'
+  url: https://www.rfc-editor.org/info/rfc8785
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_normative_standard
+  domains:
+  - integrity
+  - json
+  - manifest
+  currentness: Stable RFC.
+  project_implications:
+  - Use defined canonicalization before deterministic manifest signatures/hashes where the JSON constraints are met.
+  limitations:
+  - Canonicalization does not prove truth, authorization, or confidentiality.
+  rights_notes: Citation and link only; RFC terms apply.
+  superseded: false
+  review_due: '2028-08-10'
+- id: ARCH-044
+  title: FHIR R5 Provenance Resource
+  authors_or_organization: HL7 International
+  type: health_interoperability_standard
+  publication: HL7 International
+  publication_date: '2023'
+  url: https://hl7.org/fhir/R5/provenance.html
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_domain_standard
+  domains:
+  - interoperability
+  - clinical_export
+  - provenance
+  currentness: FHIR R5 current page checked; target version must be negotiated per recipient.
+  project_implications:
+  - Provide optional clinician-export mapping; do not make FHIR the personal evidence canonical model.
+  limitations:
+  - FHIR implementation guides, profiles, terminology, and versions vary.
+  rights_notes: Citation/link only; HL7/FHIR license and trademark terms apply.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-045
+  title: FHIR R5 QuestionnaireResponse definitions
+  authors_or_organization: HL7 International
+  type: health_interoperability_standard
+  publication: HL7 International
+  publication_date: '2023'
+  url: https://hl7.org/fhir/R5/questionnaireresponse-definitions.html
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_domain_standard
+  domains:
+  - interoperability
+  - assessment
+  - clinical_export
+  currentness: FHIR R5 current page checked.
+  project_implications:
+  - Map licensed assessment administrations/results only when recipient profile and rights permit.
+  limitations:
+  - FHIR does not grant rights to test items or validate the underlying instrument.
+  rights_notes: Citation/link only; HL7/FHIR and instrument rights apply.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-046
+  title: RFC 8493 — The BagIt File Packaging Format (V1.0)
+  authors_or_organization: Internet Engineering Task Force
+  type: preservation_packaging_standard
+  publication: Internet Engineering Task Force
+  publication_date: '2018'
+  url: https://datatracker.ietf.org/doc/html/rfc8493
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_normative_standard
+  domains:
+  - backup
+  - export
+  - integrity
+  - preservation
+  currentness: Stable RFC.
+  project_implications:
+  - Use a BagIt-like inventory/checksum structure for portable packages, inside an authenticated encrypted envelope when sensitive.
+  limitations:
+  - Checksums detect change but do not protect against a malicious party that can replace manifests.
+  rights_notes: Citation and link only; RFC terms apply.
+  superseded: false
+  review_due: '2028-08-10'
+- id: ARCH-047
+  title: Recommended Formats Statement
+  authors_or_organization: Library of Congress
+  type: digital_preservation_guidance
+  publication: Library of Congress
+  publication_date: '2026'
+  url: https://www.loc.gov/preservation/resources/rfs/
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_memory_institution
+  domains:
+  - durability
+  - export
+  - preservation
+  currentness: Current annual statement hub checked on snapshot date.
+  project_implications:
+  - Review preservation formats periodically and pair machine-readable data with schemas and human-readable documentation.
+  limitations:
+  - Collection guidance is not a product-specific preservation guarantee.
+  rights_notes: Citation and link only; Library of Congress public resource.
+  superseded: false
+  review_due: '2027-08-10'
+- id: ARCH-048
+  title: Developing Time-Oriented Database Applications in SQL
+  authors_or_organization: Richard T. Snodgrass
+  type: scholarly_monograph
+  publication: Richard T. Snodgrass
+  publication_date: '2000'
+  url: https://www2.cs.arizona.edu/~rts/tdbbook.pdf
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_foundational_method
+  domains:
+  - temporal_data
+  - bitemporal
+  - data_model
+  currentness: Foundational temporal-database concepts remain relevant; implementation patterns require modernization.
+  project_implications:
+  - Separate domain-valid time from transaction history and add autobiographical reported/observed/fuzzy clocks.
+  limitations:
+  - Not specific to psychological evidence and predates current SQLite/application practice.
+  rights_notes: Citation/link only; do not redistribute the book.
+  superseded: false
+  review_due: '2028-08-10'
+- id: ARCH-049
+  title: A systematic review of self-tracking technology for health and well-being
+  authors_or_organization: Systematic-review authors; open-access record
+  type: systematic_review
+  publication: Systematic-review authors; open-access record
+  publication_date: '2021'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC8493454/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review
+  domains:
+  - ux
+  - self_tracking
+  - wellbeing
+  currentness: Review remains useful for design; newer engagement evidence also checked.
+  project_implications:
+  - Do not assume more tracking creates benefit; design feedback, reflection, and burden controls.
+  limitations:
+  - Heterogeneous technologies, populations, outcomes, and study quality.
+  rights_notes: Open-access article; cite under article license.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-050
+  title: Understanding and predicting personal informatics system abandonment
+  authors_or_organization: Personal-informatics research authors; open-access record
+  type: empirical_ux_research
+  publication: Personal-informatics research authors; open-access record
+  publication_date: '2017'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5428074/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_peer_reviewed
+  domains:
+  - ux
+  - abandonment
+  - personal_informatics
+  currentness: Older but directly relevant to long-term product failure modes.
+  project_implications:
+  - Support lapses, changing goals, data access, correction, and exit rather than punishing discontinuity.
+  limitations:
+  - Technology landscape and participant contexts have evolved.
+  rights_notes: Open-access article; cite under article license.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-051
+  title: Participant burden and adherence in ecological momentary assessment
+  authors_or_organization: JMIR Formative Research authors
+  type: empirical_methodology_study
+  publication: JMIR Formative Research authors
+  publication_date: '2024'
+  url: https://formative.jmir.org/2024/1/e49512/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_peer_reviewed
+  domains:
+  - ux
+  - ema
+  - burden
+  - adherence
+  currentness: Recent empirical evidence checked on snapshot date.
+  project_implications:
+  - Bound prompt frequency/duration, measure missingness and perceived burden, and allow pausing without penalty.
+  limitations:
+  - Burden relationships vary by population, protocol, incentive, and duration.
+  rights_notes: Open-access article; cite under publisher license.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-052
+  title: 'Acceptance and use of digital mental health interventions: systematic evidence'
+  authors_or_organization: Journal of Medical Internet Research authors
+  type: systematic_review
+  publication: Journal of Medical Internet Research authors
+  publication_date: '2024'
+  url: https://www.jmir.org/2024/1/e52609/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review
+  domains:
+  - ux
+  - digital_mental_health
+  - acceptance
+  currentness: Recent review checked on snapshot date.
+  project_implications:
+  - Utility, trust, privacy, human support, usability, and context matter more than novelty or conversational polish.
+  limitations:
+  - Heterogeneous intervention types and acceptance constructs.
+  rights_notes: Open-access article; cite under publisher license.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-053
+  title: 'User engagement and attrition with conversational agents for mental health: systematic review and meta-analysis'
+  authors_or_organization: Journal of Medical Internet Research authors
+  type: systematic_review_meta_analysis
+  publication: Journal of Medical Internet Research authors
+  publication_date: '2024'
+  url: https://www.jmir.org/2024/1/e48168/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review
+  domains:
+  - ux
+  - chatbots
+  - engagement
+  - attrition
+  currentness: Recent synthesis checked on snapshot date.
+  project_implications:
+  - Treat attrition as contextual evidence; never optimize conversation duration as a mental-health outcome.
+  limitations:
+  - Interventions, definitions, and follow-up are heterogeneous; publication bias is possible.
+  rights_notes: Open-access article; cite under publisher license.
+  superseded: false
+  review_due: '2027-02-10'
+- id: ARCH-054
+  title: 'Ethics and governance of artificial intelligence for health: Guidance on large multi-modal models'
+  authors_or_organization: World Health Organization
+  type: international_guidance
+  publication: World Health Organization
+  publication_date: '2024'
+  url: https://www.who.int/publications/i/item/9789240084759
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_consensus
+  domains:
+  - ai_safety
+  - health
+  - generative_ai
+  currentness: Current WHO model-specific health governance guidance.
+  project_implications:
+  - Require evidence, stakeholder accountability, post-deployment review, and protection from automation bias/confabulation.
+  limitations:
+  - High-level guidance; product-specific clinical evidence remains necessary.
+  rights_notes: Citation and link only; WHO copyright.
+  superseded: false
+  review_due: '2027-02-10'
+  same_source_as:
+  - CLIN-046
+- id: ARCH-055
+  title: NIST SP 800-61 Rev. 3 — Incident Response Recommendations and Considerations
+  authors_or_organization: National Institute of Standards and Technology
+  type: incident_response_guidance
+  publication: National Institute of Standards and Technology
+  publication_date: '2025'
+  url: https://csrc.nist.gov/pubs/sp/800/61/r3/final
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_standard_body
+  domains:
+  - security
+  - incident_response
+  - recovery
+  currentness: Final April 2025; supersedes Rev.2.
+  project_implications:
+  - Prepare evidence-preserving detection, containment, notification decisions, recovery, and post-incident learning before
+    distribution.
+  limitations:
+  - Organizational guidance must be scaled to a local-first single-user product.
+  rights_notes: Citation and link only; NIST public document.
+  superseded: false
+  review_due: '2027-02-10'
+- id: CLIN-001
+  title: 'Rediscovering psychopathology: the epistemology and phenomenology of the psychiatric object'
+  authors_or_organization: Parnas J.; Sass L. A.; Zahavi D.
+  type: peer-reviewed conceptual review
+  publication: Schizophrenia Bulletin 39(2):270-277
+  publication_date: '2013-03-01'
+  url: https://doi.org/10.1093/schbul/sbs153
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - psychiatric_phenomenology
+  - clinical_ontology
+  - provenance
+  currentness: Reviewed on 2026-08-10; review again by 2030-08-10 and on correction/retraction.
+  project_implications:
+  - Preserve verbatim report separately from normalized phenomenology and interpretation.
+  - Model form, content, context, course, distress and relation to experience as distinct fields.
+  limitations:
+  - Conceptual and clinically oriented rather than a validation study.
+  - Emphasis on psychosis phenomenology limits direct generalization to every domain.
+  rights_notes: Publisher copyright applies; cite and link, do not reproduce article text beyond licensed quotation limits.
+  superseded: false
+  review_due: '2030-08-10'
+- id: CLIN-002
+  title: Clinical descriptions and diagnostic requirements for ICD-11 mental, behavioural and neurodevelopmental disorders
+    (CDDR)
+  authors_or_organization: World Health Organization
+  type: official international diagnostic reference
+  publication: World Health Organization; ISBN 978-92-4-007726-3
+  publication_date: '2024-03-08'
+  url: https://www.who.int/publications/i/item/9789240077263
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - ICD-11
+  - psychiatric_classification
+  - PTSD_CPTSD_grief_dissociation
+  - neurodevelopment
+  - substance_and_behavioral_disorders
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Use ICD-11 as a versioned clinical terminology reference, not as an autonomous diagnostic algorithm.
+  - Keep classification mappings separate from phenomena, functioning and research dimensions.
+  - Record system, release, code or URI, mapping source, date, status and uncertainty.
+  limitations:
+  - Designed for trained health professionals and clinical judgement.
+  - Classification requirements do not establish a single etiology or individual causal explanation.
+  rights_notes: WHO publication is licensed CC BY-NC-ND 3.0 IGO; no adaptation or translation without permission and no embedded
+    diagnostic text without rights review.
+  superseded: false
+  review_due: '2027-02-01'
+- id: CLIN-003
+  title: 'The ICD-11 developmental field study of reliability of diagnoses of high-burden mental disorders: results among
+    adult patients in mental health settings of 13 countries'
+  authors_or_organization: Reed G. M. et al.
+  type: multinational diagnostic field study
+  publication: World Psychiatry 17(2):174-186
+  publication_date: '2018-06-01'
+  url: https://doi.org/10.1002/wps.20524
+  accessed_at: '2026-08-10'
+  evidence_tier: T4_strong_primary_or_field_evidence
+  domains:
+  - ICD-11
+  - diagnostic_reliability
+  - psychiatric_classification
+  currentness: Reviewed on 2026-08-10; review again by 2030-08-10 and on correction/retraction.
+  project_implications:
+  - Represent diagnostic mappings with category-specific uncertainty rather than a uniform confidence flag.
+  - Preserve supporting and contradicting evidence even when a documented classification exists.
+  limitations:
+  - Covers selected high-burden disorders and participating clinical centres.
+  - Joint-rater reliability does not establish validity, etiology or ordinary test-retest performance.
+  rights_notes: Open-access article under the licence stated by the journal; retain citation and verify licence before reuse
+    of tables or figures.
+  superseded: false
+  review_due: '2030-08-10'
+- id: CLIN-004
+  title: Scientific validation of the ICD-11 CDDR
+  authors_or_organization: Maj M.
+  type: peer-reviewed validation commentary and synthesis
+  publication: World Psychiatry 23(3):358-359
+  publication_date: '2024-10-01'
+  url: https://pubmed.ncbi.nlm.nih.gov/39279399/
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - ICD-11
+  - diagnostic_validation
+  - PTSD_CPTSD_grief
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Treat CDDR as a scientifically developed clinical reference while retaining professional-scope boundaries.
+  - Use system-specific and versioned records for newer categories such as CPTSD and prolonged grief disorder.
+  limitations:
+  - Short expert synthesis rather than an independent systematic review.
+  - Validation of a classification does not authorize consumer self-diagnosis or algorithmic diagnosis.
+  rights_notes: Article reuse is governed by the journal licence; cite and link, and verify terms before reproducing content.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-005
+  title: DSM-5-TR and official updates to DSM-5-TR criteria and text through September 2025
+  authors_or_organization: American Psychiatric Association
+  type: official proprietary diagnostic reference and update log
+  publication: Diagnostic and Statistical Manual of Mental Disorders, Fifth Edition, Text Revision
+  publication_date: '2025-09-01'
+  url: https://www.psychiatry.org/psychiatrists/practice/dsm/updates-to-dsm/updates-to-dsm-5-tr-criteria-text
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - DSM-5-TR
+  - psychiatric_classification
+  - versioning
+  - rights
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Use DSM-5-TR as a secondary, versioned crosswalk for US records and research comparability.
+  - Store edition and update date; never treat an edition as timeless.
+  - Do not embed criteria, manuals or proprietary assessment items without a licence.
+  limitations:
+  - Proprietary clinical classification, not a standalone evidence synthesis for every category.
+  - Crosswalks with ICD are not lossless and may change with updates.
+  rights_notes: DSM-5-TR is copyrighted and proprietary to the American Psychiatric Association; citation and linking only
+    unless explicit permission or licence is obtained.
+  superseded: false
+  review_due: '2027-02-01'
+- id: CLIN-006
+  title: About Research Domain Criteria (RDoC)
+  authors_or_organization: National Institute of Mental Health
+  type: official live research framework
+  publication: NIMH Research Domain Criteria
+  publication_date: n.d. (live framework snapshot)
+  url: https://www.nimh.nih.gov/research/research-funded-by-nimh/rdoc/about-rdoc
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - RDoC
+  - transdiagnostic_research
+  - development_and_environment
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Allow RDoC only as a versioned research lens, never a diagnosis or replacement for ICD or DSM.
+  - Do not represent self-report as evidence at neural-circuit, physiology or genetic units of analysis.
+  limitations:
+  - Dynamic heuristic framework whose matrix and constructs can change.
+  - Does not provide a validated personal score or clinical decision rule.
+  rights_notes: US government web content is generally reusable subject to page-specific notices; cite the snapshot and verify
+    third-party material.
+  superseded: false
+  review_due: '2027-02-01'
+- id: CLIN-007
+  title: 'The Hierarchical Taxonomy of Psychopathology (HiTOP): A Quantitative Nosology Based on Consensus of Evidence'
+  authors_or_organization: Kotov R. et al.; HiTOP Consortium
+  type: peer-reviewed consensus review
+  publication: Annual Review of Clinical Psychology 17:83-108
+  publication_date: '2021-05-07'
+  url: https://doi.org/10.1146/annurev-clinpsy-081219-093304
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - HiTOP
+  - dimensional_psychopathology
+  - comorbidity
+  - heterogeneity
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Use HiTOP as an optional versioned research mapping from narrow phenomena to dimensions and spectra.
+  - Retain source indicators and hierarchy level rather than only an aggregate label.
+  limitations:
+  - Consensus taxonomy remains incomplete and is being revised.
+  - Evidence for structure does not by itself prove causal mechanisms or treatment utility.
+  rights_notes: Publisher copyright applies; cite DOI and do not reproduce protected tables or text without permission.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-008
+  title: Meta-analysis of structural evidence for the Hierarchical Taxonomy of Psychopathology (HiTOP) model
+  authors_or_organization: Ringwald W. R.; Forbes M. K.; Wright A. G. C.
+  type: meta-analysis
+  publication: Psychological Medicine 53(2):533-546
+  publication_date: '2021-06-15'
+  url: https://doi.org/10.1017/S0033291721001902
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - HiTOP
+  - structural_validity
+  - dimensional_psychopathology
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Treat spectra as optional aggregate views and keep the underlying indicators and model version.
+  - Do not infer causality or clinical utility from structural fit.
+  limitations:
+  - Meta-analysis used 23 DSM diagnoses rather than the complete set of narrow signs and symptoms.
+  - Some forms of psychopathology were underrepresented.
+  rights_notes: Publisher copyright applies; bibliographic use and linking are permitted, while reuse of article content requires
+    licence review.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-009
+  title: 'The p Factor: One General Psychopathology Factor in the Structure of Psychiatric Disorders?'
+  authors_or_organization: Caspi A. et al.
+  type: longitudinal cohort study
+  publication: Clinical Psychological Science 2(2):119-137
+  publication_date: '2014-03-01'
+  url: https://doi.org/10.1177/2167702613497473
+  accessed_at: '2026-08-10'
+  evidence_tier: T4_strong_primary_or_field_evidence
+  domains:
+  - p_factor
+  - psychopathology_covariance
+  - longitudinal_research
+  currentness: Reviewed on 2026-08-10; review again by 2029-08-10 and on correction/retraction.
+  project_implications:
+  - At most treat a p-factor as a research-only summary tied to a specified model and indicator set.
+  - Never expose it as a diagnosis, cause, essence or global personal mental-health score.
+  limitations:
+  - Findings depend on one cohort, selected indicators and factor specification.
+  - A latent factor is not automatically a biological or causal entity.
+  rights_notes: Publisher copyright applies; cite DOI, with no reproduction of protected text, tables or figures.
+  superseded: false
+  review_due: '2029-08-10'
+- id: CLIN-010
+  title: A critical evaluation of the p-factor literature
+  authors_or_organization: Watts A. L.; Greene A. L.; Bonifay W.; Fried E. I.
+  type: critical peer-reviewed review
+  publication: Nature Reviews Psychology 3:108-122
+  publication_date: '2023-12-22'
+  url: https://doi.org/10.1038/s44159-023-00260-2
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - p_factor
+  - latent_variable_validity
+  - science_theatre_risk
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Reject the p-factor as root ontology, causal entity, personal score or explanation of a specific phenomenon.
+  - If used in research, store formula, indicators, calibration population, alternatives and model uncertainty.
+  limitations:
+  - Critical perspective rather than a quantitative meta-analysis.
+  - Does not imply that all hierarchical or general-factor analyses are useless.
+  rights_notes: Springer Nature copyright applies; cite and link and do not reproduce protected content.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-011
+  title: Empirical, theoretical, and practical advantages of the HEXACO model of personality structure
+  authors_or_organization: Ashton M. C.; Lee K.
+  type: peer-reviewed theoretical and empirical review
+  publication: Personality and Social Psychology Review 11(2):150-166
+  publication_date: '2007-05-01'
+  url: https://doi.org/10.1177/1088868306294907
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - HEXACO
+  - personality_structure
+  - trait_crosswalk
+  currentness: Reviewed on 2026-08-10; review again by 2029-08-10 and on correction/retraction.
+  project_implications:
+  - Preserve HEXACO as a source-native alternative model.
+  - Treat Big Five to HEXACO conversion as lossy and never reduce Honesty-Humility to a renamed Big Five domain.
+  limitations:
+  - Authored by principal model developers and not evidence that HEXACO is a final universal ontology.
+  - Instrument, language and population remain relevant.
+  rights_notes: Publisher copyright applies; cite DOI and verify any instrument-specific permissions separately.
+  superseded: false
+  review_due: '2029-08-10'
+- id: CLIN-012
+  title: Personality traits across cultures
+  authors_or_organization: Church A. T.
+  type: cross-cultural review
+  publication: Current Opinion in Psychology 8:22-30
+  publication_date: '2016-04-01'
+  url: https://doi.org/10.1016/j.copsyc.2015.09.014
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - Big_Five
+  - cross_cultural_validity
+  - measurement_invariance
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Require language, culture, measure version, calibration sample and invariance evidence for trait interpretation.
+  - Do not apply universal percentile labels or assume translated scales are automatically equivalent.
+  limitations:
+  - Review predates some recent global datasets and many populations remain underrepresented.
+  - Factor replication does not mean cultural identity is exhausted by the trait model.
+  rights_notes: Elsevier copyright applies; cite and link, with no reuse of protected content without permission.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-013
+  title: 'Toward a structure- and process-integrated view of personality: Traits as density distributions of states'
+  authors_or_organization: Fleeson W.
+  type: experience-sampling primary research
+  publication: Journal of Personality and Social Psychology 80(6):1011-1027
+  publication_date: '2001-06-01'
+  url: https://doi.org/10.1037/0022-3514.80.6.1011
+  accessed_at: '2026-08-10'
+  evidence_tier: T4_strong_primary_or_field_evidence
+  domains:
+  - state_trait_distinction
+  - personality
+  - experience_sampling
+  currentness: Reviewed on 2026-08-10; review again by 2029-08-10 and on correction/retraction.
+  project_implications:
+  - Store momentary states and context separately from longitudinal trait estimates.
+  - Require repeated observations and an explicit aggregation window before deriving a trait hypothesis.
+  limitations:
+  - Short sampling windows and self-report-heavy studies.
+  - Does not validate inference of traits from arbitrary digital traces.
+  rights_notes: APA publisher copyright applies; cite DOI and do not reproduce protected content.
+  superseded: false
+  review_due: '2029-08-10'
+- id: CLIN-014
+  title: 'Personality stability and change: A meta-analysis of longitudinal studies'
+  authors_or_organization: Bleidorn W. et al.
+  type: meta-analysis of longitudinal studies
+  publication: Psychological Bulletin 148(7-8):588-619
+  publication_date: '2022-07-01'
+  url: https://doi.org/10.1037/bul0000365
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - Big_Five
+  - lifespan_trait_change
+  - longitudinal_measurement
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Give every trait estimate a validity interval, age, instrument, respondent and uncertainty.
+  - Model stability and change together; never present a personality profile as lifelong and immutable.
+  limitations:
+  - Heterogeneity in measures, intervals, cohorts and facets.
+  - Observed score change can include measurement and response-shift effects.
+  rights_notes: APA publisher copyright applies; citation and linking only unless reuse is licensed.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-015
+  title: 'Individual differences in personality trait changes across the lifespan: A meta-analysis of longitudinal studies'
+  authors_or_organization: Haehner P.; Hopwood C. J.; Schellenberg L.; Schwaba T.; Bleidorn W.
+  type: meta-analysis of longitudinal studies
+  publication: Psychological Bulletin 152(4):420-447
+  publication_date: '2026-04-01'
+  url: https://pubmed.ncbi.nlm.nih.gov/42423713/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - personality
+  - individual_differences_in_change
+  - lifespan
+  currentness: Reviewed on 2026-08-10; review again by 2029-08-10 and on correction/retraction.
+  project_implications:
+  - Represent uncertainty and individual heterogeneity in change rather than imposing a normative trajectory.
+  - Interpret longer-interval and facet-level change with instrument-aware uncertainty.
+  limitations:
+  - Meta-analytic estimates inherit heterogeneity and selective availability of longitudinal datasets.
+  - The analysis does not identify the cause of an individual's score change.
+  rights_notes: APA publisher copyright applies; PubMed metadata may be cited, while article content requires publisher permission.
+  superseded: false
+  review_due: '2029-08-10'
+- id: CLIN-016
+  title: 'Theoretical propositions of life-span developmental psychology: On the dynamics between growth and decline'
+  authors_or_organization: Baltes P. B.
+  type: foundational lifespan-development theory
+  publication: Developmental Psychology 23(5):611-626
+  publication_date: '1987-09-01'
+  url: https://doi.org/10.1037/0012-1649.23.5.611
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - lifespan_development
+  - plasticity
+  - context_and_cohort
+  currentness: Reviewed on 2026-08-10; review again by 2031-08-10 and on correction/retraction.
+  project_implications:
+  - Treat age periods as navigation context, not rigid normative stages.
+  - Record domain-specific gains, losses, historical context and cohort.
+  limitations:
+  - Foundational metatheory, not an individual prediction model.
+  - Specific propositions require contemporary domain-specific evidence.
+  rights_notes: APA publisher copyright applies; cite DOI and do not reproduce protected article content.
+  superseded: false
+  review_due: '2031-08-10'
+- id: CLIN-017
+  title: Equifinality and multifinality in developmental psychopathology
+  authors_or_organization: Cicchetti D.; Rogosch F. A.
+  type: foundational conceptual paper
+  publication: Development and Psychopathology 8(4):597-600
+  publication_date: '1996-12-01'
+  url: https://doi.org/10.1017/S0954579400007318
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - developmental_psychopathology
+  - equifinality
+  - multifinality
+  - causal_inference
+  currentness: Reviewed on 2026-08-10; review again by 2031-08-10 and on correction/retraction.
+  project_implications:
+  - Store developmental links as hypotheses with alternatives, moderators and protective factors.
+  - Reject reverse causal reconstruction of childhood from current symptoms.
+  limitations:
+  - Brief conceptual paper, not a quantified personal-risk model.
+  - Does not identify which pathway applies to a particular person.
+  rights_notes: Cambridge University Press copyright applies; cite and link only unless reuse is licensed.
+  superseded: false
+  review_due: '2031-08-10'
+- id: CLIN-018
+  title: Narrative Identity
+  authors_or_organization: McAdams D. P.; McLean K. C.
+  type: peer-reviewed research review
+  publication: Current Directions in Psychological Science 22(3):233-238
+  publication_date: '2013-06-01'
+  url: https://doi.org/10.1177/0963721413475622
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - narrative_identity
+  - autobiographical_meaning
+  - development
+  currentness: Reviewed on 2026-08-10; review again by 2029-08-10 and on correction/retraction.
+  project_implications:
+  - Store narrative interpretation as a dated, authored version separate from raw memories and event candidates.
+  - Permit multiple narratives and explicit revision rather than one canonical life story.
+  limitations:
+  - Narrative coherence and meaning do not establish historical accuracy.
+  - Cultural and linguistic context shapes narrative form.
+  rights_notes: SAGE copyright applies; cite DOI and do not reproduce protected content without permission.
+  superseded: false
+  review_due: '2029-08-10'
+- id: CLIN-019
+  title: 'Early childhood attachment stability and change: a meta-analysis'
+  authors_or_organization: Opie J. E. et al.
+  type: meta-analysis
+  publication: Attachment & Human Development 23(6):897-930
+  publication_date: '2020-08-10'
+  url: https://pubmed.ncbi.nlm.nih.gov/32772822/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - attachment
+  - early_development
+  - stability_and_change
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Model attachment-related observations as relationship-, context- and time-specific dimensions.
+  - Reject immutable attachment-style identity labels and deterministic caregiver blame.
+  limitations:
+  - Stability estimates vary with method, interval and sample, with publication-bias concerns.
+  - Early-childhood attachment findings cannot be directly converted into adult diagnosis or individual causation.
+  rights_notes: Article is available through PubMed Central under its stated terms; verify the article licence before reuse
+    of content.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-020
+  title: VA/DoD Clinical Practice Guideline for Management of Posttraumatic Stress Disorder and Acute Stress Disorder
+  authors_or_organization: US Department of Veterans Affairs; US Department of Defense
+  type: evidence-graded clinical practice guideline
+  publication: VA/DoD Clinical Practice Guideline, Version 4.0
+  publication_date: '2023-06-01'
+  url: https://healthquality.va.gov/HEALTHQUALITY/guidelines/MH/ptsd/
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - PTSD
+  - acute_stress
+  - trauma_assessment
+  - treatment_boundary
+  currentness: Reviewed on 2026-08-10; review again by 2027-08-10 and on correction/retraction.
+  project_implications:
+  - Keep exposure, symptoms, course, impairment and diagnosis as separate records.
+  - Do not make PSYCHE OS an autonomous trauma-treatment or treatment-selection system.
+  limitations:
+  - Adult VA/DoD population and service context limit generalization.
+  - The PDF was administratively edited in 2024; current version should be rechecked.
+  rights_notes: US government guideline; cite official source and verify reuse terms for contributed or third-party material.
+  superseded: false
+  review_due: '2027-08-10'
+- id: CLIN-021
+  title: Enhancing Conceptual Clarity regarding the Construct of Moral Injury
+  authors_or_organization: Frankfurt O'Brien S.; Baptista I.; Szeszko P. R.
+  type: peer-reviewed conceptual review
+  publication: Psychotherapy and Psychosomatics
+  publication_date: '2024-10-07'
+  url: https://pubmed.ncbi.nlm.nih.gov/39374594/
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - moral_injury
+  - trauma_related_formulation
+  - construct_validity
+  currentness: Reviewed on 2026-08-10; review again by 2027-08-10 and on correction/retraction.
+  project_implications:
+  - Represent moral injury only as an optional formulation involving event or appraisal, values, responsibility and consequences.
+  - Do not treat moral injury as a settled diagnosis or as proof that an event occurred.
+  limitations:
+  - Construct boundaries and operational definitions remain contested.
+  - Clinical populations and measures are heterogeneous.
+  rights_notes: Publisher copyright applies; PubMed metadata may be cited and article content requires licence review.
+  superseded: false
+  review_due: '2027-08-10'
+- id: CLIN-022
+  title: 'Trajectories of resilience and dysfunction following potential trauma: A review and statistical evaluation'
+  authors_or_organization: Galatzer-Levy I. R.; Huang S. H.; Bonanno G. A.
+  type: systematic review and statistical synthesis
+  publication: Clinical Psychology Review 63
+  publication_date: '2018-07-01'
+  url: https://pubmed.ncbi.nlm.nih.gov/29902711/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - resilience
+  - trauma_trajectories
+  - recovery
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Allow resilient, recovery, delayed and fluctuating courses rather than assuming chronic dysfunction.
+  - Record strengths and supportive conditions without making resilience a moral obligation.
+  limitations:
+  - Trajectory estimates depend on sample, outcome, number of waves and modelling choices.
+  - A modal group-level trajectory cannot predict an individual's path.
+  rights_notes: Elsevier copyright applies; cite and link, and do not reuse protected content without permission.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-023
+  title: 'Hypnotic suggestibility in dissociative and related disorders: A meta-analysis'
+  authors_or_organization: Wieder L.; Brown R. J.; Thompson T.; Terhune D. B.
+  type: meta-analysis
+  publication: Neuroscience & Biobehavioral Reviews 139:104751
+  publication_date: '2022-06-26'
+  url: https://pubmed.ncbi.nlm.nih.gov/35760389/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - dissociation
+  - suggestibility
+  - hypnosis
+  - memory_safety
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Prohibit hypnosis, regression, guided imagery and recovered-memory elicitation.
+  - Treat dissociative phenomena as heterogeneous reports and never as proof of trauma etiology.
+  limitations:
+  - Heterogeneous diagnostic groups and methods, with evidence of publication bias.
+  - Group differences do not establish suggestibility or memory in an individual.
+  rights_notes: Elsevier copyright applies; cite PubMed or DOI and do not reproduce article content without permission.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-024
+  title: What science tells us about false and repressed memories
+  authors_or_organization: Otgaar H.; Howe M. L.; Patihis L.
+  type: peer-reviewed evidence review
+  publication: Memory 30(1):16-21
+  publication_date: '2021-01-12'
+  url: https://pubmed.ncbi.nlm.nih.gov/33435830/
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - false_memory
+  - repressed_memory_controversy
+  - suggestibility
+  currentness: Reviewed on 2026-08-10; review again by 2027-08-10 and on correction/retraction.
+  project_implications:
+  - Never infer historical truth from confidence, vividness, detail or emotional intensity.
+  - Reject techniques that presuppose hidden or repressed events and log interviewer prompts as possible contamination.
+  limitations:
+  - Brief review of a contested literature with heterogeneous laboratory and real-world paradigms.
+  - Does not justify dismissing uncertain, delayed or changing reports as false.
+  rights_notes: Taylor & Francis copyright applies; cite and link and avoid reproducing protected text.
+  superseded: false
+  review_due: '2027-08-10'
+- id: CLIN-025
+  title: Source monitoring
+  authors_or_organization: Johnson M. K.; Hashtroudi S.; Lindsay D. S.
+  type: foundational theoretical and empirical review
+  publication: Psychological Bulletin 114(1):3-28
+  publication_date: '1993-07-01'
+  url: https://pubmed.ncbi.nlm.nih.gov/8346328/
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - source_monitoring
+  - autobiographical_memory
+  - reconstructive_memory
+  currentness: Reviewed on 2026-08-10; review again by 2029-08-10 and on correction/retraction.
+  project_implications:
+  - Store source attribution separately from memory content and permit mixed or uncertain sources.
+  - Separate direct recollection, hearsay, documents, dreams and inference.
+  limitations:
+  - Foundational and old review; later work refines mechanisms and boundary conditions.
+  - Framework does not adjudicate the truth of a particular memory.
+  rights_notes: APA publisher copyright applies; PubMed citation may be used, article content remains protected.
+  superseded: false
+  review_due: '2029-08-10'
+- id: CLIN-026
+  title: 'Structured forensic interview protocols improve the quality and informativeness of investigative interviews with
+    children: A review of research using the NICHD Investigative Interview Protocol'
+  authors_or_organization: Lamb M. E.; Orbach Y.; Hershkowitz I.; Esplin P. W.; Horowitz D.
+  type: systematic narrative review of protocol research
+  publication: Child Abuse & Neglect 31(11-12):1201-1231
+  publication_date: '2007-11-01'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC2180422/
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - anti_suggestive_interviewing
+  - free_recall
+  - child_forensic_interviewing
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Use open invitations and free recall before focused prompts, and explicitly permit not knowing or not remembering.
+  - Never market PSYCHE OS as a forensic interview or evidence-adjudication system.
+  limitations:
+  - Research concerns trained forensic interviews with children, not consumer autobiographical journaling.
+  - Import only general anti-suggestive principles, not forensic authority or protected protocol text.
+  rights_notes: Open-access manuscript is available in PubMed Central; verify the displayed licence and protocol rights before
+    reuse.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-027
+  title: 'Agreement Between Prospective and Retrospective Measures of Childhood Maltreatment: A Systematic Review and Meta-analysis'
+  authors_or_organization: Baldwin J. R.; Reuben A.; Newbury J. B.; Danese A.
+  type: systematic review and meta-analysis
+  publication: JAMA Psychiatry 76(6):584-593
+  publication_date: '2019-06-01'
+  url: https://pubmed.ncbi.nlm.nih.gov/30892562/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - retrospective_report
+  - prospective_records
+  - childhood_maltreatment
+  - causal_inference
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Keep retrospective reports and contemporaneous or prospective records as separate evidence types.
+  - Do not invalidate one source because it disagrees with another, and do not infer causal certainty from recall.
+  limitations:
+  - Measures, thresholds and sampling frames varied across studies.
+  - Poor agreement does not reveal which source is correct in a particular case.
+  rights_notes: Article is accessible through PubMed Central under its stated terms; figures and text require licence verification
+    before reuse.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-028
+  title: 'Practitioner review: do performance-based measures and ratings of executive function assess the same construct?'
+  authors_or_organization: Toplak M. E.; West R. F.; Stanovich K. E.
+  type: systematic practitioner review
+  publication: Journal of Child Psychology and Psychiatry 54(2):131-143
+  publication_date: '2013-02-01'
+  url: https://pubmed.ncbi.nlm.nih.gov/23057693/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - executive_function
+  - neuropsychology
+  - self_report_vs_performance
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Keep subjective complaint, ecological rating and performance task as separate evidence layers.
+  - Do not interpret a browser task or questionnaire as a clinician neuropsychological assessment.
+  limitations:
+  - Evidence base is especially focused on children and adolescents.
+  - Weak correlations can reflect construct and method differences rather than invalidity of either measure.
+  rights_notes: Wiley copyright applies; cite PubMed or DOI and do not reproduce protected content.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-029
+  title: 'Attention deficit hyperactivity disorder: diagnosis and management (NG87)'
+  authors_or_organization: National Institute for Health and Care Excellence
+  type: evidence-based clinical guideline
+  publication: NICE guideline NG87
+  publication_date: '2018-03-14'
+  url: https://www.nice.org.uk/guidance/ng87/chapter/recommendations
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - ADHD
+  - adult_neurodevelopment
+  - screening_limits
+  - differential_assessment
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - A screening result can create a concern or referral prompt but never an ADHD diagnosis.
+  - Require developmental history, impairment, multiple settings, alternatives and collateral evidence where available with
+    consent.
+  limitations:
+  - UK healthcare pathway and scope; applicability differs by jurisdiction and age group.
+  - Guideline updates and surveillance decisions must be monitored.
+  rights_notes: Reuse is subject to NICE copyright and reuse terms; do not embed proprietary or third-party assessment items.
+  superseded: false
+  review_due: '2027-02-01'
+- id: CLIN-030
+  title: 'Revisiting ADHD age-of-onset in adults: to what extent should we rely on the recall of childhood symptoms?'
+  authors_or_organization: Breda V. et al.
+  type: longitudinal cohort study
+  publication: Psychological Medicine
+  publication_date: '2019-04-10'
+  url: https://pubmed.ncbi.nlm.nih.gov/30968792/
+  accessed_at: '2026-08-10'
+  evidence_tier: T4_strong_primary_or_field_evidence
+  domains:
+  - ADHD
+  - retrospective_onset
+  - adult_assessment
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Treat absence of recalled childhood symptoms as weak negative evidence rather than proof of absence.
+  - Keep recalled onset, contemporaneous records and collateral report separate.
+  limitations:
+  - One cohort and specific recall interval and measures.
+  - Does not establish or refute adult ADHD in an individual.
+  rights_notes: Cambridge University Press copyright applies; cite PubMed or DOI and do not reproduce protected text.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-031
+  title: 'Autism spectrum disorder in adults: diagnosis and management (CG142)'
+  authors_or_organization: National Institute for Health and Care Excellence
+  type: evidence-based clinical guideline
+  publication: NICE clinical guideline CG142
+  publication_date: '2012-06-27'
+  url: https://www.nice.org.uk/guidance/CG142/chapter/Recommendations
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - autism
+  - adult_neurodevelopment
+  - comprehensive_assessment
+  - differential_assessment
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Use a screen only to support referral or further assessment, never as diagnosis.
+  - Keep early development, direct observation, functioning, informant data and differential context distinct.
+  limitations:
+  - UK service context and an older original publication, although NICE reviewed the guideline in 2025.
+  - Collateral history may be unavailable and should then be marked unknown, not absent.
+  rights_notes: Reuse is subject to NICE copyright and reuse terms; do not copy screening items without separate permission.
+  superseded: false
+  review_due: '2027-02-01'
+- id: CLIN-032
+  title: The Effectiveness of RAADS-R as a Screening Tool for Adult ASD Populations
+  authors_or_organization: Jones S. L.; Johnson M.; Alty B.; Adamou M.
+  type: clinical referral-sample validation study
+  publication: Autism Research and Treatment 2021:9974791
+  publication_date: '2021-09-11'
+  url: https://pubmed.ncbi.nlm.nih.gov/34552768/
+  accessed_at: '2026-08-10'
+  evidence_tier: T4_strong_primary_or_field_evidence
+  domains:
+  - autism
+  - adult_screening
+  - predictive_validity
+  currentness: Reviewed on 2026-08-10; review again by 2027-08-10 and on correction/retraction.
+  project_implications:
+  - Reject single-score adult autism diagnosis and make predictive validity population-specific.
+  - Preserve screening score as one source among developmental, functional and observational evidence.
+  limitations:
+  - Small, specific adult referral population; not a universal test of RAADS-R in every setting.
+  - A poor predictive result does not mean a person's autism concern is invalid.
+  rights_notes: Open-access article under its publisher licence; assessment-item rights must still be checked separately.
+  superseded: false
+  review_due: '2027-08-10'
+- id: CLIN-033
+  title: 'Camouflaging in autism: A systematic review'
+  authors_or_organization: Cook J.; Hull L.; Crane L.; Mandy W.
+  type: systematic review
+  publication: Clinical Psychology Review 89:102080
+  publication_date: '2021-09-06'
+  url: https://pubmed.ncbi.nlm.nih.gov/34563942/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - autism
+  - camouflaging
+  - adult_retrospective_limits
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Allow masking or camouflaging as a reported contextual phenomenon without making it an unfalsifiable diagnostic explanation.
+  - Do not use a low screening score alone to close meaningful concerns.
+  limitations:
+  - Studies and definitions were heterogeneous and often relied on self-report.
+  - Evidence does not validate retrospective diagnosis from camouflaging reports alone.
+  rights_notes: Elsevier copyright applies; cite and link, and do not reproduce article content without permission.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-034
+  title: 'Emotion regulation in mental disorders: A systematic review and multilevel meta-analysis of transdiagnostic and
+    disorder-specific impairments'
+  authors_or_organization: Clamor A.; Lincoln T. M.; Schulze L.
+  type: systematic review and multilevel meta-analysis
+  publication: Psychological Bulletin 152(2):157-200
+  publication_date: '2026-02-01'
+  url: https://pubmed.ncbi.nlm.nih.gov/42024315/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - emotion_regulation
+  - transdiagnostic_processes
+  - mental_disorders
+  currentness: Reviewed on 2026-08-10; review again by 2029-08-10 and on correction/retraction.
+  project_implications:
+  - Represent emotion-regulation patterns as contextual and probabilistic rather than diagnostic identities.
+  - Do not translate group associations into an individual causal mechanism.
+  limitations:
+  - Much of the contributing evidence is self-report and associational.
+  - Temporal direction, disorder heterogeneity and common-method variance constrain causal interpretation.
+  rights_notes: APA publisher copyright applies; PubMed metadata may be cited and protected article content cannot be copied
+    without permission.
+  superseded: false
+  review_due: '2029-08-10'
+- id: CLIN-035
+  title: 'Emotion regulation and mental health across cultures: a systematic review and meta-analysis'
+  authors_or_organization: Chen M. S.; Cai Q.; Omari D.; Sanghvi D. E.; Lyu S.; Bonanno G. A.
+  type: systematic review and meta-analysis
+  publication: Nature Human Behaviour 9:1176-1200
+  publication_date: '2025-04-15'
+  url: https://www.nature.com/articles/s41562-025-02168-8
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - emotion_regulation
+  - cross_cultural_psychology
+  - positive_functioning
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Do not label suppression, reappraisal or another strategy universally adaptive or maladaptive.
+  - Record culture, goal, situation, timing and short- versus long-term outcomes.
+  limitations:
+  - Meta-analysis is dominated by the two most-studied strategies and available country-level moderators.
+  - Mostly observational associations cannot determine what strategy will help an individual.
+  rights_notes: Springer Nature copyright applies; abstract-level citation and linking are permitted, while full-content reuse
+    needs permission.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-036
+  title: Behavioural activation therapy for depression in adults
+  authors_or_organization: Uphoff E.; Ekers D.; Robertson L.; Dawson S.; Sanger E.; South E.; Samaan Z.; Richards D.; Meader
+    N.; Churchill R.
+  type: Cochrane systematic review
+  publication: Cochrane Database of Systematic Reviews 2020(7):CD013305
+  publication_date: '2020-07-06'
+  url: https://www.cochrane.org/evidence/CD013305_behavioural-activation-therapy-depression-adults
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - behavioral_activation
+  - depression
+  - behavior_science
+  currentness: Reviewed on 2026-08-10; review again by 2027-08-10 and on correction/retraction.
+  project_implications:
+  - Activity and context loops may be tracked as evidence-informed observations, not universal treatment prescriptions.
+  - Personal activity-mood correlations remain associations unless a suitable design supports more.
+  limitations:
+  - Certainty was generally low to moderate and evidence was mainly short-term.
+  - Clinical treatment evidence does not validate an autonomous consumer intervention.
+  rights_notes: Cochrane content is copyrighted; cite and link, and do not reproduce review text, forest plots or proprietary
+    material.
+  superseded: false
+  review_due: '2027-08-10'
+- id: CLIN-037
+  title: International Classification of Functioning, Disability and Health (ICF)
+  authors_or_organization: World Health Organization
+  type: official international classification framework
+  publication: World Health Organization
+  publication_date: '2001-05-22'
+  url: https://www.who.int/standards/classifications/international-classification-of-functioning-disability-and-health
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - ICF
+  - functioning
+  - disability
+  - environmental_factors
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Make activities, participation and environmental barriers or facilitators a layer separate from diagnosis and symptoms.
+  - Model functioning as person-context interaction rather than an intrinsic deficit score.
+  limitations:
+  - Broad classification framework, not an individual diagnostic or causal model.
+  - Personal factors are not fully classified and implementations require governance.
+  rights_notes: Use is subject to current WHO classification licensing and attribution terms; verify codes, translations and
+    AI use before distribution.
+  superseded: false
+  review_due: '2027-02-01'
+- id: CLIN-038
+  title: 'Measuring health and disability: Manual for WHO Disability Assessment Schedule (WHODAS 2.0)'
+  authors_or_organization: Ustun T. B.; Kostanjsek N.; Chatterji S.; Rehm J.; World Health Organization
+  type: official measurement manual
+  publication: World Health Organization; ISBN 9789241547598
+  publication_date: '2010-01-01'
+  url: https://www.who.int/publications/i/item/measuring-health-and-disability-manual-for-who-disability-assessment-schedule-%28-whodas-2.0%29/
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - WHODAS_2_0
+  - functioning_measurement
+  - disability
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Require instrument version, language, administration mode, recall window and deterministic scoring provenance.
+  - Keep domain scores separate from totals and do not treat WHODAS as diagnosis or quality of life.
+  limitations:
+  - Generic disability measure; psychometric performance and factor structure vary across settings.
+  - Different lengths and respondent modes are not interchangeable.
+  rights_notes: WHO manual and instrument have licensing, translation and attribution requirements; do not embed items or
+    scoring text until rights are verified.
+  superseded: false
+  review_due: '2027-02-01'
+- id: CLIN-039
+  title: 'The World Health Organization quality of life assessment (WHOQOL): position paper from the World Health Organization'
+  authors_or_organization: WHOQOL Group
+  type: international conceptual and measurement framework
+  publication: Social Science & Medicine 41(10):1403-1409
+  publication_date: '1995-11-01'
+  url: https://doi.org/10.1016/0277-9536(95)00112-K
+  accessed_at: '2026-08-10'
+  evidence_tier: T3_framework_or_consensus
+  domains:
+  - quality_of_life
+  - cross_cultural_measurement
+  - subjective_evaluation
+  currentness: Reviewed on 2026-08-10; review again by 2029-08-10 and on correction/retraction.
+  project_implications:
+  - Keep subjective quality of life separate from functioning and symptom burden.
+  - Record culture, values, goals, expectations and assessment period.
+  limitations:
+  - Subjective ratings are affected by response shift and current context.
+  - The position paper does not make one QoL instrument or threshold universally valid.
+  rights_notes: Elsevier and WHO rights apply; cite DOI and verify permissions for instrument items and translations.
+  superseded: false
+  review_due: '2029-08-10'
+- id: CLIN-040
+  title: Mental illness and/or mental health? Investigating axioms of the complete state model of health
+  authors_or_organization: Keyes C. L. M.
+  type: population empirical study
+  publication: Journal of Consulting and Clinical Psychology 73(3):539-548
+  publication_date: '2005-06-01'
+  url: https://pubmed.ncbi.nlm.nih.gov/15982151/
+  accessed_at: '2026-08-10'
+  evidence_tier: T4_strong_primary_or_field_evidence
+  domains:
+  - positive_mental_health
+  - dual_continuum
+  - flourishing
+  currentness: Reviewed on 2026-08-10; review again by 2029-08-10 and on correction/retraction.
+  project_implications:
+  - Measure positive functioning independently from symptoms and diagnosis.
+  - Do not infer absence of mental-health problems from high well-being or diagnosis from low well-being.
+  limitations:
+  - One population and a specific operationalization of the dual-continuum model.
+  - Exact flourishing cutoffs are not universal personal truths.
+  rights_notes: APA publisher copyright applies; PubMed citation is usable, protected article and measure content require
+    permission.
+  superseded: false
+  review_due: '2029-08-10'
+- id: CLIN-041
+  title: Are character strength-based positive interventions effective for eliciting positive behavioral outcomes? A meta-analytic
+    review
+  authors_or_organization: Bates-Krakoff J. et al.
+  type: meta-analysis
+  publication: International Journal of Wellbeing 12(3)
+  publication_date: '2022-10-01'
+  url: https://doi.org/10.5502/ijw.v12i3.2111
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - strengths
+  - positive_psychology
+  - behavioral_outcomes
+  currentness: Reviewed on 2026-08-10; review again by 2028-08-10 and on correction/retraction.
+  project_implications:
+  - Represent strengths as observed capacities, resources and successful person-by-context patterns.
+  - Do not canonize one strengths taxonomy or substitute strengths exercises for indicated care.
+  limitations:
+  - Few eligible behavioral-outcome studies, heterogeneous interventions and a small-to-moderate pooled effect.
+  - Publication and design quality constrain treatment claims.
+  rights_notes: Open-access journal terms apply; cite DOI and verify the article licence and any third-party taxonomy rights.
+  superseded: false
+  review_due: '2028-08-10'
+- id: CLIN-042
+  title: 'The Alcohol, Smoking and Substance Involvement Screening Test (ASSIST): manual for use in primary care'
+  authors_or_organization: Humeniuk R. E.; Henry-Edwards S.; Ali R. L.; Poznyak V.; Monteiro M. G.; World Health Organization
+  type: official screening manual
+  publication: World Health Organization
+  publication_date: '2010-01-01'
+  url: https://www.who.int/publications/i/item/978924159938-2
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - substance_use
+  - screening
+  - primary_care
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Separate use, frequency or dose, context, tolerance or withdrawal reports, control and harms.
+  - Treat screening as risk identification, not diagnosis, and compute any licensed score deterministically.
+  limitations:
+  - Primary-care screening context and training requirements.
+  - Does not replace clinical assessment or establish a substance-use disorder by itself.
+  rights_notes: WHO copyrighted manual; obtain permission and verify translation, item and scoring rights before embedding
+    any content.
+  superseded: false
+  review_due: '2027-02-01'
+- id: CLIN-043
+  title: 'Gambling-related harms: identification, assessment and management (NG248)'
+  authors_or_organization: National Institute for Health and Care Excellence
+  type: evidence-based clinical guideline
+  publication: NICE guideline NG248
+  publication_date: '2025-01-28'
+  url: https://www.nice.org.uk/guidance/ng248
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - gambling
+  - behavioral_addiction
+  - harm_and_safeguarding
+  - suicide_risk
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Use non-moral language and represent financial, relational, occupational, health and safeguarding harms separately.
+  - Do not generalize gambling evidence to every high-frequency digital behavior.
+  limitations:
+  - UK adult service context and a specific recognized behavioral disorder.
+  - Guidance does not validate generic technology-addiction categories.
+  rights_notes: Reuse is subject to NICE copyright and reuse terms; cite and link and verify rights before embedding tools.
+  superseded: false
+  review_due: '2027-02-01'
+- id: CLIN-044
+  title: A meta-review of screening and treatment of electronic 'addictions'
+  authors_or_organization: Hogan J. N.; Heyman R. E.; Smith Slep A. M.
+  type: meta-review of systematic reviews and meta-analyses
+  publication: Clinical Psychology Review 113:102468
+  publication_date: '2024-08-08'
+  url: https://pubmed.ncbi.nlm.nih.gov/39168052/
+  accessed_at: '2026-08-10'
+  evidence_tier: T2_systematic_review_or_meta_analysis
+  domains:
+  - electronic_addictions
+  - internet_use
+  - smartphone_use
+  - construct_validity
+  currentness: Reviewed on 2026-08-10; review again by 2027-08-10 and on correction/retraction.
+  project_implications:
+  - Reject generic internet, smartphone or social-media addiction diagnoses without a recognized versioned classification
+    and impairment evidence.
+  - Store observable behavior, control, priority, context, benefits and harms rather than a moralized label.
+  limitations:
+  - Underlying reviews use inconsistent constructs, measures and intervention definitions.
+  - Insufficient consensus prevents strong screening or treatment recommendations.
+  rights_notes: Elsevier copyright applies; a PMC version is available, but verify its licence before reuse beyond citation.
+  superseded: false
+  review_due: '2027-08-10'
+- id: CLIN-045
+  title: The American Psychiatric Association Practice Guidelines for the Psychiatric Evaluation of Adults, Third Edition
+  authors_or_organization: American Psychiatric Association
+  type: professional clinical practice guideline
+  publication: American Psychiatric Association Practice Guidelines
+  publication_date: '2016-01-01'
+  url: https://psychiatryonline.org/doi/10.1176/appi.books.9780890426760.pe02
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - psychiatric_evaluation
+  - medical_confounding
+  - medication_and_substances
+  - differential_assessment
+  currentness: Reviewed on 2026-08-10; review again by 2027-08-10 and on correction/retraction.
+  project_implications:
+  - Track medical, medication, sleep, pain and substance contributors as uncertainty or documented context, not AI diagnoses.
+  - Use explicit statuses such as not assessed, possible contributor, user-reported evaluated and clinician documented.
+  limitations:
+  - Professional US guideline and older edition; it is not a consumer diagnostic workflow.
+  - Individual medical differentials require qualified assessment.
+  rights_notes: APA proprietary copyrighted guideline; citation and linking only, with no copying of protected text or forms.
+  superseded: false
+  review_due: '2027-08-10'
+- id: CLIN-046
+  title: 'Ethics and governance of artificial intelligence for health: Guidance on large multi-modal models'
+  authors_or_organization: World Health Organization
+  type: official ethics and governance guidance
+  publication: World Health Organization; ISBN 978-92-4-008475-9
+  publication_date: '2025-03-25'
+  url: https://www.who.int/publications/i/item/9789240084759
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - mental_health_AI
+  - health_AI_governance
+  - privacy
+  - bias_and_safety
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Define intended uses, stakeholder accountability, transparency, auditing, privacy and post-release monitoring.
+  - Treat LMM output as fallible proposals and provide abstention and human escalation.
+  limitations:
+  - Broad health-AI guidance rather than a validated mental-health product specification.
+  - Fast-moving technology and regulation require frequent review; the guidance was initially announced before the current
+    web publication date.
+  rights_notes: WHO copyright and publication licence apply; cite and link and verify the PDF licence before adapting text
+    or figures.
+  superseded: false
+  review_due: '2027-02-01'
+  same_source_as:
+  - ARCH-054
+- id: CLIN-047
+  title: 'Health advisory: Use of generative AI chatbots and wellness applications for mental health'
+  authors_or_organization: American Psychological Association
+  type: professional health advisory
+  publication: American Psychological Association
+  publication_date: '2025-11-01'
+  url: https://www.apa.org/topics/artificial-intelligence-machine-learning/health-advisory-chatbots-wellness-apps
+  accessed_at: '2026-08-10'
+  evidence_tier: T1_official_classification_or_guideline
+  domains:
+  - mental_health_AI
+  - chatbots
+  - consumer_safety
+  - dependency
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Never position a general chatbot or wellness application as a replacement for a qualified mental-health provider.
+  - Prohibit simulated professional authority, exclusivity and unsupported claims of efficacy or monitoring.
+  limitations:
+  - Professional advisory synthesizes an emerging evidence base rather than providing product-specific trial evidence.
+  - Regulatory and model landscapes change rapidly.
+  rights_notes: APA copyright applies; cite and link, and do not reproduce the advisory beyond permitted quotation.
+  superseded: false
+  review_due: '2027-02-01'
+  same_source_as:
+  - ARCH-013
+- id: CLIN-048
+  title: Expressing stigma and inappropriate responses prevents LLMs from safely replacing mental health providers
+  authors_or_organization: Moore J.; Grabb D.; Agnew W.; Klyman K.; Chancellor S.; Ong D. C.; Haber N.
+  type: peer-reviewed model evaluation
+  publication: Proceedings of the 2025 ACM Conference on Fairness, Accountability, and Transparency:599-627
+  publication_date: '2025-06-23'
+  url: https://doi.org/10.1145/3715275.3732039
+  accessed_at: '2026-08-10'
+  evidence_tier: T4_strong_primary_or_field_evidence
+  domains:
+  - mental_health_AI
+  - stigma
+  - delusion_reinforcement
+  - crisis_response
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Do not use LLMs as therapists or autonomous clinical decision-makers.
+  - Require reality-safe response tests, crisis tests, bias tests and model-version regression tests.
+  limitations:
+  - Results are model-, prompt- and time-specific and do not estimate population incidence of harm.
+  - Evaluation scenarios cannot capture every longitudinal interaction pattern.
+  rights_notes: ACM copyright or article-specific licence applies; cite DOI and do not reproduce protected content without
+    permission.
+  superseded: false
+  review_due: '2027-02-01'
+- id: CLIN-049
+  title: Sycophantic AI decreases prosocial intentions and promotes dependence
+  authors_or_organization: Cheng M.; Lee C.; Khadpe P.; Yu S.; Han D.; Jurafsky D.
+  type: peer-reviewed multi-study experimental research
+  publication: Science 391(6792):eaec8352
+  publication_date: '2026-03-26'
+  url: https://doi.org/10.1126/science.aec8352
+  accessed_at: '2026-08-10'
+  evidence_tier: T4_strong_primary_or_field_evidence
+  domains:
+  - AI_sycophancy
+  - dependence
+  - interpersonal_advice
+  - behavioral_safety
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Validate emotion without affirming unverified premises and never optimize for agreement or retention.
+  - Ban exclusivity, guilt, dependency cues and repeated reassurance loops.
+  limitations:
+  - Experimental interpersonal-advice contexts are not the same as clinical populations or long-term outcomes.
+  - Models and interfaces will change, requiring replication and product-specific evaluation.
+  rights_notes: AAAS copyright applies; cite DOI and do not reproduce protected article content.
+  superseded: false
+  review_due: '2027-02-01'
+- id: CLIN-050
+  title: Evaluation of Alignment Between Large Language Models and Expert Clinicians in Suicide Risk Assessment
+  authors_or_organization: McBain R. K.; Cantor J. H.; Zhang L. A.; Baker O.; Zhang F.; Burnett A.; Kofner A.; Breslau J.;
+    Stein B. D.; Mehrotra A.; Yu H.
+  type: peer-reviewed comparative model evaluation
+  publication: Psychiatric Services 76(11):944-950
+  publication_date: '2025-08-26'
+  url: https://pubmed.ncbi.nlm.nih.gov/41174947/
+  accessed_at: '2026-08-10'
+  evidence_tier: T4_strong_primary_or_field_evidence
+  domains:
+  - suicide_risk
+  - mental_health_AI
+  - clinical_alignment
+  - crisis_safety
+  currentness: Reviewed on 2026-08-10; review again by 2027-02-01 and on correction/retraction.
+  project_implications:
+  - Do not rely on an LLM alone for suicide-risk classification, especially at intermediate levels.
+  - Use a conservative deterministic safety state machine, human escalation and current localized resources.
+  limitations:
+  - Limited number of models and assessment questions; no real-world crisis outcome validation.
+  - Model versions change rapidly and alignment with experts is not equivalent to safety or efficacy.
+  rights_notes: APA Publishing copyright applies; a PMC manuscript may be available, but reuse requires checking its stated
+    licence.
+  superseded: false
+  review_due: '2027-02-01'
+- id: MEAS-001
+  title: Standards for Educational and Psychological Testing
+  authors_or_organization: American Educational Research Association; American Psychological Association; National Council
+    on Measurement in Education
+  type: professional_standard
+  publication: AERA/APA/NCME
+  publication_date: '2014'
+  url: https://www.testingstandards.net/
+  accessed_at: '2026-08-10'
+  evidence_tier: official_standard_or_guideline
+  domains:
+  - psychometrics
+  - validity
+  - reliability
+  - fairness
+  - test_use
+  currentness: Current official edition confirmed on 2026-08-10; revision activity should be monitored.
+  project_implications:
+  - Require a documented construct, intended use, population, administration mode and interpretation before enabling an assessment.
+  - Separate screening from diagnosis and require evidence for each consequential use.
+  limitations:
+  - Broad professional standard; it does not validate any particular PSYCHE OS instrument or Russian-language version.
+  rights_notes: Use the principles and citation; obtain the publication under the publisher's terms for detailed implementation.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-002
+  title: COSMIN guideline for systematic reviews of patient-reported outcome measures
+  authors_or_organization: Prinsen CAC et al.; COSMIN initiative
+  type: methodological_guideline
+  publication: Quality of Life Research 27:1147-1157
+  publication_date: 2018-05
+  url: https://doi.org/10.1007/s11136-018-1798-3
+  accessed_at: '2026-08-10'
+  evidence_tier: methodological_consensus
+  domains:
+  - psychometrics
+  - PROM
+  - validity
+  - reliability
+  - measurement_error
+  - responsiveness
+  currentness: Peer-reviewed guideline remains foundational; the current COSMIN manual and website were checked on 2026-08-10.
+  project_implications:
+  - Prioritize content validity and context of use before numerical reliability summaries.
+  - Store evidence for structural validity, reliability, measurement error, cross-cultural validity and responsiveness independently.
+  limitations:
+  - Designed for systematic reviews of PROMs and requires operational translation into product gates.
+  rights_notes: Do not bundle COSMIN manuals or scoring materials; link to the official source.
+  superseded: false
+  review_due: '2027-08-10'
+- id: MEAS-003
+  title: 'Patient-Focused Drug Development: Selecting, Developing, or Modifying Fit-for-Purpose Clinical Outcome Assessments'
+  authors_or_organization: U.S. Food and Drug Administration
+  type: regulatory_guidance
+  publication: FDA Guidance for Industry, Food and Drug Administration Staff, and Other Stakeholders
+  publication_date: 2025-10
+  url: https://www.fda.gov/regulatory-information/search-fda-guidance-documents/patient-focused-drug-development-selecting-developing-or-modifying-fit-purpose-clinical-outcome
+  accessed_at: '2026-08-10'
+  evidence_tier: official_standard_or_guideline
+  domains:
+  - clinical_outcome_assessment
+  - fit_for_purpose
+  - content_validity
+  - regulation
+  currentness: Final guidance current as checked on 2026-08-10.
+  project_implications:
+  - A familiar scale name is insufficient; intended interpretation and decision must be explicit.
+  - Modification, electronic migration or translation requires documented evaluation.
+  limitations:
+  - Regulatory context is medical product development in the United States; PSYCHE OS is not assumed to be a regulated trial
+    instrument.
+  rights_notes: Cite the official page and avoid implying FDA endorsement of PSYCHE OS.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-004
+  title: ITC Guidelines for Translating and Adapting Tests, Second Edition
+  authors_or_organization: International Test Commission
+  type: professional_guideline
+  publication: International Test Commission
+  publication_date: '2017'
+  url: https://www.intestcom.org/files/guideline_test_adaptation_2ed.pdf
+  accessed_at: '2026-08-10'
+  evidence_tier: official_standard_or_guideline
+  domains:
+  - translation
+  - test_adaptation
+  - cross_cultural_validity
+  - measurement_invariance
+  - licensing
+  currentness: Second edition remained the official ITC adaptation guideline at the 2026-08-10 check.
+  project_implications:
+  - Require permission, cultural adaptation, pilot testing and empirical equivalence for every Russian-language assessment.
+  - Label nonvalidated translations as plain user content and disable standardized scoring.
+  limitations:
+  - Provides process principles rather than validation evidence for any named Russian-language instrument.
+  rights_notes: Link rather than redistribute; obtain test-owner permission separately.
+  superseded: false
+  review_due: '2027-08-10'
+- id: MEAS-005
+  title: Principles of Good Practice for the Translation and Cultural Adaptation Process for Patient-Reported Outcomes Measures
+  authors_or_organization: Wild D et al.; ISPOR Task Force for Translation and Cultural Adaptation
+  type: task_force_report
+  publication: Value in Health 8(2):94-104
+  publication_date: 2005-03
+  url: https://pubmed.ncbi.nlm.nih.gov/15804318/
+  accessed_at: '2026-08-10'
+  evidence_tier: methodological_consensus
+  domains:
+  - translation
+  - cultural_adaptation
+  - PROM
+  - quality_assurance
+  currentness: Foundational process guidance; checked against newer ITC and FDA context on 2026-08-10.
+  project_implications:
+  - Store translation provenance, reconciliation, cognitive debriefing and version history.
+  - Do not equate linguistic fluency with measurement equivalence.
+  limitations:
+  - Consensus process is older and does not itself establish measurement invariance or responsiveness.
+  rights_notes: Do not reproduce proprietary questionnaire content.
+  superseded: false
+  review_due: '2028-08-10'
+- id: MEAS-006
+  title: Obtain and Administer PROMIS Measures
+  authors_or_organization: HealthMeasures
+  type: official_web_guidance
+  publication: HealthMeasures PROMIS
+  publication_date: n.d.; live page
+  url: https://www.healthmeasures.net/explore-measurement-systems/promis/obtain-administer-measures
+  accessed_at: '2026-08-10'
+  evidence_tier: official_standard_or_guideline
+  domains:
+  - PROMIS
+  - licensing
+  - translation
+  - administration
+  - CAT
+  currentness: Live official permissions and administration page checked on 2026-08-10.
+  project_implications:
+  - New translations require authorization and the specified translation methodology and review.
+  - Do not assume that public visibility means unrestricted modification or redistribution.
+  limitations:
+  - Operational terms can change and must be rechecked before release or localization.
+  rights_notes: Do not store or ship items until the exact permissions for use, mode and language are recorded.
+  superseded: false
+  review_due: '2026-11-10'
+- id: MEAS-007
+  title: 'Initial Adult Health Item Banks and First Wave Testing of the Patient-Reported Outcomes Measurement Information
+    System (PROMIS) Network: 2005-2008'
+  authors_or_organization: Cella D et al.; PROMIS Cooperative Group
+  type: large_validation_program
+  publication: Journal of Clinical Epidemiology 63(11):1179-1194
+  publication_date: 2010-11
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC2965562/
+  accessed_at: '2026-08-10'
+  evidence_tier: strong_primary_evidence
+  domains:
+  - PROMIS
+  - IRT
+  - item_banks
+  - CAT
+  - calibration
+  currentness: Foundational PROMIS calibration paper; current administration and permissions must be checked separately.
+  project_implications:
+  - Version item banks, parameters and score transforms.
+  - Keep general-population anchoring distinct from individual clinical interpretation.
+  limitations:
+  - Initial U.S. adult calibration does not validate every later bank, translation, population or use.
+  rights_notes: Use the scientific findings under article terms; do not infer rights to reproduce item banks.
+  superseded: false
+  review_due: '2028-08-10'
+- id: MEAS-008
+  title: Overview of Classical Test Theory and Item Response Theory for the Quantitative Assessment of Items in Developing
+    Patient-Reported Outcome Measures
+  authors_or_organization: Cappelleri JC, Lundy JJ, Hays RD
+  type: methodological_review
+  publication: Clinical Therapeutics 36(5):648-662
+  publication_date: 2014-05
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC4096146/
+  accessed_at: '2026-08-10'
+  evidence_tier: foundational_methodology
+  domains:
+  - CTT
+  - IRT
+  - item_analysis
+  - PROM
+  currentness: Foundational comparison; checked for continued methodological relevance on 2026-08-10.
+  project_implications:
+  - Do not treat alpha as sufficient evidence of validity or reliability.
+  - Require dimensionality, fit and DIF checks before IRT/CAT use.
+  limitations:
+  - Tutorial review, not a validation study or complete modern IRT implementation standard.
+  rights_notes: Methods may be summarized with citation.
+  superseded: false
+  review_due: '2029-08-10'
+- id: MEAS-009
+  title: 'Measurement Invariance Conventions and Reporting: The State of the Art and Future Directions for Psychological Research'
+  authors_or_organization: Putnick DL, Bornstein MH
+  type: methodological_review
+  publication: Developmental Review 41:71-90
+  publication_date: 2016-09
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5145197/
+  accessed_at: '2026-08-10'
+  evidence_tier: foundational_methodology
+  domains:
+  - measurement_invariance
+  - longitudinal_measurement
+  - group_comparison
+  - DIF
+  currentness: Foundational reporting synthesis; current model-specific practice should be reviewed per instrument.
+  project_implications:
+  - Store configural, metric, scalar and residual invariance evidence separately.
+  - Treat partial invariance as an explicit analytic decision with sensitivity checks.
+  limitations:
+  - Conventions are not universal pass/fail laws and depend on model, sample size and substantive context.
+  rights_notes: Use summarized methodology with attribution.
+  superseded: false
+  review_due: '2028-08-10'
+- id: MEAS-010
+  title: 'Retest effects in working memory capacity tests: A meta-analysis'
+  authors_or_organization: Scharfen J, Jansen K, Holling H
+  type: meta_analysis
+  publication: Psychonomic Bulletin & Review 25(6):2175-2199
+  publication_date: 2018-12
+  url: https://pubmed.ncbi.nlm.nih.gov/29907925/
+  accessed_at: '2026-08-10'
+  evidence_tier: systematic_review_or_meta_analysis
+  domains:
+  - retest_effect
+  - practice_effect
+  - cognitive_measurement
+  - longitudinal_change
+  currentness: Relevant meta-analysis checked on 2026-08-10.
+  project_implications:
+  - Record administration count, interval and alternate form.
+  - Do not apply the reported pooled effect as a universal correction for unrelated tests.
+  limitations:
+  - Covers working-memory-capacity tests in mostly healthy samples; effects vary by paradigm and interval.
+  rights_notes: Cite summary statistics without reproducing the article.
+  superseded: false
+  review_due: '2028-08-10'
+- id: MEAS-011
+  title: Permissions, Licensing, and Reprints
+  authors_or_organization: American Psychological Association
+  type: official_rights_guidance
+  publication: American Psychological Association
+  publication_date: n.d.; live page
+  url: https://www.apa.org/about/contact/copyright/
+  accessed_at: '2026-08-10'
+  evidence_tier: official_standard_or_guideline
+  domains:
+  - copyright
+  - licensing
+  - tests
+  - scales
+  - permissions
+  currentness: Live APA rights page checked on 2026-08-10.
+  project_implications:
+  - Use a deny-by-default rights gate before storing or presenting assessment content.
+  - Document author or rights-holder permission rather than relying on discoverability online.
+  limitations:
+  - APA guidance covers APA-owned content and general permission routing, not every third-party test.
+  rights_notes: Link to the policy and contact the relevant rights holder for every instrument.
+  superseded: false
+  review_due: '2026-11-10'
+- id: MEAS-012
+  title: International Classification of Sleep Disorders, Third Edition, Text Revision (ICSD-3-TR)
+  authors_or_organization: American Academy of Sleep Medicine
+  type: clinical_classification
+  publication: American Academy of Sleep Medicine
+  publication_date: '2023'
+  url: https://aasm.org/clinical-resources/international-classification-sleep-disorders/
+  accessed_at: '2026-08-10'
+  evidence_tier: official_standard_or_guideline
+  domains:
+  - sleep_medicine
+  - classification
+  - diagnosis
+  - ICSD_3_TR
+  currentness: Current AASM classification edition confirmed on 2026-08-10.
+  project_implications:
+  - Route suspected sleep disorders to clinical assessment rather than inferring a diagnosis from diary or wearable data.
+  - Keep classification version in provenance.
+  limitations:
+  - Classification and diagnostic criteria require clinical context and are not validation evidence for consumer sensors.
+  rights_notes: Do not reproduce criteria or tables; AASM controls translation and reuse permissions.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-013
+  title: 'Behavioral and psychological treatments for chronic insomnia disorder in adults: an American Academy of Sleep Medicine
+    clinical practice guideline'
+  authors_or_organization: Edinger JD et al.; American Academy of Sleep Medicine
+  type: clinical_practice_guideline
+  publication: Journal of Clinical Sleep Medicine 17(2):255-262
+  publication_date: '2021-02-01'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC7853203/
+  accessed_at: '2026-08-10'
+  evidence_tier: official_standard_or_guideline
+  domains:
+  - insomnia
+  - CBT_I
+  - behavioral_treatment
+  - self_help_boundary
+  currentness: Current AASM behavioral-treatment guideline at the 2026-08-10 check.
+  project_implications:
+  - A full CBT-I pathway needs eligibility, exclusions, monitoring and escalation.
+  - Sleep hygiene must not be represented as a stand-alone treatment for chronic insomnia.
+  limitations:
+  - Adult chronic-insomnia guideline; it does not cover every comorbidity, age group or autonomous app implementation.
+  rights_notes: Do not copy proprietary treatment materials or imply AASM endorsement.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-014
+  title: 'The Consensus Sleep Diary: Standardizing Prospective Sleep Self-Monitoring'
+  authors_or_organization: Carney CE, Buysse DJ, Ancoli-Israel S, Edinger JD, Krystal AD, Lichstein KL, Morin CM
+  type: expert_consensus_measure
+  publication: Sleep 35(2):287-302
+  publication_date: '2012-02-01'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC3250369/
+  accessed_at: '2026-08-10'
+  evidence_tier: methodological_consensus
+  domains:
+  - sleep_diary
+  - insomnia
+  - prospective_measurement
+  - self_report
+  currentness: Widely used consensus foundation; later validation and rights must be checked for the exact implementation.
+  project_implications:
+  - Store raw diary responses separately from calculated time-in-bed, total sleep time and efficiency.
+  - Preserve completion time to detect retrospective or late entry.
+  limitations:
+  - The original article described the diary as a living document requiring continued testing and refinement.
+  rights_notes: Do not assume article access grants unrestricted commercial reuse of diary items.
+  superseded: false
+  review_due: '2027-08-10'
+- id: MEAS-015
+  title: 'Use of Actigraphy for the Evaluation of Sleep Disorders and Circadian Rhythm Sleep-Wake Disorders: An American Academy
+    of Sleep Medicine Clinical Practice Guideline'
+  authors_or_organization: Smith MT et al.; American Academy of Sleep Medicine
+  type: clinical_practice_guideline
+  publication: Journal of Clinical Sleep Medicine 14(7):1231-1237
+  publication_date: '2018-07-15'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC6040807/
+  accessed_at: '2026-08-10'
+  evidence_tier: official_standard_or_guideline
+  domains:
+  - actigraphy
+  - sleep_medicine
+  - circadian_rhythm
+  - measurement_limits
+  currentness: Current AASM actigraphy guideline at the 2026-08-10 check.
+  project_implications:
+  - Label device class and guideline-supported context.
+  - Do not merge research actigraphy with consumer-wearable estimates.
+  limitations:
+  - Most recommendations are conditional and evidence varies by indication and device.
+  rights_notes: Summarize recommendations without reproducing restricted material.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-016
+  title: Clinical Practice Guideline for Diagnostic Testing for Adult Obstructive Sleep Apnea
+  authors_or_organization: Kapur VK et al.; American Academy of Sleep Medicine
+  type: clinical_practice_guideline
+  publication: Journal of Clinical Sleep Medicine 13(3):479-504
+  publication_date: '2017-03-15'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5337595/
+  accessed_at: '2026-08-10'
+  evidence_tier: official_standard_or_guideline
+  domains:
+  - obstructive_sleep_apnea
+  - PSG
+  - HSAT
+  - diagnostic_boundary
+  currentness: Current AASM adult OSA diagnostic-testing guideline at the 2026-08-10 check.
+  project_implications:
+  - PSG remains the standard diagnostic test when OSA is suspected after clinical evaluation.
+  - HSAT belongs to a clinical pathway for appropriate uncomplicated adults.
+  limitations:
+  - Adult OSA diagnostic testing only; individual clinical decisions require a qualified clinician.
+  rights_notes: Do not translate guideline criteria into an autonomous diagnostic feature.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-017
+  title: World Sleep Society recommendations for the use of wearable consumer health trackers that monitor sleep
+  authors_or_organization: Chee MWL et al.; World Sleep Society Sleep Tracker Task Force
+  type: international_recommendations
+  publication: Sleep Medicine 131:106506
+  publication_date: 2025-07
+  url: https://pubmed.ncbi.nlm.nih.gov/40300398/
+  accessed_at: '2026-08-10'
+  evidence_tier: expert_consensus_or_position
+  domains:
+  - consumer_wearables
+  - sleep_tracking
+  - standards
+  - clinical_boundary
+  - algorithm_transparency
+  currentness: Recent international recommendations current as checked on 2026-08-10.
+  project_implications:
+  - Select devices by intended use and validation population.
+  - Expose limitations and avoid using consumer metrics as primary diagnostic evidence.
+  limitations:
+  - Expert recommendations in a rapidly changing market; several authors reported industry relationships.
+  rights_notes: Do not reproduce tables or recommendations text beyond licensed use.
+  superseded: false
+  review_due: '2026-11-10'
+- id: MEAS-018
+  title: 'Performance of consumer wrist-worn sleep tracking devices compared to polysomnography: a meta-analysis'
+  authors_or_organization: Lee YJ, Lee JY, Cho JH, Kang YJ, Choi JH
+  type: meta_analysis
+  publication: Journal of Clinical Sleep Medicine 21(3):573-582
+  publication_date: '2025-03-01'
+  url: https://pubmed.ncbi.nlm.nih.gov/39484805/
+  accessed_at: '2026-08-10'
+  evidence_tier: systematic_review_or_meta_analysis
+  domains:
+  - consumer_wearables
+  - polysomnography
+  - sleep_validity
+  - meta_analysis
+  currentness: Search covered evidence through March 2024; article remained a recent meta-analysis at the 2026-08-10 check.
+  project_implications:
+  - Use only stable-version general trends with device-specific uncertainty.
+  - Preserve model and algorithm epoch because results are heterogeneous across devices and populations.
+  limitations:
+  - Twenty-four studies and 798 participants, heterogeneous devices/populations, English-language restriction and limited
+    sleep-staging evaluation.
+  rights_notes: Use pooled findings with device and heterogeneity caveats.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-019
+  title: Investigation of wearable health tracker version updates
+  authors_or_organization: Woolley SI, Collins T, Mitchell J, Fredericks D
+  type: empirical_methodology_study
+  publication: BMJ Health & Care Informatics 26(1):e100083
+  publication_date: '2019-10-09'
+  url: https://doi.org/10.1136/bmjhci-2019-100083
+  accessed_at: '2026-08-10'
+  evidence_tier: strong_primary_evidence
+  domains:
+  - wearables
+  - algorithm_drift
+  - firmware
+  - validation
+  - provenance
+  currentness: Older device sample but the versioning failure mode remains current and was checked against 2025 recommendations.
+  project_implications:
+  - Unknown version means unknown comparability.
+  - Store changelog evidence but do not rely on manufacturer completeness.
+  limitations:
+  - Exploratory changelog study of a limited set of trackers; it cannot quantify drift for every metric.
+  rights_notes: Attribute data and do not generalize exact percentages to all current manufacturers.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-020
+  title: 'Wearable technologies for developing sleep and circadian biomarkers: a summary of workshop discussions'
+  authors_or_organization: Depner CM, Cheng PC, Devine JK, Khosla S, de Zambotti M, Robillard R, Vakulin A, Drummond SPA
+  type: expert_workshop_report
+  publication: Sleep 43(2):zsz254
+  publication_date: 2020-02
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC7368340/
+  accessed_at: '2026-08-10'
+  evidence_tier: expert_consensus_or_position
+  domains:
+  - sleep
+  - circadian
+  - wearables
+  - biomarker_validation
+  - algorithm_drift
+  currentness: Workshop conclusions remain relevant and were checked against 2025 WSS guidance.
+  project_implications:
+  - No single overall device-performance label is sufficient.
+  - Model, firmware and algorithm changes can invalidate prior validation.
+  limitations:
+  - Expert workshop summary rather than a formal systematic review; the device market changes quickly.
+  rights_notes: Use the principles without reproducing figures or proprietary device information.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-021
+  title: 'Orthosomnia: Are Some Patients Taking the Quantified Self Too Far?'
+  authors_or_organization: Baron KG, Abbott S, Jao N, Manalo N, Mullen R
+  type: clinical_case_series
+  publication: Journal of Clinical Sleep Medicine 13(2):351-354
+  publication_date: '2017-02-15'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5263088/
+  accessed_at: '2026-08-10'
+  evidence_tier: expert_consensus_or_position
+  domains:
+  - orthosomnia
+  - measurement_reactivity
+  - consumer_trackers
+  - harms
+  currentness: Seminal case report remains clinically relevant; orthosomnia is not treated as a formal diagnosis.
+  project_implications:
+  - Do not optimize for perfect proprietary sleep scores.
+  - Label orthosomnia as a descriptive concern, not a diagnosis.
+  limitations:
+  - Small clinical case series; cannot estimate prevalence or causal risk.
+  rights_notes: Do not overstate a coined descriptive term as a validated disorder.
+  superseded: false
+  review_due: '2028-08-10'
+- id: MEAS-022
+  title: Ecological Momentary Assessment
+  authors_or_organization: Shiffman S, Stone AA, Hufford MR
+  type: foundational_review
+  publication: Annual Review of Clinical Psychology 4:1-32
+  publication_date: '2008'
+  url: https://pubmed.ncbi.nlm.nih.gov/18509902/
+  accessed_at: '2026-08-10'
+  evidence_tier: foundational_methodology
+  domains:
+  - EMA
+  - ESM
+  - recall_bias
+  - sampling
+  - ecological_validity
+  currentness: Foundational EMA review; current protocol guidance was checked through the 2026 Open Handbook.
+  project_implications:
+  - Distinguish signal-, interval- and event-contingent data.
+  - Store actual timestamps and response latency.
+  limitations:
+  - Predates modern smartphone ecosystems, adaptive EMA and contemporary privacy constraints.
+  rights_notes: Summarize methods with attribution.
+  superseded: false
+  review_due: '2029-08-10'
+- id: MEAS-023
+  title: 'Ecological Momentary Assessment: A Meta-Analysis on Designs, Samples, and Compliance Across Research Fields'
+  authors_or_organization: Wrzus C, Neubauer AB
+  type: meta_analysis
+  publication: Assessment 30(3):825-846
+  publication_date: 2023-04
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC9999286/
+  accessed_at: '2026-08-10'
+  evidence_tier: systematic_review_or_meta_analysis
+  domains:
+  - EMA
+  - compliance
+  - dropout
+  - study_design
+  - reactivity
+  currentness: Large recent meta-analysis; evidence base covered studies available before publication.
+  project_implications:
+  - Treat compliance and dropout as data-quality outcomes.
+  - Measure reactivity because most reviewed studies did not test it.
+  limitations:
+  - Extreme heterogeneity in designs and reporting; aggregate compliance cannot prescribe an individual protocol.
+  rights_notes: Check license compatibility for any reuse beyond citation and synthesis.
+  superseded: false
+  review_due: '2027-08-10'
+- id: MEAS-024
+  title: A systematic review and meta-analysis of studies of reactivity to digital in-the-moment measurement of health behaviour
+  authors_or_organization: König LM, Allmeta A, Christlein N, Van Emmenis M, Sutton S
+  type: systematic_review_and_meta_analysis
+  publication: Health Psychology Review 16(4):551-575
+  publication_date: 2022-12
+  url: https://pubmed.ncbi.nlm.nih.gov/35264084/
+  accessed_at: '2026-08-10'
+  evidence_tier: systematic_review_or_meta_analysis
+  domains:
+  - EMA
+  - measurement_reactivity
+  - health_behavior
+  - self_monitoring
+  currentness: Recent synthesis checked on 2026-08-10.
+  project_implications:
+  - Separate measurement from feedback and coaching exposure.
+  - Stop or reduce monitoring when it plausibly causes harm or compulsive use.
+  limitations:
+  - Only seven studies entered the quantitative synthesis and most evidence concerned physical activity.
+  rights_notes: Do not generalize pooled effects to unstudied psychological outcomes.
+  superseded: false
+  review_due: '2027-08-10'
+- id: MEAS-025
+  title: The Open Handbook of Experience Sampling Methodology, Third Edition
+  authors_or_organization: Myin-Germeys I, Kuppens P, editors
+  type: open_methodological_handbook
+  publication: Leuven University Press
+  publication_date: '2026-04-22'
+  url: https://lup.be/book/the-open-handbook-of-experience-sampling-methodology-third-edition/
+  accessed_at: '2026-08-10'
+  evidence_tier: methodological_consensus
+  domains:
+  - EMA
+  - ESM
+  - design
+  - burden
+  - reactivity
+  - analysis
+  - privacy
+  currentness: Current third edition published in 2026 and checked on 2026-08-10.
+  project_implications:
+  - Tie prompt frequency and study duration to the process being measured.
+  - Plan data-quality and analysis decisions before collection.
+  limitations:
+  - Multi-author handbook provides broad guidance; instrument- and population-specific validation is still required.
+  rights_notes: Cite the relevant chapter when implementing detailed methods.
+  superseded: false
+  review_due: '2027-08-10'
+- id: MEAS-026
+  title: Just-in-time adaptive ecological momentary assessment (JITA-EMA)
+  authors_or_organization: Schneider S, Junghaenel DU, Smyth JM, Wen CKF, Stone AA
+  type: methodological_and_simulation_study
+  publication: Behavior Research Methods 56(2):765-783
+  publication_date: 2024-02
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC10450096/
+  accessed_at: '2026-08-10'
+  evidence_tier: emerging_synthesis
+  domains:
+  - JITA_EMA
+  - adaptive_assessment
+  - IRT
+  - CAT
+  - burden
+  currentness: Recent methodological proposal; guidance remains limited and implementation is research-stage.
+  project_implications:
+  - Do not use LLM-generated items or free-form stopping.
+  - Record changing sampling probabilities for analysis.
+  limitations:
+  - Primarily conceptual and simulation-based; empirical guidance for many decisions is limited.
+  rights_notes: Implementation requires independent validation; the method is not a turnkey clinical tool.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-027
+  title: 'Compliance With Mobile Ecological Momentary Assessment of Self-Reported Health-Related Behaviors and Psychological
+    Constructs in Adults: Systematic Review and Meta-analysis'
+  authors_or_organization: Williams MT, Lewthwaite H, Fraysse F, Gajewska A, Ignatavicius J, Ferrar K
+  type: systematic_review_and_meta_analysis
+  publication: Journal of Medical Internet Research 23(3):e17023
+  publication_date: '2021-03-03'
+  url: https://www.jmir.org/2021/3/e17023/
+  accessed_at: '2026-08-10'
+  evidence_tier: systematic_review_or_meta_analysis
+  domains:
+  - mobile_EMA
+  - compliance
+  - burden
+  - reporting
+  - missingness
+  currentness: Relevant synthesis checked on 2026-08-10 and supplemented by newer meta-analysis and handbook sources.
+  project_implications:
+  - Do not moralize missing EMA responses.
+  - Pilot and adapt burden using observed latency and skip patterns.
+  limitations:
+  - High heterogeneity and inconsistent protocol and compliance reporting limit causal conclusions about design features.
+  rights_notes: Attribution and license notice are required for reuse.
+  superseded: false
+  review_due: '2027-08-10'
+- id: MEAS-028
+  title: 'From smartphone data to clinically relevant predictions: A systematic review of digital phenotyping methods in depression'
+  authors_or_organization: Leaning IE, Ikani N, Savage HS, Leow A, Beckmann C, Ruhé HG, Marquand AF
+  type: systematic_review
+  publication: Neuroscience & Biobehavioral Reviews 158:105541
+  publication_date: 2024-03
+  url: https://pubmed.ncbi.nlm.nih.gov/38215802/
+  accessed_at: '2026-08-10'
+  evidence_tier: systematic_review_or_meta_analysis
+  domains:
+  - digital_phenotyping
+  - depression
+  - smartphone
+  - prediction
+  - external_validation
+  currentness: Search through 2023-11-10; recent review checked against 2025-2026 standardization reviews.
+  project_implications:
+  - Missing and complex data are part of model risk.
+  - Moderate model performance without clinical utility is insufficient for alerts.
+  limitations:
+  - Twenty-four heterogeneous studies focused on MDD and often lacked external validation.
+  rights_notes: Do not reuse figures or proprietary model details without checking the license.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-029
+  title: Systematic review of smartphone-based passive sensing for health and wellbeing
+  authors_or_organization: Cornet VP, Holden RJ
+  type: systematic_review
+  publication: Journal of Biomedical Informatics 77:120-132
+  publication_date: 2018-01
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5793918/
+  accessed_at: '2026-08-10'
+  evidence_tier: systematic_review_or_meta_analysis
+  domains:
+  - passive_sensing
+  - smartphone
+  - privacy
+  - clinical_integration
+  - feasibility
+  currentness: Historical baseline for field weaknesses; current conclusions were triangulated with 2024-2026 reviews.
+  project_implications:
+  - Do not infer maturity from feasibility studies with small samples.
+  - Sharing sensed data back to users must be inspectable and correctable.
+  limitations:
+  - Early evidence base of 35 studies with median sample size 15 and rapidly outdated hardware/software.
+  rights_notes: Use primarily as historical evidence of recurring methodological and privacy gaps.
+  superseded: false
+  review_due: '2028-08-10'
+- id: MEAS-030
+  title: Challenges and standardisation strategies for sensor-based data collection for digital phenotyping
+  authors_or_organization: Alam NB, Surani M, Das CK, Giacco D, Singh SP, Jilka S
+  type: perspective_and_methodological_synthesis
+  publication: Communications Medicine 5
+  publication_date: 2025-08
+  url: https://www.nature.com/articles/s43856-025-01013-3
+  accessed_at: '2026-08-10'
+  evidence_tier: emerging_synthesis
+  domains:
+  - digital_phenotyping
+  - standardization
+  - interoperability
+  - equity
+  - sensor_data
+  currentness: Recent perspective current as checked on 2026-08-10.
+  project_implications:
+  - Require cross-platform interoperability and quality metrics.
+  - Include cultural, usability and equity review.
+  limitations:
+  - Perspective rather than quantitative systematic review or clinical impact trial.
+  rights_notes: Attribute authors and license when reusing content.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-031
+  title: 'Digital phenotyping for mental health conditions: a systematic review of implementation and application'
+  authors_or_organization: Alam NB, Haque T, Subedar S, Giacco D, Singh SP, Jilka S
+  type: systematic_review
+  publication: Frontiers in Digital Health 8:1772744
+  publication_date: '2026-07-09'
+  url: https://www.frontiersin.org/journals/digital-health/articles/10.3389/fdgth.2026.1772744/full
+  accessed_at: '2026-08-10'
+  evidence_tier: systematic_review_or_meta_analysis
+  domains:
+  - digital_phenotyping
+  - mental_health
+  - implementation
+  - heterogeneity
+  - reproducibility
+  currentness: Published one month before the evidence cutoff; search covered studies through June 2025.
+  project_implications:
+  - Store device, platform, preprocessing, feature extraction and model provenance.
+  - Do not claim cross-diagnosis or cross-country generalizability from fragmented evidence.
+  limitations:
+  - Narrative synthesis of 47 heterogeneous studies; no pooled clinical-effect estimate and evidence concentrated in selected
+    settings.
+  rights_notes: Reuse requires attribution and compliance with the article license.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-032
+  title: The Disaggregation of Within-Person and Between-Person Effects in Longitudinal Models of Change
+  authors_or_organization: Curran PJ, Bauer DJ
+  type: methodological_review
+  publication: Annual Review of Psychology 62:583-619
+  publication_date: '2011'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC3059070/
+  accessed_at: '2026-08-10'
+  evidence_tier: foundational_methodology
+  domains:
+  - longitudinal_models
+  - within_person
+  - between_person
+  - centering
+  - idiographic
+  currentness: Foundational methodological distinction remains current.
+  project_implications:
+  - Do not use a group-level coefficient as a personal rule.
+  - Choose centering and decomposition to match the estimand.
+  limitations:
+  - Methodological review does not prescribe one model for all intensive longitudinal data.
+  rights_notes: Summarize methods with attribution.
+  superseded: false
+  review_due: '2029-08-10'
+- id: MEAS-033
+  title: Lack of group-to-individual generalizability is a threat to human subjects research
+  authors_or_organization: Fisher AJ, Medaglia JD, Jeronimus BF
+  type: empirical_methodological_analysis
+  publication: Proceedings of the National Academy of Sciences 115(27):E6106-E6115
+  publication_date: '2018-07-03'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC6142277/
+  accessed_at: '2026-08-10'
+  evidence_tier: foundational_methodology
+  domains:
+  - group_to_individual
+  - idiographic
+  - ergodicity
+  - personalization
+  currentness: Seminal warning remains current and is consistent with later idiographic methodology.
+  project_implications:
+  - Display the scope of every model estimate.
+  - Do not call group-derived associations a person's mechanism.
+  limitations:
+  - Illustrative datasets and ergodic arguments do not imply that all population evidence is useless for individuals.
+  rights_notes: Avoid overextending the paper into a blanket rejection of group research.
+  superseded: false
+  review_due: '2028-08-10'
+- id: MEAS-034
+  title: A critique of the cross-lagged panel model
+  authors_or_organization: Hamaker EL, Kuiper RM, Grasman RPPP
+  type: methodological_article
+  publication: Psychological Methods 20(1):102-116
+  publication_date: 2015-03
+  url: https://doi.org/10.1037/a0038889
+  accessed_at: '2026-08-10'
+  evidence_tier: foundational_methodology
+  domains:
+  - cross_lagged_panel
+  - within_person
+  - between_person
+  - causal_inference
+  - longitudinal
+  currentness: Foundational critique remains current; later model variants do not remove the need to match estimand and assumptions.
+  project_implications:
+  - Separate stable between-person differences from within-person fluctuations.
+  - Treat lag selection and temporal spacing as substantive assumptions.
+  limitations:
+  - Critique targets the traditional CLPM; alternative models have their own assumptions and data demands.
+  rights_notes: Do not reproduce the article without permission.
+  superseded: false
+  review_due: '2029-08-10'
+- id: MEAS-035
+  title: 'Regression to the mean: what it is and how to deal with it'
+  authors_or_organization: Barnett AG, van der Pols JC, Dobson AJ
+  type: methodological_tutorial
+  publication: International Journal of Epidemiology 34(1):215-220
+  publication_date: 2005-02
+  url: https://doi.org/10.1093/ije/dyh299
+  accessed_at: '2026-08-10'
+  evidence_tier: foundational_methodology
+  domains:
+  - regression_to_mean
+  - baseline
+  - before_after
+  - causal_inference
+  currentness: Foundational statistical principle remains current.
+  project_implications:
+  - Prefer repeated baseline and counterfactual designs.
+  - Never equate pre-post change with intervention effect.
+  limitations:
+  - General tutorial; the magnitude of regression to the mean is application-specific.
+  rights_notes: Use the statistical principle with citation.
+  superseded: false
+  review_due: '2030-08-10'
+- id: MEAS-036
+  title: The Prevention and Treatment of Missing Data in Clinical Trials
+  authors_or_organization: National Research Council, Panel on Handling Missing Data in Clinical Trials
+  type: national_academies_consensus_report
+  publication: National Academies Press
+  publication_date: '2010'
+  url: https://www.nationalacademies.org/publications/12955
+  accessed_at: '2026-08-10'
+  evidence_tier: methodological_consensus
+  domains:
+  - missing_data
+  - prevention
+  - sensitivity_analysis
+  - clinical_trials
+  - longitudinal
+  currentness: Foundational consensus; current missing-data methods should supplement it for each analysis.
+  project_implications:
+  - Do not default to LOCF or complete-case analysis.
+  - Separate technical missingness from participant nonresponse and unavailable measurement opportunity.
+  limitations:
+  - Focused on clinical trials rather than every EMA or passive-sensing design.
+  rights_notes: Cite the report; do not redistribute the book outside its license.
+  superseded: false
+  review_due: '2028-08-10'
+- id: MEAS-037
+  title: 'The ASA Statement on p-Values: Context, Process, and Purpose'
+  authors_or_organization: Wasserstein RL, Lazar NA; American Statistical Association
+  type: professional_statement
+  publication: The American Statistician 70(2):129-133
+  publication_date: '2016'
+  url: https://doi.org/10.1080/00031305.2016.1154108
+  accessed_at: '2026-08-10'
+  evidence_tier: official_standard_or_guideline
+  domains:
+  - p_values
+  - multiplicity
+  - statistical_inference
+  - selective_reporting
+  currentness: ASA statement remains current as a foundational constraint on p-value interpretation.
+  project_implications:
+  - Predefine hypothesis families across outcomes, lags, windows and subgroups.
+  - Label exploratory analyses and prevent selective causal language.
+  limitations:
+  - General statement; it does not select the correct multiplicity procedure for a specific design.
+  rights_notes: Do not reproduce the full statement without checking permissions.
+  superseded: false
+  review_due: '2029-08-10'
+- id: MEAS-038
+  title: 'Causal Inference: What If'
+  authors_or_organization: Hernán MA, Robins JM
+  type: open_methodological_textbook
+  publication: Chapman & Hall/CRC; online edition
+  publication_date: 2020; living online edition
+  url: https://miguelhernan.org/whatifbook
+  accessed_at: '2026-08-10'
+  evidence_tier: foundational_methodology
+  domains:
+  - causal_inference
+  - counterfactuals
+  - longitudinal_data
+  - confounding
+  - estimands
+  currentness: Official online book checked on 2026-08-10 for current version availability.
+  project_implications:
+  - Temporal precedence alone is not causality.
+  - Expose exchangeability, consistency and positivity assumptions and their likely violations.
+  limitations:
+  - Textbook examples do not validate a causal model for PSYCHE OS observational data.
+  rights_notes: Link to the official version and cite chapters used.
+  superseded: false
+  review_due: '2027-08-10'
+- id: MEAS-039
+  title: 'Interrupted time series regression for the evaluation of public health interventions: a tutorial'
+  authors_or_organization: Bernal JL, Cummins S, Gasparrini A
+  type: methodological_tutorial
+  publication: International Journal of Epidemiology 46(1):348-355
+  publication_date: '2017-02-01'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5407170/
+  accessed_at: '2026-08-10'
+  evidence_tier: foundational_methodology
+  domains:
+  - interrupted_time_series
+  - quasi_experiment
+  - autocorrelation
+  - seasonality
+  - causal_inference
+  currentness: Foundational tutorial remains relevant; modern ITS extensions may be needed for complex cases.
+  project_implications:
+  - Require sufficient observations before and after the interruption.
+  - Record intervention timing and other time-varying changes.
+  limitations:
+  - Tutorial examples are population-level public-health series and require adaptation for an individual series.
+  rights_notes: Use code or figures only under the article license and with attribution.
+  superseded: false
+  review_due: '2028-08-10'
+- id: MEAS-040
+  title: CONSORT extension for reporting N-of-1 trials (CENT) 2015 Statement
+  authors_or_organization: Vohra S et al.; CENT Group
+  type: reporting_guideline
+  publication: BMJ 350:h1738
+  publication_date: '2015-05-14'
+  url: https://www.bmj.com/content/350/bmj.h1738
+  accessed_at: '2026-08-10'
+  evidence_tier: methodological_consensus
+  domains:
+  - N_of_1
+  - CONSORT
+  - crossover
+  - reporting
+  - individual_treatment_effect
+  currentness: CENT remains the specific N-of-1 reporting extension; CONSORT 2025 was checked for generic updates.
+  project_implications:
+  - Report periods, sequence, carryover, adherence, harms and individual effect precision.
+  - Do not generalize an individual result to other people.
+  limitations:
+  - Reporting guideline does not itself make a design safe, unbiased or adequately powered.
+  rights_notes: Noncommercial reuse and attribution conditions apply.
+  superseded: false
+  review_due: '2027-08-10'
+- id: MEAS-041
+  title: 'SPIRIT extension and elaboration for n-of-1 trials: SPENT 2019 checklist'
+  authors_or_organization: Porcino AJ et al.; SPENT Group
+  type: protocol_guideline
+  publication: BMJ 368:m122
+  publication_date: '2020-02-28'
+  url: https://www.bmj.com/content/368/bmj.m122
+  accessed_at: '2026-08-10'
+  evidence_tier: methodological_consensus
+  domains:
+  - N_of_1
+  - SPIRIT
+  - protocol
+  - ethics
+  - harms
+  currentness: Current specific protocol extension at the 2026-08-10 check.
+  project_implications:
+  - Specify eligibility, outcomes, periods, randomization, carryover, missingness and stopping.
+  - Document whether the activity is research and what oversight applies.
+  limitations:
+  - Checklist improves protocol completeness but does not establish intervention efficacy or user eligibility.
+  rights_notes: Reuse the checklist only within license terms and with attribution.
+  superseded: false
+  review_due: '2027-08-10'
+- id: MEAS-042
+  title: The Single-Case Reporting Guideline In BEhavioural Interventions (SCRIBE) 2016 Statement
+  authors_or_organization: Tate RL et al.; SCRIBE Group
+  type: reporting_guideline
+  publication: Archives of Scientific Psychology 4(1):1-9; simultaneous publication in multiple journals
+  publication_date: '2016'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC5214372/
+  accessed_at: '2026-08-10'
+  evidence_tier: methodological_consensus
+  domains:
+  - single_case_design
+  - behavioral_intervention
+  - reporting
+  - replication
+  currentness: SCRIBE remains the principal single-case behavioral-intervention reporting guideline.
+  project_implications:
+  - Differentiate observational tracking, AB, reversal, multiple-baseline and randomized designs.
+  - Preserve all phases and deviations rather than publishing only a smoothed graph.
+  limitations:
+  - Reporting guidance spans diverse single-case designs and does not guarantee causal identification.
+  rights_notes: Attribute the SCRIBE Group and the chosen publication version.
+  superseded: false
+  review_due: '2028-08-10'
+- id: MEAS-043
+  title: 'Design and Implementation of N-of-1 Trials: A User''s Guide — Statistical Design and Analytic Considerations'
+  authors_or_organization: Agency for Healthcare Research and Quality
+  type: government_methodological_guide
+  publication: AHRQ Effective Health Care Program
+  publication_date: '2014'
+  url: https://effectivehealthcare.ahrq.gov/products/n-1-trials/research-2014-1
+  accessed_at: '2026-08-10'
+  evidence_tier: methodological_consensus
+  domains:
+  - N_of_1
+  - autocorrelation
+  - statistical_design
+  - carryover
+  - individual_effect
+  currentness: Foundational AHRQ guide remains useful; current reporting guidance was checked separately.
+  project_implications:
+  - Plan period length, repetitions and analysis together.
+  - Use uncertainty intervals and sensitivity analyses for individual effects.
+  limitations:
+  - Guide predates newer reporting updates and cannot determine safety of a proposed intervention.
+  rights_notes: Cite AHRQ and verify any reproduced tables or figures.
+  superseded: false
+  review_due: '2028-08-10'
+- id: MEAS-044
+  title: Evidence standards framework for digital health technologies
+  authors_or_organization: National Institute for Health and Care Excellence
+  type: health_technology_evidence_framework
+  publication: NICE Corporate Document ECD7
+  publication_date: 2018-12-10; updated 2022-08-09
+  url: https://www.nice.org.uk/corporate/ecd7
+  accessed_at: '2026-08-10'
+  evidence_tier: official_standard_or_guideline
+  domains:
+  - digital_health
+  - evidence_standards
+  - risk_tiers
+  - adaptive_algorithms
+  - clinical_utility
+  currentness: Official NICE framework, last updated 2022-08-09 and checked on 2026-08-10.
+  project_implications:
+  - Do not use one evidence threshold for journaling, prediction and treatment functions.
+  - Treat an adaptive-algorithm update as a new evidence and monitoring event.
+  limitations:
+  - UK health and social care framework; it is not a substitute for jurisdiction-specific regulation or clinical guidelines.
+  rights_notes: Cite the official framework and do not imply NICE approval of PSYCHE OS.
+  superseded: false
+  review_due: '2026-11-10'
+- id: MEAS-045
+  title: 'Better reporting of interventions: template for intervention description and replication (TIDieR) checklist and
+    guide'
+  authors_or_organization: Hoffmann TC et al.; TIDieR Group
+  type: reporting_guideline
+  publication: BMJ 348:g1687
+  publication_date: '2014-03-07'
+  url: https://www.bmj.com/content/348/bmj.g1687
+  accessed_at: '2026-08-10'
+  evidence_tier: methodological_consensus
+  domains:
+  - intervention_registry
+  - TIDieR
+  - replicability
+  - fidelity
+  - adaptation
+  currentness: TIDieR remains a core intervention-description guideline at the 2026-08-10 check.
+  project_implications:
+  - A named intervention without sufficient description is not reproducible.
+  - Version any product-specific adaptation separately from the source intervention.
+  limitations:
+  - Reporting checklist does not establish efficacy, safety or suitability for self-help.
+  rights_notes: Checklist reuse must follow the article license and attribution requirements.
+  superseded: false
+  review_due: '2028-08-10'
+- id: MEAS-046
+  title: GRADE Book
+  authors_or_organization: GRADE Working Group
+  type: living_methodological_book
+  publication: GRADEpro / GRADE Working Group
+  publication_date: living resource; accessed 2026-08-10
+  url: https://book.gradepro.org/
+  accessed_at: '2026-08-10'
+  evidence_tier: methodological_consensus
+  domains:
+  - GRADE
+  - certainty_of_evidence
+  - evidence_to_decision
+  - interventions
+  currentness: Current living GRADE Book checked on 2026-08-10.
+  project_implications:
+  - Use transparent evidence-to-decision criteria for intervention admission.
+  - Do not turn a statistically significant effect into high certainty automatically.
+  limitations:
+  - GRADE requires trained judgment and does not eliminate disagreement or context dependence.
+  rights_notes: Link to the living book and cite specific sections; do not copy protected content wholesale.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-047
+  title: 'CONSORT Harms 2022 statement, explanation, and elaboration: updated guideline for the reporting of harms in randomised
+    trials'
+  authors_or_organization: Junqueira DR et al.; CONSORT Harms Group
+  type: reporting_guideline
+  publication: BMJ 381:e073725
+  publication_date: '2023-04-24'
+  url: https://www.bmj.com/content/381/bmj-2022-073725
+  accessed_at: '2026-08-10'
+  evidence_tier: methodological_consensus
+  domains:
+  - harms
+  - adverse_events
+  - interventions
+  - reporting
+  - safety
+  currentness: Current harms extension checked on 2026-08-10.
+  project_implications:
+  - Absence of reported harm is not evidence of no harm.
+  - Track withdrawals, burden and unintended effects as well as serious adverse events.
+  limitations:
+  - Reporting guideline for randomized trials; self-help monitoring needs additional real-world safety governance.
+  rights_notes: Noncommercial reuse and attribution conditions apply.
+  superseded: false
+  review_due: '2027-08-10'
+- id: MEAS-048
+  title: 'Depression in adults: treatment and management'
+  authors_or_organization: National Institute for Health and Care Excellence
+  type: clinical_guideline
+  publication: NICE Guideline NG222
+  publication_date: '2022-06-29'
+  url: https://www.nice.org.uk/guidance/ng222/chapter/Recommendations
+  accessed_at: '2026-08-10'
+  evidence_tier: official_standard_or_guideline
+  domains:
+  - depression
+  - guided_self_help
+  - shared_decision_making
+  - risk
+  - clinician_boundary
+  currentness: Official NICE guideline current as checked on 2026-08-10.
+  project_implications:
+  - Guided self-help is not equivalent to autonomous treatment for all severity or risk levels.
+  - Suicide/self-harm risk and complex or severe presentations require professional assessment and safety planning.
+  limitations:
+  - UK adult guideline; recommendations are contextual and cannot be generalized to all jurisdictions, ages or diagnoses.
+  rights_notes: Do not reproduce intervention manuals or imply NICE endorsement of PSYCHE OS.
+  superseded: false
+  review_due: '2027-02-10'
+- id: MEAS-049
+  title: Computational Psychiatry Needs Time and Context
+  authors_or_organization: Hitchcock PF, Fried EI, Frank MJ
+  type: scholarly_review
+  publication: Annual Review of Psychology 73:243-270
+  publication_date: '2022-01-04'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC8822328/
+  accessed_at: '2026-08-10'
+  evidence_tier: emerging_synthesis
+  domains:
+  - computational_psychiatry
+  - time
+  - context
+  - mechanism
+  - idiographic_models
+  currentness: Influential recent review; checked against 2026 clinical-prediction discussions.
+  project_implications:
+  - Do not call a fitted latent parameter a discovered psychiatric mechanism.
+  - Compare complex models with simple baselines and require reliability and external validation.
+  limitations:
+  - Narrative conceptual review, not an implementation trial or validation of a PSYCHE OS model.
+  rights_notes: Use synthesis with attribution and do not reproduce protected figures without permission.
+  superseded: false
+  review_due: '2027-08-10'
+- id: MEAS-050
+  title: 'Clinical prediction models in psychiatry: a systematic review of two decades of progress and challenges'
+  authors_or_organization: Meehan AJ, Lewis SJ, Fazel S, Fusar-Poli P, Steyerberg EW, Stahl D, Danese A
+  type: systematic_review
+  publication: Molecular Psychiatry 27(6):2700-2708
+  publication_date: '2022-04-01'
+  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC9156409/
+  accessed_at: '2026-08-10'
+  evidence_tier: systematic_review_or_meta_analysis
+  domains:
+  - psychiatric_prediction
+  - risk_of_bias
+  - external_validation
+  - calibration
+  - clinical_utility
+  currentness: Large systematic review remains a key field-wide audit; newer methodological guidance was checked on 2026-08-10.
+  project_implications:
+  - Prioritize decision relevance over model complexity.
+  - High discrimination alone is insufficient for an alert, diagnosis or treatment recommendation.
+  limitations:
+  - Search ended 2020-09-30, English-language studies only, heterogeneous outcomes and limited independent verification.
+  rights_notes: Reuse requires attribution and a license link; do not imply that reviewed models are approved for PSYCHE OS.
+  superseded: false
+  review_due: '2027-02-10'

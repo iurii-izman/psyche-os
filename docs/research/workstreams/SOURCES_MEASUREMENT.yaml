@@ -1,0 +1,1300 @@
+sources:
+  - id: "MEAS-001"
+    title: "Standards for Educational and Psychological Testing"
+    authors_or_body: "American Educational Research Association; American Psychological Association; National Council on Measurement in Education"
+    authors_or_organization: "American Educational Research Association; American Psychological Association; National Council on Measurement in Education"
+    year: 2014
+    type: "professional_standard"
+    source_type: "professional_standard"
+    publication: "AERA/APA/NCME"
+    publication_date: "2014"
+    url: "https://www.testingstandards.net/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "official_standard_or_guideline"
+    domains: ["psychometrics", "validity", "reliability", "fairness", "test_use"]
+    currentness: "Current official edition confirmed on 2026-08-10; revision activity should be monitored."
+    project_implication: "Treat validity as support for a score interpretation in a specified context, not as a permanent property of a test."
+    project_implications:
+      - "Require a documented construct, intended use, population, administration mode and interpretation before enabling an assessment."
+      - "Separate screening from diagnosis and require evidence for each consequential use."
+    limitations:
+      - "Broad professional standard; it does not validate any particular PSYCHE OS instrument or Russian-language version."
+    rights: "Copyrighted publication; do not reproduce the standards text beyond permitted quotation."
+    rights_notes: "Use the principles and citation; obtain the publication under the publisher's terms for detailed implementation."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-002"
+    title: "COSMIN guideline for systematic reviews of patient-reported outcome measures"
+    authors_or_body: "Prinsen CAC et al.; COSMIN initiative"
+    authors_or_organization: "Prinsen CAC et al.; COSMIN initiative"
+    year: 2018
+    type: "methodological_guideline"
+    source_type: "methodological_guideline"
+    publication: "Quality of Life Research 27:1147-1157"
+    publication_date: "2018-05"
+    url: "https://doi.org/10.1007/s11136-018-1798-3"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "methodological_consensus"
+    domains: ["psychometrics", "PROM", "validity", "reliability", "measurement_error", "responsiveness"]
+    currentness: "Peer-reviewed guideline remains foundational; the current COSMIN manual and website were checked on 2026-08-10."
+    project_implication: "Represent every measurement property separately and use unknown when evidence is absent."
+    project_implications:
+      - "Prioritize content validity and context of use before numerical reliability summaries."
+      - "Store evidence for structural validity, reliability, measurement error, cross-cultural validity and responsiveness independently."
+    limitations:
+      - "Designed for systematic reviews of PROMs and requires operational translation into product gates."
+    rights: "Publisher copyright applies; methodological concepts may be summarized with attribution."
+    rights_notes: "Do not bundle COSMIN manuals or scoring materials; link to the official source."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "MEAS-003"
+    title: "Patient-Focused Drug Development: Selecting, Developing, or Modifying Fit-for-Purpose Clinical Outcome Assessments"
+    authors_or_body: "U.S. Food and Drug Administration"
+    authors_or_organization: "U.S. Food and Drug Administration"
+    year: 2025
+    type: "regulatory_guidance"
+    source_type: "regulatory_guidance"
+    publication: "FDA Guidance for Industry, Food and Drug Administration Staff, and Other Stakeholders"
+    publication_date: "2025-10"
+    url: "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/patient-focused-drug-development-selecting-developing-or-modifying-fit-purpose-clinical-outcome"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "official_standard_or_guideline"
+    domains: ["clinical_outcome_assessment", "fit_for_purpose", "content_validity", "regulation"]
+    currentness: "Final guidance current as checked on 2026-08-10."
+    project_implication: "Bind each clinical outcome assessment to a concept of interest, context of use and evidence package."
+    project_implications:
+      - "A familiar scale name is insufficient; intended interpretation and decision must be explicit."
+      - "Modification, electronic migration or translation requires documented evaluation."
+    limitations:
+      - "Regulatory context is medical product development in the United States; PSYCHE OS is not assumed to be a regulated trial instrument."
+    rights: "U.S. government guidance is publicly accessible; third-party material may retain separate rights."
+    rights_notes: "Cite the official page and avoid implying FDA endorsement of PSYCHE OS."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-004"
+    title: "ITC Guidelines for Translating and Adapting Tests, Second Edition"
+    authors_or_body: "International Test Commission"
+    authors_or_organization: "International Test Commission"
+    year: 2017
+    type: "professional_guideline"
+    source_type: "professional_guideline"
+    publication: "International Test Commission"
+    publication_date: "2017"
+    url: "https://www.intestcom.org/files/guideline_test_adaptation_2ed.pdf"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "official_standard_or_guideline"
+    domains: ["translation", "test_adaptation", "cross_cultural_validity", "measurement_invariance", "licensing"]
+    currentness: "Second edition remained the official ITC adaptation guideline at the 2026-08-10 check."
+    project_implication: "An LLM or literal translation cannot inherit psychometric properties, norms or cutoffs."
+    project_implications:
+      - "Require permission, cultural adaptation, pilot testing and empirical equivalence for every Russian-language assessment."
+      - "Label nonvalidated translations as plain user content and disable standardized scoring."
+    limitations:
+      - "Provides process principles rather than validation evidence for any named Russian-language instrument."
+    rights: "Copyright International Test Commission; reproduction and adaptation require compliance with ITC terms."
+    rights_notes: "Link rather than redistribute; obtain test-owner permission separately."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "MEAS-005"
+    title: "Principles of Good Practice for the Translation and Cultural Adaptation Process for Patient-Reported Outcomes Measures"
+    authors_or_body: "Wild D et al.; ISPOR Task Force for Translation and Cultural Adaptation"
+    authors_or_organization: "Wild D et al.; ISPOR Task Force for Translation and Cultural Adaptation"
+    year: 2005
+    type: "task_force_report"
+    source_type: "task_force_report"
+    publication: "Value in Health 8(2):94-104"
+    publication_date: "2005-03"
+    url: "https://pubmed.ncbi.nlm.nih.gov/15804318/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "methodological_consensus"
+    domains: ["translation", "cultural_adaptation", "PROM", "quality_assurance"]
+    currentness: "Foundational process guidance; checked against newer ITC and FDA context on 2026-08-10."
+    project_implication: "Use a documented multi-step adaptation process rather than one-pass translation."
+    project_implications:
+      - "Store translation provenance, reconciliation, cognitive debriefing and version history."
+      - "Do not equate linguistic fluency with measurement equivalence."
+    limitations:
+      - "Consensus process is older and does not itself establish measurement invariance or responsiveness."
+    rights: "Journal copyright; abstract and bibliographic record are publicly accessible."
+    rights_notes: "Do not reproduce proprietary questionnaire content."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "MEAS-006"
+    title: "Obtain and Administer PROMIS Measures"
+    authors_or_body: "HealthMeasures"
+    authors_or_organization: "HealthMeasures"
+    year: "n.d."
+    type: "official_web_guidance"
+    source_type: "official_web_guidance"
+    publication: "HealthMeasures PROMIS"
+    publication_date: "n.d.; live page"
+    url: "https://www.healthmeasures.net/explore-measurement-systems/promis/obtain-administer-measures"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "official_standard_or_guideline"
+    domains: ["PROMIS", "licensing", "translation", "administration", "CAT"]
+    currentness: "Live official permissions and administration page checked on 2026-08-10."
+    project_implication: "Gate PROMIS forms, translations and administration modes against current HealthMeasures permissions."
+    project_implications:
+      - "New translations require authorization and the specified translation methodology and review."
+      - "Do not assume that public visibility means unrestricted modification or redistribution."
+    limitations:
+      - "Operational terms can change and must be rechecked before release or localization."
+    rights: "PROMIS marks, item banks, forms and translations are governed by HealthMeasures terms."
+    rights_notes: "Do not store or ship items until the exact permissions for use, mode and language are recorded."
+    superseded: false
+    review_due: "2026-11-10"
+
+  - id: "MEAS-007"
+    title: "Initial Adult Health Item Banks and First Wave Testing of the Patient-Reported Outcomes Measurement Information System (PROMIS) Network: 2005-2008"
+    authors_or_body: "Cella D et al.; PROMIS Cooperative Group"
+    authors_or_organization: "Cella D et al.; PROMIS Cooperative Group"
+    year: 2010
+    type: "large_validation_program"
+    source_type: "large_validation_program"
+    publication: "Journal of Clinical Epidemiology 63(11):1179-1194"
+    publication_date: "2010-11"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC2965562/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "strong_primary_evidence"
+    domains: ["PROMIS", "IRT", "item_banks", "CAT", "calibration"]
+    currentness: "Foundational PROMIS calibration paper; current administration and permissions must be checked separately."
+    project_implication: "CAT requires calibrated item banks and population-linked score interpretation, not LLM item generation."
+    project_implications:
+      - "Version item banks, parameters and score transforms."
+      - "Keep general-population anchoring distinct from individual clinical interpretation."
+    limitations:
+      - "Initial U.S. adult calibration does not validate every later bank, translation, population or use."
+    rights: "Open-access article; PROMIS item and trademark rights remain separately governed."
+    rights_notes: "Use the scientific findings under article terms; do not infer rights to reproduce item banks."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "MEAS-008"
+    title: "Overview of Classical Test Theory and Item Response Theory for the Quantitative Assessment of Items in Developing Patient-Reported Outcome Measures"
+    authors_or_body: "Cappelleri JC, Lundy JJ, Hays RD"
+    authors_or_organization: "Cappelleri JC, Lundy JJ, Hays RD"
+    year: 2014
+    type: "methodological_review"
+    source_type: "methodological_review"
+    publication: "Clinical Therapeutics 36(5):648-662"
+    publication_date: "2014-05"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4096146/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "foundational_methodology"
+    domains: ["CTT", "IRT", "item_analysis", "PROM"]
+    currentness: "Foundational comparison; checked for continued methodological relevance on 2026-08-10."
+    project_implication: "Choose CTT or IRT assumptions deliberately and report sample/model dependence."
+    project_implications:
+      - "Do not treat alpha as sufficient evidence of validity or reliability."
+      - "Require dimensionality, fit and DIF checks before IRT/CAT use."
+    limitations:
+      - "Tutorial review, not a validation study or complete modern IRT implementation standard."
+    rights: "Open-access manuscript; publisher rights and attribution apply."
+    rights_notes: "Methods may be summarized with citation."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "MEAS-009"
+    title: "Measurement Invariance Conventions and Reporting: The State of the Art and Future Directions for Psychological Research"
+    authors_or_body: "Putnick DL, Bornstein MH"
+    authors_or_organization: "Putnick DL, Bornstein MH"
+    year: 2016
+    type: "methodological_review"
+    source_type: "methodological_review"
+    publication: "Developmental Review 41:71-90"
+    publication_date: "2016-09"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5145197/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "foundational_methodology"
+    domains: ["measurement_invariance", "longitudinal_measurement", "group_comparison", "DIF"]
+    currentness: "Foundational reporting synthesis; current model-specific practice should be reviewed per instrument."
+    project_implication: "Block group or time comparisons when measurement equivalence is unsupported."
+    project_implications:
+      - "Store configural, metric, scalar and residual invariance evidence separately."
+      - "Treat partial invariance as an explicit analytic decision with sensitivity checks."
+    limitations:
+      - "Conventions are not universal pass/fail laws and depend on model, sample size and substantive context."
+    rights: "Open-access manuscript with publisher terms."
+    rights_notes: "Use summarized methodology with attribution."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "MEAS-010"
+    title: "Retest effects in working memory capacity tests: A meta-analysis"
+    authors_or_body: "Scharfen J, Jansen K, Holling H"
+    authors_or_organization: "Scharfen J, Jansen K, Holling H"
+    year: 2018
+    type: "meta_analysis"
+    source_type: "meta_analysis"
+    publication: "Psychonomic Bulletin & Review 25(6):2175-2199"
+    publication_date: "2018-12"
+    url: "https://pubmed.ncbi.nlm.nih.gov/29907925/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "systematic_review_or_meta_analysis"
+    domains: ["retest_effect", "practice_effect", "cognitive_measurement", "longitudinal_change"]
+    currentness: "Relevant meta-analysis checked on 2026-08-10."
+    project_implication: "Repeated cognitive scores require practice-effect flags and cannot be interpreted as pure change."
+    project_implications:
+      - "Record administration count, interval and alternate form."
+      - "Do not apply the reported pooled effect as a universal correction for unrelated tests."
+    limitations:
+      - "Covers working-memory-capacity tests in mostly healthy samples; effects vary by paradigm and interval."
+    rights: "Publisher copyright; PubMed abstract is publicly accessible."
+    rights_notes: "Cite summary statistics without reproducing the article."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "MEAS-011"
+    title: "Permissions, Licensing, and Reprints"
+    authors_or_body: "American Psychological Association"
+    authors_or_organization: "American Psychological Association"
+    year: "n.d."
+    type: "official_rights_guidance"
+    source_type: "official_rights_guidance"
+    publication: "American Psychological Association"
+    publication_date: "n.d.; live page"
+    url: "https://www.apa.org/about/contact/copyright/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "official_standard_or_guideline"
+    domains: ["copyright", "licensing", "tests", "scales", "permissions"]
+    currentness: "Live APA rights page checked on 2026-08-10."
+    project_implication: "Treat test items, scales and instruments as copyrighted unless rights are affirmatively established."
+    project_implications:
+      - "Use a deny-by-default rights gate before storing or presenting assessment content."
+      - "Document author or rights-holder permission rather than relying on discoverability online."
+    limitations:
+      - "APA guidance covers APA-owned content and general permission routing, not every third-party test."
+    rights: "APA content is copyrighted; permissions depend on the requested reuse."
+    rights_notes: "Link to the policy and contact the relevant rights holder for every instrument."
+    superseded: false
+    review_due: "2026-11-10"
+
+  - id: "MEAS-012"
+    title: "International Classification of Sleep Disorders, Third Edition, Text Revision (ICSD-3-TR)"
+    authors_or_body: "American Academy of Sleep Medicine"
+    authors_or_organization: "American Academy of Sleep Medicine"
+    year: 2023
+    type: "clinical_classification"
+    source_type: "clinical_classification"
+    publication: "American Academy of Sleep Medicine"
+    publication_date: "2023"
+    url: "https://aasm.org/clinical-resources/international-classification-sleep-disorders/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "official_standard_or_guideline"
+    domains: ["sleep_medicine", "classification", "diagnosis", "ICSD_3_TR"]
+    currentness: "Current AASM classification edition confirmed on 2026-08-10."
+    project_implication: "Use ICSD-3-TR only as a clinical classification reference; do not implement a self-diagnostic rules engine."
+    project_implications:
+      - "Route suspected sleep disorders to clinical assessment rather than inferring a diagnosis from diary or wearable data."
+      - "Keep classification version in provenance."
+    limitations:
+      - "Classification and diagnostic criteria require clinical context and are not validation evidence for consumer sensors."
+    rights: "Copyright AASM; the book and diagnostic text require purchase or licensed access."
+    rights_notes: "Do not reproduce criteria or tables; AASM controls translation and reuse permissions."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-013"
+    title: "Behavioral and psychological treatments for chronic insomnia disorder in adults: an American Academy of Sleep Medicine clinical practice guideline"
+    authors_or_body: "Edinger JD et al.; American Academy of Sleep Medicine"
+    authors_or_organization: "Edinger JD et al.; American Academy of Sleep Medicine"
+    year: 2021
+    type: "clinical_practice_guideline"
+    source_type: "clinical_practice_guideline"
+    publication: "Journal of Clinical Sleep Medicine 17(2):255-262"
+    publication_date: "2021-02-01"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7853203/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "official_standard_or_guideline"
+    domains: ["insomnia", "CBT_I", "behavioral_treatment", "self_help_boundary"]
+    currentness: "Current AASM behavioral-treatment guideline at the 2026-08-10 check."
+    project_implication: "Distinguish evidence-based multicomponent CBT-I from generic sleep-hygiene advice."
+    project_implications:
+      - "A full CBT-I pathway needs eligibility, exclusions, monitoring and escalation."
+      - "Sleep hygiene must not be represented as a stand-alone treatment for chronic insomnia."
+    limitations:
+      - "Adult chronic-insomnia guideline; it does not cover every comorbidity, age group or autonomous app implementation."
+    rights: "Open-access guideline; journal and AASM attribution apply."
+    rights_notes: "Do not copy proprietary treatment materials or imply AASM endorsement."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-014"
+    title: "The Consensus Sleep Diary: Standardizing Prospective Sleep Self-Monitoring"
+    authors_or_body: "Carney CE, Buysse DJ, Ancoli-Israel S, Edinger JD, Krystal AD, Lichstein KL, Morin CM"
+    authors_or_organization: "Carney CE, Buysse DJ, Ancoli-Israel S, Edinger JD, Krystal AD, Lichstein KL, Morin CM"
+    year: 2012
+    type: "expert_consensus_measure"
+    source_type: "expert_consensus_measure"
+    publication: "Sleep 35(2):287-302"
+    publication_date: "2012-02-01"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3250369/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "methodological_consensus"
+    domains: ["sleep_diary", "insomnia", "prospective_measurement", "self_report"]
+    currentness: "Widely used consensus foundation; later validation and rights must be checked for the exact implementation."
+    project_implication: "Use a stable morning diary schema and label derived values as subjective estimates."
+    project_implications:
+      - "Store raw diary responses separately from calculated time-in-bed, total sleep time and efficiency."
+      - "Preserve completion time to detect retrospective or late entry."
+    limitations:
+      - "The original article described the diary as a living document requiring continued testing and refinement."
+    rights: "Open-access article; measure reproduction and modified wording require a separate rights check."
+    rights_notes: "Do not assume article access grants unrestricted commercial reuse of diary items."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "MEAS-015"
+    title: "Use of Actigraphy for the Evaluation of Sleep Disorders and Circadian Rhythm Sleep-Wake Disorders: An American Academy of Sleep Medicine Clinical Practice Guideline"
+    authors_or_body: "Smith MT et al.; American Academy of Sleep Medicine"
+    authors_or_organization: "Smith MT et al.; American Academy of Sleep Medicine"
+    year: 2018
+    type: "clinical_practice_guideline"
+    source_type: "clinical_practice_guideline"
+    publication: "Journal of Clinical Sleep Medicine 14(7):1231-1237"
+    publication_date: "2018-07-15"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC6040807/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "official_standard_or_guideline"
+    domains: ["actigraphy", "sleep_medicine", "circadian_rhythm", "measurement_limits"]
+    currentness: "Current AASM actigraphy guideline at the 2026-08-10 check."
+    project_implication: "Use actigraphy only for specified indications and never as a universal substitute for PSG."
+    project_implications:
+      - "Label device class and guideline-supported context."
+      - "Do not merge research actigraphy with consumer-wearable estimates."
+    limitations:
+      - "Most recommendations are conditional and evidence varies by indication and device."
+    rights: "Open-access guideline; journal and AASM attribution apply."
+    rights_notes: "Summarize recommendations without reproducing restricted material."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-016"
+    title: "Clinical Practice Guideline for Diagnostic Testing for Adult Obstructive Sleep Apnea"
+    authors_or_body: "Kapur VK et al.; American Academy of Sleep Medicine"
+    authors_or_organization: "Kapur VK et al.; American Academy of Sleep Medicine"
+    year: 2017
+    type: "clinical_practice_guideline"
+    source_type: "clinical_practice_guideline"
+    publication: "Journal of Clinical Sleep Medicine 13(3):479-504"
+    publication_date: "2017-03-15"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5337595/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "official_standard_or_guideline"
+    domains: ["obstructive_sleep_apnea", "PSG", "HSAT", "diagnostic_boundary"]
+    currentness: "Current AASM adult OSA diagnostic-testing guideline at the 2026-08-10 check."
+    project_implication: "Consumer wearables and app questionnaires cannot diagnose or exclude OSA."
+    project_implications:
+      - "PSG remains the standard diagnostic test when OSA is suspected after clinical evaluation."
+      - "HSAT belongs to a clinical pathway for appropriate uncomplicated adults."
+    limitations:
+      - "Adult OSA diagnostic testing only; individual clinical decisions require a qualified clinician."
+    rights: "Open-access guideline; journal and AASM attribution apply."
+    rights_notes: "Do not translate guideline criteria into an autonomous diagnostic feature."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-017"
+    title: "World Sleep Society recommendations for the use of wearable consumer health trackers that monitor sleep"
+    authors_or_body: "Chee MWL et al.; World Sleep Society Sleep Tracker Task Force"
+    authors_or_organization: "Chee MWL et al.; World Sleep Society Sleep Tracker Task Force"
+    year: 2025
+    type: "international_recommendations"
+    source_type: "international_recommendations"
+    publication: "Sleep Medicine 131:106506"
+    publication_date: "2025-07"
+    url: "https://pubmed.ncbi.nlm.nih.gov/40300398/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "expert_consensus_or_position"
+    domains: ["consumer_wearables", "sleep_tracking", "standards", "clinical_boundary", "algorithm_transparency"]
+    currentness: "Recent international recommendations current as checked on 2026-08-10."
+    project_implication: "Restrict consumer trackers to carefully interpreted trends and distinguish fundamental from proprietary exploratory metrics."
+    project_implications:
+      - "Select devices by intended use and validation population."
+      - "Expose limitations and avoid using consumer metrics as primary diagnostic evidence."
+    limitations:
+      - "Expert recommendations in a rapidly changing market; several authors reported industry relationships."
+    rights: "Copyright Elsevier; abstract and bibliographic record are publicly accessible."
+    rights_notes: "Do not reproduce tables or recommendations text beyond licensed use."
+    superseded: false
+    review_due: "2026-11-10"
+
+  - id: "MEAS-018"
+    title: "Performance of consumer wrist-worn sleep tracking devices compared to polysomnography: a meta-analysis"
+    authors_or_body: "Lee YJ, Lee JY, Cho JH, Kang YJ, Choi JH"
+    authors_or_organization: "Lee YJ, Lee JY, Cho JH, Kang YJ, Choi JH"
+    year: 2025
+    type: "meta_analysis"
+    source_type: "meta_analysis"
+    publication: "Journal of Clinical Sleep Medicine 21(3):573-582"
+    publication_date: "2025-03-01"
+    url: "https://pubmed.ncbi.nlm.nih.gov/39484805/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "systematic_review_or_meta_analysis"
+    domains: ["consumer_wearables", "polysomnography", "sleep_validity", "meta_analysis"]
+    currentness: "Search covered evidence through March 2024; article remained a recent meta-analysis at the 2026-08-10 check."
+    project_implication: "Do not treat wrist-worn consumer estimates as PSG-equivalent or diagnostically valid."
+    project_implications:
+      - "Use only stable-version general trends with device-specific uncertainty."
+      - "Preserve model and algorithm epoch because results are heterogeneous across devices and populations."
+    limitations:
+      - "Twenty-four studies and 798 participants, heterogeneous devices/populations, English-language restriction and limited sleep-staging evaluation."
+    rights: "Open-access article under the journal's terms; attribution required."
+    rights_notes: "Use pooled findings with device and heterogeneity caveats."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-019"
+    title: "Investigation of wearable health tracker version updates"
+    authors_or_body: "Woolley SI, Collins T, Mitchell J, Fredericks D"
+    authors_or_organization: "Woolley SI, Collins T, Mitchell J, Fredericks D"
+    year: 2019
+    type: "empirical_methodology_study"
+    source_type: "empirical_methodology_study"
+    publication: "BMJ Health & Care Informatics 26(1):e100083"
+    publication_date: "2019-10-09"
+    url: "https://doi.org/10.1136/bmjhci-2019-100083"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "strong_primary_evidence"
+    domains: ["wearables", "algorithm_drift", "firmware", "validation", "provenance"]
+    currentness: "Older device sample but the versioning failure mode remains current and was checked against 2025 recommendations."
+    project_implication: "Create a new comparability epoch whenever hardware, firmware, app or algorithm version changes."
+    project_implications:
+      - "Unknown version means unknown comparability."
+      - "Store changelog evidence but do not rely on manufacturer completeness."
+    limitations:
+      - "Exploratory changelog study of a limited set of trackers; it cannot quantify drift for every metric."
+    rights: "Open-access BMJ article under its stated license."
+    rights_notes: "Attribute data and do not generalize exact percentages to all current manufacturers."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-020"
+    title: "Wearable technologies for developing sleep and circadian biomarkers: a summary of workshop discussions"
+    authors_or_body: "Depner CM, Cheng PC, Devine JK, Khosla S, de Zambotti M, Robillard R, Vakulin A, Drummond SPA"
+    authors_or_organization: "Depner CM, Cheng PC, Devine JK, Khosla S, de Zambotti M, Robillard R, Vakulin A, Drummond SPA"
+    year: 2020
+    type: "expert_workshop_report"
+    source_type: "expert_workshop_report"
+    publication: "Sleep 43(2):zsz254"
+    publication_date: "2020-02"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7368340/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "expert_consensus_or_position"
+    domains: ["sleep", "circadian", "wearables", "biomarker_validation", "algorithm_drift"]
+    currentness: "Workshop conclusions remain relevant and were checked against 2025 WSS guidance."
+    project_implication: "Require metric-specific gold-standard validation and version provenance before calling a wearable feature a biomarker."
+    project_implications:
+      - "No single overall device-performance label is sufficient."
+      - "Model, firmware and algorithm changes can invalidate prior validation."
+    limitations:
+      - "Expert workshop summary rather than a formal systematic review; the device market changes quickly."
+    rights: "Open-access manuscript; publisher terms and attribution apply."
+    rights_notes: "Use the principles without reproducing figures or proprietary device information."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-021"
+    title: "Orthosomnia: Are Some Patients Taking the Quantified Self Too Far?"
+    authors_or_body: "Baron KG, Abbott S, Jao N, Manalo N, Mullen R"
+    authors_or_organization: "Baron KG, Abbott S, Jao N, Manalo N, Mullen R"
+    year: 2017
+    type: "clinical_case_series"
+    source_type: "clinical_case_series"
+    publication: "Journal of Clinical Sleep Medicine 13(2):351-354"
+    publication_date: "2017-02-15"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5263088/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "expert_consensus_or_position"
+    domains: ["orthosomnia", "measurement_reactivity", "consumer_trackers", "harms"]
+    currentness: "Seminal case report remains clinically relevant; orthosomnia is not treated as a formal diagnosis."
+    project_implication: "Provide stop or reduce-tracking controls when sleep metrics increase anxiety or compulsive checking."
+    project_implications:
+      - "Do not optimize for perfect proprietary sleep scores."
+      - "Label orthosomnia as a descriptive concern, not a diagnosis."
+    limitations:
+      - "Small clinical case series; cannot estimate prevalence or causal risk."
+    rights: "Open-access article; journal attribution applies."
+    rights_notes: "Do not overstate a coined descriptive term as a validated disorder."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "MEAS-022"
+    title: "Ecological Momentary Assessment"
+    authors_or_body: "Shiffman S, Stone AA, Hufford MR"
+    authors_or_organization: "Shiffman S, Stone AA, Hufford MR"
+    year: 2008
+    type: "foundational_review"
+    source_type: "foundational_review"
+    publication: "Annual Review of Clinical Psychology 4:1-32"
+    publication_date: "2008"
+    url: "https://pubmed.ncbi.nlm.nih.gov/18509902/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "foundational_methodology"
+    domains: ["EMA", "ESM", "recall_bias", "sampling", "ecological_validity"]
+    currentness: "Foundational EMA review; current protocol guidance was checked through the 2026 Open Handbook."
+    project_implication: "Choose momentary sampling from the process and timescale of interest, not from a universal prompt schedule."
+    project_implications:
+      - "Distinguish signal-, interval- and event-contingent data."
+      - "Store actual timestamps and response latency."
+    limitations:
+      - "Predates modern smartphone ecosystems, adaptive EMA and contemporary privacy constraints."
+    rights: "Publisher copyright; PubMed abstract is publicly accessible."
+    rights_notes: "Summarize methods with attribution."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "MEAS-023"
+    title: "Ecological Momentary Assessment: A Meta-Analysis on Designs, Samples, and Compliance Across Research Fields"
+    authors_or_body: "Wrzus C, Neubauer AB"
+    authors_or_organization: "Wrzus C, Neubauer AB"
+    year: 2023
+    type: "meta_analysis"
+    source_type: "meta_analysis"
+    publication: "Assessment 30(3):825-846"
+    publication_date: "2023-04"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9999286/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "systematic_review_or_meta_analysis"
+    domains: ["EMA", "compliance", "dropout", "study_design", "reactivity"]
+    currentness: "Large recent meta-analysis; evidence base covered studies available before publication."
+    project_implication: "Report complete protocol and adherence denominators rather than citing a generic expected compliance rate."
+    project_implications:
+      - "Treat compliance and dropout as data-quality outcomes."
+      - "Measure reactivity because most reviewed studies did not test it."
+    limitations:
+      - "Extreme heterogeneity in designs and reporting; aggregate compliance cannot prescribe an individual protocol."
+    rights: "Article is available under CC BY-NC 4.0; noncommercial and attribution conditions apply."
+    rights_notes: "Check license compatibility for any reuse beyond citation and synthesis."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "MEAS-024"
+    title: "A systematic review and meta-analysis of studies of reactivity to digital in-the-moment measurement of health behaviour"
+    authors_or_body: "König LM, Allmeta A, Christlein N, Van Emmenis M, Sutton S"
+    authors_or_organization: "König LM, Allmeta A, Christlein N, Van Emmenis M, Sutton S"
+    year: 2022
+    type: "systematic_review_and_meta_analysis"
+    source_type: "systematic_review_and_meta_analysis"
+    publication: "Health Psychology Review 16(4):551-575"
+    publication_date: "2022-12"
+    url: "https://pubmed.ncbi.nlm.nih.gov/35264084/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "systematic_review_or_meta_analysis"
+    domains: ["EMA", "measurement_reactivity", "health_behavior", "self_monitoring"]
+    currentness: "Recent synthesis checked on 2026-08-10."
+    project_implication: "Assume that intensive measurement can alter the measured behavior and design tests or sensitivity analyses accordingly."
+    project_implications:
+      - "Separate measurement from feedback and coaching exposure."
+      - "Stop or reduce monitoring when it plausibly causes harm or compulsive use."
+    limitations:
+      - "Only seven studies entered the quantitative synthesis and most evidence concerned physical activity."
+    rights: "Publisher copyright; PubMed abstract is publicly accessible."
+    rights_notes: "Do not generalize pooled effects to unstudied psychological outcomes."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "MEAS-025"
+    title: "The Open Handbook of Experience Sampling Methodology, Third Edition"
+    authors_or_body: "Myin-Germeys I, Kuppens P, editors"
+    authors_or_organization: "Myin-Germeys I, Kuppens P, editors"
+    year: 2026
+    type: "open_methodological_handbook"
+    source_type: "open_methodological_handbook"
+    publication: "Leuven University Press"
+    publication_date: "2026-04-22"
+    url: "https://lup.be/book/the-open-handbook-of-experience-sampling-methodology-third-edition/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "methodological_consensus"
+    domains: ["EMA", "ESM", "design", "burden", "reactivity", "analysis", "privacy"]
+    currentness: "Current third edition published in 2026 and checked on 2026-08-10."
+    project_implication: "Use a documented EMA design and analysis protocol covering sampling, burden, reporting and privacy."
+    project_implications:
+      - "Tie prompt frequency and study duration to the process being measured."
+      - "Plan data-quality and analysis decisions before collection."
+    limitations:
+      - "Multi-author handbook provides broad guidance; instrument- and population-specific validation is still required."
+    rights: "Open-access book under the publisher's stated license; chapter-specific attribution may apply."
+    rights_notes: "Cite the relevant chapter when implementing detailed methods."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "MEAS-026"
+    title: "Just-in-time adaptive ecological momentary assessment (JITA-EMA)"
+    authors_or_body: "Schneider S, Junghaenel DU, Smyth JM, Wen CKF, Stone AA"
+    authors_or_organization: "Schneider S, Junghaenel DU, Smyth JM, Wen CKF, Stone AA"
+    year: 2024
+    type: "methodological_and_simulation_study"
+    source_type: "methodological_and_simulation_study"
+    publication: "Behavior Research Methods 56(2):765-783"
+    publication_date: "2024-02"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10450096/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "emerging_synthesis"
+    domains: ["JITA_EMA", "adaptive_assessment", "IRT", "CAT", "burden"]
+    currentness: "Recent methodological proposal; guidance remains limited and implementation is research-stage."
+    project_implication: "Defer adaptive EMA unless item selection, cutoffs and stopping are deterministic, validated and fully logged."
+    project_implications:
+      - "Do not use LLM-generated items or free-form stopping."
+      - "Record changing sampling probabilities for analysis."
+    limitations:
+      - "Primarily conceptual and simulation-based; empirical guidance for many decisions is limited."
+    rights: "Open-access article under its stated license."
+    rights_notes: "Implementation requires independent validation; the method is not a turnkey clinical tool."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-027"
+    title: "Compliance With Mobile Ecological Momentary Assessment of Self-Reported Health-Related Behaviors and Psychological Constructs in Adults: Systematic Review and Meta-analysis"
+    authors_or_body: "Williams MT, Lewthwaite H, Fraysse F, Gajewska A, Ignatavicius J, Ferrar K"
+    authors_or_organization: "Williams MT, Lewthwaite H, Fraysse F, Gajewska A, Ignatavicius J, Ferrar K"
+    year: 2021
+    type: "systematic_review_and_meta_analysis"
+    source_type: "systematic_review_and_meta_analysis"
+    publication: "Journal of Medical Internet Research 23(3):e17023"
+    publication_date: "2021-03-03"
+    url: "https://www.jmir.org/2021/3/e17023/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "systematic_review_or_meta_analysis"
+    domains: ["mobile_EMA", "compliance", "burden", "reporting", "missingness"]
+    currentness: "Relevant synthesis checked on 2026-08-10 and supplemented by newer meta-analysis and handbook sources."
+    project_implication: "Define compliance denominators and separate technical failure, late response, partial response and deliberate skip."
+    project_implications:
+      - "Do not moralize missing EMA responses."
+      - "Pilot and adapt burden using observed latency and skip patterns."
+    limitations:
+      - "High heterogeneity and inconsistent protocol and compliance reporting limit causal conclusions about design features."
+    rights: "JMIR open-access article under the displayed license."
+    rights_notes: "Attribution and license notice are required for reuse."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "MEAS-028"
+    title: "From smartphone data to clinically relevant predictions: A systematic review of digital phenotyping methods in depression"
+    authors_or_body: "Leaning IE, Ikani N, Savage HS, Leow A, Beckmann C, Ruhé HG, Marquand AF"
+    authors_or_organization: "Leaning IE, Ikani N, Savage HS, Leow A, Beckmann C, Ruhé HG, Marquand AF"
+    year: 2024
+    type: "systematic_review"
+    source_type: "systematic_review"
+    publication: "Neuroscience & Biobehavioral Reviews 158:105541"
+    publication_date: "2024-03"
+    url: "https://pubmed.ncbi.nlm.nih.gov/38215802/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "systematic_review_or_meta_analysis"
+    domains: ["digital_phenotyping", "depression", "smartphone", "prediction", "external_validation"]
+    currentness: "Search through 2023-11-10; recent review checked against 2025-2026 standardization reviews."
+    project_implication: "Treat smartphone features as uncertain proxies and require external validation before any individual prediction."
+    project_implications:
+      - "Missing and complex data are part of model risk."
+      - "Moderate model performance without clinical utility is insufficient for alerts."
+    limitations:
+      - "Twenty-four heterogeneous studies focused on MDD and often lacked external validation."
+    rights: "Article states author copyright with publisher terms; PubMed record is public."
+    rights_notes: "Do not reuse figures or proprietary model details without checking the license."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-029"
+    title: "Systematic review of smartphone-based passive sensing for health and wellbeing"
+    authors_or_body: "Cornet VP, Holden RJ"
+    authors_or_organization: "Cornet VP, Holden RJ"
+    year: 2018
+    type: "systematic_review"
+    source_type: "systematic_review"
+    publication: "Journal of Biomedical Informatics 77:120-132"
+    publication_date: "2018-01"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5793918/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "systematic_review_or_meta_analysis"
+    domains: ["passive_sensing", "smartphone", "privacy", "clinical_integration", "feasibility"]
+    currentness: "Historical baseline for field weaknesses; current conclusions were triangulated with 2024-2026 reviews."
+    project_implication: "Prefer minimal, purpose-matched sensing and require clinical integration and privacy evidence."
+    project_implications:
+      - "Do not infer maturity from feasibility studies with small samples."
+      - "Sharing sensed data back to users must be inspectable and correctable."
+    limitations:
+      - "Early evidence base of 35 studies with median sample size 15 and rapidly outdated hardware/software."
+    rights: "Open manuscript with publisher terms."
+    rights_notes: "Use primarily as historical evidence of recurring methodological and privacy gaps."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "MEAS-030"
+    title: "Challenges and standardisation strategies for sensor-based data collection for digital phenotyping"
+    authors_or_body: "Alam NB, Surani M, Das CK, Giacco D, Singh SP, Jilka S"
+    authors_or_organization: "Alam NB, Surani M, Das CK, Giacco D, Singh SP, Jilka S"
+    year: 2025
+    type: "perspective_and_methodological_synthesis"
+    source_type: "perspective_and_methodological_synthesis"
+    publication: "Communications Medicine 5"
+    publication_date: "2025-08"
+    url: "https://www.nature.com/articles/s43856-025-01013-3"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "emerging_synthesis"
+    domains: ["digital_phenotyping", "standardization", "interoperability", "equity", "sensor_data"]
+    currentness: "Recent perspective current as checked on 2026-08-10."
+    project_implication: "Version collection, preprocessing and feature definitions and do not compare platforms as if they were equivalent."
+    project_implications:
+      - "Require cross-platform interoperability and quality metrics."
+      - "Include cultural, usability and equity review."
+    limitations:
+      - "Perspective rather than quantitative systematic review or clinical impact trial."
+    rights: "Open-access Nature Portfolio article under its displayed license."
+    rights_notes: "Attribute authors and license when reusing content."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-031"
+    title: "Digital phenotyping for mental health conditions: a systematic review of implementation and application"
+    authors_or_body: "Alam NB, Haque T, Subedar S, Giacco D, Singh SP, Jilka S"
+    authors_or_organization: "Alam NB, Haque T, Subedar S, Giacco D, Singh SP, Jilka S"
+    year: 2026
+    type: "systematic_review"
+    source_type: "systematic_review"
+    publication: "Frontiers in Digital Health 8:1772744"
+    publication_date: "2026-07-09"
+    url: "https://www.frontiersin.org/journals/digital-health/articles/10.3389/fdgth.2026.1772744/full"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "systematic_review_or_meta_analysis"
+    domains: ["digital_phenotyping", "mental_health", "implementation", "heterogeneity", "reproducibility"]
+    currentness: "Published one month before the evidence cutoff; search covered studies through June 2025."
+    project_implication: "Keep digital phenotyping features research-only until collection and analysis pipelines are standardized and externally validated."
+    project_implications:
+      - "Store device, platform, preprocessing, feature extraction and model provenance."
+      - "Do not claim cross-diagnosis or cross-country generalizability from fragmented evidence."
+    limitations:
+      - "Narrative synthesis of 47 heterogeneous studies; no pooled clinical-effect estimate and evidence concentrated in selected settings."
+    rights: "Frontiers open-access article under its displayed license."
+    rights_notes: "Reuse requires attribution and compliance with the article license."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-032"
+    title: "The Disaggregation of Within-Person and Between-Person Effects in Longitudinal Models of Change"
+    authors_or_body: "Curran PJ, Bauer DJ"
+    authors_or_organization: "Curran PJ, Bauer DJ"
+    year: 2011
+    type: "methodological_review"
+    source_type: "methodological_review"
+    publication: "Annual Review of Psychology 62:583-619"
+    publication_date: "2011"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC3059070/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "foundational_methodology"
+    domains: ["longitudinal_models", "within_person", "between_person", "centering", "idiographic"]
+    currentness: "Foundational methodological distinction remains current."
+    project_implication: "Every estimate must declare whether it is between-person or within-person."
+    project_implications:
+      - "Do not use a group-level coefficient as a personal rule."
+      - "Choose centering and decomposition to match the estimand."
+    limitations:
+      - "Methodological review does not prescribe one model for all intensive longitudinal data."
+    rights: "Open manuscript with publisher terms."
+    rights_notes: "Summarize methods with attribution."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "MEAS-033"
+    title: "Lack of group-to-individual generalizability is a threat to human subjects research"
+    authors_or_body: "Fisher AJ, Medaglia JD, Jeronimus BF"
+    authors_or_organization: "Fisher AJ, Medaglia JD, Jeronimus BF"
+    year: 2018
+    type: "empirical_methodological_analysis"
+    source_type: "empirical_methodological_analysis"
+    publication: "Proceedings of the National Academy of Sciences 115(27):E6106-E6115"
+    publication_date: "2018-07-03"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC6142277/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "foundational_methodology"
+    domains: ["group_to_individual", "idiographic", "ergodicity", "personalization"]
+    currentness: "Seminal warning remains current and is consistent with later idiographic methodology."
+    project_implication: "Personalized claims require individual longitudinal evidence rather than population-average associations."
+    project_implications:
+      - "Display the scope of every model estimate."
+      - "Do not call group-derived associations a person's mechanism."
+    limitations:
+      - "Illustrative datasets and ergodic arguments do not imply that all population evidence is useless for individuals."
+    rights: "Open-access article under the displayed license."
+    rights_notes: "Avoid overextending the paper into a blanket rejection of group research."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "MEAS-034"
+    title: "A critique of the cross-lagged panel model"
+    authors_or_body: "Hamaker EL, Kuiper RM, Grasman RPPP"
+    authors_or_organization: "Hamaker EL, Kuiper RM, Grasman RPPP"
+    year: 2015
+    type: "methodological_article"
+    source_type: "methodological_article"
+    publication: "Psychological Methods 20(1):102-116"
+    publication_date: "2015-03"
+    url: "https://doi.org/10.1037/a0038889"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "foundational_methodology"
+    domains: ["cross_lagged_panel", "within_person", "between_person", "causal_inference", "longitudinal"]
+    currentness: "Foundational critique remains current; later model variants do not remove the need to match estimand and assumptions."
+    project_implication: "Do not interpret standard cross-lagged coefficients as within-person causal effects."
+    project_implications:
+      - "Separate stable between-person differences from within-person fluctuations."
+      - "Treat lag selection and temporal spacing as substantive assumptions."
+    limitations:
+      - "Critique targets the traditional CLPM; alternative models have their own assumptions and data demands."
+    rights: "APA publisher copyright; DOI page and bibliographic details are public."
+    rights_notes: "Do not reproduce the article without permission."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "MEAS-035"
+    title: "Regression to the mean: what it is and how to deal with it"
+    authors_or_body: "Barnett AG, van der Pols JC, Dobson AJ"
+    authors_or_organization: "Barnett AG, van der Pols JC, Dobson AJ"
+    year: 2005
+    type: "methodological_tutorial"
+    source_type: "methodological_tutorial"
+    publication: "International Journal of Epidemiology 34(1):215-220"
+    publication_date: "2005-02"
+    url: "https://doi.org/10.1093/ije/dyh299"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "foundational_methodology"
+    domains: ["regression_to_mean", "baseline", "before_after", "causal_inference"]
+    currentness: "Foundational statistical principle remains current."
+    project_implication: "Flag improvement after an extreme baseline as compatible with regression to the mean."
+    project_implications:
+      - "Prefer repeated baseline and counterfactual designs."
+      - "Never equate pre-post change with intervention effect."
+    limitations:
+      - "General tutorial; the magnitude of regression to the mean is application-specific."
+    rights: "Publisher copyright; DOI and abstract access depend on publisher terms."
+    rights_notes: "Use the statistical principle with citation."
+    superseded: false
+    review_due: "2030-08-10"
+
+  - id: "MEAS-036"
+    title: "The Prevention and Treatment of Missing Data in Clinical Trials"
+    authors_or_body: "National Research Council, Panel on Handling Missing Data in Clinical Trials"
+    authors_or_organization: "National Research Council, Panel on Handling Missing Data in Clinical Trials"
+    year: 2010
+    type: "national_academies_consensus_report"
+    source_type: "national_academies_consensus_report"
+    publication: "National Academies Press"
+    publication_date: "2010"
+    url: "https://www.nationalacademies.org/publications/12955"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "methodological_consensus"
+    domains: ["missing_data", "prevention", "sensitivity_analysis", "clinical_trials", "longitudinal"]
+    currentness: "Foundational consensus; current missing-data methods should supplement it for each analysis."
+    project_implication: "Prevent and classify missingness, state assumptions, and run sensitivity analyses instead of silently filling gaps."
+    project_implications:
+      - "Do not default to LOCF or complete-case analysis."
+      - "Separate technical missingness from participant nonresponse and unavailable measurement opportunity."
+    limitations:
+      - "Focused on clinical trials rather than every EMA or passive-sensing design."
+    rights: "National Academies publication rights apply; official page provides access terms."
+    rights_notes: "Cite the report; do not redistribute the book outside its license."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "MEAS-037"
+    title: "The ASA Statement on p-Values: Context, Process, and Purpose"
+    authors_or_body: "Wasserstein RL, Lazar NA; American Statistical Association"
+    authors_or_organization: "Wasserstein RL, Lazar NA; American Statistical Association"
+    year: 2016
+    type: "professional_statement"
+    source_type: "professional_statement"
+    publication: "The American Statistician 70(2):129-133"
+    publication_date: "2016"
+    url: "https://doi.org/10.1080/00031305.2016.1154108"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "official_standard_or_guideline"
+    domains: ["p_values", "multiplicity", "statistical_inference", "selective_reporting"]
+    currentness: "ASA statement remains current as a foundational constraint on p-value interpretation."
+    project_implication: "Report effect size, uncertainty and analysis multiplicity rather than using p-values as truth labels."
+    project_implications:
+      - "Predefine hypothesis families across outcomes, lags, windows and subgroups."
+      - "Label exploratory analyses and prevent selective causal language."
+    limitations:
+      - "General statement; it does not select the correct multiplicity procedure for a specific design."
+    rights: "Article rights are governed by the publisher; ASA statement may be cited and summarized."
+    rights_notes: "Do not reproduce the full statement without checking permissions."
+    superseded: false
+    review_due: "2029-08-10"
+
+  - id: "MEAS-038"
+    title: "Causal Inference: What If"
+    authors_or_body: "Hernán MA, Robins JM"
+    authors_or_organization: "Hernán MA, Robins JM"
+    year: 2020
+    type: "open_methodological_textbook"
+    source_type: "open_methodological_textbook"
+    publication: "Chapman & Hall/CRC; online edition"
+    publication_date: "2020; living online edition"
+    url: "https://miguelhernan.org/whatifbook"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "foundational_methodology"
+    domains: ["causal_inference", "counterfactuals", "longitudinal_data", "confounding", "estimands"]
+    currentness: "Official online book checked on 2026-08-10 for current version availability."
+    project_implication: "Require an explicit causal estimand, causal structure and identification assumptions before causal analysis."
+    project_implications:
+      - "Temporal precedence alone is not causality."
+      - "Expose exchangeability, consistency and positivity assumptions and their likely violations."
+    limitations:
+      - "Textbook examples do not validate a causal model for PSYCHE OS observational data."
+    rights: "Freely available online for study under the authors' stated terms; commercial reproduction is not implied."
+    rights_notes: "Link to the official version and cite chapters used."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "MEAS-039"
+    title: "Interrupted time series regression for the evaluation of public health interventions: a tutorial"
+    authors_or_body: "Bernal JL, Cummins S, Gasparrini A"
+    authors_or_organization: "Bernal JL, Cummins S, Gasparrini A"
+    year: 2017
+    type: "methodological_tutorial"
+    source_type: "methodological_tutorial"
+    publication: "International Journal of Epidemiology 46(1):348-355"
+    publication_date: "2017-02-01"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5407170/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "foundational_methodology"
+    domains: ["interrupted_time_series", "quasi_experiment", "autocorrelation", "seasonality", "causal_inference"]
+    currentness: "Foundational tutorial remains relevant; modern ITS extensions may be needed for complex cases."
+    project_implication: "Call a time-series comparison quasi-experimental only when trend, seasonality, autocorrelation and concurrent events are addressed."
+    project_implications:
+      - "Require sufficient observations before and after the interruption."
+      - "Record intervention timing and other time-varying changes."
+    limitations:
+      - "Tutorial examples are population-level public-health series and require adaptation for an individual series."
+    rights: "Open-access article under the displayed license."
+    rights_notes: "Use code or figures only under the article license and with attribution."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "MEAS-040"
+    title: "CONSORT extension for reporting N-of-1 trials (CENT) 2015 Statement"
+    authors_or_body: "Vohra S et al.; CENT Group"
+    authors_or_organization: "Vohra S et al.; CENT Group"
+    year: 2015
+    type: "reporting_guideline"
+    source_type: "reporting_guideline"
+    publication: "BMJ 350:h1738"
+    publication_date: "2015-05-14"
+    url: "https://www.bmj.com/content/350/bmj.h1738"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "methodological_consensus"
+    domains: ["N_of_1", "CONSORT", "crossover", "reporting", "individual_treatment_effect"]
+    currentness: "CENT remains the specific N-of-1 reporting extension; CONSORT 2025 was checked for generic updates."
+    project_implication: "A valid N-of-1 trial is a planned repeated crossover experiment, not ordinary self-tracking."
+    project_implications:
+      - "Report periods, sequence, carryover, adherence, harms and individual effect precision."
+      - "Do not generalize an individual result to other people."
+    limitations:
+      - "Reporting guideline does not itself make a design safe, unbiased or adequately powered."
+    rights: "BMJ article is available under CC BY-NC 4.0."
+    rights_notes: "Noncommercial reuse and attribution conditions apply."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "MEAS-041"
+    title: "SPIRIT extension and elaboration for n-of-1 trials: SPENT 2019 checklist"
+    authors_or_body: "Porcino AJ et al.; SPENT Group"
+    authors_or_organization: "Porcino AJ et al.; SPENT Group"
+    year: 2020
+    type: "protocol_guideline"
+    source_type: "protocol_guideline"
+    publication: "BMJ 368:m122"
+    publication_date: "2020-02-28"
+    url: "https://www.bmj.com/content/368/bmj.m122"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "methodological_consensus"
+    domains: ["N_of_1", "SPIRIT", "protocol", "ethics", "harms"]
+    currentness: "Current specific protocol extension at the 2026-08-10 check."
+    project_implication: "Require a complete protocol and safety plan before labeling self-experimentation as N-of-1."
+    project_implications:
+      - "Specify eligibility, outcomes, periods, randomization, carryover, missingness and stopping."
+      - "Document whether the activity is research and what oversight applies."
+    limitations:
+      - "Checklist improves protocol completeness but does not establish intervention efficacy or user eligibility."
+    rights: "BMJ open-access article under its displayed license."
+    rights_notes: "Reuse the checklist only within license terms and with attribution."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "MEAS-042"
+    title: "The Single-Case Reporting Guideline In BEhavioural Interventions (SCRIBE) 2016 Statement"
+    authors_or_body: "Tate RL et al.; SCRIBE Group"
+    authors_or_organization: "Tate RL et al.; SCRIBE Group"
+    year: 2016
+    type: "reporting_guideline"
+    source_type: "reporting_guideline"
+    publication: "Archives of Scientific Psychology 4(1):1-9; simultaneous publication in multiple journals"
+    publication_date: "2016"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5214372/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "methodological_consensus"
+    domains: ["single_case_design", "behavioral_intervention", "reporting", "replication"]
+    currentness: "SCRIBE remains the principal single-case behavioral-intervention reporting guideline."
+    project_implication: "Require phase definitions, repeated outcome measurement, raw series and design-specific analysis for single-case claims."
+    project_implications:
+      - "Differentiate observational tracking, AB, reversal, multiple-baseline and randomized designs."
+      - "Preserve all phases and deviations rather than publishing only a smoothed graph."
+    limitations:
+      - "Reporting guidance spans diverse single-case designs and does not guarantee causal identification."
+    rights: "The linked version is open access under CC BY 4.0."
+    rights_notes: "Attribute the SCRIBE Group and the chosen publication version."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "MEAS-043"
+    title: "Design and Implementation of N-of-1 Trials: A User's Guide — Statistical Design and Analytic Considerations"
+    authors_or_body: "Agency for Healthcare Research and Quality"
+    authors_or_organization: "Agency for Healthcare Research and Quality"
+    year: 2014
+    type: "government_methodological_guide"
+    source_type: "government_methodological_guide"
+    publication: "AHRQ Effective Health Care Program"
+    publication_date: "2014"
+    url: "https://effectivehealthcare.ahrq.gov/products/n-1-trials/research-2014-1"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "methodological_consensus"
+    domains: ["N_of_1", "autocorrelation", "statistical_design", "carryover", "individual_effect"]
+    currentness: "Foundational AHRQ guide remains useful; current reporting guidance was checked separately."
+    project_implication: "Model serial dependence, period effects and carryover instead of treating repeated observations as independent."
+    project_implications:
+      - "Plan period length, repetitions and analysis together."
+      - "Use uncertainty intervals and sensitivity analyses for individual effects."
+    limitations:
+      - "Guide predates newer reporting updates and cannot determine safety of a proposed intervention."
+    rights: "U.S. government publication; third-party components may retain separate rights."
+    rights_notes: "Cite AHRQ and verify any reproduced tables or figures."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "MEAS-044"
+    title: "Evidence standards framework for digital health technologies"
+    authors_or_body: "National Institute for Health and Care Excellence"
+    authors_or_organization: "National Institute for Health and Care Excellence"
+    year: 2022
+    type: "health_technology_evidence_framework"
+    source_type: "health_technology_evidence_framework"
+    publication: "NICE Corporate Document ECD7"
+    publication_date: "2018-12-10; updated 2022-08-09"
+    url: "https://www.nice.org.uk/corporate/ecd7"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "official_standard_or_guideline"
+    domains: ["digital_health", "evidence_standards", "risk_tiers", "adaptive_algorithms", "clinical_utility"]
+    currentness: "Official NICE framework, last updated 2022-08-09 and checked on 2026-08-10."
+    project_implication: "Make required evidence proportional to product function, consequence and algorithm adaptivity."
+    project_implications:
+      - "Do not use one evidence threshold for journaling, prediction and treatment functions."
+      - "Treat an adaptive-algorithm update as a new evidence and monitoring event."
+    limitations:
+      - "UK health and social care framework; it is not a substitute for jurisdiction-specific regulation or clinical guidelines."
+    rights: "NICE content is subject to NICE copyright and reuse policies."
+    rights_notes: "Cite the official framework and do not imply NICE approval of PSYCHE OS."
+    superseded: false
+    review_due: "2026-11-10"
+
+  - id: "MEAS-045"
+    title: "Better reporting of interventions: template for intervention description and replication (TIDieR) checklist and guide"
+    authors_or_body: "Hoffmann TC et al.; TIDieR Group"
+    authors_or_organization: "Hoffmann TC et al.; TIDieR Group"
+    year: 2014
+    type: "reporting_guideline"
+    source_type: "reporting_guideline"
+    publication: "BMJ 348:g1687"
+    publication_date: "2014-03-07"
+    url: "https://www.bmj.com/content/348/bmj.g1687"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "methodological_consensus"
+    domains: ["intervention_registry", "TIDieR", "replicability", "fidelity", "adaptation"]
+    currentness: "TIDieR remains a core intervention-description guideline at the 2026-08-10 check."
+    project_implication: "Store intervention components, provider, delivery, dose, tailoring, modification and fidelity in the evidence registry."
+    project_implications:
+      - "A named intervention without sufficient description is not reproducible."
+      - "Version any product-specific adaptation separately from the source intervention."
+    limitations:
+      - "Reporting checklist does not establish efficacy, safety or suitability for self-help."
+    rights: "BMJ open-access article under its displayed license."
+    rights_notes: "Checklist reuse must follow the article license and attribution requirements."
+    superseded: false
+    review_due: "2028-08-10"
+
+  - id: "MEAS-046"
+    title: "GRADE Book"
+    authors_or_body: "GRADE Working Group"
+    authors_or_organization: "GRADE Working Group"
+    year: 2026
+    type: "living_methodological_book"
+    source_type: "living_methodological_book"
+    publication: "GRADEpro / GRADE Working Group"
+    publication_date: "living resource; accessed 2026-08-10"
+    url: "https://book.gradepro.org/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "methodological_consensus"
+    domains: ["GRADE", "certainty_of_evidence", "evidence_to_decision", "interventions"]
+    currentness: "Current living GRADE Book checked on 2026-08-10."
+    project_implication: "Store certainty judgments and reasons separately from effect magnitude and recommendation strength."
+    project_implications:
+      - "Use transparent evidence-to-decision criteria for intervention admission."
+      - "Do not turn a statistically significant effect into high certainty automatically."
+    limitations:
+      - "GRADE requires trained judgment and does not eliminate disagreement or context dependence."
+    rights: "Content and software are governed by GRADEpro and GRADE Working Group terms."
+    rights_notes: "Link to the living book and cite specific sections; do not copy protected content wholesale."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-047"
+    title: "CONSORT Harms 2022 statement, explanation, and elaboration: updated guideline for the reporting of harms in randomised trials"
+    authors_or_body: "Junqueira DR et al.; CONSORT Harms Group"
+    authors_or_organization: "Junqueira DR et al.; CONSORT Harms Group"
+    year: 2023
+    type: "reporting_guideline"
+    source_type: "reporting_guideline"
+    publication: "BMJ 381:e073725"
+    publication_date: "2023-04-24"
+    url: "https://www.bmj.com/content/381/bmj-2022-073725"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "methodological_consensus"
+    domains: ["harms", "adverse_events", "interventions", "reporting", "safety"]
+    currentness: "Current harms extension checked on 2026-08-10."
+    project_implication: "The intervention registry must capture how harms were defined, collected, analyzed and reported."
+    project_implications:
+      - "Absence of reported harm is not evidence of no harm."
+      - "Track withdrawals, burden and unintended effects as well as serious adverse events."
+    limitations:
+      - "Reporting guideline for randomized trials; self-help monitoring needs additional real-world safety governance."
+    rights: "BMJ article is available under CC BY-NC."
+    rights_notes: "Noncommercial reuse and attribution conditions apply."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "MEAS-048"
+    title: "Depression in adults: treatment and management"
+    authors_or_body: "National Institute for Health and Care Excellence"
+    authors_or_organization: "National Institute for Health and Care Excellence"
+    year: 2022
+    type: "clinical_guideline"
+    source_type: "clinical_guideline"
+    publication: "NICE Guideline NG222"
+    publication_date: "2022-06-29"
+    url: "https://www.nice.org.uk/guidance/ng222/chapter/Recommendations"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "official_standard_or_guideline"
+    domains: ["depression", "guided_self_help", "shared_decision_making", "risk", "clinician_boundary"]
+    currentness: "Official NICE guideline current as checked on 2026-08-10."
+    project_implication: "Limit self-help to guideline-supported, appropriately selected pathways with monitoring and escalation."
+    project_implications:
+      - "Guided self-help is not equivalent to autonomous treatment for all severity or risk levels."
+      - "Suicide/self-harm risk and complex or severe presentations require professional assessment and safety planning."
+    limitations:
+      - "UK adult guideline; recommendations are contextual and cannot be generalized to all jurisdictions, ages or diagnoses."
+    rights: "NICE content is subject to NICE copyright and reuse policies."
+    rights_notes: "Do not reproduce intervention manuals or imply NICE endorsement of PSYCHE OS."
+    superseded: false
+    review_due: "2027-02-10"
+
+  - id: "MEAS-049"
+    title: "Computational Psychiatry Needs Time and Context"
+    authors_or_body: "Hitchcock PF, Fried EI, Frank MJ"
+    authors_or_organization: "Hitchcock PF, Fried EI, Frank MJ"
+    year: 2022
+    type: "scholarly_review"
+    source_type: "scholarly_review"
+    publication: "Annual Review of Psychology 73:243-270"
+    publication_date: "2022-01-04"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8822328/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "emerging_synthesis"
+    domains: ["computational_psychiatry", "time", "context", "mechanism", "idiographic_models"]
+    currentness: "Influential recent review; checked against 2026 clinical-prediction discussions."
+    project_implication: "Keep computational parameters research-only and model time and context explicitly."
+    project_implications:
+      - "Do not call a fitted latent parameter a discovered psychiatric mechanism."
+      - "Compare complex models with simple baselines and require reliability and external validation."
+    limitations:
+      - "Narrative conceptual review, not an implementation trial or validation of a PSYCHE OS model."
+    rights: "Open manuscript; final Annual Reviews version is copyrighted."
+    rights_notes: "Use synthesis with attribution and do not reproduce protected figures without permission."
+    superseded: false
+    review_due: "2027-08-10"
+
+  - id: "MEAS-050"
+    title: "Clinical prediction models in psychiatry: a systematic review of two decades of progress and challenges"
+    authors_or_body: "Meehan AJ, Lewis SJ, Fazel S, Fusar-Poli P, Steyerberg EW, Stahl D, Danese A"
+    authors_or_organization: "Meehan AJ, Lewis SJ, Fazel S, Fusar-Poli P, Steyerberg EW, Stahl D, Danese A"
+    year: 2022
+    type: "systematic_review"
+    source_type: "systematic_review"
+    publication: "Molecular Psychiatry 27(6):2700-2708"
+    publication_date: "2022-04-01"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9156409/"
+    accessed: "2026-08-10"
+    accessed_at: "2026-08-10"
+    evidence_tier: "systematic_review_or_meta_analysis"
+    domains: ["psychiatric_prediction", "risk_of_bias", "external_validation", "calibration", "clinical_utility"]
+    currentness: "Large systematic review remains a key field-wide audit; newer methodological guidance was checked on 2026-08-10."
+    project_implication: "No psychiatric prediction model enters product use without low-bias development, independent validation, calibration and demonstrated clinical utility."
+    project_implications:
+      - "Prioritize decision relevance over model complexity."
+      - "High discrimination alone is insufficient for an alert, diagnosis or treatment recommendation."
+    limitations:
+      - "Search ended 2020-09-30, English-language studies only, heterogeneous outcomes and limited independent verification."
+    rights: "Article is open access under CC BY 4.0."
+    rights_notes: "Reuse requires attribution and a license link; do not imply that reviewed models are approved for PSYCHE OS."
+    superseded: false
+    review_due: "2027-02-10"

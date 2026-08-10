@@ -1,0 +1,829 @@
+schema_version: "1.0"
+snapshot_date: "2026-08-10"
+namespace: "ARCH"
+notes: "Official and primary sources are preferred. Vendor documentation is authoritative only for vendor-specific behavior. Legal entries are not legal advice."
+sources:
+  - id: "ARCH-001"
+    title: "Regulatory framework for artificial intelligence"
+    authors_or_organization: "European Commission"
+    year: 2026
+    type: "official_regulatory_overview"
+    evidence_tier: "T1_official"
+    url: "https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai"
+    accessed_at: "2026-08-10"
+    currentness: "Current implementation timeline checked on snapshot date; recheck before release."
+    domains: ["regulation", "eu_ai_act"]
+    project_implications: "Maintain intended-use and transparency controls; do not infer risk class from marketing labels alone."
+    limitations: "Commission summary; consolidated legal text and later implementing acts control."
+    rights: "Citation and link only; official public webpage."
+    review_due: "2026-11-10"
+
+  - id: "ARCH-002"
+    title: "Regulation (EU) 2024/1689 — Artificial Intelligence Act"
+    authors_or_organization: "European Parliament and Council of the European Union"
+    year: 2024
+    type: "binding_legal_text"
+    evidence_tier: "T1_law"
+    url: "https://eur-lex.europa.eu/eli/reg/2024/1689/oj"
+    accessed_at: "2026-08-10"
+    currentness: "Official Journal text; application phases and amendments remain time-sensitive."
+    domains: ["regulation", "eu_ai_act"]
+    project_implications: "Record provider/deployer role, intended use, user-facing AI disclosure, and prohibited/high-risk feature analysis."
+    limitations: "Qualification requires jurisdiction-specific legal analysis."
+    rights: "Official legal text; cite, do not reproduce wholesale."
+    review_due: "2026-11-10"
+
+  - id: "ARCH-003"
+    title: "Commission publishes guidelines on transparency obligations for certain AI systems"
+    authors_or_organization: "European Commission"
+    year: 2026
+    type: "official_guidance_notice"
+    evidence_tier: "T1_official"
+    url: "https://digital-strategy.ec.europa.eu/en/news/commission-publishes-guidelines-transparency-obligations-providers-and-deployers-certain-ai-systems"
+    accessed_at: "2026-08-10"
+    currentness: "New 2026 guidance; recheck final code/guidance status before distribution."
+    domains: ["regulation", "transparency", "generative_ai"]
+    project_implications: "Make AI-generated interaction and content provenance visible and durable."
+    limitations: "Guidance does not replace the Regulation or fact-specific advice."
+    rights: "Citation and link only; official public webpage."
+    review_due: "2026-11-10"
+
+  - id: "ARCH-004"
+    title: "Regulation (EU) 2016/679 — General Data Protection Regulation"
+    authors_or_organization: "European Parliament and Council of the European Union"
+    year: 2016
+    type: "binding_legal_text"
+    evidence_tier: "T1_law"
+    url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679"
+    accessed_at: "2026-08-10"
+    currentness: "Consolidated applicability must be checked for deployment and controller/processor roles."
+    domains: ["privacy", "health_data", "gdpr"]
+    project_implications: "Treat psychological and health inferences as deeply sensitive; implement minimization, purpose, rights, DPIA, security, and transfer controls."
+    limitations: "Household, research, and territorial scope are fact-dependent."
+    rights: "Official legal text; cite, do not reproduce wholesale."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-005"
+    title: "Guidelines 4/2019 on Article 25 Data Protection by Design and by Default"
+    authors_or_organization: "European Data Protection Board"
+    year: 2020
+    type: "regulator_guideline"
+    evidence_tier: "T1_official"
+    url: "https://www.edpb.europa.eu/sites/default/files/files/file1/edpb_guidelines_201904_dataprotection_by_design_and_by_default_v2.0_en.pdf"
+    accessed_at: "2026-08-10"
+    currentness: "Final guideline; EDPB 2026 summary also checked."
+    domains: ["privacy", "privacy_by_design"]
+    project_implications: "Encode minimization and restrictive defaults in architecture, not merely policy text."
+    limitations: "Requires contextual implementation and legal accountability."
+    rights: "Citation and link only; official public document."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-006"
+    title: "National legislation — Law No. 133/2011 on personal data protection"
+    authors_or_organization: "National Center for Personal Data Protection of Moldova"
+    year: 2026
+    type: "official_legal_portal"
+    evidence_tier: "T1_official"
+    url: "https://datepersonale.md/en/legislation/national-legislation/law/"
+    accessed_at: "2026-08-10"
+    currentness: "Current regime on snapshot date."
+    domains: ["privacy", "moldova"]
+    project_implications: "Map controller duties and current national requirements before any non-household processing."
+    limitations: "English portal is informational; Romanian official legal text controls."
+    rights: "Citation and link only."
+    review_due: "2026-08-24"
+
+  - id: "ARCH-007"
+    title: "Law No. 195/2024 on the protection of personal data"
+    authors_or_organization: "Republic of Moldova"
+    year: 2024
+    type: "binding_legal_text"
+    evidence_tier: "T1_law"
+    url: "https://www.legis.md/cautare/downloadpdf/144681"
+    accessed_at: "2026-08-10"
+    currentness: "Scheduled to enter into force on 2026-08-23; verify commencement and implementing practice."
+    domains: ["privacy", "moldova", "gdpr_alignment"]
+    project_implications: "Design immediately to the stricter upcoming rights, governance, and security posture."
+    limitations: "Legal interpretation and transition arrangements require Moldova counsel."
+    rights: "Official legal text; citation and link only."
+    review_due: "2026-08-24"
+
+  - id: "ARCH-008"
+    title: "Transfers of personal data abroad"
+    authors_or_organization: "National Center for Personal Data Protection of Moldova"
+    year: 2026
+    type: "regulator_guidance"
+    evidence_tier: "T1_official"
+    url: "https://datepersonale.md/en/data-controller/data-transfers/"
+    accessed_at: "2026-08-10"
+    currentness: "Current under pre-2026 transition regime; recheck after Law No. 195/2024 commencement."
+    domains: ["privacy", "cross_border_transfer", "moldova"]
+    project_implications: "A cloud call is a governed disclosure/transfer, not merely a technical setting."
+    limitations: "Will require update under the new law."
+    rights: "Citation and link only."
+    review_due: "2026-08-24"
+
+  - id: "ARCH-009"
+    title: "Protocol amending Convention 108 published for Moldova"
+    authors_or_organization: "National Center for Personal Data Protection of Moldova"
+    year: 2026
+    type: "official_treaty_notice"
+    evidence_tier: "T1_official"
+    url: "https://datepersonale.md/en/protocol-amending-convention-for-the-protection-of-individuals-with-regard-to-automatic-processing-of-personal-data-published-in-the-official-gazette/"
+    accessed_at: "2026-08-10"
+    currentness: "Entry into force reported for 2026-08-23; verify after that date."
+    domains: ["privacy", "moldova", "convention_108_plus"]
+    project_implications: "Keep lifecycle, transparency, and international-transfer governance reviewable."
+    limitations: "Treaty effects require legal interpretation."
+    rights: "Citation and link only."
+    review_due: "2026-08-24"
+
+  - id: "ARCH-010"
+    title: "Clinical Decision Support Software — Guidance for Industry and FDA Staff"
+    authors_or_organization: "U.S. Food and Drug Administration"
+    year: 2026
+    type: "regulator_guidance"
+    evidence_tier: "T1_official"
+    url: "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/clinical-decision-support-software"
+    accessed_at: "2026-08-10"
+    currentness: "Final January 2026 guidance; recheck before US distribution."
+    domains: ["regulation", "medical_device", "clinical_decision_support"]
+    project_implications: "Patient/caregiver diagnosis or treatment functions can be device functions; reflection disclaimers cannot override actual intended use."
+    limitations: "Nonbinding guidance; device status is feature- and claim-specific."
+    rights: "Citation and link only; US government source."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-011"
+    title: "MDCG 2019-11 rev.1 — Qualification and classification of software"
+    authors_or_organization: "European Commission Medical Device Coordination Group"
+    year: 2025
+    type: "regulator_guidance"
+    evidence_tier: "T1_official"
+    url: "https://health.ec.europa.eu/latest-updates/update-mdcg-2019-11-rev1-qualification-and-classification-software-regulation-eu-2017745-and-2025-06-17_en"
+    accessed_at: "2026-08-10"
+    currentness: "Revision 1 current on snapshot date; related classification guidance updated in 2026."
+    domains: ["regulation", "eu_mdr", "medical_device_software"]
+    project_implications: "Maintain a formal intended-purpose boundary and pre-release qualification review."
+    limitations: "Guidance is not individualized legal classification."
+    rights: "Citation and link only; official public webpage."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-012"
+    title: "Ethics and governance of artificial intelligence for health"
+    authors_or_organization: "World Health Organization"
+    year: 2021
+    type: "international_guidance"
+    evidence_tier: "T1_official_consensus"
+    url: "https://www.who.int/publications/i/item/9789240029200"
+    accessed_at: "2026-08-10"
+    currentness: "Foundational guidance; newer WHO large multimodal model guidance also reviewed."
+    domains: ["ai_safety", "health", "ethics"]
+    project_implications: "Preserve autonomy, transparency, accountability, inclusiveness, and safety; do not delegate clinical authority to a model."
+    limitations: "High-level governance guidance, not a product-specific control standard."
+    rights: "Citation and link only; WHO copyright."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-013"
+    title: "Health advisory: Use of generative AI chatbots and wellness applications for mental health"
+    authors_or_organization: "American Psychological Association"
+    year: 2025
+    type: "professional_health_advisory"
+    evidence_tier: "T1_professional_guidance"
+    url: "https://www.apa.org/topics/artificial-intelligence-machine-learning/health-advisory-chatbots-wellness-apps"
+    accessed_at: "2026-08-10"
+    currentness: "Current advisory checked on snapshot date."
+    domains: ["mental_health_ai", "relationship_safety", "youth"]
+    project_implications: "Avoid anthropomorphic dependency cues, limit relational illusion, make limitations salient, and validate safety before mental-health use."
+    limitations: "Advisory reflects an emerging evidence base and is not a clinical protocol."
+    rights: "Citation and link only; APA copyright."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-014"
+    title: "Artificial Intelligence Risk Management Framework (AI RMF 1.0)"
+    authors_or_organization: "National Institute of Standards and Technology"
+    year: 2023
+    type: "risk_management_framework"
+    evidence_tier: "T1_standard_body"
+    url: "https://www.nist.gov/itl/ai-risk-management-framework"
+    accessed_at: "2026-08-10"
+    currentness: "AI RMF 1.0 remains published; NIST revision work is active."
+    domains: ["ai_safety", "governance", "evaluation"]
+    project_implications: "Govern, map, measure, and manage model risks with versioned evidence and monitoring."
+    limitations: "Voluntary and outcome-oriented; does not prescribe product controls."
+    rights: "Citation and link only; NIST public document."
+    review_due: "2026-11-10"
+
+  - id: "ARCH-015"
+    title: "Artificial Intelligence Risk Management Framework: Generative Artificial Intelligence Profile (NIST AI 600-1)"
+    authors_or_organization: "National Institute of Standards and Technology"
+    year: 2024
+    type: "risk_management_profile"
+    evidence_tier: "T1_standard_body"
+    url: "https://doi.org/10.6028/NIST.AI.600-1"
+    accessed_at: "2026-08-10"
+    currentness: "Final profile; review with AI RMF updates."
+    domains: ["generative_ai", "safety", "evaluation"]
+    project_implications: "Test confabulation, harmful content, privacy, information integrity, anthropomorphism, and human-AI configuration risks."
+    limitations: "Broad cross-sector profile; mental-health controls need domain adaptation."
+    rights: "Citation and link only; NIST public document."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-016"
+    title: "NIST Privacy Framework 1.0"
+    authors_or_organization: "National Institute of Standards and Technology"
+    year: 2020
+    type: "privacy_risk_framework"
+    evidence_tier: "T1_standard_body"
+    url: "https://www.nist.gov/privacy-framework/privacy-framework"
+    accessed_at: "2026-08-10"
+    currentness: "Final stable version; PF 1.1 was not yet final on snapshot date."
+    domains: ["privacy", "risk_management"]
+    project_implications: "Manage privacy as effects on people, not only confidentiality or compliance."
+    limitations: "Voluntary framework; contextual tailoring required."
+    rights: "Citation and link only; NIST public document."
+    review_due: "2026-11-10"
+
+  - id: "ARCH-017"
+    title: "Privacy Framework 1.1 project and Initial Public Draft status"
+    authors_or_organization: "National Institute of Standards and Technology"
+    year: 2026
+    type: "draft_status_page"
+    evidence_tier: "T1_official_draft"
+    url: "https://www.nist.gov/privacy-framework/new-projects/privacy-framework-version-11"
+    accessed_at: "2026-08-10"
+    currentness: "Page updated 2026-04-01 and states final 1.1 is forthcoming."
+    domains: ["privacy", "currentness"]
+    project_implications: "Do not mislabel the initial public draft as a final standard; schedule update."
+    limitations: "Draft content can change."
+    rights: "Citation and link only."
+    review_due: "2026-11-10"
+
+  - id: "ARCH-018"
+    title: "The NIST Cybersecurity Framework (CSF) 2.0"
+    authors_or_organization: "National Institute of Standards and Technology"
+    year: 2024
+    type: "cybersecurity_framework"
+    evidence_tier: "T1_standard_body"
+    url: "https://www.nist.gov/publications/nist-cybersecurity-framework-csf-20"
+    accessed_at: "2026-08-10"
+    currentness: "Final 2.0 framework."
+    domains: ["security", "governance", "incident_readiness"]
+    project_implications: "Cover Govern, Identify, Protect, Detect, Respond, and Recover rather than treating encryption as the whole program."
+    limitations: "Outcome taxonomy, not a prescriptive implementation baseline."
+    rights: "Citation and link only; NIST public document."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-019"
+    title: "NIST SP 800-53 Rev. 5, Release 5.2.0 — Security and Privacy Controls"
+    authors_or_organization: "National Institute of Standards and Technology"
+    year: 2025
+    type: "security_control_catalog"
+    evidence_tier: "T1_standard_body"
+    url: "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final"
+    accessed_at: "2026-08-10"
+    currentness: "Release 5.2.0 planning note checked; tailor rather than claim compliance."
+    domains: ["security", "privacy", "controls"]
+    project_implications: "Use selected controls for access, audit, contingency, media, development, integrity, and supply chain assurance."
+    limitations: "Large federal catalog; no blanket compliance claim is justified."
+    rights: "Citation and link only; NIST public document."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-020"
+    title: "NIST Key Management Guidelines"
+    authors_or_organization: "National Institute of Standards and Technology"
+    year: 2020
+    type: "cryptographic_guidance"
+    evidence_tier: "T1_standard_body"
+    url: "https://csrc.nist.gov/projects/key-management/key-management-guidelines"
+    accessed_at: "2026-08-10"
+    currentness: "SP 800-57 Part 1 Rev.5 final remains current; Rev.6 draft activity noted."
+    domains: ["security", "key_management", "cryptography"]
+    project_implications: "Define generation, storage, wrapping, rotation, recovery, compromise, and destruction lifecycles."
+    limitations: "Implementation profile and algorithms must be selected for the deployment."
+    rights: "Citation and link only; NIST public document."
+    review_due: "2026-11-10"
+
+  - id: "ARCH-021"
+    title: "NIST SP 800-111 — Guide to Storage Encryption Technologies for End User Devices"
+    authors_or_organization: "National Institute of Standards and Technology"
+    year: 2007
+    type: "storage_encryption_guidance"
+    evidence_tier: "T1_standard_body"
+    url: "https://csrc.nist.gov/pubs/sp/800/111/final"
+    accessed_at: "2026-08-10"
+    currentness: "Older but still final; supplement with modern algorithms and platform guidance."
+    domains: ["security", "storage_encryption"]
+    project_implications: "Threat-model file/folder, volume, database, and removable-media protection separately."
+    limitations: "Predates current AEAD and modern endpoint environments."
+    rights: "Citation and link only; NIST public document."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-022"
+    title: "RFC 9106 — Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work"
+    authors_or_organization: "Internet Engineering Task Force"
+    year: 2021
+    type: "internet_standard"
+    evidence_tier: "T1_normative_standard"
+    url: "https://www.rfc-editor.org/info/rfc9106"
+    accessed_at: "2026-08-10"
+    currentness: "Current informational RFC for Argon2 parameter guidance."
+    domains: ["cryptography", "password_kdf", "recovery"]
+    project_implications: "Use Argon2id with per-vault salt and benchmarked versioned parameters for recovery-secret wrapping."
+    limitations: "Parameters must be benchmarked and periodically reviewed; not a full key-management design."
+    rights: "Citation and link only; RFC terms apply."
+    review_due: "2027-08-10"
+
+  - id: "ARCH-023"
+    title: "RFC 5116 — An Interface and Algorithms for Authenticated Encryption"
+    authors_or_organization: "Internet Engineering Task Force"
+    year: 2008
+    type: "internet_standard"
+    evidence_tier: "T1_normative_standard"
+    url: "https://www.rfc-editor.org/info/rfc5116"
+    accessed_at: "2026-08-10"
+    currentness: "Stable AEAD interface principles; algorithm choice requires current review."
+    domains: ["cryptography", "aead"]
+    project_implications: "Use authenticated encryption with unique nonces and authenticated versioned metadata; never design custom cryptography."
+    limitations: "Does not itself prescribe the entire vault envelope."
+    rights: "Citation and link only; RFC terms apply."
+    review_due: "2027-08-10"
+
+  - id: "ARCH-024"
+    title: "CryptProtectData function (DPAPI)"
+    authors_or_organization: "Microsoft"
+    year: 2026
+    type: "platform_documentation"
+    evidence_tier: "T1_vendor_primary"
+    url: "https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata"
+    accessed_at: "2026-08-10"
+    currentness: "Current Microsoft platform documentation on snapshot date."
+    domains: ["security", "windows", "key_wrapping"]
+    project_implications: "Use DPAPI only as a convenience wrapping path; provide independent recovery because binding is normally user/computer scoped."
+    limitations: "Vendor-specific behavior and endpoint compromise remain in scope."
+    rights: "Citation and link only; Microsoft documentation terms apply."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-025"
+    title: "Storing cryptographic keys in the Keychain"
+    authors_or_organization: "Apple"
+    year: 2026
+    type: "platform_documentation"
+    evidence_tier: "T1_vendor_primary"
+    url: "https://developer.apple.com/documentation/security/storing-keys-in-the-keychain"
+    accessed_at: "2026-08-10"
+    currentness: "Current Apple platform documentation on snapshot date."
+    domains: ["security", "apple", "key_wrapping"]
+    project_implications: "Abstract OS-keystore wrapping behind a platform adapter and retain separate recovery."
+    limitations: "Vendor-specific; entitlement, sync, and access-control details require implementation review."
+    rights: "Citation and link only; Apple documentation terms apply."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-026"
+    title: "SQLCipher Design"
+    authors_or_organization: "Zetetic"
+    year: 2026
+    type: "vendor_technical_documentation"
+    evidence_tier: "T2_primary_implementation"
+    url: "https://www.zetetic.net/sqlcipher/design/"
+    accessed_at: "2026-08-10"
+    currentness: "Current design page; build/version/license must be pinned during implementation."
+    domains: ["security", "database_encryption", "sqlite"]
+    project_implications: "SQLCipher is a plausible local encrypted relational profile, not a substitute for blob, key, backup, and metadata controls."
+    limitations: "Vendor documentation; independent implementation audit is still required."
+    rights: "Citation/link only; distribution subject to SQLCipher license and attribution review."
+    review_due: "2026-11-10"
+
+  - id: "ARCH-027"
+    title: "Temporary Files Used By SQLite"
+    authors_or_organization: "SQLite Project"
+    year: 2026
+    type: "primary_technical_documentation"
+    evidence_tier: "T1_project_primary"
+    url: "https://www.sqlite.org/tempfiles.html"
+    accessed_at: "2026-08-10"
+    currentness: "Living upstream documentation checked on snapshot date."
+    domains: ["security", "sqlite", "metadata_leakage"]
+    project_implications: "Control journals, WAL, temp databases, statement journals, and OS temp locations within the encrypted boundary."
+    limitations: "Exact behavior depends on SQLite build/configuration and VFS."
+    rights: "Citation and link only; SQLite documentation."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-028"
+    title: "SQLite Online Backup API"
+    authors_or_organization: "SQLite Project"
+    year: 2026
+    type: "primary_technical_documentation"
+    evidence_tier: "T1_project_primary"
+    url: "https://www.sqlite.org/backup.html"
+    accessed_at: "2026-08-10"
+    currentness: "Living upstream documentation checked on snapshot date."
+    domains: ["backup", "sqlite", "recovery"]
+    project_implications: "Create consistent snapshots through supported APIs, then wrap/authenticate and restore-test them."
+    limitations: "Consistency is not encryption, retention, or successful recovery."
+    rights: "Citation and link only; SQLite documentation."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-029"
+    title: "SQLite PRAGMA secure_delete"
+    authors_or_organization: "SQLite Project"
+    year: 2026
+    type: "primary_technical_documentation"
+    evidence_tier: "T1_project_primary"
+    url: "https://www.sqlite.org/pragma.html#pragma_secure_delete"
+    accessed_at: "2026-08-10"
+    currentness: "Living upstream documentation checked on snapshot date."
+    domains: ["deletion", "sqlite", "residual_data"]
+    project_implications: "Do not promise secure deletion based only on a PRAGMA; encrypted storage and key/backup lifecycle remain essential."
+    limitations: "Shadow tables, filesystems, SSDs, backups, and exported copies can retain content."
+    rights: "Citation and link only; SQLite documentation."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-030"
+    title: "SQLite As An Application File Format"
+    authors_or_organization: "SQLite Project"
+    year: 2026
+    type: "primary_technical_documentation"
+    evidence_tier: "T1_project_primary"
+    url: "https://www.sqlite.org/appfileformat.html"
+    accessed_at: "2026-08-10"
+    currentness: "Living upstream documentation checked on snapshot date."
+    domains: ["durability", "sqlite", "portability"]
+    project_implications: "A documented SQLite snapshot can complement open JSONL/Markdown export, subject to encryption and validation."
+    limitations: "A database file is not independently understandable without schema documentation and migration tooling."
+    rights: "Citation and link only; SQLite documentation."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-031"
+    title: "OWASP LLM01:2025 Prompt Injection"
+    authors_or_organization: "OWASP Foundation"
+    year: 2025
+    type: "security_risk_guidance"
+    evidence_tier: "T1_security_consensus"
+    url: "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"
+    accessed_at: "2026-08-10"
+    currentness: "OWASP GenAI 2025 risk entry current on snapshot date."
+    domains: ["security", "prompt_injection", "imports"]
+    project_implications: "Separate imported data from instructions; bound tools and privileges; treat indirect/multimodal injection as expected."
+    limitations: "No complete prevention technique is known; defense in depth and impact limitation are required."
+    rights: "Citation and link only; OWASP license applies."
+    review_due: "2026-11-10"
+
+  - id: "ARCH-032"
+    title: "OWASP LLM07:2025 System Prompt Leakage"
+    authors_or_organization: "OWASP Foundation"
+    year: 2025
+    type: "security_risk_guidance"
+    evidence_tier: "T1_security_consensus"
+    url: "https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/"
+    accessed_at: "2026-08-10"
+    currentness: "OWASP GenAI 2025 risk entry current on snapshot date."
+    domains: ["security", "llm", "policy_enforcement"]
+    project_implications: "Never place secrets in prompts or rely on hidden instructions as authorization/security policy."
+    limitations: "Risk taxonomy, not formal assurance."
+    rights: "Citation and link only; OWASP license applies."
+    review_due: "2026-11-10"
+
+  - id: "ARCH-033"
+    title: "OWASP File Upload Cheat Sheet"
+    authors_or_organization: "OWASP Foundation"
+    year: 2026
+    type: "security_practice_guidance"
+    evidence_tier: "T1_security_consensus"
+    url: "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html"
+    accessed_at: "2026-08-10"
+    currentness: "Living cheat sheet checked on snapshot date."
+    domains: ["security", "imports", "file_handling"]
+    project_implications: "Allowlist types, verify signatures, rename, limit size/depth, isolate storage, scan, and authorize import."
+    limitations: "Must be adapted to offline desktop threat model and parser set."
+    rights: "Citation and link only; OWASP license applies."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-034"
+    title: "OWASP Input Validation Cheat Sheet"
+    authors_or_organization: "OWASP Foundation"
+    year: 2026
+    type: "security_practice_guidance"
+    evidence_tier: "T1_security_consensus"
+    url: "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html"
+    accessed_at: "2026-08-10"
+    currentness: "Living cheat sheet checked on snapshot date."
+    domains: ["security", "validation", "imports"]
+    project_implications: "Validate syntax and semantics at trust boundaries; schema validation alone is insufficient."
+    limitations: "General web guidance; desktop parser and archive controls need additional rules."
+    rights: "Citation and link only; OWASP license applies."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-035"
+    title: "OWASP Logging Cheat Sheet"
+    authors_or_organization: "OWASP Foundation"
+    year: 2026
+    type: "security_practice_guidance"
+    evidence_tier: "T1_security_consensus"
+    url: "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html"
+    accessed_at: "2026-08-10"
+    currentness: "Living cheat sheet checked on snapshot date."
+    domains: ["security", "logging", "privacy"]
+    project_implications: "Exclude health content, secrets, tokens, and raw prompts; sanitize and protect bounded operational logs."
+    limitations: "Logging needs product-specific event taxonomy and retention."
+    rights: "Citation and link only; OWASP license applies."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-036"
+    title: "OWASP Cross Site Scripting Prevention Cheat Sheet"
+    authors_or_organization: "OWASP Foundation"
+    year: 2026
+    type: "security_practice_guidance"
+    evidence_tier: "T1_security_consensus"
+    url: "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html"
+    accessed_at: "2026-08-10"
+    currentness: "Living cheat sheet checked on snapshot date."
+    domains: ["security", "rendering", "xss"]
+    project_implications: "Treat imported/model text as untrusted and use contextual encoding/sanitization in any webview."
+    limitations: "Framework-specific rendering rules still need tests."
+    rights: "Citation and link only; OWASP license applies."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-037"
+    title: "NIST SP 800-218 — Secure Software Development Framework (SSDF) Version 1.1"
+    authors_or_organization: "National Institute of Standards and Technology"
+    year: 2022
+    type: "secure_development_standard"
+    evidence_tier: "T1_standard_body"
+    url: "https://csrc.nist.gov/pubs/sp/800/218/final"
+    accessed_at: "2026-08-10"
+    currentness: "Final 1.1; monitor newer SSDF profiles/updates."
+    domains: ["security", "secure_development", "supply_chain"]
+    project_implications: "Protect code, review dependencies, produce provenance, verify releases, and respond to vulnerabilities."
+    limitations: "Practice framework; controls must be concretized in CI and release process."
+    rights: "Citation and link only; NIST public document."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-038"
+    title: "Software Bill of Materials Resources"
+    authors_or_organization: "Cybersecurity and Infrastructure Security Agency"
+    year: 2026
+    type: "government_resource_library"
+    evidence_tier: "T1_official"
+    url: "https://www.cisa.gov/topics/cyber-threats-and-advisories/sbom/sbomresourceslibrary"
+    accessed_at: "2026-08-10"
+    currentness: "Current resource hub checked on snapshot date."
+    domains: ["security", "sbom", "supply_chain"]
+    project_implications: "Pin dependencies and emit an SBOM/provenance record for distributable builds."
+    limitations: "Resource hub, not one conformance specification."
+    rights: "Citation and link only; US government source."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-039"
+    title: "Your data — OpenAI API data controls and retention"
+    authors_or_organization: "OpenAI"
+    year: 2026
+    type: "provider_primary_documentation"
+    evidence_tier: "T1_vendor_primary"
+    url: "https://developers.openai.com/api/docs/guides/your-data#default-usage-policies-by-endpoint"
+    accessed_at: "2026-08-10"
+    currentness: "Time-sensitive provider policy checked on snapshot date; capture a policy snapshot at every integration release."
+    domains: ["privacy", "cloud", "llm_provider", "retention"]
+    project_implications: "No provider-side canonical memory; minimize each call; distinguish training, abuse logs, application state, ZDR/MAM, cache, residency, and third-party services."
+    limitations: "Provider policy can change and eligibility/exceptions are account- and endpoint-specific."
+    rights: "Citation and link only; OpenAI documentation terms apply."
+    review_due: "2026-09-10"
+
+  - id: "ARCH-040"
+    title: "OpenAI API model guidance — persisted reasoning and prompt caching"
+    authors_or_organization: "OpenAI"
+    year: 2026
+    type: "provider_primary_documentation"
+    evidence_tier: "T1_vendor_primary"
+    url: "https://developers.openai.com/api/docs/guides/latest-model"
+    accessed_at: "2026-08-10"
+    currentness: "Current model guidance checked on snapshot date."
+    domains: ["llm_provider", "prompt_caching", "state"]
+    project_implications: "Provider/model features and persisted state are optional adapters; explicitly configure storage/cache and regression-test snapshots."
+    limitations: "Version-specific and rapidly changing; not a privacy guarantee."
+    rights: "Citation and link only; OpenAI documentation terms apply."
+    review_due: "2026-09-10"
+
+  - id: "ARCH-041"
+    title: "PROV-O: The PROV Ontology"
+    authors_or_organization: "World Wide Web Consortium"
+    year: 2013
+    type: "w3c_recommendation"
+    evidence_tier: "T1_normative_standard"
+    url: "https://www.w3.org/TR/prov-o/"
+    accessed_at: "2026-08-10"
+    currentness: "Stable W3C Recommendation."
+    domains: ["provenance", "data_model"]
+    project_implications: "Model source/derived entities, activities, and agents with explicit derivation; adopt only the needed subset."
+    limitations: "Generic ontology; direct wholesale use would add unnecessary complexity."
+    rights: "Citation and link only; W3C document license applies."
+    review_due: "2028-08-10"
+
+  - id: "ARCH-042"
+    title: "JSON Schema Draft 2020-12"
+    authors_or_organization: "JSON Schema project / IETF contributors"
+    year: 2022
+    type: "data_validation_specification"
+    evidence_tier: "T1_normative_standard"
+    url: "https://json-schema.org/draft/2020-12"
+    accessed_at: "2026-08-10"
+    currentness: "Current stable draft used for the export schema contract."
+    domains: ["data_model", "schema", "export"]
+    project_implications: "Version and validate portable JSON/JSONL records; retain schemas with exports."
+    limitations: "Syntactic validation cannot establish semantic truth or provenance."
+    rights: "Citation and link only; specification terms apply."
+    review_due: "2027-08-10"
+
+  - id: "ARCH-043"
+    title: "RFC 8785 — JSON Canonicalization Scheme (JCS)"
+    authors_or_organization: "Internet Engineering Task Force"
+    year: 2020
+    type: "internet_standard"
+    evidence_tier: "T1_normative_standard"
+    url: "https://www.rfc-editor.org/info/rfc8785"
+    accessed_at: "2026-08-10"
+    currentness: "Stable RFC."
+    domains: ["integrity", "json", "manifest"]
+    project_implications: "Use defined canonicalization before deterministic manifest signatures/hashes where the JSON constraints are met."
+    limitations: "Canonicalization does not prove truth, authorization, or confidentiality."
+    rights: "Citation and link only; RFC terms apply."
+    review_due: "2028-08-10"
+
+  - id: "ARCH-044"
+    title: "FHIR R5 Provenance Resource"
+    authors_or_organization: "HL7 International"
+    year: 2023
+    type: "health_interoperability_standard"
+    evidence_tier: "T1_domain_standard"
+    url: "https://hl7.org/fhir/R5/provenance.html"
+    accessed_at: "2026-08-10"
+    currentness: "FHIR R5 current page checked; target version must be negotiated per recipient."
+    domains: ["interoperability", "clinical_export", "provenance"]
+    project_implications: "Provide optional clinician-export mapping; do not make FHIR the personal evidence canonical model."
+    limitations: "FHIR implementation guides, profiles, terminology, and versions vary."
+    rights: "Citation/link only; HL7/FHIR license and trademark terms apply."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-045"
+    title: "FHIR R5 QuestionnaireResponse definitions"
+    authors_or_organization: "HL7 International"
+    year: 2023
+    type: "health_interoperability_standard"
+    evidence_tier: "T1_domain_standard"
+    url: "https://hl7.org/fhir/R5/questionnaireresponse-definitions.html"
+    accessed_at: "2026-08-10"
+    currentness: "FHIR R5 current page checked."
+    domains: ["interoperability", "assessment", "clinical_export"]
+    project_implications: "Map licensed assessment administrations/results only when recipient profile and rights permit."
+    limitations: "FHIR does not grant rights to test items or validate the underlying instrument."
+    rights: "Citation/link only; HL7/FHIR and instrument rights apply."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-046"
+    title: "RFC 8493 — The BagIt File Packaging Format (V1.0)"
+    authors_or_organization: "Internet Engineering Task Force"
+    year: 2018
+    type: "preservation_packaging_standard"
+    evidence_tier: "T1_normative_standard"
+    url: "https://datatracker.ietf.org/doc/html/rfc8493"
+    accessed_at: "2026-08-10"
+    currentness: "Stable RFC."
+    domains: ["backup", "export", "integrity", "preservation"]
+    project_implications: "Use a BagIt-like inventory/checksum structure for portable packages, inside an authenticated encrypted envelope when sensitive."
+    limitations: "Checksums detect change but do not protect against a malicious party that can replace manifests."
+    rights: "Citation and link only; RFC terms apply."
+    review_due: "2028-08-10"
+
+  - id: "ARCH-047"
+    title: "Recommended Formats Statement"
+    authors_or_organization: "Library of Congress"
+    year: 2026
+    type: "digital_preservation_guidance"
+    evidence_tier: "T1_memory_institution"
+    url: "https://www.loc.gov/preservation/resources/rfs/"
+    accessed_at: "2026-08-10"
+    currentness: "Current annual statement hub checked on snapshot date."
+    domains: ["durability", "export", "preservation"]
+    project_implications: "Review preservation formats periodically and pair machine-readable data with schemas and human-readable documentation."
+    limitations: "Collection guidance is not a product-specific preservation guarantee."
+    rights: "Citation and link only; Library of Congress public resource."
+    review_due: "2027-08-10"
+
+  - id: "ARCH-048"
+    title: "Developing Time-Oriented Database Applications in SQL"
+    authors_or_organization: "Richard T. Snodgrass"
+    year: 2000
+    type: "scholarly_monograph"
+    evidence_tier: "T2_foundational_method"
+    url: "https://www2.cs.arizona.edu/~rts/tdbbook.pdf"
+    accessed_at: "2026-08-10"
+    currentness: "Foundational temporal-database concepts remain relevant; implementation patterns require modernization."
+    domains: ["temporal_data", "bitemporal", "data_model"]
+    project_implications: "Separate domain-valid time from transaction history and add autobiographical reported/observed/fuzzy clocks."
+    limitations: "Not specific to psychological evidence and predates current SQLite/application practice."
+    rights: "Citation/link only; do not redistribute the book."
+    review_due: "2028-08-10"
+
+  - id: "ARCH-049"
+    title: "A systematic review of self-tracking technology for health and well-being"
+    authors_or_organization: "Systematic-review authors; open-access record"
+    year: 2021
+    type: "systematic_review"
+    evidence_tier: "T2_systematic_review"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8493454/"
+    accessed_at: "2026-08-10"
+    currentness: "Review remains useful for design; newer engagement evidence also checked."
+    domains: ["ux", "self_tracking", "wellbeing"]
+    project_implications: "Do not assume more tracking creates benefit; design feedback, reflection, and burden controls."
+    limitations: "Heterogeneous technologies, populations, outcomes, and study quality."
+    rights: "Open-access article; cite under article license."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-050"
+    title: "Understanding and predicting personal informatics system abandonment"
+    authors_or_organization: "Personal-informatics research authors; open-access record"
+    year: 2017
+    type: "empirical_ux_research"
+    evidence_tier: "T2_peer_reviewed"
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5428074/"
+    accessed_at: "2026-08-10"
+    currentness: "Older but directly relevant to long-term product failure modes."
+    domains: ["ux", "abandonment", "personal_informatics"]
+    project_implications: "Support lapses, changing goals, data access, correction, and exit rather than punishing discontinuity."
+    limitations: "Technology landscape and participant contexts have evolved."
+    rights: "Open-access article; cite under article license."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-051"
+    title: "Participant burden and adherence in ecological momentary assessment"
+    authors_or_organization: "JMIR Formative Research authors"
+    year: 2024
+    type: "empirical_methodology_study"
+    evidence_tier: "T2_peer_reviewed"
+    url: "https://formative.jmir.org/2024/1/e49512/"
+    accessed_at: "2026-08-10"
+    currentness: "Recent empirical evidence checked on snapshot date."
+    domains: ["ux", "ema", "burden", "adherence"]
+    project_implications: "Bound prompt frequency/duration, measure missingness and perceived burden, and allow pausing without penalty."
+    limitations: "Burden relationships vary by population, protocol, incentive, and duration."
+    rights: "Open-access article; cite under publisher license."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-052"
+    title: "Acceptance and use of digital mental health interventions: systematic evidence"
+    authors_or_organization: "Journal of Medical Internet Research authors"
+    year: 2024
+    type: "systematic_review"
+    evidence_tier: "T2_systematic_review"
+    url: "https://www.jmir.org/2024/1/e52609/"
+    accessed_at: "2026-08-10"
+    currentness: "Recent review checked on snapshot date."
+    domains: ["ux", "digital_mental_health", "acceptance"]
+    project_implications: "Utility, trust, privacy, human support, usability, and context matter more than novelty or conversational polish."
+    limitations: "Heterogeneous intervention types and acceptance constructs."
+    rights: "Open-access article; cite under publisher license."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-053"
+    title: "User engagement and attrition with conversational agents for mental health: systematic review and meta-analysis"
+    authors_or_organization: "Journal of Medical Internet Research authors"
+    year: 2024
+    type: "systematic_review_meta_analysis"
+    evidence_tier: "T2_systematic_review"
+    url: "https://www.jmir.org/2024/1/e48168/"
+    accessed_at: "2026-08-10"
+    currentness: "Recent synthesis checked on snapshot date."
+    domains: ["ux", "chatbots", "engagement", "attrition"]
+    project_implications: "Treat attrition as contextual evidence; never optimize conversation duration as a mental-health outcome."
+    limitations: "Interventions, definitions, and follow-up are heterogeneous; publication bias is possible."
+    rights: "Open-access article; cite under publisher license."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-054"
+    title: "Ethics and governance of artificial intelligence for health: Guidance on large multi-modal models"
+    authors_or_organization: "World Health Organization"
+    year: 2024
+    type: "international_guidance"
+    evidence_tier: "T1_official_consensus"
+    url: "https://www.who.int/publications/i/item/9789240084759"
+    accessed_at: "2026-08-10"
+    currentness: "Current WHO model-specific health governance guidance."
+    domains: ["ai_safety", "health", "generative_ai"]
+    project_implications: "Require evidence, stakeholder accountability, post-deployment review, and protection from automation bias/confabulation."
+    limitations: "High-level guidance; product-specific clinical evidence remains necessary."
+    rights: "Citation and link only; WHO copyright."
+    review_due: "2027-02-10"
+
+  - id: "ARCH-055"
+    title: "NIST SP 800-61 Rev. 3 — Incident Response Recommendations and Considerations"
+    authors_or_organization: "National Institute of Standards and Technology"
+    year: 2025
+    type: "incident_response_guidance"
+    evidence_tier: "T1_standard_body"
+    url: "https://csrc.nist.gov/pubs/sp/800/61/r3/final"
+    accessed_at: "2026-08-10"
+    currentness: "Final April 2025; supersedes Rev.2."
+    domains: ["security", "incident_response", "recovery"]
+    project_implications: "Prepare evidence-preserving detection, containment, notification decisions, recovery, and post-incident learning before distribution."
+    limitations: "Organizational guidance must be scaled to a local-first single-user product."
+    rights: "Citation and link only; NIST public document."
+    review_due: "2027-02-10"
