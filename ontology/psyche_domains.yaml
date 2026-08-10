@@ -1,0 +1,1083 @@
+schema_version: "1.0.0"
+
+registry:
+  id: "psyche_domains"
+  version: "2.0.0"
+  status: "research_converged_candidate"
+  published_at: "2026-08-10"
+  knowledge_cutoff: "2026-08-10"
+  default_language: "ru"
+  authority_document: "docs/SCIENTIFIC_GOVERNANCE.md"
+  description: >-
+    Версионируемый навигационный реестр доменов PSYCHE OS. Он разделяет источники,
+    сообщения, феноменологию, functioning, классификационные ссылки,
+    исследовательские измерения, traits, контекст и производные утверждения.
+  completeness_claim: false
+  completeness_notice_ru: >-
+    Реестр не является полной, окончательной или универсальной картой психики,
+    личности, здоровья либо идентичности человека. Отсутствие домена не означает
+    отсутствие явления; наличие домена не доказывает его существование у человека.
+  completeness_notice_en: >-
+    This registry is not a complete, final, or universal map of mind, personality,
+    health, or identity. An absent domain does not mean an absent phenomenon, and a
+    listed domain does not establish that the phenomenon exists in a person.
+  change_policy:
+    stable_ids_are_never_reused: true
+    semantic_change_requires_version_bump: true
+    old_records_remain_version_pinned: true
+    lossy_mappings_must_be_explicit: true
+    unknown_is_permitted: true
+    real_data_gate: "CLOSED"
+
+schema_contract:
+  domain_id_pattern: "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+  required_domain_fields:
+    - "id"
+    - "layer"
+    - "labels"
+    - "definition"
+    - "non_goals"
+    - "allowed_evidence_kinds"
+    - "allowed_claim_types"
+    - "inference_limits"
+    - "sensitivity"
+    - "review"
+  labels_required: ["ru", "en"]
+  source_id_pattern: "^(CLIN|MEAS|ARCH)-[0-9]{3}$"
+  reference_semantics:
+    evidence: "An allowed evidence kind can support or contradict a claim; it never guarantees truth."
+    claim: "An allowed claim type is the maximum syntactic class, subject to evidence, rights, review, and causality gates."
+    source_ids: "Scientific sources informing the domain boundary; not evidence about an individual."
+
+enums:
+  layer_id:
+    - "source_evidence"
+    - "report_memory"
+    - "phenomenology"
+    - "functioning_icf"
+    - "classification_reference"
+    - "research_dimension"
+    - "trait_personality"
+    - "development_context"
+    - "values_meaning"
+    - "strengths_thriving"
+    - "cognition"
+    - "sleep_physical"
+    - "relationship_social"
+    - "work_learning"
+    - "environment_context"
+    - "assessment_measurement"
+    - "intervention_experiment"
+    - "safety"
+  evidence_kind:
+    - "source_artifact"
+    - "verbatim_report"
+    - "memory_report"
+    - "current_self_report"
+    - "collateral_report"
+    - "contemporaneous_record"
+    - "self_observation"
+    - "collateral_observation"
+    - "clinician_observation"
+    - "device_observation"
+    - "deterministic_measurement"
+    - "assessment_score"
+    - "documented_classification"
+    - "external_knowledge_source"
+    - "protocol_record"
+    - "intervention_observation"
+    - "derived_statistic"
+  claim_type:
+    - "descriptive"
+    - "pattern"
+    - "interpretive"
+    - "narrative"
+    - "statistical_association"
+    - "causal_hypothesis"
+    - "prediction"
+    - "clinical_mapping"
+    - "trait_estimate"
+    - "functioning_assessment"
+    - "strength_or_resource"
+    - "recommendation_candidate"
+  causality_level:
+    - "C0_observation"
+    - "C1_cooccurrence"
+    - "C2_temporal_precedence"
+    - "C3_replicated_within_person_association"
+    - "C4_quasi_experimental"
+    - "C5_randomized_single_case"
+    - "C6_replicated_n_of_1_or_trial"
+  sensitivity_level:
+    - "sensitive"
+    - "highly_sensitive"
+    - "critical_safety"
+  review_status:
+    - "accepted_with_limits"
+    - "provisional"
+    - "research_only"
+    - "deprecated"
+    - "withdrawn"
+  mapping_relation:
+    - "exact"
+    - "narrower"
+    - "broader"
+    - "related"
+    - "overlaps"
+    - "no_safe_mapping"
+  domain_relation:
+    - "contextualizes"
+    - "may_support"
+    - "may_contradict"
+    - "maps_to"
+    - "is_distinct_from"
+    - "requires_review_with"
+
+evidence_kind_contracts:
+  - id: "source_artifact"
+    boundary: "Подлинность или целостность артефакта не доказывает истинность утверждений внутри."
+  - id: "verbatim_report"
+    boundary: "Доказывает только содержание сообщения в зафиксированном контексте."
+  - id: "memory_report"
+    boundary: "Текущая recollection; vividness и confidence не доказывают историческую точность."
+  - id: "current_self_report"
+    boundary: "Перспектива человека в заданном окне; не независимое подтверждение и не диагноз."
+  - id: "collateral_report"
+    boundary: "Сообщение третьего лица с отдельной perspective, consent и возможным bias."
+  - id: "contemporaneous_record"
+    boundary: "Документирует запись, сделанную близко ко времени события; содержание может быть ошибочным."
+  - id: "self_observation"
+    boundary: "Наблюдение отделено от объяснения и содержит контекст/время."
+  - id: "collateral_observation"
+    boundary: "Внешнее наблюдение не получает приоритет только из-за внешнего автора."
+  - id: "clinician_observation"
+    boundary: "Используется с credential, scope, encounter time и исходным документом."
+  - id: "device_observation"
+    boundary: "Нужны device/firmware/algorithm version; consumer estimate не является ground truth."
+  - id: "deterministic_measurement"
+    boundary: "Результат воспроизводимого правила; валидность правила оценивается отдельно."
+  - id: "assessment_score"
+    boundary: "Только approved definition/version/language/scoring; screening не является diagnosis."
+  - id: "documented_classification"
+    boundary: "Хранит system/version/author/status; не подтверждает актуальность или этиологию."
+  - id: "external_knowledge_source"
+    boundary: "Информирует schema/interpretation, но не является evidence о конкретном человеке."
+  - id: "protocol_record"
+    boundary: "Показывает pre-specified plan, но не исполнение или эффект."
+  - id: "intervention_observation"
+    boundary: "Наблюдение во время действия; attribution зависит от design и confounding."
+  - id: "derived_statistic"
+    boundary: "Всегда привязан к inputs, estimand, algorithm и uncertainty; не становится raw evidence."
+
+layer_contracts:
+  - id: "source_evidence"
+    purpose: "Сохранить происхождение, целостность, locator, права и raw/verbatim material."
+    may_emit: ["descriptive"]
+    forbidden_inference: "Source authenticity to truth of content."
+  - id: "report_memory"
+    purpose: "Сохранить, кто что сообщил, когда, с какой перспективой и temporal uncertainty."
+    may_emit: ["descriptive", "narrative"]
+    forbidden_inference: "Report or memory to historical fact."
+  - id: "phenomenology"
+    purpose: "Описать форму, содержание, course, context, distress и uncertainty переживания."
+    may_emit: ["descriptive", "pattern", "interpretive"]
+    forbidden_inference: "Phenomenon to diagnosis or etiology."
+  - id: "functioning_icf"
+    purpose: "Описать activities, participation, barriers, facilitators и support needs."
+    may_emit: ["descriptive", "functioning_assessment", "pattern"]
+    forbidden_inference: "Impairment to a specific disorder or good functioning to absence of symptoms."
+  - id: "classification_reference"
+    purpose: "Хранить versioned ICD/DSM references и actor-qualified mappings."
+    may_emit: ["clinical_mapping"]
+    forbidden_inference: "Self-report or screening to autonomous diagnosis; classification to identity."
+  - id: "research_dimension"
+    purpose: "Хранить versioned research-framework mappings."
+    may_emit: ["descriptive", "pattern"]
+    forbidden_inference: "Research dimension to clinical diagnosis, mechanism, or treatment selection."
+  - id: "trait_personality"
+    purpose: "Хранить instrument-native trait estimates отдельно от states."
+    may_emit: ["trait_estimate", "pattern"]
+    forbidden_inference: "Single episode or text trace to stable trait."
+  - id: "development_context"
+    purpose: "Представить lifespan context, multiple pathways, narratives и uncertainty."
+    may_emit: ["descriptive", "narrative", "causal_hypothesis"]
+    forbidden_inference: "Adult outcome to deterministic reconstructed childhood cause."
+  - id: "values_meaning"
+    purpose: "Хранить stated values, goals, meaning and preference as person-owned representations."
+    may_emit: ["descriptive", "narrative", "strength_or_resource"]
+    forbidden_inference: "Current value statement to immutable essence or moral ranking."
+  - id: "strengths_thriving"
+    purpose: "Хранить resources, positive functioning and supportive conditions."
+    may_emit: ["strength_or_resource", "descriptive", "pattern"]
+    forbidden_inference: "Strength or wellbeing to absence of distress or disorder."
+  - id: "cognition"
+    purpose: "Разделять report, task performance, function and context."
+    may_emit: ["descriptive", "pattern", "functioning_assessment"]
+    forbidden_inference: "One task, rating, or score to a global cognitive identity."
+  - id: "sleep_physical"
+    purpose: "Хранить субъективные, device-derived и clinical physical/sleep contexts раздельно."
+    may_emit: ["descriptive", "pattern", "statistical_association"]
+    forbidden_inference: "Consumer device output to diagnosis or objective ground truth."
+  - id: "relationship_social"
+    purpose: "Описать relationship-specific context, reciprocity, safety, conflict and repair."
+    may_emit: ["descriptive", "pattern", "narrative"]
+    forbidden_inference: "Pattern to diagnosis of another person or immutable attachment identity."
+  - id: "work_learning"
+    purpose: "Описать role demands, participation, barriers, skills and learning context."
+    may_emit: ["descriptive", "functioning_assessment", "strength_or_resource"]
+    forbidden_inference: "Performance outcome to global worth, intelligence, or diagnosis."
+  - id: "environment_context"
+    purpose: "Хранить physical, social, cultural, economic and digital context."
+    may_emit: ["descriptive", "pattern", "statistical_association"]
+    forbidden_inference: "Contextual association to personal defect or deterministic cause."
+  - id: "assessment_measurement"
+    purpose: "Версионировать instrument rights, administration and deterministic scoring."
+    may_emit: ["descriptive", "trait_estimate", "functioning_assessment", "pattern"]
+    forbidden_inference: "Score or cutoff to diagnosis, certainty, or licensed use beyond context."
+  - id: "intervention_experiment"
+    purpose: "Хранить evidence allowlist, protocols, risk, observations and bounded effects."
+    may_emit: ["recommendation_candidate", "statistical_association", "causal_hypothesis"]
+    forbidden_inference: "Before-after change to effect; model proposal to treatment."
+  - id: "safety"
+    purpose: "Хранить user-stated or qualified safety information and human escalation state."
+    may_emit: ["descriptive"]
+    forbidden_inference: "Automated low-risk verdict, diagnosis, or replacement of emergency assessment."
+
+prohibited_cross_layer_inferences:
+  - id: "PCLI-001"
+    from: "report_memory"
+    to: "source_evidence"
+    rule: "Memory/report must not be relabeled as independently verified fact."
+  - id: "PCLI-002"
+    from: "assessment_measurement"
+    to: "classification_reference"
+    rule: "Screening result must not create a diagnosis."
+  - id: "PCLI-003"
+    from: "phenomenology"
+    to: "classification_reference"
+    rule: "Phenomenon alone must not create an autonomous diagnosis."
+  - id: "PCLI-004"
+    from: "research_dimension"
+    to: "classification_reference"
+    rule: "RDoC/HiTOP mapping must not be presented as clinical diagnosis."
+  - id: "PCLI-005"
+    from: "trait_personality"
+    to: "development_context"
+    rule: "Trait estimate must not reconstruct a developmental cause."
+  - id: "PCLI-006"
+    from: "sleep_physical"
+    to: "classification_reference"
+    rule: "Wearable/device estimate must not create a sleep or mental-health diagnosis."
+  - id: "PCLI-007"
+    from: "intervention_experiment"
+    to: "intervention_experiment"
+    rule: "Association or before-after change must not be labeled an effect beyond causality gate."
+  - id: "PCLI-008"
+    from: "strengths_thriving"
+    to: "phenomenology"
+    rule: "Positive functioning must not erase distress or phenomena."
+  - id: "PCLI-009"
+    from: "functioning_icf"
+    to: "classification_reference"
+    rule: "Functional difficulty must not imply a specific disorder."
+  - id: "PCLI-010"
+    from: "source_evidence"
+    to: "safety"
+    rule: "Imported content or an AI proposal must not lower a safety state or alter policy."
+
+relation_types:
+  - id: "contextualizes"
+    directionality: "directed"
+    meaning: "Source domain provides relevant context but does not explain or cause the target."
+  - id: "may_support"
+    directionality: "directed"
+    meaning: "Evidence in the source domain may support a target claim through an explicit EvidenceLink."
+  - id: "may_contradict"
+    directionality: "directed"
+    meaning: "Evidence in the source domain may contradict a target claim without deleting it."
+  - id: "maps_to"
+    directionality: "directed"
+    meaning: "Versioned, sourced and potentially lossy mapping; mapping_relation is required."
+  - id: "is_distinct_from"
+    directionality: "symmetric"
+    meaning: "The domains must not be collapsed even when they co-occur."
+  - id: "requires_review_with"
+    directionality: "symmetric"
+    meaning: "Consequential use in either domain requires joint domain review."
+
+domains:
+  - id: "source.evidence_provenance"
+    layer: "source_evidence"
+    labels: {ru: "Источники и происхождение", en: "Sources and provenance"}
+    definition: "Артефакты, locators, actors, timestamps, integrity, rights and derivation lineage."
+    non_goals:
+      - "Не устанавливает истинность содержания артефакта."
+      - "Не превращает количество источников в confidence score."
+    allowed_evidence_kinds: ["source_artifact", "contemporaneous_record", "external_knowledge_source"]
+    allowed_claim_types: ["descriptive"]
+    inference_limits: {maximum_causality_level: "C0_observation", requires_source_locator: true}
+    sensitivity:
+      default: "sensitive"
+      escalate_when: ["filename_or_metadata_reveals_health", "third_party_identity", "legal_or_sexual_context"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["ARCH-041", "ARCH-042", "ARCH-043", "ARCH-044"]
+
+  - id: "report.current_experience"
+    layer: "report_memory"
+    labels: {ru: "Сообщение о текущем опыте", en: "Current experience report"}
+    definition: "Verbatim or structured first-person report about a current state, belief, preference, symptom or context."
+    non_goals: ["Не является независимым наблюдением.", "Не является диагнозом или полной характеристикой человека."]
+    allowed_evidence_kinds: ["verbatim_report", "current_self_report", "self_observation"]
+    allowed_claim_types: ["descriptive", "narrative"]
+    inference_limits: {maximum_causality_level: "C0_observation", preserve_verbatim: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["acute_risk", "third_party_sensitive_content"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-001", "CLIN-045", "ARCH-041"]
+
+  - id: "report.autobiographical_memory"
+    layer: "report_memory"
+    labels: {ru: "Автобиографическое воспоминание", en: "Autobiographical memory report"}
+    definition: "Current recollection with source attribution, temporal precision, vividness, belief, corroboration and conflict represented separately."
+    non_goals: ["Не объявляет recollection историческим фактом.", "Не восстанавливает скрытую или вытесненную память."]
+    allowed_evidence_kinds: ["memory_report", "verbatim_report", "contemporaneous_record", "collateral_report"]
+    allowed_claim_types: ["descriptive", "narrative", "interpretive"]
+    inference_limits: {maximum_causality_level: "C0_observation", corroboration_required_for_historical_claim: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["trauma_or_abuse", "third_party_allegation", "legal_context"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-024", "CLIN-025", "CLIN-026", "CLIN-027"]
+
+  - id: "report.third_party_collateral"
+    layer: "report_memory"
+    labels: {ru: "Сообщение третьего лица", en: "Third-party collateral report"}
+    definition: "Attributed report or document about another person, kept distinct by perspective, consent, provenance and scope."
+    non_goals: ["Не диагностирует третье лицо.", "Не предполагает consent на облачную обработку или экспорт."]
+    allowed_evidence_kinds: ["collateral_report", "collateral_observation", "contemporaneous_record", "source_artifact"]
+    allowed_claim_types: ["descriptive", "narrative"]
+    inference_limits: {maximum_causality_level: "C0_observation", third_party_policy_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["minor_or_dependent", "health_or_legal_data", "safeguarding"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-025", "CLIN-026", "ARCH-004", "ARCH-005"]
+
+  - id: "clinical.phenomenology_general"
+    layer: "phenomenology"
+    labels: {ru: "Общая клиническая феноменология", en: "General clinical phenomenology"}
+    definition: "Form, content, onset, course, context, distress, conviction, insight/uncertainty and functional impact recorded as separable fields."
+    non_goals: ["Не является этиологической теорией.", "Не заменяет differential clinical assessment."]
+    allowed_evidence_kinds: ["verbatim_report", "current_self_report", "self_observation", "collateral_observation", "clinician_observation"]
+    allowed_claim_types: ["descriptive", "pattern", "interpretive"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", clinical_mapping_requires_qualified_actor: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["acute_risk", "psychosis_or_mania", "third_party_harm"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-001", "CLIN-002", "CLIN-045"]
+
+  - id: "clinical.mood_affect"
+    layer: "phenomenology"
+    labels: {ru: "Настроение и аффективный опыт", en: "Mood and affective experience"}
+    definition: "Reported or observed mood/affect phenomena with duration, variability, context, impairment and competing explanations."
+    non_goals: ["Не ставит mood disorder по языку или одному score.", "Не выводит причину колебаний без design evidence."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "collateral_observation", "clinician_observation", "assessment_score"]
+    allowed_claim_types: ["descriptive", "pattern", "statistical_association", "clinical_mapping"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", screening_to_diagnosis: false}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["suicidality", "mania_or_psychosis", "severe_impairment"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-002", "CLIN-034", "CLIN-036", "MEAS-048"]
+
+  - id: "clinical.anxiety_fear_avoidance"
+    layer: "phenomenology"
+    labels: {ru: "Тревога, страх и избегание", en: "Anxiety, fear, and avoidance"}
+    definition: "Phenomena of threat anticipation, fear, bodily arousal, avoidance and safety behavior in a specified context and time."
+    non_goals: ["Не превращает нормальный страх в disorder.", "Не рекомендует exposure автономно."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "clinician_observation", "assessment_score"]
+    allowed_claim_types: ["descriptive", "pattern", "statistical_association", "clinical_mapping"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", exposure_action_minimum_risk_tier: "R2_moderate_or_symptom_targeting"}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["panic_with_medical_uncertainty", "severe_avoidance", "acute_risk"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-002", "CLIN-034", "CLIN-045"]
+
+  - id: "clinical.trauma_stress_grief"
+    layer: "phenomenology"
+    labels: {ru: "Травматический стресс и горе", en: "Traumatic stress and grief"}
+    definition: "Exposure report, response phenomena, course, impairment, grief/cultural context and classification references kept in separate records."
+    non_goals: ["Adversity не равна PTSD.", "Интенсивное горе не патологизируется автоматически."]
+    allowed_evidence_kinds: ["verbatim_report", "memory_report", "current_self_report", "contemporaneous_record", "clinician_observation", "documented_classification"]
+    allowed_claim_types: ["descriptive", "pattern", "interpretive", "clinical_mapping"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", recovered_memory_inference: false}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["abuse_or_violence", "acute_risk", "minor_or_third_party_allegation"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-002", "CLIN-020", "CLIN-022", "CLIN-024", "CLIN-027"]
+
+  - id: "clinical.dissociation"
+    layer: "phenomenology"
+    labels: {ru: "Диссоциативные явления", en: "Dissociative phenomena"}
+    definition: "Depersonalization, derealization, amnesia-like reports and identity-related phenomena recorded without suggestive reconstruction."
+    non_goals: ["Не подтверждает травматическую причину.", "Не использует suggestive memory-recovery workflow."]
+    allowed_evidence_kinds: ["verbatim_report", "memory_report", "current_self_report", "clinician_observation", "documented_classification"]
+    allowed_claim_types: ["descriptive", "pattern", "clinical_mapping"]
+    inference_limits: {maximum_causality_level: "C1_cooccurrence", anti_suggestion_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["identity_confusion_with_risk", "trauma_allegation", "acute_impairment"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-002", "CLIN-023", "CLIN-024", "CLIN-025"]
+
+  - id: "clinical.psychosis_like_experience"
+    layer: "phenomenology"
+    labels: {ru: "Психозоподобный опыт", en: "Psychosis-like experience"}
+    definition: "Unusual perceptions, beliefs or thought experiences represented by form, content, conviction, insight, context and safety impact."
+    non_goals: ["Не подтверждает и не развивает delusional content.", "Не выдаёт automated psychosis diagnosis или low-risk verdict."]
+    allowed_evidence_kinds: ["verbatim_report", "current_self_report", "collateral_observation", "clinician_observation", "documented_classification"]
+    allowed_claim_types: ["descriptive", "clinical_mapping"]
+    inference_limits: {maximum_causality_level: "C0_observation", human_safety_review_for_consequential_use: true}
+    sensitivity:
+      default: "critical_safety"
+      escalate_when: ["command_experience", "loss_of_reality_testing", "risk_to_self_or_others"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2026-11-10"
+      source_ids: ["CLIN-001", "CLIN-002", "CLIN-047", "CLIN-048", "ARCH-013"]
+
+  - id: "clinical.neurodevelopment_attention"
+    layer: "phenomenology"
+    labels: {ru: "Внимание и нейроразвитие", en: "Attention and neurodevelopment"}
+    definition: "Attention, impulsivity, organization and developmental-course reports with cross-setting impairment and retrospective uncertainty separated."
+    non_goals: ["Не ставит ADHD по self-screen или одному воспоминанию.", "Не выводит childhood onset из adult symptoms автоматически."]
+    allowed_evidence_kinds: ["current_self_report", "memory_report", "collateral_report", "contemporaneous_record", "assessment_score", "clinician_observation"]
+    allowed_claim_types: ["descriptive", "pattern", "functioning_assessment", "clinical_mapping"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", cross_setting_evidence_for_clinical_mapping: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["minor_data", "medication_context", "severe_impairment"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-028", "CLIN-029", "CLIN-030"]
+
+  - id: "clinical.neurodevelopment_autistic_features"
+    layer: "phenomenology"
+    labels: {ru: "Аутистические особенности и контекст", en: "Autistic features and context"}
+    definition: "Communication, sensory, repetitive-pattern, developmental and camouflaging reports represented without deriving identity or diagnosis from a screening score."
+    non_goals: ["Не ставит ASD по RAADS-R или тексту.", "Не трактует masking как доказательство диагноза."]
+    allowed_evidence_kinds: ["current_self_report", "memory_report", "collateral_report", "contemporaneous_record", "assessment_score", "clinician_observation"]
+    allowed_claim_types: ["descriptive", "pattern", "functioning_assessment", "clinical_mapping"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", screening_to_diagnosis: false}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["minor_data", "discrimination_risk", "severe_support_need"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-031", "CLIN-032", "CLIN-033"]
+
+  - id: "clinical.emotion_regulation"
+    layer: "phenomenology"
+    labels: {ru: "Регуляция эмоций", en: "Emotion regulation"}
+    definition: "Context-specific strategies, goals, short/long-term consequences and flexibility rather than universal adaptive/maladaptive labels."
+    non_goals: ["Не объявляет одну strategy всегда полезной или вредной.", "Не выводит disorder из strategy profile."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "assessment_score", "derived_statistic"]
+    allowed_claim_types: ["descriptive", "pattern", "statistical_association", "causal_hypothesis"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", context_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["self_harm_strategy", "substance_use", "trauma_context"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-034", "CLIN-035"]
+
+  - id: "clinical.substance_behavioral_patterns"
+    layer: "phenomenology"
+    labels: {ru: "Паттерны употребления и поведения", en: "Substance-use and behavioral patterns"}
+    definition: "Substance, gambling and other repeated behaviors with frequency, control, harms, context and classification-specific status."
+    non_goals: ["Не создаёт generic electronic-addiction diagnosis.", "Не рекомендует изменение medication/substance use автономно."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "assessment_score", "clinician_observation", "documented_classification"]
+    allowed_claim_types: ["descriptive", "pattern", "functioning_assessment", "clinical_mapping"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", medication_or_substance_action_tier: "R3_prohibited_autonomous"}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["overdose_or_withdrawal", "illegal_activity", "acute_impairment"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-042", "CLIN-043", "CLIN-044"]
+
+  - id: "functioning.activities_participation"
+    layer: "functioning_icf"
+    labels: {ru: "Активности и участие", en: "Activities and participation"}
+    definition: "Capacity, performance, participation, support need, barriers and facilitators represented independently of diagnosis."
+    non_goals: ["Не выводит disorder из difficulty.", "Не отрицает symptoms при сохранном functioning."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "collateral_observation", "clinician_observation", "assessment_score"]
+    allowed_claim_types: ["descriptive", "pattern", "functioning_assessment"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", classification_independent: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["dependency_or_care_need", "employment_or_benefit_context", "safeguarding"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-037", "CLIN-038"]
+
+  - id: "functioning.quality_of_life"
+    layer: "functioning_icf"
+    labels: {ru: "Качество жизни", en: "Quality of life"}
+    definition: "Person-reported quality of life across relevant domains, anchored to version, culture, time and respondent perspective."
+    non_goals: ["Не сводит жизнь к одному universal score.", "Не заменяет symptoms, functioning, values или safety."]
+    allowed_evidence_kinds: ["current_self_report", "assessment_score", "self_observation"]
+    allowed_claim_types: ["descriptive", "pattern", "functioning_assessment"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", score_version_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["severe_deterioration", "acute_risk"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-039", "CLIN-040", "MEAS-001", "MEAS-002"]
+
+  - id: "classification.icd_reference"
+    layer: "classification_reference"
+    labels: {ru: "Ссылка на ICD", en: "ICD classification reference"}
+    definition: "Versioned ICD-11 code/URI mapping with actor, basis, status, jurisdiction and uncertainty."
+    non_goals: ["Не является autonomous diagnostic engine.", "Не копирует protected clinical text без rights review."]
+    allowed_evidence_kinds: ["documented_classification", "clinician_observation", "external_knowledge_source"]
+    allowed_claim_types: ["clinical_mapping"]
+    inference_limits: {maximum_causality_level: "C0_observation", qualified_origin_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["stigmatized_or_forensic_classification", "minor_data"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-002", "CLIN-003", "CLIN-004"]
+
+  - id: "classification.dsm_reference"
+    layer: "classification_reference"
+    labels: {ru: "Ссылка на DSM", en: "DSM classification reference"}
+    definition: "Versioned proprietary DSM reference or documented mapping, kept separate from ICD and source phenomena."
+    non_goals: ["Не встраивает criteria/manual text без лицензии.", "Не предполагает exact двунаправленный ICD crosswalk."]
+    allowed_evidence_kinds: ["documented_classification", "clinician_observation", "external_knowledge_source"]
+    allowed_claim_types: ["clinical_mapping"]
+    inference_limits: {maximum_causality_level: "C0_observation", rights_gate_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["stigmatized_or_forensic_classification", "minor_data"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2026-11-10"
+      source_ids: ["CLIN-005"]
+
+  - id: "research.rdoc_dimensions"
+    layer: "research_dimension"
+    labels: {ru: "Исследовательские измерения RDoC", en: "RDoC research dimensions"}
+    definition: "Versioned RDoC domain/construct/unit-of-analysis tags for research organization."
+    non_goals: ["Не заменяет ICD/DSM diagnosis.", "Self-report не маскируется как neural, cellular или genetic evidence."]
+    allowed_evidence_kinds: ["external_knowledge_source", "assessment_score", "deterministic_measurement"]
+    allowed_claim_types: ["descriptive", "pattern"]
+    inference_limits: {maximum_causality_level: "C1_cooccurrence", research_only: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["biological_or_genetic_inference", "clinical_decision_use"]
+    review:
+      status: "research_only"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-006"]
+
+  - id: "research.hitop_dimensions"
+    layer: "research_dimension"
+    labels: {ru: "Исследовательские измерения HiTOP", en: "HiTOP research dimensions"}
+    definition: "Versioned dimensional/hierarchical mappings describing covariance structure at a declared level and model version."
+    non_goals: ["Не реифицирует latent factor как cause.", "Не выбирает treatment и не создаёт diagnosis."]
+    allowed_evidence_kinds: ["external_knowledge_source", "assessment_score", "derived_statistic"]
+    allowed_claim_types: ["descriptive", "pattern", "statistical_association"]
+    inference_limits: {maximum_causality_level: "C1_cooccurrence", personal_p_factor_allowed: false}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["clinical_decision_use", "identity_labeling"]
+    review:
+      status: "research_only"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-007", "CLIN-008", "CLIN-009", "CLIN-010"]
+
+  - id: "personality.broad_traits"
+    layer: "trait_personality"
+    labels: {ru: "Широкие черты личности", en: "Broad personality traits"}
+    definition: "Instrument-native dimensional trait and facet estimates with model, version, language, norm sample, respondent and validity interval."
+    non_goals: ["Не является неизменяемым типом личности.", "Не допускает lossless Big Five to HEXACO conversion без validated mapping."]
+    allowed_evidence_kinds: ["assessment_score", "current_self_report", "collateral_report", "derived_statistic"]
+    allowed_claim_types: ["trait_estimate", "pattern"]
+    inference_limits: {maximum_causality_level: "C1_cooccurrence", instrument_native_representation_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["employment_selection", "discrimination_risk", "third_party_rating"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-011", "CLIN-012", "CLIN-014", "CLIN-015", "MEAS-009"]
+
+  - id: "personality.state_trait_context"
+    layer: "trait_personality"
+    labels: {ru: "Состояния и контекст черт", en: "Trait-state context"}
+    definition: "Within-person distributions of context-bound states kept separate from aggregated trait estimates."
+    non_goals: ["Не выводит trait из одного state.", "Не считает variability ошибкой или disorder автоматически."]
+    allowed_evidence_kinds: ["self_observation", "current_self_report", "collateral_observation", "derived_statistic"]
+    allowed_claim_types: ["descriptive", "pattern", "trait_estimate", "statistical_association"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", observation_window_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["employment_or_insurance_use", "hidden_passive_inference"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-013", "CLIN-014", "CLIN-015", "MEAS-032", "MEAS-033"]
+
+  - id: "development.lifespan_context"
+    layer: "development_context"
+    labels: {ru: "Контекст развития на протяжении жизни", en: "Lifespan developmental context"}
+    definition: "Age, cohort, transitions, gains/losses, risks/protectors and multiple possible pathways with temporal and source uncertainty."
+    non_goals: ["Не задаёт нормативный verdict по milestones.", "Не строит единственную причинную историю из ретроспективы."]
+    allowed_evidence_kinds: ["memory_report", "contemporaneous_record", "current_self_report", "collateral_report", "derived_statistic"]
+    allowed_claim_types: ["descriptive", "narrative", "interpretive", "causal_hypothesis"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", competing_pathways_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["childhood_adversity", "minor_or_family_data", "legal_context"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-016", "CLIN-017", "CLIN-018", "CLIN-027"]
+
+  - id: "development.attachment_relationship_specific"
+    layer: "development_context"
+    labels: {ru: "Привязанность в контексте отношений", en: "Relationship-specific attachment context"}
+    definition: "Relationship- and period-specific expectations, proximity seeking, trust, dependence, conflict and repair observations."
+    non_goals: ["Не назначает immutable attachment style identity.", "Не объясняет все отношения childhood cause или caregiver blame."]
+    allowed_evidence_kinds: ["current_self_report", "memory_report", "collateral_report", "self_observation"]
+    allowed_claim_types: ["descriptive", "pattern", "narrative"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", relationship_target_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["abuse_or_coercion", "third_party_identity", "minor_data"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-019", "CLIN-017"]
+
+  - id: "development.narrative_identity"
+    layer: "development_context"
+    labels: {ru: "Нарративная идентичность", en: "Narrative identity"}
+    definition: "A current, culturally situated meaning-making account with authorship, version, alternatives and historical-accuracy limits."
+    non_goals: ["Narrative coherence не доказывает factual accuracy.", "Не фиксирует окончательную сущность человека."]
+    allowed_evidence_kinds: ["verbatim_report", "memory_report", "current_self_report", "source_artifact"]
+    allowed_claim_types: ["narrative", "interpretive", "descriptive"]
+    inference_limits: {maximum_causality_level: "C0_observation", user_ownership_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["trauma_or_family_narrative", "religious_or_political_identity", "third_party_content"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-018", "CLIN-024", "CLIN-025"]
+
+  - id: "values.values_goals_meaning"
+    layer: "values_meaning"
+    labels: {ru: "Ценности, цели и смысл", en: "Values, goals, and meaning"}
+    definition: "Person-stated values, commitments, goals, meaning and conflicts, versioned by context and time."
+    non_goals: ["Не ранжирует человека морально.", "Не выводит истинные ценности из behavior или текста без person confirmation."]
+    allowed_evidence_kinds: ["verbatim_report", "current_self_report", "self_observation"]
+    allowed_claim_types: ["descriptive", "narrative", "strength_or_resource"]
+    inference_limits: {maximum_causality_level: "C0_observation", user_confirmation_for_derived_value: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["religion_or_politics", "sexual_or_family_context", "coercion_risk"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-018", "CLIN-040"]
+
+  - id: "strengths.character_resources"
+    layer: "strengths_thriving"
+    labels: {ru: "Сильные стороны и ресурсы", en: "Character strengths and resources"}
+    definition: "Self-recognized or evidenced capacities, supports and resources with context, costs and limits."
+    non_goals: ["Не превращает strengths taxonomy в moral score.", "Не обещает outcome по одному strength label."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "collateral_observation", "assessment_score"]
+    allowed_claim_types: ["strength_or_resource", "descriptive", "pattern"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", context_and_costs_required: true}
+    sensitivity:
+      default: "sensitive"
+      escalate_when: ["employment_selection", "third_party_evaluation"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-041", "CLIN-040"]
+
+  - id: "thriving.positive_functioning"
+    layer: "strengths_thriving"
+    labels: {ru: "Позитивное функционирование", en: "Positive functioning and thriving"}
+    definition: "Wellbeing, connection, valued action, meaning, recovery and conditions that support functioning, represented alongside distress."
+    non_goals: ["Не означает отсутствие mental illness.", "Не сводится к engagement, productivity или одному wellbeing score."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "assessment_score", "collateral_observation"]
+    allowed_claim_types: ["strength_or_resource", "descriptive", "pattern", "functioning_assessment"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", dual_continuum_preserved: true}
+    sensitivity:
+      default: "sensitive"
+      escalate_when: ["severe_distress_hidden_by_functioning", "employment_or_insurance_use"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-039", "CLIN-040", "CLIN-041"]
+
+  - id: "cognition.attention_executive"
+    layer: "cognition"
+    labels: {ru: "Внимание и исполнительные функции", en: "Attention and executive functioning"}
+    definition: "Task performance, rating, subjective difficulty and daily functioning kept as method-specific, context-sensitive records."
+    non_goals: ["Не считает performance task и behavior rating взаимозаменяемыми.", "Не выводит global intelligence или diagnosis из одного результата."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "collateral_observation", "deterministic_measurement", "assessment_score"]
+    allowed_claim_types: ["descriptive", "pattern", "functioning_assessment", "statistical_association"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", method_specific_interpretation: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["employment_or_education_decision", "minor_data", "clinical_mapping"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-028", "CLIN-029", "MEAS-008", "MEAS-010"]
+
+  - id: "cognition.memory_process"
+    layer: "cognition"
+    labels: {ru: "Процессы памяти", en: "Memory processes"}
+    definition: "Encoding, retrieval, source monitoring and task performance represented separately from autobiographical factual claims."
+    non_goals: ["Не использует confidence/vividness как accuracy score.", "Не генерирует recovered-memory prompts."]
+    allowed_evidence_kinds: ["memory_report", "current_self_report", "deterministic_measurement", "assessment_score", "contemporaneous_record"]
+    allowed_claim_types: ["descriptive", "pattern", "functioning_assessment"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", anti_suggestion_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["trauma_or_abuse", "legal_or_forensic_use", "neurocognitive_concern"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-024", "CLIN-025", "CLIN-026", "CLIN-027"]
+
+  - id: "sleep.sleep_circadian"
+    layer: "sleep_physical"
+    labels: {ru: "Сон и циркадный контекст", en: "Sleep and circadian context"}
+    definition: "Subjective diary, clinical assessment, actigraphy, consumer device estimates and derived features kept source-specific and versioned."
+    non_goals: ["Consumer tracker не является polysomnography или diagnosis.", "Не оптимизирует опасное sleep restriction автономно."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "device_observation", "deterministic_measurement", "assessment_score", "clinician_observation"]
+    allowed_claim_types: ["descriptive", "pattern", "statistical_association", "functioning_assessment"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", device_version_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["apnea_or_medical_red_flag", "mania_risk", "safety_critical_work"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2026-11-10"
+      source_ids: ["MEAS-012", "MEAS-014", "MEAS-015", "MEAS-016", "MEAS-017", "MEAS-018", "MEAS-019", "MEAS-021"]
+
+  - id: "physical.health_context"
+    layer: "sleep_physical"
+    labels: {ru: "Физическое здоровье как контекст", en: "Physical health context"}
+    definition: "Person-reported or documented physical conditions, symptoms, activity and physiological context relevant to interpretation, without medical diagnosis by the system."
+    non_goals: ["Не является medical record diagnostic engine.", "Не объясняет psychological phenomena физическим фактором без evidence."]
+    allowed_evidence_kinds: ["current_self_report", "contemporaneous_record", "device_observation", "clinician_observation", "deterministic_measurement"]
+    allowed_claim_types: ["descriptive", "pattern", "statistical_association"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", medical_decision_support_out_of_scope: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["urgent_medical_symptom", "genetic_or_reproductive_data", "disability_or_insurance_context"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-037", "ARCH-010", "ARCH-011"]
+
+  - id: "physical.substances_medications_context"
+    layer: "sleep_physical"
+    labels: {ru: "Контекст веществ и лекарств", en: "Substance and medication context"}
+    definition: "Reported medication, supplement, caffeine, alcohol or other substance exposure as a dated context/confound, preserving source and uncertainty."
+    non_goals: ["Не рекомендует начало, дозу или отмену.", "Не определяет adherence, misuse или cause без appropriate evidence."]
+    allowed_evidence_kinds: ["current_self_report", "contemporaneous_record", "self_observation", "clinician_observation"]
+    allowed_claim_types: ["descriptive", "pattern", "statistical_association"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", autonomous_action_tier: "R3_prohibited_autonomous"}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["overdose_or_withdrawal", "prescription_change", "illegal_substance"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-042", "MEAS-035", "MEAS-038"]
+
+  - id: "relationships.quality_reciprocity_repair"
+    layer: "relationship_social"
+    labels: {ru: "Качество отношений, взаимность и восстановление", en: "Relationship quality, reciprocity, and repair"}
+    definition: "Relationship-specific observations about support, reciprocity, boundaries, conflict, repair, coercion and safety across time."
+    non_goals: ["Не диагностирует партнёра или родственника.", "Не выводит единый attachment type или blame narrative."]
+    allowed_evidence_kinds: ["current_self_report", "verbatim_report", "collateral_report", "self_observation", "collateral_observation"]
+    allowed_claim_types: ["descriptive", "pattern", "narrative", "strength_or_resource"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", third_party_minimization_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["abuse_coercion_or_stalking", "minor_or_dependent", "third_party_health_or_legal_data"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["CLIN-019", "CLIN-022", "ARCH-004", "ARCH-005"]
+
+  - id: "work.occupational_context"
+    layer: "work_learning"
+    labels: {ru: "Работа и профессиональный контекст", en: "Work and occupational context"}
+    definition: "Role demands, schedule, autonomy, support, barriers, performance context, satisfaction and participation."
+    non_goals: ["Не оценивает employability или moral worth.", "Не раскрывает health/trait data работодателю без отдельного lawful consent."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "collateral_observation", "assessment_score", "contemporaneous_record"]
+    allowed_claim_types: ["descriptive", "pattern", "functioning_assessment", "strength_or_resource"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", employment_selection_use: false}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["employer_identity", "disciplinary_or_legal_context", "disability_accommodation"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-037", "CLIN-038", "ARCH-004"]
+
+  - id: "learning.education_skills"
+    layer: "work_learning"
+    labels: {ru: "Обучение, образование и навыки", en: "Learning, education, and skills"}
+    definition: "Learning goals, methods, opportunities, performance and acquired skills with task and context boundaries."
+    non_goals: ["Не выводит fixed intelligence или diagnosis.", "Не переносит task performance на общую способность без validity evidence."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "deterministic_measurement", "assessment_score", "contemporaneous_record"]
+    allowed_claim_types: ["descriptive", "pattern", "functioning_assessment", "strength_or_resource"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", construct_and_task_required: true}
+    sensitivity:
+      default: "sensitive"
+      escalate_when: ["minor_student_data", "high_stakes_assessment", "disability_or_diagnosis_context"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-028", "MEAS-001", "MEAS-008", "MEAS-010"]
+
+  - id: "environment.barriers_facilitators"
+    layer: "environment_context"
+    labels: {ru: "Барьеры и поддерживающие условия среды", en: "Environmental barriers and facilitators"}
+    definition: "Physical, social, cultural, economic, institutional and digital conditions that constrain or support activity and wellbeing."
+    non_goals: ["Не сводит outcome к personal defect.", "Не объявляет environmental association достаточной causal explanation."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "collateral_observation", "contemporaneous_record", "device_observation"]
+    allowed_claim_types: ["descriptive", "pattern", "statistical_association", "strength_or_resource"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", context_window_required: true}
+    sensitivity:
+      default: "sensitive"
+      escalate_when: ["precise_location", "financial_or_housing_precarity", "discrimination_or_violence"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-08-10"
+      source_ids: ["CLIN-037", "CLIN-038", "ARCH-049", "ARCH-050"]
+
+  - id: "longitudinal.ema_context"
+    layer: "assessment_measurement"
+    labels: {ru: "EMA/ESM и временной контекст", en: "EMA/ESM and temporal context"}
+    definition: "Protocol-bound momentary sampling with prompts, windows, coverage, burden, reactivity, missingness and actual timestamps."
+    non_goals: ["Не требует постоянного engagement или perfect adherence.", "Не интерполирует gaps и не переносит group relation на individual rule."]
+    allowed_evidence_kinds: ["current_self_report", "self_observation", "protocol_record", "derived_statistic"]
+    allowed_claim_types: ["descriptive", "pattern", "statistical_association"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", burden_budget_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["high_frequency_distress_monitoring", "location_or_social_context", "safety_inference"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2026-11-10"
+      source_ids: ["MEAS-022", "MEAS-023", "MEAS-024", "MEAS-025", "MEAS-026", "MEAS-027", "ARCH-051"]
+
+  - id: "sensing.device_observation"
+    layer: "assessment_measurement"
+    labels: {ru: "Наблюдения устройств и пассивный сенсинг", en: "Device observations and passive sensing"}
+    definition: "Device-, OS-, firmware- and algorithm-versioned sensor observations with coverage, preprocessing and construct limits."
+    non_goals: ["Не создаёт objective mood, stress, relapse или suicide detector.", "Не допускает hidden microphone, message, keyboard, face or voice emotion surveillance."]
+    allowed_evidence_kinds: ["device_observation", "protocol_record", "deterministic_measurement", "derived_statistic"]
+    allowed_claim_types: ["descriptive", "pattern", "statistical_association"]
+    inference_limits: {maximum_causality_level: "C3_replicated_within_person_association", hidden_content_sensing_allowed: false}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["precise_location", "contacts_or_social_graph", "biometric_or_audio_content"]
+    review:
+      status: "research_only"
+      reviewed_at: "2026-08-10"
+      review_due: "2026-11-10"
+      source_ids: ["MEAS-028", "MEAS-029", "MEAS-030", "MEAS-031"]
+
+  - id: "assessment.definition_rights"
+    layer: "assessment_measurement"
+    labels: {ru: "Определение и права инструмента", en: "Assessment definition and rights"}
+    definition: "Versioned instrument metadata, construct, use, owner, rights matrix, languages, population, measurement evidence and review status."
+    non_goals: ["Metadata availability не разрешает administration.", "Citation не заменяет copyright/license permission."]
+    allowed_evidence_kinds: ["external_knowledge_source", "source_artifact"]
+    allowed_claim_types: ["descriptive"]
+    inference_limits: {maximum_causality_level: "C0_observation", rights_deny_by_default: true}
+    sensitivity:
+      default: "sensitive"
+      escalate_when: ["proprietary_items_or_keys", "restricted_norm_tables"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["MEAS-001", "MEAS-002", "MEAS-003", "MEAS-006", "MEAS-011"]
+
+  - id: "assessment.administration_score"
+    layer: "assessment_measurement"
+    labels: {ru: "Проведение и результат оценки", en: "Assessment administration and score"}
+    definition: "Purpose-, version-, language- and mode-specific administration, responses, deterministic score, uncertainty and interpretation limits."
+    non_goals: ["LLM не подсчитывает и не импутирует score.", "Cutoff не становится diagnosis или treatment decision."]
+    allowed_evidence_kinds: ["assessment_score", "deterministic_measurement", "protocol_record", "current_self_report"]
+    allowed_claim_types: ["descriptive", "trait_estimate", "functioning_assessment", "pattern"]
+    inference_limits: {maximum_causality_level: "C2_temporal_precedence", gates_P0_through_P7_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["clinical_cutoff", "minor_or_forensic_use", "proprietary_item_content"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2027-02-10"
+      source_ids: ["MEAS-001", "MEAS-002", "MEAS-004", "MEAS-005", "MEAS-008", "MEAS-009", "MEAS-010"]
+
+  - id: "intervention.evidence_registry"
+    layer: "intervention_experiment"
+    labels: {ru: "Реестр evidence для вмешательств", en: "Intervention evidence registry"}
+    definition: "Versioned allowlist metadata for target, population, components, evidence, certainty, harms, contraindications, scope, training and rights."
+    non_goals: ["Не позволяет LLM изобретать treatment.", "Не означает, что guideline переносим на любого человека или jurisdiction."]
+    allowed_evidence_kinds: ["external_knowledge_source", "protocol_record", "intervention_observation", "derived_statistic"]
+    allowed_claim_types: ["descriptive", "recommendation_candidate"]
+    inference_limits: {maximum_causality_level: "C6_replicated_n_of_1_or_trial", deterministic_allowlist_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["R2_or_R3_action", "contraindication_or_adverse_event", "crisis_context"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2026-11-10"
+      source_ids: ["MEAS-044", "MEAS-045", "MEAS-046", "MEAS-047", "MEAS-048"]
+
+  - id: "experiment.n_of_1"
+    layer: "intervention_experiment"
+    labels: {ru: "Эксперименты N-of-1", en: "N-of-1 experiments"}
+    definition: "Pre-specified individual protocol with estimand, design/risk tier, phases, outcomes, carryover, confounders, missingness, harms and stop rules."
+    non_goals: ["Не объявляет before-after change эффектом.", "Не обобщает индивидуальный эффект на других людей."]
+    allowed_evidence_kinds: ["protocol_record", "intervention_observation", "deterministic_measurement", "derived_statistic", "current_self_report"]
+    allowed_claim_types: ["descriptive", "statistical_association", "causal_hypothesis", "recommendation_candidate"]
+    inference_limits: {maximum_causality_level: "C5_randomized_single_case", design_and_risk_tier_required: true}
+    sensitivity:
+      default: "highly_sensitive"
+      escalate_when: ["R2_action", "adverse_event", "clinical_or_medication_context"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2026-11-10"
+      source_ids: ["MEAS-038", "MEAS-039", "MEAS-040", "MEAS-041", "MEAS-042", "MEAS-043"]
+
+  - id: "safety.acute_risk_safeguarding"
+    layer: "safety"
+    labels: {ru: "Острый риск и safeguarding", en: "Acute risk and safeguarding"}
+    definition: "User-stated or qualified observations relevant to immediate safety, uncertainty, human escalation and local help; handled as a safety state, not a prediction score."
+    non_goals: ["Не является automated suicide/violence risk verdict.", "Не заменяет emergency services, clinician assessment или human judgment."]
+    allowed_evidence_kinds: ["verbatim_report", "current_self_report", "collateral_report", "clinician_observation", "contemporaneous_record"]
+    allowed_claim_types: ["descriptive"]
+    inference_limits: {maximum_causality_level: "C0_observation", model_may_not_lower_risk: true}
+    sensitivity:
+      default: "critical_safety"
+      escalate_when: ["imminent_self_harm", "risk_to_others", "abuse_or_exploitation", "minor_or_dependent"]
+    review:
+      status: "accepted_with_limits"
+      reviewed_at: "2026-08-10"
+      review_due: "2026-11-10"
+      source_ids: ["CLIN-045", "CLIN-046", "CLIN-047", "CLIN-048", "CLIN-049", "CLIN-050", "ARCH-012", "ARCH-013", "ARCH-014", "ARCH-015"]
+
+domain_relations:
+  - {from: "report.autobiographical_memory", relation: "is_distinct_from", to: "source.evidence_provenance", rationale: "A recollection is a report even when sincere and vivid."}
+  - {from: "report.current_experience", relation: "may_support", to: "clinical.phenomenology_general", rationale: "Normalization must retain the verbatim locator."}
+  - {from: "report.third_party_collateral", relation: "may_support", to: "functioning.activities_participation", rationale: "Collateral perspective can inform functioning but remains attributed."}
+  - {from: "clinical.phenomenology_general", relation: "is_distinct_from", to: "classification.icd_reference", rationale: "Phenomena and classification mappings are different layers."}
+  - {from: "clinical.phenomenology_general", relation: "is_distinct_from", to: "classification.dsm_reference", rationale: "Phenomena and proprietary classification references are different layers."}
+  - {from: "functioning.activities_participation", relation: "is_distinct_from", to: "classification.icd_reference", rationale: "Functioning neither establishes nor excludes a disorder."}
+  - {from: "research.rdoc_dimensions", relation: "is_distinct_from", to: "classification.icd_reference", rationale: "Research constructs do not become diagnoses."}
+  - {from: "research.hitop_dimensions", relation: "is_distinct_from", to: "classification.dsm_reference", rationale: "Dimensional covariance models do not become diagnostic verdicts."}
+  - {from: "personality.state_trait_context", relation: "may_support", to: "personality.broad_traits", rationale: "Only adequate aggregation and instrument/model rules permit trait estimation."}
+  - {from: "development.lifespan_context", relation: "contextualizes", to: "clinical.phenomenology_general", rationale: "Developmental context constrains interpretation without proving etiology."}
+  - {from: "development.narrative_identity", relation: "is_distinct_from", to: "report.autobiographical_memory", rationale: "Meaning and historical accuracy are separate properties."}
+  - {from: "values.values_goals_meaning", relation: "contextualizes", to: "thriving.positive_functioning", rationale: "Thriving is interpreted relative to person-owned values and context."}
+  - {from: "strengths.character_resources", relation: "is_distinct_from", to: "clinical.mood_affect", rationale: "Strengths and distress can coexist."}
+  - {from: "cognition.memory_process", relation: "requires_review_with", to: "report.autobiographical_memory", rationale: "Memory-process claims must not imply factual reconstruction."}
+  - {from: "sleep.sleep_circadian", relation: "contextualizes", to: "clinical.mood_affect", rationale: "Co-variation is possible; causal language remains gated."}
+  - {from: "physical.substances_medications_context", relation: "contextualizes", to: "sleep.sleep_circadian", rationale: "Exposure may be a confound or context, not an autonomous medication recommendation."}
+  - {from: "relationships.quality_reciprocity_repair", relation: "contextualizes", to: "development.attachment_relationship_specific", rationale: "Current relationship-specific evidence constrains attachment narratives."}
+  - {from: "environment.barriers_facilitators", relation: "contextualizes", to: "functioning.activities_participation", rationale: "Functioning is person-in-context, not solely an individual property."}
+  - {from: "longitudinal.ema_context", relation: "may_support", to: "personality.state_trait_context", rationale: "Protocol-bound repeated observations may support within-person distributions."}
+  - {from: "sensing.device_observation", relation: "is_distinct_from", to: "report.current_experience", rationale: "Device estimate and subjective experience are different evidence kinds."}
+  - {from: "assessment.definition_rights", relation: "requires_review_with", to: "assessment.administration_score", rationale: "Administration and scoring are blocked without exact approved definition and rights."}
+  - {from: "experiment.n_of_1", relation: "requires_review_with", to: "intervention.evidence_registry", rationale: "Action risk, contraindications and evidence ceiling apply before protocol execution."}
+  - {from: "safety.acute_risk_safeguarding", relation: "requires_review_with", to: "clinical.psychosis_like_experience", rationale: "Consequential handling requires human safety review without delusion confirmation."}
+  - {from: "safety.acute_risk_safeguarding", relation: "requires_review_with", to: "clinical.substance_behavioral_patterns", rationale: "Overdose, withdrawal and impairment can require immediate human help."}

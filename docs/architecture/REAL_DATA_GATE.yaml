@@ -1,0 +1,92 @@
+schema_version: "1.0"
+gate_id: "PSYCHE-REAL-DATA-GATE"
+snapshot_date: "2026-08-10"
+status: "CLOSED"
+research_converged: true
+production_implementation_exists: false
+scope:
+  profiles: ["all"]
+  data_classes:
+    - "real_personal"
+    - "psychological"
+    - "medical_or_health"
+    - "sexual_or_trauma"
+    - "legal_or_financial_sensitive"
+    - "messages_calendar_wearables_life_archive"
+    - "third_party_personal"
+  synthetic_fixtures_allowed: true
+authority:
+  constitution: "CONSTITUTION.md"
+  master_spec: "docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md"
+  privacy_security: "docs/architecture/PRIVACY_SECURITY_MODEL.md"
+  threat_model: "docs/architecture/THREAT_MODEL.md"
+  next_implementation_contract: "docs/prompts/F0_IMPLEMENTATION_PROMPT.md"
+opening_rule:
+  automatic_opening_forbidden: true
+  exact_build_and_profile_required: true
+  independent_review_required: true
+  unresolved_critical_or_high_findings_allowed: false
+  evidence_expiry_required: true
+  signed_decision_record_required: true
+requirements:
+  - id: "RDG-01"
+    control: "encrypted_database_and_blob_profile_verified"
+    state: "UNSATISFIED"
+    evidence: null
+  - id: "RDG-02"
+    control: "key_rotation_and_independent_recovery_verified"
+    state: "UNSATISFIED"
+    evidence: null
+  - id: "RDG-03"
+    control: "encrypted_backup_and_clean_isolated_restore_verified"
+    state: "UNSATISFIED"
+    evidence: null
+  - id: "RDG-04"
+    control: "deletion_lineage_projection_rebuild_and_backup_expiry_verified"
+    state: "UNSATISFIED"
+    evidence: null
+  - id: "RDG-05"
+    control: "migration_and_open_export_round_trip_verified"
+    state: "UNSATISFIED"
+    evidence: null
+  - id: "RDG-06"
+    control: "no_plaintext_temp_wal_log_crash_package_or_projection_leak_verified"
+    state: "UNSATISFIED"
+    evidence: null
+  - id: "RDG-07"
+    control: "never_cloud_lineage_property_tests_pass"
+    state: "UNSATISFIED"
+    evidence: null
+  - id: "RDG-08"
+    control: "enabled_import_and_render_boundaries_verified"
+    state: "UNSATISFIED"
+    evidence: null
+  - id: "RDG-09"
+    control: "dependency_sbom_license_build_provenance_and_secret_gates_pass"
+    state: "UNSATISFIED"
+    evidence: null
+  - id: "RDG-10"
+    control: "threat_model_crypto_privacy_and_deletion_independent_review_pass"
+    state: "UNSATISFIED"
+    evidence: null
+  - id: "RDG-11"
+    control: "intended_use_privacy_legal_and_regulatory_review_complete"
+    state: "UNSATISFIED"
+    evidence: null
+  - id: "RDG-12"
+    control: "synthetic_acceptance_fault_recovery_and_deletion_usability_suite_pass"
+    state: "UNSATISFIED"
+    evidence: null
+regression_triggers:
+  - "security_or_privacy_incident"
+  - "critical_or_high_finding"
+  - "cloud_provider_or_model_enabled_or_changed"
+  - "sync_sharing_mobile_remote_or_multi_user_profile"
+  - "new_importer_parser_renderer_or_webview"
+  - "clinician_or_research_workflow"
+  - "major_schema_crypto_key_or_backup_change"
+  - "legal_or_intended_use_change"
+current_decision:
+  decision: "Do not ingest, copy, migrate or test with real personal data."
+  reason: "The research specification has converged, but none of the required runtime security, recovery, deletion or independent-review evidence exists."
+  next_action: "Execute docs/prompts/F0_IMPLEMENTATION_PROMPT.md with synthetic fixtures only."
