@@ -1,0 +1,38 @@
+{
+  "manifest_version": "1.0.0",
+  "fixture_pack_id": "f0_smoke",
+  "synthetic_fixture": true,
+  "schema_version": 1,
+  "tables": ["actors", "subjects", "data_policies"],
+  "generated_at": "2026-08-11T00:00:00Z",
+  "digest": "c0d4e9ba16f20a2afdb174e19956c25346fb65d24421b6efaf3c55907e2bf6aa",
+  "rows": {
+    "actors": [
+      {
+        "actor_id": "fixture-smoke-actor-001",
+        "actor_kind": "system",
+        "actor_label": "smoke-test-actor"
+      }
+    ],
+    "subjects": [
+      {
+        "subject_id": "fixture-smoke-subject-001",
+        "subject_label": "smoke-test-subject",
+        "anonymous": 0,
+        "data_mode": "synthetic_only"
+      }
+    ],
+    "data_policies": [
+      {
+        "policy_id": "fixture-smoke-policy-001",
+        "target_record_id": "fixture-smoke-policy-001",
+        "sensitivity": "ordinary",
+        "processing_location": "local_only",
+        "cloud_policy": "never_cloud",
+        "third_party_scope": "none",
+        "export_rule": "block",
+        "lineage_rule": "most_restrictive_parent"
+      }
+    ]
+  }
+}

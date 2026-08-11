@@ -1,6 +1,6 @@
 schema_version: "1.0"
 gate_id: "PSYCHE-REAL-DATA-GATE"
-snapshot_date: "2026-08-10"
+snapshot_date: "2026-08-11"
 status: "CLOSED"
 research_converged: true
 production_implementation_exists: false
@@ -20,7 +20,9 @@ authority:
   master_spec: "docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md"
   privacy_security: "docs/architecture/PRIVACY_SECURITY_MODEL.md"
   threat_model: "docs/architecture/THREAT_MODEL.md"
-  next_implementation_contract: "docs/prompts/F0_IMPLEMENTATION_PROMPT.md"
+  frozen_f0_contract: "docs/prompts/F0_IMPLEMENTATION_PROMPT.md"
+  next_implementation_contract: "docs/prompts/deepseek/E00_FINAL_MINIMUM_CLOSURE.md"
+  e00_rebaseline: "docs/development/E00_REBASELINE_DECISION.md"
 opening_rule:
   automatic_opening_forbidden: true
   exact_build_and_profile_required: true
@@ -77,6 +79,39 @@ requirements:
     control: "synthetic_acceptance_fault_recovery_and_deletion_usability_suite_pass"
     state: "UNSATISFIED"
     evidence: null
+pre_real_data_blockers:
+  - id: "PRD-F02"
+    finding: "authenticated_backup_completeness_and_atomic_isolated_restore"
+    severity: "HIGH"
+    state: "UNSATISFIED"
+    blocking_stage: "PRE_REAL_DATA"
+    assigned_epic: "E01"
+    affected_requirements: ["RDG-03", "RDG-04", "RDG-12"]
+    capability_state: "DISABLED_DEFERRED"
+  - id: "PRD-F05-BLOB"
+    finding: "blob_lifecycle_and_vault_bound_verification"
+    severity: "HIGH"
+    state: "UNSATISFIED"
+    blocking_stage: "PRE_REAL_DATA"
+    assigned_epic: "E01"
+    affected_requirements: ["RDG-01", "RDG-04", "RDG-06"]
+    capability_state: "DISABLED_DEFERRED"
+  - id: "PRD-F09"
+    finding: "windows_reparse_toctou_filesystem_mutation"
+    severity: "HIGH"
+    state: "UNSATISFIED_RUNTIME_NOT_VERIFIED"
+    blocking_stage: "PRE_REAL_DATA"
+    assigned_epic: "E01"
+    affected_requirements: ["RDG-06", "RDG-10", "RDG-12"]
+    capability_state: "DISABLED_DEFERRED"
+  - id: "PRD-F08-SUPPLY"
+    finding: "release_grade_dependency_sbom_license_build_provenance_reconciliation"
+    severity: "HIGH_FOR_ENABLED_RELEASE_PROFILE"
+    state: "UNSATISFIED"
+    blocking_stage: "PRE_REAL_DATA"
+    assigned_epic: "E11"
+    affected_requirements: ["RDG-09"]
+    capability_state: "EVIDENCE_DEFERRED"
 regression_triggers:
   - "security_or_privacy_incident"
   - "critical_or_high_finding"
@@ -88,5 +123,5 @@ regression_triggers:
   - "legal_or_intended_use_change"
 current_decision:
   decision: "Do not ingest, copy, migrate or test with real personal data."
-  reason: "The research specification has converged, but none of the required runtime security, recovery, deletion or independent-review evidence exists."
-  next_action: "Execute docs/prompts/F0_IMPLEMENTATION_PROMPT.md with synthetic fixtures only."
+  reason: "E00 is rebaselined for synthetic-only progress, but named High backup/blob/Windows findings and all independent real-data evidence remain unsatisfied."
+  next_action: "Execute docs/prompts/deepseek/E00_FINAL_MINIMUM_CLOSURE.md with synthetic fixtures only."

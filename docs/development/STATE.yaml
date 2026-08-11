@@ -11,12 +11,24 @@ real_data_gate:
 current_epic:
   id: "E00"
   name: "Minimal Irreversible Secure Core"
-  status: "READY"
+  status: "ACCEPTED"
+  implementation_status: "SYNTHETIC_FOUNDATION_ACCEPTED"
+  review_verdict: "ACCEPTED"
   risk: "RISK-H"
   prompt: "docs/prompts/deepseek/E00_F0_IMPLEMENTATION.md"
-  codex_review_required: true
+  fix_prompt: "docs/prompts/deepseek/E00_FINAL_MINIMUM_CLOSURE.md"
+  repair_round: "REBASELINED_FINAL_MINIMUM"
+  rebaseline_decision: "docs/development/E00_REBASELINE_DECISION.md"
+  acceptance_report: "docs/implementation/E00_ACCEPTANCE_REPORT.md"
+  repair_report: "docs/development/reports/E00.md"
+  deviation_record: "docs/development/deviations/E00_IMPLEMENTATION_DIVERGES_FROM_FROZEN_CONTRACT.md"
+  codex_review_required: false
 
-accepted_epics: []
+accepted_epics:
+  - id: "E00"
+    status: "ACCEPTED"
+    report: "docs/implementation/E00_ACCEPTANCE_REPORT.md"
+    commit: null
 
 next_epic:
   id: "E01"
@@ -32,10 +44,10 @@ architecture:
   epic_map: "docs/development/EPIC_MAP.md"
 
 git:
-  branch: "codex/deepseek-development-system"
+  branch: "deepseek/e00-f0"
   prepared_from_commit: "eff1a97"
   accepted_commit: null
 
 next_action:
-  prompt: "docs/prompts/deepseek/E00_F0_IMPLEMENTATION.md"
-  instruction: "Run E00 with DeepSeek V4 Pro using the repository at C:\\Dev\\psyche-os."
+  prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
+  instruction: "Prepare exactly E01 from the accepted E00 build and ADR-021. Keep REAL_DATA_GATE CLOSED and do not prepare E02+."

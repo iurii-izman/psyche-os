@@ -7,14 +7,13 @@ PyYAML is already used by the repository research validators.
 
 from __future__ import annotations
 
+from pathlib import Path
 import re
 import subprocess
 import sys
-from pathlib import Path
 from typing import Any
 
 import yaml
-
 
 ROOT = Path(__file__).resolve().parents[2]
 STATE_PATH = ROOT / "docs/development/STATE.yaml"
@@ -129,10 +128,41 @@ def main() -> int:
     )
     result.check(current.get("status") in ALLOWED_STATUS, "current epic status is valid")
     result.check(next_epic.get("status") in ALLOWED_STATUS, "next epic status is valid")
-    result.check(current.get("id") == "E00", "current epic is E00")
-    result.check(current.get("status") == "READY", "E00 is READY")
-    result.check(current.get("prompt") == "docs/prompts/deepseek/E00_F0_IMPLEMENTATION.md", "E00 prompt path matches state")
-    result.check(state.get("accepted_epics") == [], "no implementation epic is prematurely accepted")
+    current_id = current.get("id")
+    accepted_entries = state.get("accepted_epics", [])
+    accepted_ids = {
+        entry if isinstance(entry, str) else entry.get("id")
+        for entry in accepted_entries
+        if isinstance(entry, (str, dict))
+    }
+    result.check(
+        isinstance(current_id, str) and re.fullmatch(r"E\d{2}", current_id) is not None,
+        "current epic id is valid",
+    )
+    if current_id == "E00" and current.get("review_verdict") == "FIX_REQUIRED":
+        result.check(current.get("status") == "IMPLEMENTED", "E00 implementation is awaiting fixes")
+        result.check(next_epic.get("status") == "PLANNED", "E01 remains PLANNED")
+        result.check(
+            state.get("next_action", {}).get("prompt") == current.get("fix_prompt"),
+            "next action points to the E00 fix prompt",
+        )
+        for field in ("fix_prompt", "acceptance_report", "deviation_record"):
+            value = current.get(field)
+            result.check(
+                isinstance(value, str) and (ROOT / value).is_file(),
+                f"E00 {field} reference exists",
+            )
+        result.check(not accepted_ids, "no implementation epic is prematurely accepted")
+    elif current_id == "E00" and current.get("status") == "ACCEPTED":
+        result.check("E00" in accepted_ids, "E00 acceptance is recorded")
+        result.check(next_epic.get("id") == "E01", "E01 follows accepted E00")
+        result.check(next_epic.get("status") == "PLANNED", "E01 remains PLANNED until JIT preparation")
+    elif current_id != "E00":
+        result.check("E00" in accepted_ids, "accepted E00 precedes later epic work")
+        result.check(current.get("status") in {"READY", "IN_PROGRESS", "IMPLEMENTED", "BLOCKED"}, "later current epic has an actionable status")
+    else:
+        result.check(current.get("status") == "READY", "E00 is READY")
+        result.check(not accepted_ids, "no implementation epic is prematurely accepted")
 
     for relative in nested_path_values(state):
         result.check((ROOT / relative).is_file(), f"state reference exists: {relative}")
@@ -142,15 +172,25 @@ def main() -> int:
     epic_ids = [epic_id for epic_id, _ in epic_matches]
     result.check(bool(epic_ids), "epic map contains epic headings")
     result.check(len(epic_ids) == len(set(epic_ids)), "epic IDs are unique")
-    result.check(epic_ids == [f"E{index:02d}" for index in range(12)], "epic IDs are sequential E00-E11")
+    result.check(
+        epic_ids == [f"E{index:02d}" for index in range(12)], "epic IDs are sequential E00-E11"
+    )
     result.check(current.get("id") in epic_ids, "current epic exists in epic map")
     result.check(next_epic.get("id") in epic_ids, "next epic exists in epic map")
 
-    e00_path = ROOT / str(current.get("prompt", ""))
-    e00_text = e00_path.read_text(encoding="utf-8") if e00_path.is_file() else ""
-    result.check("EPIC E00" in e00_text, "E00 prompt identifies E00")
-    result.check("REAL_DATA_GATE = CLOSED" in e00_text, "E00 explicitly keeps gate CLOSED")
-    result.check("synthetic" in e00_text.lower(), "E00 explicitly requires synthetic data")
+    current_prompt_path = ROOT / str(current.get("prompt", ""))
+    current_prompt_text = (
+        current_prompt_path.read_text(encoding="utf-8") if current_prompt_path.is_file() else ""
+    )
+    result.check(
+        isinstance(current_id, str) and current_id in current_prompt_text,
+        "current prompt identifies current epic",
+    )
+    result.check(
+        "REAL_DATA_GATE" in current_prompt_text and "CLOSED" in current_prompt_text,
+        "current prompt explicitly keeps gate CLOSED",
+    )
+    result.check("synthetic" in current_prompt_text.lower(), "current prompt requires synthetic data")
 
     for relative in MARKDOWN_PATHS:
         path = ROOT / relative
@@ -170,7 +210,10 @@ def main() -> int:
     for path in prompt_paths:
         text = path.read_text(encoding="utf-8") if path.is_file() else ""
         for pattern in FORBIDDEN_AUTHORIZATION:
-            result.check(not pattern.search(text), f"no real-data authorization pattern in {path.relative_to(ROOT)}: {pattern.pattern}")
+            result.check(
+                not pattern.search(text),
+                f"no real-data authorization pattern in {path.relative_to(ROOT)}: {pattern.pattern}",
+            )
 
     branch = subprocess.run(
         ["git", "branch", "--show-current"],
@@ -179,7 +222,9 @@ def main() -> int:
         capture_output=True,
         text=True,
     ).stdout.strip()
-    result.check(branch == state.get("git", {}).get("branch"), "STATE branch matches current Git branch")
+    result.check(
+        branch == state.get("git", {}).get("branch"), "STATE branch matches current Git branch"
+    )
 
     for message in result.passes:
         print(f"PASS: {message}")

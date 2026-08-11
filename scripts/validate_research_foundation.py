@@ -8,14 +8,13 @@ source-registry build helper.
 
 from __future__ import annotations
 
-import re
-import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+import re
+import sys
 from urllib.parse import urlparse
 
 import yaml
-
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = (
@@ -41,7 +40,9 @@ REQUIRED = (
 )
 EXTRA_REQUIRED = ("docs/architecture/REAL_DATA_GATE.yaml",)
 SOURCE_ID_RE = re.compile(r"\b(?:ARCH|CLIN|MEAS)-\d{3}\b")
-SOURCE_RANGE_RE = re.compile(r"\b(ARCH|CLIN|MEAS)-(\d{3})\s*[–—-]\s*(?:(ARCH|CLIN|MEAS)-)?(\d{3})\b")
+SOURCE_RANGE_RE = re.compile(
+    r"\b(ARCH|CLIN|MEAS)-(\d{3})\s*[–—-]\s*(?:(ARCH|CLIN|MEAS)-)?(\d{3})\b"
+)
 LINK_RE = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
 URL_SCHEMES = {"http", "https"}
@@ -138,7 +139,9 @@ def validate_sources(result: Result) -> set[str]:
             result.error(f"Invalid source URL for {source_id}: {url}")
         by_url[url].append(source)
         if source.get("accessed_at") != "2026-08-10":
-            result.warn(f"{source_id} accessed_at is not snapshot date: {source.get('accessed_at')}")
+            result.warn(
+                f"{source_id} accessed_at is not snapshot date: {source.get('accessed_at')}"
+            )
         for field in ("domains", "project_implications", "limitations"):
             if not isinstance(source.get(field), list) or not source.get(field):
                 result.error(f"{source_id} {field} must be a non-empty list")
@@ -166,7 +169,9 @@ def validate_sources(result: Result) -> set[str]:
         result.error(f"unique_source_count={declared_unique}, actual={len(by_url)}")
     if len(by_url) < 100:
         result.error(f"Evidence saturation threshold not met: {len(by_url)} unique sources")
-    result.fact(f"source_records={len(sources)} unique_sources={len(by_url)} unique_ids={len(set(ids))}")
+    result.fact(
+        f"source_records={len(sources)} unique_sources={len(by_url)} unique_ids={len(set(ids))}"
+    )
     return set(ids)
 
 
@@ -193,7 +198,9 @@ def validate_citations(source_ids: set[str], result: Result) -> None:
             expected = {f"{first_prefix}-{number:03d}" for number in range(start, end + 1)}
             missing = expected - source_ids
             if missing:
-                result.error(f"Source range has unregistered members in {path.relative_to(ROOT)}: {sorted(missing)}")
+                result.error(
+                    f"Source range has unregistered members in {path.relative_to(ROOT)}: {sorted(missing)}"
+                )
             cited.update(expected)
     result.fact(
         f"citation_occurrence_sets={scanned} citation_ranges_checked={ranges_checked} "
@@ -221,7 +228,10 @@ def validate_ontology(source_ids: set[str], result: Result) -> None:
     allowed_evidence = set(payload.get("enums", {}).get("evidence_kind", []))
     allowed_claims = set(payload.get("enums", {}).get("claim_type", []))
     for domain in domains:
-        missing = set(payload.get("schema_contract", {}).get("required_domain_fields", [])) - domain.keys()
+        missing = (
+            set(payload.get("schema_contract", {}).get("required_domain_fields", []))
+            - domain.keys()
+        )
         if missing:
             result.error(f"Ontology {domain.get('id')} missing fields: {sorted(missing)}")
         if domain.get("layer") not in allowed_layers:
@@ -232,7 +242,9 @@ def validate_ontology(source_ids: set[str], result: Result) -> None:
             result.error(f"Ontology {domain.get('id')} has invalid claim types")
         refs = set(domain.get("review", {}).get("source_ids", []))
         if not refs <= source_ids:
-            result.error(f"Ontology {domain.get('id')} has unknown sources: {sorted(refs - source_ids)}")
+            result.error(
+                f"Ontology {domain.get('id')} has unknown sources: {sorted(refs - source_ids)}"
+            )
     relation_targets = set(ids)
     for relation in payload.get("domain_relations", []):
         endpoints = {relation.get("from"), relation.get("to")}
@@ -251,7 +263,10 @@ def validate_gate(result: Result) -> None:
     if gate.get("status") != "CLOSED" or gate.get("production_implementation_exists") is not False:
         result.error("REAL_DATA_GATE must be CLOSED with no production implementation")
     requirements = gate.get("requirements", [])
-    if not requirements or any(item.get("state") != "UNSATISFIED" or item.get("evidence") is not None for item in requirements):
+    if not requirements or any(
+        item.get("state") != "UNSATISFIED" or item.get("evidence") is not None
+        for item in requirements
+    ):
         result.error("Every real-data requirement must remain UNSATISFIED with null evidence")
     if gate.get("opening_rule", {}).get("automatic_opening_forbidden") is not True:
         result.error("Automatic real-data opening must be forbidden")
@@ -287,8 +302,12 @@ def validate_markdown(result: Result) -> None:
             candidate = (path.parent / target).resolve()
             link_count += 1
             if not candidate.exists():
-                result.error(f"Broken local Markdown link in {path.relative_to(ROOT)}: {match.group(1)}")
-    result.fact(f"local_markdown_links_checked={link_count} duplicate_heading_warnings={duplicate_count}")
+                result.error(
+                    f"Broken local Markdown link in {path.relative_to(ROOT)}: {match.group(1)}"
+                )
+    result.fact(
+        f"local_markdown_links_checked={link_count} duplicate_heading_warnings={duplicate_count}"
+    )
 
 
 def validate_status_and_f0(result: Result) -> None:
@@ -316,7 +335,9 @@ def validate_status_and_f0(result: Result) -> None:
         result.error(f"F0 prompt missing required contract terms: {missing}")
     for forbidden_scope in ("LLM", "FHIR", "real data", "graph/vector"):
         if forbidden_scope not in f0:
-            result.error(f"F0 prompt does not explicitly address forbidden scope: {forbidden_scope}")
+            result.error(
+                f"F0 prompt does not explicitly address forbidden scope: {forbidden_scope}"
+            )
     result.fact("execution_plan=complete f0_scope_contract=present")
 
 
@@ -337,8 +358,12 @@ def validate_master_and_threat(result: Result) -> None:
     missing = [term for term in required_master_terms if term not in master]
     if missing:
         result.error(f"Master spec missing required terms: {missing}")
-    if not master.rstrip().endswith("Completion authorizes only synthetic Phase 2 assurance. It does not authorize production use or the first real personal record."):
-        result.error("Master spec must end with the implementation contract's closed-gate statement")
+    if not master.rstrip().endswith(
+        "Completion authorizes only synthetic Phase 2 assurance. It does not authorize production use or the first real personal record."
+    ):
+        result.error(
+            "Master spec must end with the implementation contract's closed-gate statement"
+        )
 
     threat = (ROOT / "docs/architecture/THREAT_MODEL.md").read_text(encoding="utf-8")
     for heading in (
@@ -350,7 +375,11 @@ def validate_master_and_threat(result: Result) -> None:
         if heading not in threat:
             result.error(f"Threat model missing required heading: {heading}")
     lines = threat.rstrip().splitlines()
-    if len(lines) < 2 or lines[-2] != "Repository: C:/Dev/psyche-os" or not lines[-1].startswith("Version: sha256:"):
+    if (
+        len(lines) < 2
+        or lines[-2] != "Repository: C:/Dev/psyche-os"
+        or not lines[-1].startswith("Version: sha256:")
+    ):
         result.error("Threat model repository/version footer is missing or not final")
 
 
@@ -360,7 +389,11 @@ def validate_repo_hygiene(result: Result) -> None:
         if not path.is_file() or ".git" in path.parts:
             continue
         relative = path.relative_to(ROOT).as_posix()
-        if path.suffix.lower() in FORBIDDEN_SUFFIXES or path.name.lower() in {".env", "id_rsa", "id_ed25519"}:
+        if path.suffix.lower() in FORBIDDEN_SUFFIXES or path.name.lower() in {
+            ".env",
+            "id_rsa",
+            "id_ed25519",
+        }:
             dangerous.append(relative)
     if dangerous:
         result.error(f"Forbidden sensitive/binary artifact types present: {dangerous}")
@@ -372,14 +405,20 @@ def validate_repo_hygiene(result: Result) -> None:
     )
     matches: list[str] = []
     for path in ROOT.rglob("*"):
-        if not path.is_file() or ".git" in path.parts or path.suffix.lower() not in {".md", ".yaml", ".yml", ".py"}:
+        if (
+            not path.is_file()
+            or ".git" in path.parts
+            or path.suffix.lower() not in {".md", ".yaml", ".yml", ".py"}
+        ):
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         if any(pattern.search(text) for pattern in secret_patterns):
             matches.append(path.relative_to(ROOT).as_posix())
     if matches:
         result.error(f"Potential plaintext secrets detected: {matches}")
-    result.fact(f"forbidden_sensitive_file_types={len(dangerous)} potential_secret_matches={len(matches)}")
+    result.fact(
+        f"forbidden_sensitive_file_types={len(dangerous)} potential_secret_matches={len(matches)}"
+    )
 
 
 def main() -> int:

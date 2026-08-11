@@ -14,7 +14,6 @@ from typing import Any
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[1]
 INPUTS = (
     ROOT / "docs/research/workstreams/SOURCES_CLINICAL.yaml",
@@ -41,7 +40,11 @@ def normalize(raw: dict[str, Any]) -> dict[str, Any]:
     source_type = raw.get("type") or raw.get("source_type") or "unspecified"
     organization = raw.get("authors_or_organization") or raw.get("authors_or_body") or "unknown"
     implications = raw.get("project_implications") or raw.get("project_implication")
-    rights = raw.get("rights_notes") or raw.get("rights") or "Citation/link only; rights require review before reuse."
+    rights = (
+        raw.get("rights_notes")
+        or raw.get("rights")
+        or "Citation/link only; rights require review before reuse."
+    )
 
     return {
         "id": str(raw["id"]),
@@ -103,7 +106,9 @@ def main() -> None:
         encoding="utf-8",
         newline="\n",
     )
-    print(f"Wrote {len(records)} records / {len(by_url)} unique sources to {OUTPUT.relative_to(ROOT)}")
+    print(
+        f"Wrote {len(records)} records / {len(by_url)} unique sources to {OUTPUT.relative_to(ROOT)}"
+    )
 
 
 if __name__ == "__main__":

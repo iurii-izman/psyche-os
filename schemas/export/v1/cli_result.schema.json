@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://psyche-os.local/schemas/export/v1/cli_result.schema.json",
+  "title": "PSYCHE OS CLI Result Schema v1.0.0",
+  "description": "Schema for the stable JSON output of all CLI commands.",
+  "type": "object",
+  "required": ["status"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["ok", "error"],
+      "description": "Command outcome"
+    },
+    "data": {
+      "description": "Command-specific result data"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Non-fatal warnings"
+    },
+    "transaction_id": {
+      "type": "string",
+      "description": "Optional transaction identifier for correlation"
+    }
+  }
+}

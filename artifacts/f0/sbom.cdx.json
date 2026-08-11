@@ -1,0 +1,144 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:00000000-0000-0000-0000-000000000001",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-08-11T00:00:00Z",
+    "tools": [
+      {
+        "vendor": "psyche-os",
+        "name": "psyche-os-f0-sbom",
+        "version": "0.1.0"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "name": "psyche-os",
+      "version": "0.1.0",
+      "description": "PSYCHE OS — F0 Minimal Irreversible Secure Core",
+      "purl": "pkg:pypi/psyche-os@0.1.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "cryptography",
+      "version": "50.0.0",
+      "purl": "pkg:pypi/cryptography@50.0.0",
+      "description": "Cryptographic primitives (AES-GCM, HKDF)"
+    },
+    {
+      "type": "library",
+      "name": "sqlcipher3",
+      "version": "0.6.2",
+      "purl": "pkg:pypi/sqlcipher3@0.6.2",
+      "description": "SQLCipher encrypted SQLite (community edition, cipher 4.12.0)"
+    },
+    {
+      "type": "library",
+      "name": "argon2-cffi",
+      "version": "25.1.0",
+      "purl": "pkg:pypi/argon2-cffi@25.1.0",
+      "description": "Argon2id password hashing for recovery wrapping"
+    },
+    {
+      "type": "library",
+      "name": "jsonschema",
+      "version": "4.26.0",
+      "purl": "pkg:pypi/jsonschema@4.26.0",
+      "description": "Draft 2020-12 validation for shipped artifact schemas"
+    },
+    {
+      "type": "library",
+      "name": "argon2-cffi-bindings",
+      "version": "25.1.0",
+      "purl": "pkg:pypi/argon2-cffi-bindings@25.1.0",
+      "description": "Low-level Argon2 bindings"
+    },
+    {
+      "type": "library",
+      "name": "cffi",
+      "version": "2.1.1",
+      "purl": "pkg:pypi/cffi@2.1.1",
+      "description": "Foreign Function Interface for C libraries"
+    },
+    {
+      "type": "library",
+      "name": "pycparser",
+      "version": "3.0",
+      "purl": "pkg:pypi/pycparser@3.0",
+      "description": "C parser for cffi"
+    },
+    {
+      "type": "library",
+      "name": "pytest",
+      "version": "9.1.1",
+      "purl": "pkg:pypi/pytest@9.1.1",
+      "description": "Test framework"
+    },
+    {
+      "type": "library",
+      "name": "pytest-cov",
+      "version": "7.1.0",
+      "purl": "pkg:pypi/pytest-cov@7.1.0",
+      "description": "Test coverage"
+    },
+    {
+      "type": "library",
+      "name": "pytest-timeout",
+      "version": "2.4.0",
+      "purl": "pkg:pypi/pytest-timeout@2.4.0",
+      "description": "Test timeout"
+    },
+    {
+      "type": "library",
+      "name": "pytest-xdist",
+      "version": "3.8.0",
+      "purl": "pkg:pypi/pytest-xdist@3.8.0",
+      "description": "Parallel test execution"
+    },
+    {
+      "type": "library",
+      "name": "ruff",
+      "version": "0.16.2",
+      "purl": "pkg:pypi/ruff@0.16.2",
+      "description": "Linter and formatter"
+    },
+    {
+      "type": "library",
+      "name": "mypy",
+      "version": "2.3.0",
+      "purl": "pkg:pypi/mypy@2.3.0",
+      "description": "Static type checker"
+    },
+    {
+      "type": "library",
+      "name": "coverage",
+      "version": "7.15.4",
+      "purl": "pkg:pypi/coverage@7.15.4",
+      "description": "Code coverage measurement"
+    },
+    {
+      "type": "library",
+      "name": "hypothesis",
+      "version": "6.165.3",
+      "purl": "pkg:pypi/hypothesis@6.165.3",
+      "description": "Property-based testing"
+    },
+    {
+      "type": "application",
+      "name": "Python",
+      "version": "3.12.10",
+      "purl": "pkg:generic/python@3.12.10",
+      "description": "Python runtime"
+    },
+    {
+      "type": "operating-system",
+      "name": "Windows",
+      "version": "11 Pro 10.0.26200",
+      "purl": "pkg:generic/windows@11.0.26200",
+      "description": "Operating system"
+    }
+  ]
+}

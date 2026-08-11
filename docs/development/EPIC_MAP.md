@@ -4,7 +4,7 @@
 **Plan:** 7 milestones, 12 epics
 **Risk distribution:** 8 × `RISK-H`, 4 × `RISK-M`, 0 × `RISK-L`
 **Mandatory Codex checkpoints:** 8, one for each `RISK-H` epic
-**Current:** `E00 READY`; all later epics are `PLANNED` and prepared just in time
+**Current:** `E00 IMPLEMENTED / FIX_REQUIRED` under the approved minimal rebaseline; all later epics are `PLANNED` and prepared just in time
 
 This is a capability map, not a release calendar. A later epic can be narrowed, deferred, or rejected when its entry evidence is unfavorable. No epic authorizes real data while `docs/architecture/REAL_DATA_GATE.yaml` is `CLOSED`.
 
@@ -12,7 +12,7 @@ This is a capability map, not a release calendar. A later epic can be narrowed, 
 
 | Milestone | Roadmap basis | Epics | Exit outcome |
 |---|---|---|---|
-| M0 — Secure synthetic foundation | Phases 1–2 | E00–E01 | Irreversible semantics implemented and independently attacked on the exact synthetic local profile |
+| M0 — Secure synthetic foundation | Phases 1–2 | E00–E01 | Irreversible semantics accepted in E00; deferred recovery/file controls completed and independently attacked in E01 |
 | M1 — Evidence-centered local experience | Phase 3 | E02–E03 | Safe desktop boundary and usable evidence/archive workflows without cloud or LLM |
 | M2 — Governed measurement and personal science | Phase 4 | E04–E06 | Rights-gated measurement, honest descriptive analysis, and bounded low-risk N-of-1 |
 | M3 — Optional bounded AI | Phase 5 | E07 | One replaceable proposal-only AI task proves value without canonical authority or relationship |
@@ -37,31 +37,31 @@ E03, E04, E05, and E09 use objective `EPIC` gates and DeepSeek self-review witho
 
 ## E00 — Minimal Irreversible Secure Core
 
-**Goal:** Implement the local Python/CLI synthetic-only core that proves the semantic, cryptographic, deletion, recovery, migration, and portability invariants that are unsafe to retrofit.
-**Why now:** All later features depend on trustworthy canonical semantics and storage; Phase 1 is the exact next action in the Roadmap.
+**Goal:** Implement the smallest local Python/CLI synthetic-only core whose canonical semantics, minimal migrations, write isolation and acceptance truthfulness are unsafe or expensive to retrofit.
+**Why now:** Later features depend on trustworthy canonical meaning and a storage boundary that cannot admit arbitrary content while the gate is closed; production recovery and filesystem capabilities can remain disabled until E01.
 **Dependencies:** Research convergence; frozen v2 documents; `docs/prompts/F0_IMPLEMENTATION_PROMPT.md`; target OS/dependency feasibility.
-**Major deliverables:** Locked Python package/toolchain; pure domain/temporal/provenance/policy layers; SQLCipher-gated encrypted store and blob protocol; OS and independent recovery wraps; deletion; migrations; backup/restore/export; synthetic CLI; threat/test evidence and reports.
+**Major deliverables:** Locked Python package/toolchain; pure domain/temporal/provenance/policy layers; SQLCipher-gated encrypted store and key wraps; canonical versioning/deletion; minimal transactional migrations; open logical export; package-owned bundled-fixture loader with direct writes denied; truthful scoped validators; explicit unavailable states for deferred backup/restore, blob writes and affected filesystem mutations.
 **Out of scope:** Real/arbitrary user input, UI/server/network/LLM/imports, assessments/scoring, analytics, interventions, FHIR, graph/vector engines, sync or sharing.
 **Risk level:** `RISK-H`.
 **Constitutional invariants touched:** C-02–C-15, C-18–C-20.
 **Primary source documents:** Constitution; Master Spec §§6, 9, 16, 19–20 and IC-1–IC-8; Data Model; System Architecture; Privacy/Security Model; Threat Model; ADR-002–ADR-010, ADR-017, ADR-020; original F0 contract.
-**Acceptance criteria:** Every E00 criterion and end-to-end synthetic lifecycle in `docs/prompts/deepseek/E00_F0_IMPLEMENTATION.md` passes or the result is honestly `BLOCKED`/`PARTIAL_SYNTHETIC_ONLY`; no plaintext/real-data fallback; exact target profile/evidence recorded; no unresolved Critical/High implementation finding; gate still `CLOSED`.
-**Validation level:** Targeted tests during construction, then `FULL` including security/fault/property/recovery/migration/scope/artifact gates.
-**Codex review required:** yes, focused on keys/SQLCipher, policy lineage, time/provenance, deletion, recovery/export, and evidence honesty.
-**REAL_DATA_GATE impact:** Can produce candidate evidence for RDG-01–RDG-07 and RDG-09; cannot satisfy RDG-10/RDG-12 independently and cannot open the gate.
+**Acceptance criteria:** Every invariant and command in `docs/development/E00_REBASELINE_DECISION.md` passes; F01/F03/F04/F06 and corrected versioning do not regress; minimal migrations are atomic; only the verified bundled-fixture path can mutate content; validators cannot certify fake evidence; deferred features are unavailable and explicitly `DEFERRED/NOT_READY`; no real/arbitrary input or production-readiness claim; gate still `CLOSED`.
+**Validation level:** Targeted tests during construction, then the single bounded four-command rebaselined E00 gate. Deferred feature readiness, broad audit and unrelated static-analysis cleanup are excluded.
+**Codex review required:** yes, focused only on the frozen E00 invariants, feature unavailability and evidence honesty.
+**REAL_DATA_GATE impact:** Produces synthetic foundation evidence only. Backup/restore, blobs, Windows mutation and release-grade SBOM evidence remain unsatisfied and prevent gate opening.
 **Estimated implementation complexity:** `XL`; prompt/context cost `HIGH`.
 
 ## E01 — Synthetic Assurance and Independent Recovery Proof
 
-**Goal:** Attack the exact E00 build and assemble reproducible independent evidence for recovery, deletion, privacy, and long-horizon durability.
+**Goal:** Complete the named pre-real-data recovery/file controls, attack the exact E00 build, and assemble reproducible independent evidence for recovery, deletion, privacy, and long-horizon durability.
 **Why now:** A foundation implementer cannot independently validate its own key/recovery/deletion design; feature work must not outrun Phase 2 assurance.
 **Dependencies:** E00 `ACCEPTED`; exact build/profile, F0 report, threat matrix, frozen lock/SBOM, stable executable commands.
-**Major deliverables:** Independent threat/crypto integration/privacy-deletion reviews; clean-device recovery drill; hostile backup/rollback/corruption and failure campaigns; 1/5/20/40-year synthetic migration/archive simulations; synthetic recovery/deletion usability evidence; consolidated gate evidence package.
+**Major deliverables:** Correct authenticated backup inventory and atomic isolated restore; completed or still-disabled vault-bound blob lifecycle; handle-bound Windows mutation with runtime evidence; independent threat/crypto integration/privacy-deletion reviews; clean-device recovery drill; hostile backup/rollback/corruption and failure campaigns; 1/5/20/40-year synthetic migration/archive simulations; synthetic recovery/deletion usability evidence; consolidated gate evidence package.
 **Out of scope:** New product features, real data, weakening F0 controls to make tests pass, automatic gate opening.
 **Risk level:** `RISK-H`.
 **Constitutional invariants touched:** C-10–C-14, C-19–C-20.
 **Primary source documents:** Roadmap Phase 2; Privacy/Security Model PS-17–PS-26; Threat Model; Real Data Gate; F0 report and accepted E00 diff.
-**Acceptance criteria:** Exact reviewed build and reviewers identified; clean recovery works with independent material; deletion/rebuild and plaintext scans pass; fault/migration/archive exercises are reproducible; residual risks and failures are explicit; independent roles are genuine; no Critical/High remains unresolved for the reviewed profile.
+**Acceptance criteria:** F02 and F09 are closed on the exact enabled profile; blob I/O is either closed or remains excluded from that profile; clean recovery works with independent material; deletion/rebuild and plaintext scans pass; fault/migration/archive exercises are reproducible; residual risks and failures are explicit; independent roles are genuine; no Critical/High remains unresolved for an enabled reviewed capability.
 **Validation level:** `FULL`, independent reruns and adversarial/fault suites.
 **Codex review required:** yes, to validate evidence coverage and prevent unsupported security/gate claims; it does not replace required human expertise.
 **REAL_DATA_GATE impact:** May satisfy RDG-01–RDG-07, RDG-09, RDG-10, and RDG-12 for one exact profile if their evidence requirements truly pass; RDG-11 and signed opening remain separate, so status stays `CLOSED` absent an explicit decision.
@@ -216,7 +216,7 @@ E03, E04, E05, and E09 use objective `EPIC` gates and DeepSeek self-review witho
 **Goal:** Make release, migration, preservation, dependency/currentness review, incident closure, and profile-specific real-data decisions repeatable over 1/5/20/40-year horizons.
 **Why now:** Lifetime reliability is recurring work, but the first complete release/gate package must integrate evidence from every enabled boundary.
 **Dependencies:** All capabilities intended for the candidate profile `ACCEPTED`; exact build/SBOM/evidence; independent reviews; no unresolved Critical/High. Optional rejected/deferred epics need not be implemented.
-**Major deliverables:** Release manifest and reproducible gates; preservation/migration/recovery drill; source/license/security currentness checks; incident disable/rollback evidence; residual-risk/expiry register; machine-readable gate evidence and explicit signed decision package.
+**Major deliverables:** Release manifest and reproducible gates; exact dependency/SBOM/license/build-provenance reconciliation including negative evidence cases; preservation/migration/recovery drill; source/license/security currentness checks; incident disable/rollback evidence; residual-risk/expiry register; machine-readable gate evidence and explicit signed decision package.
 **Out of scope:** Automatic gate opening, marketing security/clinical claims, feature accumulation, hiding failed/expired evidence, real-data ingestion inside the gate-review task.
 **Risk level:** `RISK-H`.
 **Constitutional invariants touched:** C-01–C-20.

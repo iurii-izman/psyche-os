@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://psyche-os.local/schemas/export/v1/export_manifest.schema.json",
+  "title": "PSYCHE OS Export Manifest Schema v1.0.0",
+  "description": "Schema for the versioned JSONL + Markdown logical export manifest.",
+  "type": "object",
+  "required": ["manifest_id", "vault_id", "created_at", "export_version", "record_count", "encrypted"],
+  "properties": {
+    "manifest_id": {
+      "type": "string",
+      "description": "UUIDv4 identifier for this export"
+    },
+    "vault_id": {
+      "type": "string",
+      "description": "UUIDv4 identifier of the source vault"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of export creation"
+    },
+    "export_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of the export format"
+    },
+    "record_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of exported records"
+    },
+    "blob_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of exported blobs"
+    },
+    "encrypted": {
+      "type": "boolean",
+      "description": "Whether the export is encrypted"
+    },
+    "schema_versions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Map of table names to schema versions"
+    },
+    "storage_dir": {
+      "type": "string",
+      "description": "Directory where export files are stored"
+    }
+  }
+}

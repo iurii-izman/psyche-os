@@ -30,6 +30,7 @@
 - The compact project state is `docs/development/STATE.yaml`; update it only at epic boundaries. The epic plan is `docs/development/EPIC_MAP.md`.
 - Run the current prompt named by `STATE.yaml`. The initial implementation prompt is `docs/prompts/deepseek/E00_F0_IMPLEMENTATION.md`; later prompts are prepared just in time from `docs/prompts/deepseek/EPIC_IMPLEMENTATION_TEMPLATE.md`.
 - Use targeted tests while iterating and the risk-appropriate final gate once. Every added check must cover a named realistic failure; no arbitrary coverage target or duplicate test theater.
+- Bounded repair prompts preserve accepted findings unless a direct regression is shown; derive threat boundaries from frozen architecture and never silently strengthen or weaken them.
 - A material conflict with the Constitution, master specification, or accepted architecture requires `docs/development/ARCHITECTURE_DEVIATION_TEMPLATE.md` and focused review. Stop only the blocked portion.
 - Validate this delivery layer with `python scripts/dev/validate_orchestration.py`; validate the frozen research foundation with `python scripts/validate_research_foundation.py`.
 - Do not push automatically. Record only accepted epic commits in `STATE.yaml`.

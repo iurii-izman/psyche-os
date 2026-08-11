@@ -1,7 +1,7 @@
 # PSYCHE OS v2 decision log
 
-**Snapshot:** 2026-08-10  
-**Status:** research convergence record  
+**Snapshot:** 2026-08-11
+**Status:** research convergence and implementation-governance record
 **Notation:** source IDs resolve in `docs/research/SOURCE_REGISTRY.yaml`. Confidence concerns the project decision, not universal scientific certainty.
 
 ## Decision protocol
@@ -230,6 +230,21 @@ Each decision records: `decision → research question → evidence → alternat
 - **Review trigger:** F0 gate evidence package completed.
 - **Confidence:** high.
 
+### ADR-021 — Minimal E00 boundary and pre-real-data staging
+
+- **Decision:** Rebaseline E00 to the irreversible synthetic-only foundation in `docs/development/E00_REBASELINE_DECISION.md`. Keep canonical version semantics, minimal transactional migrations, storage-enforced bundled-fixture-only writes and truthful acceptance validation in E00. Preserve the High severity of incomplete backup/restore, blob lifecycle and Windows filesystem mutation, disable those surfaces, and assign their completion to E01 before real-data eligibility. Assign release-grade SBOM reconciliation to E11. `REAL_DATA_GATE` stays `CLOSED`.
+- **Question:** Which controls must be correct before any later synthetic epic, rather than before the first real sensitive record or release?
+- **Evidence:** Master Spec §24.1 distinguishes irreversible/high-cost semantics from §24.2 migratable real-data-gate controls; §25 and Constitution C-13/C-20 still require all security/recovery evidence before real data. The concrete remaining defects are recorded in `docs/implementation/E00_ACCEPTANCE_REPORT.md`; E01 already owns independent recovery, fault and exact-profile assurance.
+- **Alternatives:** continue repairing every F0 control inside E00; downgrade remaining findings; accept unsafe features with documentation only; create another epic.
+- **Rationale:** The chosen boundary prevents later code from depending on incorrect canonical/migration/write semantics or false acceptance while avoiding production hardening of capabilities that can be made unavailable during synthetic development. Severity is not reduced and no real-data requirement is removed.
+- **Uncertainty:** E01 may find that a disabled capability requires API adjustment before E02; the stable deferred typed error limits that coupling. Exact Windows runtime feasibility remains unverified.
+- **Review trigger:** evidence of a frozen E00 invariant violation; any attempt to enable backup/restore, blobs or affected filesystem mutation; E01 entry review; any `REAL_DATA_GATE` decision.
+- **Supersedes:** ADR-020 only as to epic scheduling of F0 recovery/backup/migration/export evidence. ADR-020's closed-gate rule and required evidence remain fully in force.
+- **Confidence:** high for the staging boundary; moderate for exact E01 implementation effort.
+
 ## Supersession
 
-No decisions are superseded at this snapshot. Future entries must state `supersedes`, preserve the earlier record, name migrations and identify whether constitutional or real-data gates are affected.
+ADR-021 partially supersedes ADR-020 only for epic allocation; it does not alter
+any constitutional or real-data opening requirement. Future entries must state
+`supersedes`, preserve the earlier record, name migrations and identify whether
+constitutional or real-data gates are affected.

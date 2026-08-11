@@ -1,8 +1,8 @@
 # PSYCHE OS research-driven roadmap
 
-**Snapshot:** 2026-08-10  
+**Snapshot:** 2026-08-11
 **Planning unit:** evidence gates, not calendar promises  
-**Current state:** research foundation converged; production implementation absent; `REAL_DATA_GATE = CLOSED`
+**Current state:** E00 rebaselined to the minimal synthetic-only irreversible core; `REAL_DATA_GATE = CLOSED`
 
 ## Roadmap principles
 
@@ -18,7 +18,7 @@
 
 **Exit evidence:** all required research artifacts exist and validate, 153 unique serious sources are registered, four adversarial passes are documented, and the F0 prompt is exact. `RESEARCH_CONVERGED = true` does not open the data gate.
 
-## Phase 1 — Minimal irreversible secure core (next)
+## Phase 1 — Minimal irreversible secure core (current)
 
 **Purpose:** prove the semantics that are impossible or costly to retrofit before sensitive bytes exist.
 
@@ -29,14 +29,21 @@
 - raw/verbatim versus normalized/derived records;
 - provenance/derivation, claims/evidence/uncertainty/contradiction/unknown;
 - orthogonal data policy and `NEVER_CLOUD` lineage engine;
-- encrypted database/blob envelope with OS wrap and independent recovery wrap;
+- fail-closed encrypted database/key envelope profile with OS wrap and independent recovery wrap;
 - content-free audit, hard deletion dependency traversal;
-- schema migrations, encrypted backup/isolated restore and open export manifests;
+- minimal transactional schema migrations and open logical export manifests;
+- package-owned synthetic-fixture loading with ordinary storage writes denied;
+- explicit unavailable states for deferred backup/restore, blob writes and affected filesystem mutation;
 - synthetic fixtures and adversarial/failure tests.
 
 **Explicit exclusions:** LLM/provider calls, desktop/web UI, real data, assessment item content, clinical diagnosis, graph/vector engine, wearables/messages/calendar, FHIR, interventions, sync/sharing.
 
-**Exit gate:** all F0 acceptance tests in `docs/prompts/F0_IMPLEMENTATION_PROMPT.md` pass on target OS profiles; no unresolved Critical/High threat finding; independent key/recovery/deletion review. The gate remains closed until Phase 2 also passes.
+**Exit gate:** the six frozen invariants and four-command gate in
+`docs/development/E00_REBASELINE_DECISION.md` pass. An unresolved High in a
+disabled future capability does not block this synthetic profile, but that
+capability must be unavailable and remains a blocker for its owning profile and
+the real-data gate. The gate remains closed through Phase 2 and until a later
+explicit signed decision.
 
 ## Phase 2 — Synthetic assurance and recovery proof
 
@@ -44,6 +51,12 @@
 
 **Activities:**
 
+- complete and then independently attack authenticated backup inventory and
+  clean atomic isolated restore;
+- complete or continue to exclude the vault-bound blob lifecycle for the exact
+  candidate profile;
+- close Windows handle/reparse/TOCTOU filesystem mutation on the exact supported
+  profile before enabling affected file operations;
 - fault injection: full disk, interrupted commit/migration/rotation/deletion;
 - hostile import skeleton tests without broad format support;
 - arbitrary derivation-policy DAG property tests;
@@ -55,7 +68,10 @@
 - independent threat-model, cryptographic integration and privacy/deletion review;
 - recovery and deletion usability test using synthetic content.
 
-**Exit gate:** evidence package names exact build, platform, tests, reviewers and residual risks. A deliberate `REAL_DATA_GATE` decision may then open only for the reviewed local profile; opening is not automatic.
+**Exit gate:** all E01-assigned `PRE_REAL_DATA` findings are fixed or the affected
+profile remains disabled; evidence names exact build, platform, tests, reviewers
+and residual risks. E01 cannot open `REAL_DATA_GATE`; E11 prepares the only
+planned explicit profile-specific decision package.
 
 ## Phase 3 — Evidence-centered local experience
 
@@ -141,4 +157,6 @@ Success is a smaller trustworthy system that remains interpretable and exit-frie
 
 ## Exact next action
 
-Run a new Codex implementation task using the complete contents of `docs/prompts/F0_IMPLEMENTATION_PROMPT.md`. Do not paraphrase or expand its scope. The next agent must first read `CONSTITUTION.md`, the v2 master specification and all architecture contracts, then implement Phase 1 with synthetic fixtures only.
+Run the one final bounded implementation pass using
+`docs/prompts/deepseek/E00_FINAL_MINIMUM_CLOSURE.md`. Do not expand it with
+deferred backup/blob/filesystem hardening, broad audit work, E01, or real data.

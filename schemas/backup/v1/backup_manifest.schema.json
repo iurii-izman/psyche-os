@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://psyche-os.local/schemas/backup/v1/backup_manifest.schema.json",
+  "title": "PSYCHE OS Backup Manifest Schema v2.0.0",
+  "description": "Schema for the versioned encrypted backup manifest.",
+  "type": "object",
+  "required": [
+    "format_version",
+    "magic",
+    "manifest_id",
+    "vault_id",
+    "created_at",
+    "schema_version",
+    "record_count",
+    "blob_count",
+    "byte_total",
+    "sha256_hex",
+    "encrypted",
+    "table_checksums",
+    "records"
+  ],
+  "properties": {
+    "format_version": {
+      "type": "integer",
+      "minimum": 2,
+      "description": "Backup format version (2 = F06 fix)"
+    },
+    "magic": {
+      "type": "string",
+      "description": "Magic byte identifier for backup file format"
+    },
+    "manifest_id": {
+      "type": "string",
+      "description": "UUIDv4 identifier for this backup"
+    },
+    "vault_id": {
+      "type": "string",
+      "description": "UUIDv4 identifier of the source vault"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of backup creation"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Database schema version at backup time"
+    },
+    "record_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of versioned records"
+    },
+    "blob_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of encrypted blobs"
+    },
+    "byte_total": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total byte count of all backing data"
+    },
+    "sha256_hex": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Canonical SHA-256 hash covering all rows"
+    },
+    "encrypted": {
+      "type": "boolean",
+      "description": "Whether the backup package is encrypted"
+    },
+    "table_checksums": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "row_count": { "type": "integer" },
+          "sha256_hex": { "type": "string" }
+        }
+      },
+      "description": "Per-table row counts and SHA-256 checksums"
+    },
+    "storage_path": {
+      "type": "string",
+      "description": "Filesystem path where the backup file is stored"
+    },
+    "records": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "object" }
+      },
+      "description": "Backup records grouped by table name"
+    }
+  }
+}

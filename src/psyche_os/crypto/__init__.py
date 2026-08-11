@@ -1,0 +1,43 @@
+"""Cryptographic layer."""
+
+from psyche_os.crypto.envelope import (
+    DOMAIN_LABELS,
+    ENVELOPE_MAGIC,
+    ENVELOPE_VERSION,
+    RECOVERY_WRAP_MAGIC,
+    RECOVERY_WRAP_VERSION,
+    BlobAEAD,
+    BlobEnvelope,
+    InMemorySecretSource,
+    KeyState,
+    OSKeyWrapError,
+    OSKeyWrapper,
+    RecoveryWrapHeader,
+    RecoveryWrapper,
+    SecretSource,
+    SensitiveBytes,
+    TTYSecretSource,
+    derive_domain_key,
+    generate_vmk,
+)
+
+__all__ = [
+    "DOMAIN_LABELS",
+    "ENVELOPE_MAGIC",
+    "ENVELOPE_VERSION",
+    "RECOVERY_WRAP_MAGIC",
+    "RECOVERY_WRAP_VERSION",
+    "BlobAEAD",
+    "BlobEnvelope",
+    "InMemorySecretSource",
+    "KeyState",
+    "OSKeyWrapError",
+    "OSKeyWrapper",
+    "RecoveryWrapHeader",
+    "RecoveryWrapper",
+    "SecretSource",
+    "SensitiveBytes",
+    "TTYSecretSource",
+    "derive_domain_key",
+    "generate_vmk",
+]
