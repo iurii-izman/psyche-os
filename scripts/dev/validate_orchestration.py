@@ -222,8 +222,17 @@ def main() -> int:
         capture_output=True,
         text=True,
     ).stdout.strip()
+    candidate_match = re.search(
+        r"\*\*Implementation branch:\*\* `([^`]+)`", current_prompt_text
+    )
+    candidate_branch = candidate_match.group(1) if candidate_match else None
+    branch_matches_workflow = branch == state.get("git", {}).get("branch") or (
+        current.get("status") in {"IN_PROGRESS", "IMPLEMENTED", "BLOCKED"}
+        and branch == candidate_branch
+    )
     result.check(
-        branch == state.get("git", {}).get("branch"), "STATE branch matches current Git branch"
+        branch_matches_workflow,
+        "Git branch matches canonical state or the current epic candidate",
     )
 
     for message in result.passes:

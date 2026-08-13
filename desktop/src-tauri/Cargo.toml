@@ -1,0 +1,24 @@
+[package]
+name = "psyche-os-desktop"
+version = "0.2.0"
+description = "PSYCHE OS secure local desktop adapter"
+authors = ["Iurii Izman"]
+edition = "2021"
+license = "MIT"
+
+[lib]
+name = "psyche_os_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.1", features = [] }
+
+[dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+tauri = { version = "2.11.5", features = [] }
+url = "2.5.8"
+uuid = { version = "1.22.0", features = ["v4"] }
+
+[dev-dependencies]
+assert_matches = "1.5.0"

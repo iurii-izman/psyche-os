@@ -11,16 +11,17 @@ real_data_gate:
 current_epic:
   id: "E02"
   name: "Secure Desktop Shell and Vault Operations UX"
-  status: "READY"
-  implementation_status: "NOT_STARTED"
-  review_verdict: "PENDING_IMPLEMENTATION_AND_CODEX_REVIEW"
+  status: "ACCEPTED"
+  implementation_status: "ACCEPTED"
+  review_verdict: "ACCEPTED"
   risk: "RISK-H"
   expected_final_gate: "FULL"
   prompt: "docs/prompts/deepseek/E02_SECURE_DESKTOP_SHELL.md"
   report: "docs/development/reports/E02.md"
+  acceptance_report: "docs/implementation/E02_ACCEPTANCE_REPORT.md"
   depends_on_epic: "E01"
   depends_on_commit: "eac9031"
-  codex_review_required: true
+  codex_review_required: false
 
 accepted_epics:
   - id: "E00"
@@ -31,6 +32,10 @@ accepted_epics:
     status: "ACCEPTED"
     report: "docs/implementation/E01_ACCEPTANCE_REPORT.md"
     commit: "eac9031"
+  - id: "E02"
+    status: "ACCEPTED"
+    report: "docs/implementation/E02_ACCEPTANCE_REPORT.md"
+    commit: "e8535ffeb74ba7858cbc3eb1aa67fed9634dded1"
 
 next_epic:
   id: "E03"
@@ -47,9 +52,9 @@ architecture:
 
 git:
   branch: "main"
-  prepared_from_commit: "eac9031"
-  accepted_commit: "eac9031"
+  prepared_from_commit: "f36abb0"
+  accepted_commit: "e8535ffeb74ba7858cbc3eb1aa67fed9634dded1"
 
 next_action:
-  prompt: "docs/prompts/deepseek/E02_SECURE_DESKTOP_SHELL.md"
-  instruction: "Give the E02 prompt to DeepSeek. Implement E02 only with synthetic fixtures; do not prepare E03 and keep REAL_DATA_GATE CLOSED."
+  prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
+  instruction: "After E02 merges to main, prepare exactly E03 just in time. Do not implement E03 and keep REAL_DATA_GATE CLOSED."
