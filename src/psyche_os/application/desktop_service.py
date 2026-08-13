@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 import secrets
+import sqlite3
 import tempfile
 from typing import Any, Final
 
@@ -28,6 +29,7 @@ from psyche_os.backup_export.package_store import BackupPackageStore
 from psyche_os.crypto.envelope import derive_domain_key, generate_vmk
 from psyche_os.domain.ids import VaultId, generate_id
 from psyche_os.storage.migrations import Migrator
+from psyche_os.application.e03_archive import E03ArchiveError, E03ArchiveService
 
 
 PROTOCOL_VERSION: Final = "1.0"
@@ -50,6 +52,11 @@ ALLOWED_COMMANDS: Final = frozenset(
         "recovery.activate",
         "export.preview",
         "export.execute",
+        "archive.operate",
+        "archive.timeline",
+        "archive.explorer",
+        "archive.snapshot_diff",
+        "archive.deletion.execute",
     }
 )
 STATE_CHANGING_COMMANDS: Final = frozenset(
@@ -63,6 +70,11 @@ STATE_CHANGING_COMMANDS: Final = frozenset(
         "recovery.activate",
         "export.preview",
         "export.execute",
+        "archive.operate",
+        "archive.timeline",
+        "archive.explorer",
+        "archive.snapshot_diff",
+        "archive.deletion.execute",
     }
 )
 
@@ -223,6 +235,12 @@ class DesktopApplicationService:
     _vault_operations: SyntheticVaultOperations = field(
         default_factory=SyntheticVaultOperations, repr=False
     )
+    _archive_connection: Any = field(init=False, repr=False)
+    _archive: E03ArchiveService = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._archive_connection = sqlite3.connect(":memory:")
+        self._archive = E03ArchiveService(self._archive_connection)
 
     def dispatch(
         self,
@@ -250,8 +268,49 @@ class DesktopApplicationService:
             "recovery.activate": self._activate_recovery,
             "export.preview": self._preview_export,
             "export.execute": self._execute_export,
+            "archive.operate": self._archive_operate,
+            "archive.timeline": self._archive_timeline,
+            "archive.explorer": self._archive_explorer,
+            "archive.snapshot_diff": self._archive_snapshot_diff,
+            "archive.deletion.execute": self._archive_execute_deletion,
         }
         return handlers[command](payload)
+
+    def _archive_operate(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"operation", "choice", "idempotency_key"})
+        try:
+            return self._archive.operate(
+                _bounded_text(payload["operation"]),
+                _bounded_text(payload["choice"]),
+                _bounded_text(payload["idempotency_key"]),
+            )
+        except E03ArchiveError as exc:
+            raise DesktopServiceError(exc.code) from exc
+
+    def _archive_timeline(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"temporal_role"})
+        try:
+            role = _bounded_text(payload["temporal_role"])
+            return {"selected_clock": role, "items": self._archive.timeline(role)}
+        except E03ArchiveError as exc:
+            raise DesktopServiceError(exc.code) from exc
+
+    def _archive_explorer(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, set())
+        return self._archive.explorer()
+
+    def _archive_snapshot_diff(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, set())
+        return self._archive.snapshot_diff()
+
+    def _archive_execute_deletion(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"plan_id", "confirmation"})
+        try:
+            return self._archive.execute_deletion(
+                _bounded_text(payload["plan_id"]), _bounded_text(payload["confirmation"])
+            )
+        except E03ArchiveError as exc:
+            raise DesktopServiceError(exc.code) from exc
 
     def _require_session(self, token: str | None) -> None:
         if self._locked or not isinstance(token, str) or not self._session_token:
@@ -442,4 +501,5 @@ class DesktopApplicationService:
         }
 
     def close(self) -> None:
+        self._archive_connection.close()
         self._vault_operations.close()

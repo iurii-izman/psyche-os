@@ -40,7 +40,15 @@ export const desktopApi = {
   previewExport: (input: Record<string, unknown>): Promise<Record<string, unknown>> =>
     call("desktop_preview_export", input),
   executeExport: (previewId: string, confirmation: string): Promise<Record<string, unknown>> =>
-    call("desktop_execute_export", { previewId, confirmation })
+    call("desktop_execute_export", { previewId, confirmation }),
+  archiveOperate: (operation: string, choice: string, idempotencyKey: string): Promise<Record<string, unknown>> =>
+    call("desktop_archive_operate", { operation, choice, idempotencyKey }),
+  archiveTimeline: (temporalRole: string): Promise<Record<string, unknown>> =>
+    call("desktop_archive_timeline", { temporalRole }),
+  archiveExplorer: (): Promise<Record<string, unknown>> => call("desktop_archive_explorer"),
+  archiveSnapshotDiff: (): Promise<Record<string, unknown>> => call("desktop_archive_snapshot_diff"),
+  archiveExecuteDeletion: (planId: string, confirmation: string): Promise<Record<string, unknown>> =>
+    call("desktop_archive_execute_deletion", { planId, confirmation })
 };
 
 export type DesktopApi = typeof desktopApi;

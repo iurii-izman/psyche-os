@@ -29,7 +29,12 @@ function mockApi(locked = false): DesktopApi {
     validateRecovery: vi.fn(async () => ({ candidate_id: "candidate-opaque", validated: true, activated: false, active_vault_preserved: true })),
     activateRecovery: vi.fn(async () => ({ activated: true, previous_vault_retained: true })),
     previewExport: vi.fn(async () => ({ preview_id: "export-opaque", purpose: "portability", audience: "owner", scope: "synthetic", encrypted: true, redacted: true, export_is_backup: false })),
-    executeExport: vi.fn(async () => ({ export_id: "complete-opaque", purpose: "portability", audience: "owner", scope: "synthetic", encrypted: true, redacted: true, export_is_backup: false }))
+    executeExport: vi.fn(async () => ({ export_id: "complete-opaque", purpose: "portability", audience: "owner", scope: "synthetic", encrypted: true, redacted: true, export_is_backup: false })),
+    archiveOperate: vi.fn(async (operation: string) => operation === "DELETE_LAMP_SOURCE" ? ({ plan_id: "orchid-plan", mutated: false }) : ({ operation, fixture_pack: "e03_orchid_station_v1" })),
+    archiveTimeline: vi.fn(async (temporalRole: string) => ({ selected_clock: temporalRole, items: [] })),
+    archiveExplorer: vi.fn(async () => ({ notice: "Claims are proposals, not facts." })),
+    archiveSnapshotDiff: vi.fn(async () => ({ changed: ["claim-lamp"], unresolved_contradictions: 1, completion_percentage: null })),
+    archiveExecuteDeletion: vi.fn(async () => ({ receipt_id: "e03-receipt", content_in_receipt: false }))
   };
 }
 
@@ -126,5 +131,37 @@ describe("E02 bounded desktop UI", () => {
     expect(secret.value).toBe("");
     expect(document.activeElement).toBe(secret);
     expect(document.querySelector("#unlock-error")!.textContent).toContain("UNLOCK_REJECTED");
+  });
+});
+
+describe("E03 bounded archive UI", () => {
+  it("E03-T2/T7 requires an explicit clock and presents months-away return without pressure", async () => {
+    const api = mockApi(false);
+    await mount(api);
+    const clock = document.querySelector<HTMLSelectElement>("#timeline-clock")!;
+    expect([...clock.options].map((option) => option.value)).toEqual(["occurred", "observed", "reported", "recorded", "asserted"]);
+    clock.value = "observed";
+    await click(byText("Load selected timeline"));
+    expect(api.archiveTimeline).toHaveBeenCalledWith("observed");
+    const copy = document.body.textContent!.toLowerCase();
+    for (const forbidden of ["streak", "overdue", "you are behind", "completion percentage", "hurry", "reward"]) {
+      expect(copy).not.toContain(forbidden);
+    }
+  });
+
+  it("E03-T1/T6 exposes only fixed capture choices and focus-safe deletion confirmation", async () => {
+    const api = mockApi(false);
+    await mount(api);
+    expect(document.querySelector("textarea")).toBeNull();
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+    await click(byText("Capture lamp report"));
+    expect(api.archiveOperate).toHaveBeenCalledWith("CAPTURE_LAMP_REPORT", "occurred_summer_2042", "desktop_001");
+    const confirm = byText("Confirm canonical deletion");
+    expect(confirm.disabled).toBe(true);
+    await click(byText("Preview canonical deletion"));
+    expect(confirm.disabled).toBe(false);
+    expect(document.activeElement).toBe(confirm);
+    await click(confirm);
+    expect(api.archiveExecuteDeletion).toHaveBeenCalledWith("orchid-plan", "DELETE ORCHID LAMP SOURCE");
   });
 });

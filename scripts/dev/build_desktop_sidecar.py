@@ -1,8 +1,9 @@
-"""Build and probe the fixed E02 Python/SQLCipher sidecar executable."""
+"""Build and probe the fixed E02/E03 Python/SQLCipher sidecar executable."""
 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
 import struct
@@ -43,6 +44,8 @@ def main() -> int:
         str(ROOT / "src"),
         "--hidden-import",
         "sqlcipher3",
+        "--add-data",
+        f"{ROOT / 'src' / 'psyche_os' / 'fixtures' / 'e03_orchid_station_v1.json'}{os.pathsep}psyche_os/fixtures",
         str(ROOT / "src" / "psyche_os" / "interfaces" / "desktop_sidecar.py"),
     ]
     completed = subprocess.run(command, cwd=ROOT, check=False)

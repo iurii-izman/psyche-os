@@ -1,0 +1,18 @@
+{
+  "fixture_pack_id": "e03_orchid_station_v1",
+  "manifest_version": "1.0.0",
+  "schema_version": 2,
+  "synthetic_fixture": true,
+  "scenario": "Fictional Orchid Station greenhouse maintenance indicator",
+  "operations": [
+    "CAPTURE_LAMP_REPORT",
+    "CAPTURE_LAMP_OBSERVATION",
+    "CAPTURE_COUNTERREPORT",
+    "ASSEMBLE_EPISTEMIC_SET",
+    "CREATE_BASELINE_SNAPSHOT",
+    "CREATE_REVISED_SNAPSHOT",
+    "CORRECT_LAMP_REPORT_TIME",
+    "DELETE_LAMP_SOURCE"
+  ],
+  "digest": "6da4cd8e34c34d87397db4f5d94151a83de0966d4f0a5f0a978a6b381f6b7d61"
+}

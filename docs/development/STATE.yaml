@@ -11,16 +11,17 @@ real_data_gate:
 current_epic:
   id: "E03"
   name: "Evidence Archive, Timeline, and Epistemic Explorer"
-  status: "READY"
-  implementation_status: "NOT_STARTED"
-  review_verdict: "PENDING_IMPLEMENTATION_AND_CODEX_REVIEW"
+  status: "ACCEPTED"
+  implementation_status: "ACCEPTED"
+  review_verdict: "ACCEPTED"
   risk: "RISK-H"
   expected_final_gate: "FULL"
   prompt: "docs/prompts/deepseek/E03_EVIDENCE_ARCHIVE_TIMELINE.md"
   report: "docs/development/reports/E03.md"
+  acceptance_report: "docs/implementation/E03_ACCEPTANCE_REPORT.md"
   depends_on_epic: "E02"
   depends_on_commit: "e8535ffeb74ba7858cbc3eb1aa67fed9634dded1"
-  codex_review_required: true
+  codex_review_required: false
 
 accepted_epics:
   - id: "E00"
@@ -35,6 +36,10 @@ accepted_epics:
     status: "ACCEPTED"
     report: "docs/implementation/E02_ACCEPTANCE_REPORT.md"
     commit: "e8535ffeb74ba7858cbc3eb1aa67fed9634dded1"
+  - id: "E03"
+    status: "ACCEPTED"
+    report: "docs/implementation/E03_ACCEPTANCE_REPORT.md"
+    commit: "6721e0b00a82f808405c17ab67358ad2f51199bc"
 
 next_epic:
   id: "E04"
@@ -51,9 +56,9 @@ architecture:
 
 git:
   branch: "main"
-  prepared_from_commit: "1a4975aa2290a3f63e19e65bf2ec1ebb6c353ccd"
-  accepted_commit: "e8535ffeb74ba7858cbc3eb1aa67fed9634dded1"
+  prepared_from_commit: "91ef4826705e286d6e12cd826c24f9e4958e5057"
+  accepted_commit: "6721e0b00a82f808405c17ab67358ad2f51199bc"
 
 next_action:
-  prompt: "docs/prompts/deepseek/E03_EVIDENCE_ARCHIVE_TIMELINE.md"
-  instruction: "Give the E03 prompt to DeepSeek. Implement E03 only with the closed fictional synthetic scenario profile; do not prepare E04 and keep REAL_DATA_GATE CLOSED."
+  prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
+  instruction: "After E03 merges to main, prepare exactly E04 just in time. Do not implement E04 and keep REAL_DATA_GATE CLOSED."

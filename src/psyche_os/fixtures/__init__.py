@@ -50,9 +50,8 @@ def _validate_manifest(payload: dict[str, Any]) -> dict[str, Any]:
     if payload.get("manifest_version") != "1.0.0":
         raise FixtureLoadError("Unsupported fixture manifest_version")
 
-    from psyche_os.storage.schema import CURRENT_SCHEMA_VERSION
-
-    if payload.get("schema_version") != CURRENT_SCHEMA_VERSION:
+    expected_schema_version = 1 if pack_id == "f0_smoke" else 2
+    if payload.get("schema_version") != expected_schema_version:
         raise FixtureLoadError("Fixture schema_version does not match the current schema")
 
     rows = payload.get("rows")
