@@ -80,6 +80,7 @@ def _rows(connection: Any, sql: str, args: tuple[Any, ...] = ()) -> list[dict[st
 class DeletionPreview:
     plan_id: str
     counts: dict[str, int]
+    selectors: dict[str, tuple[str, tuple[str, ...]]]
 
 
 class E03ArchiveService:
@@ -203,6 +204,14 @@ class E03ArchiveService:
             for member,version,role in (("assertion-lamp","assertion-lamp-v1","position"),("assertion-counter","assertion-counter-v1","counterposition")):
                 self.connection.execute("INSERT OR IGNORE INTO contradiction_members(set_record_id,set_version_id,member_kind,member_record_id,member_version_id,member_role) VALUES(?,?,?,?,?,?)",("contradiction-lamp","contradiction-lamp-v1","assertion",member,version,role))
             self._insert_versioned("unknowns", {"record_id":"unknown-lamp","version_id":"unknown-lamp-v1","schema_version":2,"tx_from":NOW,"is_active":1,"change_reason_code":"initial","created_by_actor_id":"actor-owner","question":"Which fictional indicator state applied at the same clock?","scope":"east_bench_indicator","why_matters":"It controls whether the reports actually conflict.","knowledge_state":"The clocks are not aligned.","attempts":"Compared the two bundled reports.","what_could_reduce":"A fictional timestamped controller log.","burden_or_safety_concern":"No further collection is needed for this fixture.","status":"open","unknown_reason":"ambiguous"})
+            # This cross-aggregate dependency has no direct FK: the unknown is
+            # derived from the unresolved contradiction and must join its
+            # deletion closure.  Other dependencies below are represented by
+            # their frozen V2 FK/reference columns.
+            self.connection.execute(
+                "INSERT OR IGNORE INTO record_relations VALUES(?,?,?,?,?,?,?,?)",
+                ("relation-contradiction-unknown", "contradiction-lamp", "contradiction-lamp-v1", "unknown-lamp", "unknown-lamp-v1", "derived_from", None, NOW),
+            )
         return {"claim_label":"proposal","fact_label":False,"uncertainty_dimensions":4,"contradiction":"unresolved","unknown_reason":"ambiguous"}
 
     def _baseline_snapshot(self, _choice: str) -> dict[str, Any]:
@@ -255,35 +264,170 @@ class E03ArchiveService:
     def _delete_source(self, choice: str) -> dict[str, Any]:
         if choice == "dry_run":
             plan_id="orchid-delete-"+secrets.token_hex(6)
-            counts={"source_artifacts":1,"source_locators":1,"reports":2,"assertions":2,"temporal_assertions":len(self.timeline("reported"))+len(self.timeline("occurred")),"evidence_links":2,"uncertainty_profiles":1,"contradiction_sets":1,"unknowns":1,"personal_model_snapshots":len(_rows(self.connection,"SELECT record_id FROM personal_model_snapshots"))}
-            self._plans[plan_id]=DeletionPreview(plan_id,counts)
-            return {"plan_id":plan_id,"counts":counts,"mutated":False,"confirmation":"DELETE ORCHID LAMP SOURCE","limitations":["Previously exported or externally controlled copies are outside local deletion.","Retained backups expire under their declared policy."]}
+            plan=self._dependency_closure(plan_id)
+            self._plans[plan_id]=plan
+            return {"plan_id":plan_id,"counts":plan.counts,"mutated":False,"confirmation":"DELETE ORCHID LAMP SOURCE","limitations":["Previously exported or externally controlled copies are outside local deletion.","Retained backups expire under their declared policy."]}
         raise E03ArchiveError("PLAN_REQUIRED")
+
+    @staticmethod
+    def _placeholders(values: set[str] | tuple[str, ...]) -> str:
+        return ",".join("?" for _ in values)
+
+    def _matching_ids(self, table: str, result_column: str, match_column: str, values: set[str]) -> set[str]:
+        if not values:
+            return set()
+        sql = f"SELECT DISTINCT {result_column} FROM {table} WHERE {match_column} IN ({self._placeholders(values)})"
+        return {row[0] for row in self.connection.execute(sql, tuple(sorted(values)))}
+
+    def _record_table(self, record_id: str) -> str | None:
+        for table in (
+            "source_artifacts", "source_locators", "reports", "observations",
+            "assertions", "claims", "temporal_assertions", "evidence_links",
+            "uncertainty_profiles", "contradiction_sets", "unknowns",
+            "personal_model_snapshots",
+        ):
+            if self.connection.execute(
+                f"SELECT 1 FROM {table} WHERE record_id=? LIMIT 1", (record_id,)
+            ).fetchone():
+                return table
+        return None
+
+    def _dependency_closure(self, plan_id: str) -> DeletionPreview:
+        """Derive the bounded E03 deletion closure from canonical V2 edges."""
+        nodes: dict[str, set[str]] = {
+            "source_artifacts": {"source-lamp"},
+            "source_locators": set(), "reports": set(), "observations": set(),
+            "assertions": set(), "claims": set(), "temporal_assertions": set(),
+            "evidence_links": set(), "uncertainty_profiles": set(),
+            "contradiction_sets": set(), "unknowns": set(),
+            "personal_model_snapshots": set(),
+        }
+
+        changed = True
+        while changed:
+            before = sum(len(values) for values in nodes.values())
+            nodes["source_locators"] |= self._matching_ids(
+                "source_locators", "record_id", "artifact_record_id", nodes["source_artifacts"]
+            )
+            for table in ("reports", "observations", "assertions"):
+                nodes[table] |= self._matching_ids(
+                    table, "record_id", "source_locator_record_id", nodes["source_locators"]
+                )
+
+            all_record_ids = set().union(*nodes.values())
+            nodes["temporal_assertions"] |= self._matching_ids(
+                "temporal_assertions", "record_id", "target_record_id", all_record_ids
+            )
+
+            if all_record_ids:
+                placeholders = self._placeholders(all_record_ids)
+                evidence_rows = self.connection.execute(
+                    f"SELECT record_id,source_record_id,target_claim_record_id FROM evidence_links "
+                    f"WHERE source_record_id IN ({placeholders}) OR target_claim_record_id IN ({placeholders})",
+                    (*sorted(all_record_ids), *sorted(all_record_ids)),
+                ).fetchall()
+                for record_id, source_id, target_id in evidence_rows:
+                    nodes["evidence_links"].add(record_id)
+                    if source_id in all_record_ids:
+                        nodes["claims"].add(target_id)
+
+            all_record_ids = set().union(*nodes.values())
+            nodes["uncertainty_profiles"] |= self._matching_ids(
+                "uncertainty_profiles", "record_id", "target_record_id", all_record_ids
+            )
+            nodes["contradiction_sets"] |= self._matching_ids(
+                "contradiction_members", "set_record_id", "member_record_id", all_record_ids
+            )
+
+            snapshot_ids = set()
+            snapshot_ids |= self._matching_ids(
+                "personal_model_snapshot_claims", "snapshot_record_id", "claim_record_id", nodes["claims"]
+            )
+            snapshot_ids |= self._matching_ids(
+                "personal_model_snapshot_contradictions", "snapshot_record_id", "contradiction_record_id", nodes["contradiction_sets"]
+            )
+            snapshot_ids |= self._matching_ids(
+                "personal_model_snapshot_unknowns", "snapshot_record_id", "unknown_record_id", nodes["unknowns"]
+            )
+            nodes["personal_model_snapshots"] |= snapshot_ids
+
+            # Typed record_relations are directional dependency edges.  Follow
+            # parent -> child only; deleting a derived child never deletes an
+            # independent parent.
+            all_record_ids = set().union(*nodes.values())
+            if all_record_ids:
+                relation_rows = self.connection.execute(
+                    f"SELECT child_record_id FROM record_relations WHERE parent_record_id IN ({self._placeholders(all_record_ids)})",
+                    tuple(sorted(all_record_ids)),
+                ).fetchall()
+                for (child_id,) in relation_rows:
+                    table = self._record_table(child_id)
+                    if table in nodes:
+                        nodes[table].add(child_id)
+
+            changed = sum(len(values) for values in nodes.values()) != before
+
+        all_record_ids = set().union(*nodes.values())
+        selectors: dict[str, tuple[str, tuple[str, ...]]] = {
+            table: ("record_id", tuple(sorted(ids)))
+            for table, ids in nodes.items() if ids
+        }
+        snapshot_ids = nodes["personal_model_snapshots"]
+        for table in (
+            "personal_model_snapshot_domain_summaries", "personal_model_snapshot_algorithms",
+            "personal_model_snapshot_unknowns", "personal_model_snapshot_contradictions",
+            "personal_model_snapshot_claims",
+        ):
+            if snapshot_ids:
+                selectors[table] = ("snapshot_record_id", tuple(sorted(snapshot_ids)))
+        if nodes["contradiction_sets"]:
+            selectors["contradiction_members"] = ("set_record_id", tuple(sorted(nodes["contradiction_sets"])))
+        if nodes["uncertainty_profiles"]:
+            selectors["uncertainty_dimensions"] = ("profile_record_id", tuple(sorted(nodes["uncertainty_profiles"])))
+        if all_record_ids:
+            placeholders = self._placeholders(all_record_ids)
+            relation_ids = {
+                row[0] for row in self.connection.execute(
+                    f"SELECT relation_id FROM record_relations WHERE parent_record_id IN ({placeholders}) OR child_record_id IN ({placeholders})",
+                    (*sorted(all_record_ids), *sorted(all_record_ids)),
+                )
+            }
+            if relation_ids:
+                selectors["record_relations"] = ("relation_id", tuple(sorted(relation_ids)))
+
+        counts: dict[str, int] = {}
+        for table, (column, ids) in selectors.items():
+            counts[table] = self.connection.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE {column} IN ({self._placeholders(ids)})", ids
+            ).fetchone()[0]
+        return DeletionPreview(plan_id, counts, selectors)
 
     def execute_deletion(self, plan_id: str, confirmation: str, *, inject_failure: bool=False) -> dict[str, Any]:
         plan=self._plans.get(plan_id)
         if plan is None: raise E03ArchiveError("PLAN_INVALID")
         if confirmation != "DELETE ORCHID LAMP SOURCE": raise E03ArchiveError("CONFIRMATION_REQUIRED")
+        current_plan = self._dependency_closure(plan_id)
+        if current_plan.selectors != plan.selectors or current_plan.counts != plan.counts:
+            raise E03ArchiveError("PLAN_STALE")
         try:
             self.connection.execute("BEGIN IMMEDIATE")
-            for table in ("personal_model_snapshot_domain_summaries","personal_model_snapshot_algorithms","personal_model_snapshot_unknowns","personal_model_snapshot_contradictions","personal_model_snapshot_claims"):
-                self.connection.execute(f"DELETE FROM {table}")
-            self.connection.execute("DELETE FROM personal_model_snapshots")
-            self.connection.execute("DELETE FROM contradiction_members")
-            self.connection.execute("DELETE FROM evidence_links")
-            self.connection.execute("DELETE FROM uncertainty_dimensions")
-            self.connection.execute("DELETE FROM uncertainty_profiles")
-            self.connection.execute("DELETE FROM contradiction_sets")
-            self.connection.execute("DELETE FROM unknowns")
+            deletion_order = (
+                "personal_model_snapshot_domain_summaries", "personal_model_snapshot_algorithms",
+                "personal_model_snapshot_unknowns", "personal_model_snapshot_contradictions",
+                "personal_model_snapshot_claims", "personal_model_snapshots",
+                "contradiction_members", "evidence_links", "uncertainty_dimensions",
+                "record_relations", "temporal_assertions", "uncertainty_profiles",
+                "contradiction_sets", "unknowns", "claims", "observations",
+                "assertions", "reports", "source_locators", "source_artifacts",
+            )
+            for table in deletion_order:
+                selector = plan.selectors.get(table)
+                if selector:
+                    column, ids = selector
+                    self.connection.execute(
+                        f"DELETE FROM {table} WHERE {column} IN ({self._placeholders(ids)})", ids
+                    )
             if inject_failure: raise RuntimeError("injected")
-            self.connection.execute("DELETE FROM temporal_assertions")
-            self.connection.execute("DELETE FROM record_relations")
-            self.connection.execute("DELETE FROM claims WHERE semantic_version=2")
-            self.connection.execute("DELETE FROM observations WHERE semantic_version=2")
-            self.connection.execute("DELETE FROM assertions WHERE semantic_version=2")
-            self.connection.execute("DELETE FROM reports WHERE semantic_version=2")
-            self.connection.execute("DELETE FROM source_locators")
-            self.connection.execute("DELETE FROM source_artifacts WHERE semantic_version=2")
             receipt_id="deletion-receipt-"+secrets.token_hex(8)
             self.connection.execute(
                 "INSERT INTO deletion_requests(request_id,actor_id,reason,scope,target_ids,approved_by,approved_at,status,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
@@ -303,9 +447,19 @@ class E03ArchiveService:
             if inject_failure: raise E03ArchiveError("DELETION_FAILED_PRESERVED") from exc
             raise
         self._plans.pop(plan_id,None)
-        return {"receipt_id":receipt_id,"counts":plan.counts,"content_in_receipt":False,"stable_content_hash":False,"projection_rebuild":"rebuilt","canonical_absence":self._verify_deleted(),"known_exclusions":["External copies remain outside local control.","Backups follow declared expiry."]}
+        return {"receipt_id":receipt_id,"counts":plan.counts,"content_in_receipt":False,"stable_content_hash":False,"projection_rebuild":"rebuilt","canonical_absence":self._verify_deleted(plan),"known_exclusions":["External copies remain outside local control.","Backups follow declared expiry."]}
 
-    def _verify_deleted(self) -> bool:
-        for table in ("source_artifacts","source_locators","reports","observations","assertions","claims","evidence_links","unknowns","personal_model_snapshots"):
-            if self.connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]: return False
-        return True
+    def _verify_deleted(self, plan: DeletionPreview) -> bool:
+        from psyche_os.backup_export.versioned import create_versioned_export
+
+        exported = create_versioned_export(self.connection)
+        for table, (column, ids) in plan.selectors.items():
+            if self.connection.execute(
+                f"SELECT 1 FROM {table} WHERE {column} IN ({self._placeholders(ids)}) LIMIT 1", ids
+            ).fetchone():
+                return False
+            if any(row.get(column) in ids for row in exported["tables"][table]):
+                return False
+        deleted_ids = {item for _, ids in plan.selectors.values() for item in ids}
+        view = json.dumps(self.explorer(), sort_keys=True)
+        return not any(record_id in view for record_id in deleted_ids)

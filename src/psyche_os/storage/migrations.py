@@ -279,11 +279,12 @@ class Migrator:
                 integrity = self._con.execute("PRAGMA integrity_check").fetchone()
                 if not integrity or integrity[0] != "ok":
                     raise MigrationError("V1 integrity check failed")
-                semantic_rows = sum(
-                    self._con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-                    for table in ("source_artifacts", "reports", "observations", "assertions", "claims")
-                )
-                if semantic_rows and not (backup_verified and export_verified):
+                # The frozen E03 contract requires recovery and portability
+                # proofs for every established V1 vault.  A fresh vault may be
+                # created directly through the 0 -> 2 bootstrap chain, but an
+                # empty V1 database is still a V1 migration subject and is not
+                # an implicit prerequisite exception.
+                if not (backup_verified and export_verified):
                     raise MigrationError("Verified V1 backup and export are required")
             except Exception as exc:
                 report.errors.append(str(exc))

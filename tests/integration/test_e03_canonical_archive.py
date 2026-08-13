@@ -50,13 +50,46 @@ def test_e03_t6_dry_run_cancel_and_fault_preserve_all_canonical_state() -> None:
 
 
 def test_e03_t6_dependency_deletion_removes_reconstructive_state_and_receipt_content() -> None:
-    """E03-T6: confirmed closure must remove canonical V2 descendants and hashes."""
+    """E03-T6: closure is data-derived and preserves unrelated canonical rows."""
     archive = archive_with_all_records()
+    archive.connection.execute(
+        "INSERT INTO source_artifacts("
+        "record_id,artifact_id,version_id,source_kind,source_label,uri_or_path,mime_type,"
+        "source_metadata,tx_from,is_active,created_at,semantic_version,schema_version,"
+        "change_reason_code,created_by_actor_id,artifact_kind,origin_kind,captured_at,"
+        "language_tags,byte_size,parser_state,quarantine_state) "
+        "VALUES(?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            "source-unrelated", "source-unrelated", "source-unrelated-v1", "fixture_report",
+            "Unrelated fictional source", "", "text/plain", "{}", "2042-09-02T10:00:00+00:00",
+            "2042-09-02T10:00:00+00:00", 2, 2, "initial", "actor-owner", "user_note",
+            "user_created", "2042-09-02T10:00:00+00:00", "[\"en\"]", 10, "raw", "none",
+        ),
+    )
+    archive.connection.commit()
     preview = archive.operate("DELETE_LAMP_SOURCE", "dry_run", "delete_preview")
+    assert preview["counts"]["source_artifacts"] == 1
+    assert preview["counts"]["reports"] == 1
+    assert preview["counts"]["assertions"] == 1
     receipt = archive.execute_deletion(preview["plan_id"], "DELETE ORCHID LAMP SOURCE")
     assert receipt["canonical_absence"] is True
     assert receipt["content_in_receipt"] is False and receipt["stable_content_hash"] is False
     assert receipt["projection_rebuild"] == "rebuilt"
+    assert archive.connection.execute(
+        "SELECT COUNT(*) FROM source_artifacts WHERE record_id='source-unrelated'"
+    ).fetchone() == (1,)
+    assert archive.connection.execute(
+        "SELECT COUNT(*) FROM reports WHERE record_id='report-counter'"
+    ).fetchone() == (1,)
+    assert archive.connection.execute(
+        "SELECT COUNT(*) FROM assertions WHERE record_id='assertion-counter'"
+    ).fetchone() == (1,)
+    assert archive.connection.execute(
+        "SELECT COUNT(*) FROM source_artifacts WHERE record_id='source-lamp'"
+    ).fetchone() == (0,)
+    assert archive.connection.execute(
+        "SELECT COUNT(*) FROM personal_model_snapshots"
+    ).fetchone() == (0,)
     stored = archive.connection.execute("SELECT verification_hash FROM deletion_receipts").fetchone()
     assert stored == (None,)
 

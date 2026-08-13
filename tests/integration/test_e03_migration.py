@@ -5,7 +5,7 @@ import sqlite3
 
 import pytest
 
-from psyche_os.backup_export.versioned import create_versioned_export, create_versioned_package, restore_versioned_package, verify_versioned_package
+from psyche_os.backup_export.versioned import VersionedPackageError, create_versioned_export, create_versioned_package, restore_versioned_package, verify_versioned_package
 from psyche_os.storage.e03_schema import V1_INVENTORY, V2_INVENTORY, V2_MIGRATION_CHECKSUM
 from psyche_os.storage.migrations import MIGRATIONS, Migration, Migrator
 
@@ -17,11 +17,14 @@ def v1() -> sqlite3.Connection:
     return connection
 
 
-def test_e03_migration_pristine_v1_to_exact_v2_and_verified_noop() -> None:
-    """E03 migration: pristine V1 must become exact 35-table V2 once only."""
+def test_e03_migration_pristine_v1_requires_proofs_then_becomes_exact_v2_once() -> None:
+    """E03 migration: an established empty V1 has no implicit proof exception."""
     connection = v1()
     assert {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")} == set(V1_INVENTORY)
-    report = Migrator(connection).apply(2)
+    blocked = Migrator(connection).apply(2)
+    assert not blocked.success and "backup and export" in blocked.errors[0]
+    assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 1
+    report = Migrator(connection).apply(2, backup_verified=True, export_verified=True)
     assert report.success and report.applied == [2]
     assert {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")} == set(V2_INVENTORY)
     rerun = Migrator(connection).apply(2)
@@ -45,7 +48,10 @@ def test_e03_migration_preserves_ambiguous_legacy_enum_bytes() -> None:
     assert row == ("causal", "supported", "observation", "legacy bytes", 1)
 
 
-def test_e03_migration_malformed_v1_and_missing_recovery_proofs_fail_closed() -> None:
+@pytest.mark.parametrize("backup_verified,export_verified", [(False, False), (True, False), (False, True)])
+def test_e03_migration_malformed_v1_and_missing_recovery_proofs_fail_closed(
+    backup_verified: bool, export_verified: bool
+) -> None:
     """E03 migration: out-of-domain V1 or missing backup/export proof must not write."""
     connection = v1()
     connection.execute("PRAGMA ignore_check_constraints=ON")
@@ -59,7 +65,9 @@ def test_e03_migration_malformed_v1_and_missing_recovery_proofs_fail_closed() ->
     valid = v1()
     valid.execute("INSERT INTO reports(record_id,report_id,version_id,tx_from,is_active,created_at) VALUES('r','r','rv1','2040',1,'2040')")
     valid.commit()
-    blocked = Migrator(valid).apply(2)
+    blocked = Migrator(valid).apply(
+        2, backup_verified=backup_verified, export_verified=export_verified
+    )
     assert not blocked.success and "backup and export" in blocked.errors[0]
 
 
@@ -69,7 +77,7 @@ def test_e03_migration_interruption_rolls_back_schema_and_bookkeeping() -> None:
     original = MIGRATIONS[2]
     try:
         MIGRATIONS[2] = Migration(2, original.label, [*original.statements[:3], "CREATE TABLE interrupted(x INTEGER)", "INVALID SQL"])
-        report = Migrator(connection).apply(2)
+        report = Migrator(connection).apply(2, backup_verified=True, export_verified=True)
         assert not report.success
         assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 1
         assert connection.execute("SELECT COUNT(*) FROM sqlite_master WHERE name='interrupted'").fetchone()[0] == 0
@@ -78,8 +86,8 @@ def test_e03_migration_interruption_rolls_back_schema_and_bookkeeping() -> None:
         MIGRATIONS[2] = original
 
 
-def test_e03_v1_and_v2_backup_restore_export_use_exact_versioned_inventory() -> None:
-    """E03 migration: V1 reader and V2 package/export must round-trip exact inventories."""
+def test_e03_v1_and_v2_portability_restore_export_use_exact_versioned_inventory() -> None:
+    """E03 migration: logical packages/exports round-trip exact inventories."""
     old = v1()
     old_package = create_versioned_package(old)
     assert old_package["inventory"] == list(V1_INVENTORY) and verify_versioned_package(old_package)
@@ -91,14 +99,21 @@ def test_e03_v1_and_v2_backup_restore_export_use_exact_versioned_inventory() -> 
     assert Migrator(current).apply(2).success
     package = create_versioned_package(current)
     assert package["inventory"] == list(V2_INVENTORY) and verify_versioned_package(package)
+    assert package["format"] == "psyche-os-logical-portability-package"
     restored = sqlite3.connect(":memory:")
     restore_versioned_package(package, restored)
     assert create_versioned_package(restored)["package_checksum"] == package["package_checksum"]
     exported = create_versioned_export(current)
     assert exported["schema_version"] == 2 and set(exported["schemas"]) == set(V2_INVENTORY)
 
+    populated = sqlite3.connect(":memory:")
+    populated.execute("CREATE TABLE unrelated(value TEXT)")
+    with pytest.raises(VersionedPackageError, match="isolated and empty"):
+        restore_versioned_package(package, populated)
+    assert populated.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall() == [("unrelated",)]
 
-@pytest.mark.parametrize("mutation", ["missing", "extra", "duplicate", "checksum"])
+
+@pytest.mark.parametrize("mutation", ["missing", "extra", "duplicate", "schema", "checksum"])
 def test_e03_v2_package_rejects_inventory_and_checksum_tampering(mutation: str) -> None:
     """E03 migration: missing/extra/duplicate/checksum package ambiguity must fail."""
     connection = sqlite3.connect(":memory:")
@@ -107,6 +122,7 @@ def test_e03_v2_package_rejects_inventory_and_checksum_tampering(mutation: str) 
     if mutation == "missing": package["inventory"].pop()
     elif mutation == "extra": package["inventory"].append("future_table")
     elif mutation == "duplicate": package["inventory"].append(package["inventory"][0])
+    elif mutation == "schema": package["schemas"]["claims"].append("invented_column")
     else: package["checksums"]["claims"] = "0" * 64
     assert verify_versioned_package(package) is False
 
