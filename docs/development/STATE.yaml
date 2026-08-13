@@ -9,17 +9,17 @@ real_data_gate:
   authority: "docs/architecture/REAL_DATA_GATE.yaml"
 
 current_epic:
-  id: "E06"
-  name: "Bounded N-of-1 and Intervention Protocols"
-  status: "ACCEPTED"
-  implementation_status: "ACCEPTED"
-  review_verdict: "ACCEPTED"
+  id: "E07"
+  name: "One Optional Bounded AI Proposal Slice"
+  status: "READY"
+  implementation_status: "NOT_STARTED"
+  review_verdict: "PENDING_IMPLEMENTATION"
   risk: "RISK-H"
   expected_final_gate: "FULL"
-  prompt: "docs/prompts/deepseek/E06_BOUNDED_N_OF_1_INTERVENTION_PROTOCOLS.md"
-  report: "docs/development/reports/E06.md"
-  depends_on_epic: "E05"
-  depends_on_commit: "8097de1a1f2e3e7e8e6199f633a774180e298069"
+  prompt: "docs/prompts/deepseek/E07_BOUNDED_AI_PROPOSAL_SLICE.md"
+  report: "docs/development/reports/E07.md"
+  depends_on_epic: "E06"
+  depends_on_commit: "e6225c537ff94390abd1953d70d3caaf5b452712"
   codex_review_required: true
 
 accepted_epics:
@@ -53,7 +53,7 @@ accepted_epics:
     commit: "e6225c537ff94390abd1953d70d3caaf5b452712"
 
 next_epic:
-  id: "E07"
+  id: "E08"
   status: "PLANNED"
   prompt: null
   preparation_prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
@@ -67,9 +67,9 @@ architecture:
 
 git:
   branch: "main"
-  prepared_from_commit: "b61cdc48b18894b7cf5b2134ca5444ae16697502"
+  prepared_from_commit: "a9c48ccd2a1b3671d25bfd48a3c134b8c9695018"
   accepted_commit: "e6225c537ff94390abd1953d70d3caaf5b452712"
 
 next_action:
-  prompt: null
-  instruction: "Freeze the future post-E11 Conversational Psychological Support architecture contract before preparing E07. Keep E07 PLANNED and REAL_DATA_GATE CLOSED."
+  prompt: "docs/prompts/deepseek/E07_BOUNDED_AI_PROPOSAL_SLICE.md"
+  instruction: "Give the E07 prompt to DeepSeek. Implement only on codex/e07-bounded-ai-proposal; require the focused Codex high-risk review before acceptance, do not prepare E08, and keep REAL_DATA_GATE CLOSED."
