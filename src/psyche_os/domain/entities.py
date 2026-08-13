@@ -16,6 +16,7 @@ import datetime
 from enum import Enum
 from typing import Any
 
+from psyche_os.domain.assessments import AssessmentRegistryEntry as AssessmentRegistryEntry
 from psyche_os.domain.ids import (
     ActorId,
     BlobId,
@@ -689,29 +690,3 @@ class OntologyRegistryEntry:
     sensitivity_default: str = "sensitive"
     review_status: str = "accepted_with_limits"
     review_due: str = ""
-
-
-@dataclass(frozen=True, slots=True)
-class AssessmentRegistryEntry:
-    """Metadata skeleton — default blocked; no item/scoring/content fields."""
-
-    registry_id: str
-    title: str = ""
-    abbreviation: str = ""
-    construct: str = ""
-    intended_use: str = ""
-    version: str = ""
-    authors_publisher: str = ""
-    item_content_rights: str = "unknown"
-    scoring_rights: str = "unknown"
-    permitted_storage: str = "none"
-    permitted_display: str = "none"
-    permitted_export: str = "none"
-    official_source: str = ""
-    languages: list[str] = field(default_factory=list)
-    translation_status: str = "unknown"
-    target_population: str = ""
-    administration_modes: list[str] = field(default_factory=list)
-    recall_period: str = ""
-    status: str = "blocked"  # Default blocked — requires rights/version/validation gates
-    review_date: str = ""
