@@ -11,9 +11,9 @@ real_data_gate:
 current_epic:
   id: "E04"
   name: "Rights-Gated Assessment Registry"
-  status: "READY"
-  implementation_status: "NOT_STARTED"
-  review_verdict: "PENDING_IMPLEMENTATION"
+  status: "IMPLEMENTED"
+  implementation_status: "IMPLEMENTED"
+  review_verdict: "EPIC_GATES_PASS_ACCEPTANCE_PENDING"
   risk: "RISK-M"
   expected_final_gate: "EPIC"
   prompt: "docs/prompts/deepseek/E04_RIGHTS_GATED_ASSESSMENT_REGISTRY.md"
@@ -60,4 +60,4 @@ git:
 
 next_action:
   prompt: "docs/prompts/deepseek/E04_RIGHTS_GATED_ASSESSMENT_REGISTRY.md"
-  instruction: "Give the E04 prompt to DeepSeek. Implement only the metadata-only rights-blocked registry profile; do not add assessment content/scoring, do not prepare E05, and keep REAL_DATA_GATE CLOSED."
+  instruction: "Publish and accept E04 only if the metadata-only EPIC gate remains green; do not enable an instrument, do not prepare E05 before merge, and keep REAL_DATA_GATE CLOSED."

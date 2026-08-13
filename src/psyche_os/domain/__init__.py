@@ -3,6 +3,23 @@
 Imports no infrastructure (no DB, UI, network, model SDK).
 """
 
+from psyche_os.domain.assessments import (
+    AssessmentGateEvaluator,
+    AssessmentIdentity,
+    AssessmentLifecycle,
+    AssessmentStatus,
+    CapabilityDecision,
+    GateId,
+    GateOutcome,
+    GateReasonCode,
+    GateRecord,
+    GateStatus,
+    ReviewState,
+    RightsDecision,
+    RightsMatrix,
+    TranslationStatus,
+)
+
 from psyche_os.domain.entities import (
     Actor,
     ArtifactKind,
@@ -157,6 +174,20 @@ __all__ = [
     "KnowledgeSnapshot",
     "OntologyRegistryEntry",
     "AssessmentRegistryEntry",
+    "AssessmentGateEvaluator",
+    "AssessmentIdentity",
+    "AssessmentLifecycle",
+    "AssessmentStatus",
+    "CapabilityDecision",
+    "GateId",
+    "GateOutcome",
+    "GateReasonCode",
+    "GateRecord",
+    "GateStatus",
+    "ReviewState",
+    "RightsDecision",
+    "RightsMatrix",
+    "TranslationStatus",
     # Invariants
     "InvariantViolation",
     "check_single_active_version",

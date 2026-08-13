@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from psyche_os.domain.assessments import AssessmentRegistryEntry, AssessmentStatus
 from psyche_os.domain.ids import (
     ActorId,
     BackupId,
@@ -274,8 +275,18 @@ class KnowledgePort(Protocol):
         """List registered ontologies."""
         ...
 
-    def register_assessment(self, name: str, version: str, schema: dict[str, Any]) -> str:
-        """Register an assessment registry entry (blocked in F0)."""
+    def register_assessment(self, entry: AssessmentRegistryEntry) -> AssessmentStatus:
+        """Append one typed, content-free assessment metadata version."""
+        ...
+
+    def get_assessment_status(
+        self, registry_id: str, definition_version: str
+    ) -> AssessmentStatus | None:
+        """Read the exact fail-closed state for a version-addressed definition."""
+        ...
+
+    def list_assessment_statuses(self) -> tuple[AssessmentStatus, ...]:
+        """List content-free assessment status metadata."""
         ...
 
 
