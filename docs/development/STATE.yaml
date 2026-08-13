@@ -9,18 +9,18 @@ real_data_gate:
   authority: "docs/architecture/REAL_DATA_GATE.yaml"
 
 current_epic:
-  id: "E05"
-  name: "Longitudinal, EMA, Sleep, and Descriptive Analysis"
-  status: "ACCEPTED"
-  implementation_status: "ACCEPTED"
-  review_verdict: "ACCEPTED"
-  risk: "RISK-M"
-  expected_final_gate: "EPIC"
-  prompt: "docs/prompts/deepseek/E05_LONGITUDINAL_EMA_SLEEP_DESCRIPTIVE_ANALYSIS.md"
-  report: "docs/development/reports/E05.md"
-  depends_on_epic: "E04"
-  depends_on_commit: "9197441a43c79a8c1905bdd7547f00073c76ece4"
-  codex_review_required: false
+  id: "E06"
+  name: "Bounded N-of-1 and Intervention Protocols"
+  status: "READY"
+  implementation_status: "NOT_STARTED"
+  review_verdict: "PENDING_IMPLEMENTATION"
+  risk: "RISK-H"
+  expected_final_gate: "FULL"
+  prompt: "docs/prompts/deepseek/E06_BOUNDED_N_OF_1_INTERVENTION_PROTOCOLS.md"
+  report: "docs/development/reports/E06.md"
+  depends_on_epic: "E05"
+  depends_on_commit: "8097de1a1f2e3e7e8e6199f633a774180e298069"
+  codex_review_required: true
 
 accepted_epics:
   - id: "E00"
@@ -49,7 +49,7 @@ accepted_epics:
     commit: "8097de1a1f2e3e7e8e6199f633a774180e298069"
 
 next_epic:
-  id: "E06"
+  id: "E07"
   status: "PLANNED"
   prompt: null
   preparation_prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
@@ -62,10 +62,10 @@ architecture:
   epic_map: "docs/development/EPIC_MAP.md"
 
 git:
-  branch: "codex/e05-longitudinal-ema-sleep-analysis"
-  prepared_from_commit: "10030be3b1b13e72f047fa07878d9c2a6ac089b6"
+  branch: "main"
+  prepared_from_commit: "b61cdc48b18894b7cf5b2134ca5444ae16697502"
   accepted_commit: "8097de1a1f2e3e7e8e6199f633a774180e298069"
 
 next_action:
-  prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
-  instruction: "Prepare exactly E06 from accepted E05 on main. Do not implement E06 and keep REAL_DATA_GATE CLOSED."
+  prompt: "docs/prompts/deepseek/E06_BOUNDED_N_OF_1_INTERVENTION_PROTOCOLS.md"
+  instruction: "Give the E06 prompt to DeepSeek. Implement only on codex/e06-bounded-n-of-1-protocols; require the focused Codex high-risk review before acceptance, do not prepare E07, and keep REAL_DATA_GATE CLOSED."
