@@ -9,19 +9,18 @@ real_data_gate:
   authority: "docs/architecture/REAL_DATA_GATE.yaml"
 
 current_epic:
-  id: "E02"
-  name: "Secure Desktop Shell and Vault Operations UX"
-  status: "ACCEPTED"
-  implementation_status: "ACCEPTED"
-  review_verdict: "ACCEPTED"
+  id: "E03"
+  name: "Evidence Archive, Timeline, and Epistemic Explorer"
+  status: "READY"
+  implementation_status: "NOT_STARTED"
+  review_verdict: "PENDING_IMPLEMENTATION_AND_CODEX_REVIEW"
   risk: "RISK-H"
   expected_final_gate: "FULL"
-  prompt: "docs/prompts/deepseek/E02_SECURE_DESKTOP_SHELL.md"
-  report: "docs/development/reports/E02.md"
-  acceptance_report: "docs/implementation/E02_ACCEPTANCE_REPORT.md"
-  depends_on_epic: "E01"
-  depends_on_commit: "eac9031"
-  codex_review_required: false
+  prompt: "docs/prompts/deepseek/E03_EVIDENCE_ARCHIVE_TIMELINE.md"
+  report: "docs/development/reports/E03.md"
+  depends_on_epic: "E02"
+  depends_on_commit: "e8535ffeb74ba7858cbc3eb1aa67fed9634dded1"
+  codex_review_required: true
 
 accepted_epics:
   - id: "E00"
@@ -38,7 +37,7 @@ accepted_epics:
     commit: "e8535ffeb74ba7858cbc3eb1aa67fed9634dded1"
 
 next_epic:
-  id: "E03"
+  id: "E04"
   status: "PLANNED"
   prompt: null
   preparation_prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
@@ -52,9 +51,9 @@ architecture:
 
 git:
   branch: "main"
-  prepared_from_commit: "f36abb0"
+  prepared_from_commit: "1a4975aa2290a3f63e19e65bf2ec1ebb6c353ccd"
   accepted_commit: "e8535ffeb74ba7858cbc3eb1aa67fed9634dded1"
 
 next_action:
-  prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
-  instruction: "After E02 merges to main, prepare exactly E03 just in time. Do not implement E03 and keep REAL_DATA_GATE CLOSED."
+  prompt: "docs/prompts/deepseek/E03_EVIDENCE_ARCHIVE_TIMELINE.md"
+  instruction: "Give the E03 prompt to DeepSeek. Implement E03 only with the closed fictional synthetic scenario profile; do not prepare E04 and keep REAL_DATA_GATE CLOSED."
