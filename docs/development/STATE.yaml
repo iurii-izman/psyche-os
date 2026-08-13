@@ -11,13 +11,14 @@ real_data_gate:
 current_epic:
   id: "E04"
   name: "Rights-Gated Assessment Registry"
-  status: "IMPLEMENTED"
-  implementation_status: "IMPLEMENTED"
-  review_verdict: "EPIC_GATES_PASS_ACCEPTANCE_PENDING"
+  status: "ACCEPTED"
+  implementation_status: "ACCEPTED"
+  review_verdict: "ACCEPTED"
   risk: "RISK-M"
   expected_final_gate: "EPIC"
   prompt: "docs/prompts/deepseek/E04_RIGHTS_GATED_ASSESSMENT_REGISTRY.md"
   report: "docs/development/reports/E04.md"
+  acceptance_report: "docs/implementation/E04_ACCEPTANCE_REPORT.md"
   depends_on_epic: "E03"
   depends_on_commit: "6721e0b00a82f808405c17ab67358ad2f51199bc"
   codex_review_required: false
@@ -39,6 +40,10 @@ accepted_epics:
     status: "ACCEPTED"
     report: "docs/implementation/E03_ACCEPTANCE_REPORT.md"
     commit: "6721e0b00a82f808405c17ab67358ad2f51199bc"
+  - id: "E04"
+    status: "ACCEPTED"
+    report: "docs/implementation/E04_ACCEPTANCE_REPORT.md"
+    commit: "9197441a43c79a8c1905bdd7547f00073c76ece4"
 
 next_epic:
   id: "E05"
@@ -56,8 +61,8 @@ architecture:
 git:
   branch: "main"
   prepared_from_commit: "6bb303ced1f7e6e650941a020d9b7240476184d0"
-  accepted_commit: "6721e0b00a82f808405c17ab67358ad2f51199bc"
+  accepted_commit: "9197441a43c79a8c1905bdd7547f00073c76ece4"
 
 next_action:
-  prompt: "docs/prompts/deepseek/E04_RIGHTS_GATED_ASSESSMENT_REGISTRY.md"
-  instruction: "Publish and accept E04 only if the metadata-only EPIC gate remains green; do not enable an instrument, do not prepare E05 before merge, and keep REAL_DATA_GATE CLOSED."
+  prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
+  instruction: "After E04 merges to main, prepare exactly E05 just in time. Do not implement E05 and keep REAL_DATA_GATE CLOSED."
