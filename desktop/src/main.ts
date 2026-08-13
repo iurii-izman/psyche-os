@@ -152,7 +152,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   correctionForm.addEventListener("submit", (event) => {
     event.preventDefault();
     void api.correct(replacement.value, reason.value)
-      .then((value) => renderResult(operationStatus, value, "Correction stored; earlier version preserved."))
+      .then((value) => renderResult(operationStatus, value, "Correction applied to this synthetic session; earlier session version preserved."))
       .catch((error: unknown) => safeError(operationStatus, error));
   });
   let deletionPlan = "";
@@ -168,7 +168,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   const deleteExecuteButton = button("Confirm deletion", async () => {
     try {
       const result = await api.executeDeletion(deletionPlan, "DELETE SYNTHETIC RECORD");
-      renderResult(operationStatus, result, "Deletion completed with stated limitations.");
+      renderResult(operationStatus, result, "Synthetic-session deletion applied with stated limitations; no canonical record was changed.");
       deleteExecuteButton.disabled = true;
       deletePlanButton.focus();
     } catch (error) { safeError(operationStatus, error); }

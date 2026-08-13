@@ -475,7 +475,9 @@ pub fn run() {
                 .devtools(false)
                 .additional_browser_args(
                     "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
-                     --disable-background-networking --force-renderer-accessibility",
+                     --disable-background-networking \
+                     --host-resolver-rules=MAP * ~NOTFOUND \
+                     --force-renderer-accessibility",
                 )
                 .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
                 .on_navigation(|url| {
@@ -533,6 +535,20 @@ mod tests {
                 .iter()
                 .any(|(scheme, allowed_host)| url.scheme() == *scheme && host == *allowed_host));
         }
+    }
+
+    #[test]
+    fn t1_renderer_capability_excludes_tauri_core_default() {
+        let capability = include_str!("../capabilities/main-local.json");
+        let value: Value = serde_json::from_str(capability).expect("valid capability JSON");
+        let permissions = value["permissions"]
+            .as_array()
+            .expect("capability permissions array");
+        assert!(!permissions.iter().any(|permission| {
+            permission
+                .as_str()
+                .is_some_and(|identifier| identifier.starts_with("core:"))
+        }));
     }
 
     #[test]

@@ -339,7 +339,7 @@ class DesktopApplicationService:
         self._record_deleted = True
         return {
             "receipt_id": f"receipt-{secrets.token_hex(8)}",
-            "completion_status": "complete",
+            "completion_status": "synthetic_session_complete",
             "counts": {"observations": 1, "versions": len(self._record_versions)},
             "content_in_receipt": False,
             "known_exclusions": ["External copies remain outside local control."],

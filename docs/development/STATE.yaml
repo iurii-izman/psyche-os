@@ -12,7 +12,7 @@ current_epic:
   id: "E02"
   name: "Secure Desktop Shell and Vault Operations UX"
   status: "IMPLEMENTED"
-  implementation_status: "NOT_STARTED"
+  implementation_status: "IMPLEMENTED"
   review_verdict: "PENDING_IMPLEMENTATION_AND_CODEX_REVIEW"
   risk: "RISK-H"
   expected_final_gate: "FULL"

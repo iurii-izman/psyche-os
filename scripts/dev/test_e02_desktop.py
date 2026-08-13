@@ -48,14 +48,41 @@ def process_evidence(root_pid: int) -> dict[str, Any]:
 
     owned_pids = {root_pid, *(process.pid for process in descendants)}
     listeners: list[dict[str, Any]] = []
+    application_connections: list[dict[str, Any]] = []
+    webview_background_connections: list[dict[str, Any]] = []
     for connection in psutil.net_connections(kind="inet"):
-        if connection.pid in owned_pids and connection.status == psutil.CONN_LISTEN:
-            listeners.append(
-                {"pid": connection.pid, "address": str(connection.laddr)}
-            )
+        if connection.pid in owned_pids:
+            try:
+                process_name = psutil.Process(connection.pid).name().lower()
+            except psutil.Error:
+                process_name = "unavailable"
+            detail = {
+                "pid": connection.pid,
+                "process_name": process_name,
+                "local_address": str(connection.laddr),
+                "remote_address": str(connection.raddr),
+                "status": connection.status,
+            }
+            if connection.status == psutil.CONN_LISTEN:
+                listeners.append(detail)
+            elif "msedgewebview2" in process_name:
+                webview_background_connections.append(detail)
+            else:
+                application_connections.append(detail)
     if listeners:
         raise AssertionError(f"Desktop process tree opened a listener: {listeners}")
-    return {"process_names": names, "listeners": listeners}
+    if application_connections:
+        raise AssertionError(
+            "Desktop or fixed sidecar used an INET connection: "
+            f"{application_connections}"
+        )
+    return {
+        "process_names": names,
+        "listeners": listeners,
+        "application_connections": application_connections,
+        "webview_background_connections": webview_background_connections,
+        "offline_workflows_completed": True,
+    }
 
 
 def terminate_tree(process: subprocess.Popen[bytes]) -> None:
@@ -99,14 +126,14 @@ def run(executable: Path) -> dict[str, Any]:
         edit(window, "Corrected synthetic observation", MARKUP_CANARY)
         edit(window, "Reason for correction", "Synthetic UIA safety check")
         click(window, "Preserve history and correct")
-        wait_for_text(window, "Correction stored; earlier version preserved.")
+        wait_for_text(window, "Correction applied to this synthetic session; earlier session version preserved.")
         if len(Desktop(backend="uia").windows(title=WINDOW_TITLE)) != 1:
             raise AssertionError("Untrusted markup changed the native window surface")
 
         click(window, "Preview deletion scope")
         wait_for_text(window, "Deletion dry-run only; nothing deleted.")
         click(window, "Confirm deletion")
-        wait_for_text(window, "Deletion completed with stated limitations.")
+        wait_for_text(window, "Synthetic-session deletion applied with stated limitations; no canonical record was changed.")
 
         click(window, "Verify backup")
         wait_for_text(window, "Backup verified without content disclosure.")
