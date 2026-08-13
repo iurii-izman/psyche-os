@@ -331,4 +331,8 @@ def inventory_for_schema(schema_version: int) -> tuple[str, ...]:
         return V1_INVENTORY
     if schema_version == 2:
         return V2_INVENTORY
+    if schema_version == 3:
+        from psyche_os.storage.e05_schema import V3_INVENTORY
+
+        return V3_INVENTORY
     raise ValueError("Unsupported schema version")
