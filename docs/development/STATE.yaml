@@ -11,7 +11,7 @@ real_data_gate:
 current_epic:
   id: "E02"
   name: "Secure Desktop Shell and Vault Operations UX"
-  status: "READY"
+  status: "IMPLEMENTED"
   implementation_status: "NOT_STARTED"
   review_verdict: "PENDING_IMPLEMENTATION_AND_CODEX_REVIEW"
   risk: "RISK-H"
