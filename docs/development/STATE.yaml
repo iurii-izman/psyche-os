@@ -11,9 +11,9 @@ real_data_gate:
 current_epic:
   id: "E06"
   name: "Bounded N-of-1 and Intervention Protocols"
-  status: "IMPLEMENTED"
-  implementation_status: "IMPLEMENTED"
-  review_verdict: "PENDING_CODEX_REVIEW"
+  status: "ACCEPTED"
+  implementation_status: "ACCEPTED"
+  review_verdict: "ACCEPTED"
   risk: "RISK-H"
   expected_final_gate: "FULL"
   prompt: "docs/prompts/deepseek/E06_BOUNDED_N_OF_1_INTERVENTION_PROTOCOLS.md"
@@ -47,6 +47,10 @@ accepted_epics:
     status: "ACCEPTED"
     report: "docs/implementation/E05_ACCEPTANCE_REPORT.md"
     commit: "8097de1a1f2e3e7e8e6199f633a774180e298069"
+  - id: "E06"
+    status: "ACCEPTED"
+    report: "docs/implementation/E06_ACCEPTANCE_REPORT.md"
+    commit: "e6225c537ff94390abd1953d70d3caaf5b452712"
 
 next_epic:
   id: "E07"
@@ -64,8 +68,8 @@ architecture:
 git:
   branch: "main"
   prepared_from_commit: "b61cdc48b18894b7cf5b2134ca5444ae16697502"
-  accepted_commit: "8097de1a1f2e3e7e8e6199f633a774180e298069"
+  accepted_commit: "e6225c537ff94390abd1953d70d3caaf5b452712"
 
 next_action:
-  prompt: "docs/prompts/deepseek/E06_BOUNDED_N_OF_1_INTERVENTION_PROTOCOLS.md"
-  instruction: "Give the E06 prompt to DeepSeek. Implement only on codex/e06-bounded-n-of-1-protocols; require the focused Codex high-risk review before acceptance, do not prepare E07, and keep REAL_DATA_GATE CLOSED."
+  prompt: null
+  instruction: "Freeze the future post-E11 Conversational Psychological Support architecture contract before preparing E07. Keep E07 PLANNED and REAL_DATA_GATE CLOSED."
