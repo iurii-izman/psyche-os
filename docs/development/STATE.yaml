@@ -46,7 +46,7 @@ architecture:
   epic_map: "docs/development/EPIC_MAP.md"
 
 git:
-  branch: "deepseek/e00-f0"
+  branch: "main"
   prepared_from_commit: "eac9031"
   accepted_commit: "eac9031"
 

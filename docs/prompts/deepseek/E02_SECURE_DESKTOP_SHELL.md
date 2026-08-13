@@ -2,6 +2,9 @@
 
 **Project root:** `C:\Dev\psyche-os`  
 **Accepted E01 commit:** `eac9031`  
+**Prepared E02 commit:** `a69a5b1`
+**Canonical branch:** `main`
+**Implementation branch:** `codex/e02-secure-desktop-shell`
 **Risk:** `RISK-H`  
 **Expected final gate:** `FULL`  
 **Data:** repository-owned fictional synthetic fixtures only  
@@ -31,7 +34,9 @@ Read completely:
 
 Then read only these directly relevant sources and sections:
 
-- `docs/DECISION_LOG.md` — ADR-003, ADR-009, ADR-010 and ADR-018
+- `docs/DECISION_LOG.md` — ADR-003, ADR-009, ADR-010, ADR-018 and
+  ADR-022
+- `docs/development/reports/E02_PREFLIGHT.md`
 - `docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md` — §§16, 19.3–19.4,
   20.3–20.5, 21 and 22.1/22.4
 - `docs/architecture/SYSTEM_ARCHITECTURE.md` — §§4–6, 8.4–8.6, 9,
@@ -50,25 +55,37 @@ Inspect additional files only when they are directly imported by a touched
 path. Do not load historical v1, the research corpus, unrelated architecture,
 future epic sections or prior repair prompts.
 
-## Mandatory architecture checkpoint
+## Frozen architecture
 
-ADR-003 intentionally deferred the exact desktop-shell choice. Before adding a
-UI runtime or dependency:
+ADR-022 has completed the mandatory desktop checkpoint. Do not reopen the
+framework choice during implementation.
 
-1. inspect the accepted no-listener Python core and available local toolchain;
-2. choose one maintained local desktop shell with a webview-class renderer and
-   typed command boundary, or record why a materially different shell is
-   required;
-3. append one focused accepted decision entry to `docs/DECISION_LOG.md` with
-   alternatives, rationale, CSP/origin/IPC implications, packaging/license
-   uncertainty and review triggers;
-4. if the choice contradicts ADR-003 or introduces a localhost/network service,
-   create `docs/development/deviations/E02_DESKTOP_BOUNDARY.md` from the
-   architecture-deviation template and stop the affected implementation until
-   focused review; do not silently proceed.
+- Use Tauri `2.x` with Microsoft Edge WebView2 on Windows, a minimal local
+  TypeScript/Vite renderer and Rust-owned allowlisted Tauri commands.
+- Keep the accepted Python application/domain/policy/storage/crypto/backup/
+  export core authoritative as one fixed sidecar. Rust communicates with it
+  only through length-bounded, versioned JSON messages over inherited
+  stdin/stdout pipes. Do not add HTTP, TCP, a local socket or a localhost
+  server.
+- The renderer receives only explicit commands and bounded view models. Do not
+  grant it a shell/filesystem plugin, generic IPC transport, sidecar handle,
+  process execution, SQL, arbitrary CLI/Python dispatch, vault paths, keys or
+  recovery material.
+- Use npm and committed `package-lock.json`, Cargo and committed `Cargo.lock`,
+  and the existing uv/Python 3.12 toolchain. Resolve current compatible stable
+  dependencies when installing, with `tauri >=2.11.1,<3`; the preflight
+  reference versions are core 2.11.5, CLI 2.11.4, API 2.11.1, Vite 8.2.1 and
+  TypeScript 7.0.2.
+- Microsoft C++ Build Tools with “Desktop development with C++” is a required
+  local prerequisite and was absent at preflight. Satisfy it before the first
+  build; do not report a skipped mandatory build or Windows desktop test as
+  PASS.
 
-This checkpoint fills the deferred E02 choice; it does not authorize a network
-listener, general filesystem access, renderer-side vault access or real data.
+If a concrete feasibility contradiction requires a different framework,
+network transport, remote origin, renderer authority, generic dispatcher or
+non-Python ownership of accepted semantics, stop only the affected portion and
+create `docs/development/deviations/E02_DESKTOP_BOUNDARY.md` from the
+architecture-deviation template. Do not silently switch or weaken ADR-022.
 
 ## In scope
 
@@ -105,6 +122,18 @@ listener, general filesystem access, renderer-side vault access or real data.
   activation, canonical schema or rollback architecture.
 - Real personal or sensitive data while `REAL_DATA_GATE = CLOSED`.
 
+## Git and review workflow
+
+Begin from current `main` and perform E02 implementation only on
+`codex/e02-secure-desktop-shell`. This prompt explicitly permits coherent E02
+candidate commits, pushing only that candidate branch, and creating/updating
+one draft PR against `main` after meaningful implementation commits exist.
+Candidate publication and a PR mean “candidate for review,” not acceptance.
+
+Do not merge the PR, push implementation to `main`, force-push, rewrite
+accepted history, mark E02 `ACCEPTED`, append E02 or its candidate SHA to
+`accepted_epics`, prepare E03, or create an empty/no-diff PR.
+
 ## Invariants to protect
 
 - C-01, C-10–C-14, C-17 and C-19–C-20.
@@ -131,11 +160,12 @@ listener, general filesystem access, renderer-side vault access or real data.
    payload limits, unknown-field rejection, stable content-free error codes and
    opaque correlation IDs. State-changing commands require current session
    authority and command-specific confirmation where destructive.
-3. Configure the selected shell fail closed: restrictive CSP with no remote
+3. Configure Tauri fail closed: restrictive CSP with no remote
    origins, origin validation, no navigation/popups/devtools in the production
    profile, no Node/general process bridge, no arbitrary eval, and no renderer
-   file/vault/key access. Pin new direct/transitive dependencies and record
-   license/provenance implications.
+   file/vault/key access. Grant only named local-window capabilities and keep
+   sidecar spawn/pipe ownership inside trusted Rust. Pin new direct/transitive
+   dependencies and record license/provenance implications.
 4. Use text-safe rendering APIs and contextual encoding for every dynamic
    value. Do not render vault-derived strings through raw HTML.
 5. Keep operational output content-free. UI diagnostics may expose bounded
@@ -146,41 +176,62 @@ listener, general filesystem access, renderer-side vault access or real data.
 
 ## Failure-driven validation
 
-Add only checks that close named realistic failures. At minimum prove:
+Every new check must name the realistic failure it closes and cite one target
+from E02-T1 through E02-T7. Add no arbitrary coverage threshold, giant browser
+matrix, framework-generic suite or duplicate security-theater assertion.
 
-1. an unknown/unregistered IPC command, wrong origin, malformed/oversized
-   payload, unknown field and stale/sessionless state-changing request are
-   rejected before an application operation runs;
-2. renderer-visible state, logs, URLs, DOM snapshots and error payloads contain
-   no vault path, SQLCipher key, VMK, recovery secret, raw package key or
-   synthetic plaintext canary;
-3. malicious HTML/Markdown-like strings render as inert text under the actual
-   CSP and cannot navigate, execute script or invoke privileged IPC;
-4. no renderer command can execute SQL, arbitrary CLI/process arguments,
-   general filesystem mutation or a non-allowlisted application action;
-5. deletion requires dry-run plus explicit confirmation, displays
-   backup/external-copy limits, and never places deleted content/hash in the
-   receipt or logs; cancellation and injected failure preserve state;
-6. recovery restores to an isolated candidate, reports validation-only as not
-   activated, requires a separate explicit activation action, and an injected
-   failure preserves the previous active vault;
-7. export preview and execution preserve purpose/audience/scope/encryption
-   semantics, distinguish export from backup and fail closed on missing policy;
-8. loss of network has no effect on unlock, privacy status, deletion, backup,
-   recovery or export, and no listener/socket is opened by the production app;
-9. keyboard-only traversal, focus return after dialogs, accessible names/error
-   association, non-color status and reduced-motion behavior pass on the actual
-   bounded UI; and
-10. all mandatory Windows desktop/IPC/security tests execute; a newly skipped
-    renderer, IPC, deletion, recovery or activation proof is not a pass.
+- **T1:** prove the packaged/local shell starts on the selected Windows
+  profile, remote origins/navigation/popups fail closed, production restrictions
+  are enabled, and no TCP/HTTP/local-socket listener opens during offline flows.
+- **T2:** prove unknown commands, wrong origins, malformed/oversized payloads,
+  unknown fields and stale/sessionless state-changing requests are rejected
+  before an application operation; prove no command reaches arbitrary SQL,
+  CLI/process arguments, filesystem mutation, Python dispatch or another
+  non-allowlisted action.
+- **T3:** scan renderer state, logs, URLs, DOM snapshots and errors for vault
+  paths, SQLCipher keys, VMK, recovery secret, raw package key, exception body
+  and synthetic plaintext canaries; prove malicious markup remains inert under
+  the actual CSP and cannot navigate, execute or gain IPC authority.
+- **T4:** prove correction retains history; deletion requires a dry-run and
+  explicit confirmation, displays backup/external-copy limitations, emits no
+  deleted content/hash, and preserves state on cancellation or injected failure.
+- **T5:** prove recovery uses an isolated candidate, validation-only is not
+  activation, activation is separately explicit, and injected failure preserves
+  the active vault and accepted E01 semantics.
+- **T6:** prove export preview/execution retains purpose, audience, scope,
+  encryption/redaction state, distinguishes export from backup and fails closed
+  when policy is missing.
+- **T7:** prove keyboard traversal, focus return, accessible names, error
+  association, non-color status, reduced motion and offline operation on the
+  actual bounded Windows UI.
+
+All mandatory Windows desktop/IPC/security tests must execute. A skipped T1–T7
+renderer, IPC, deletion, recovery, activation, export or accessibility proof is
+not a pass.
 
 ## Validation
 
 During implementation run the smallest affected unit, contract, UI and
-integration checks. Run the selected desktop toolchain's pinned build, type,
-lint and test commands and record them exactly after the architecture
-checkpoint establishes that toolchain. Before reporting completion, run this
-accepted repository `FULL` gate once:
+integration checks. The desktop layout and scripts must support these exact
+commands:
+
+```powershell
+uv sync --frozen
+uv run pytest -q tests/<E02-targeted-paths>
+npm --prefix desktop ci
+npm --prefix desktop run typecheck
+npm --prefix desktop run lint
+npm --prefix desktop run test:unit
+cargo fmt --check --manifest-path desktop/src-tauri/Cargo.toml
+cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
+cargo test --manifest-path desktop/src-tauri/Cargo.toml
+npm --prefix desktop run test:desktop
+npm --prefix desktop run build
+npm --prefix desktop run tauri:build -- --debug
+```
+
+Run the implementation `FULL` gate only after T1–T7 targeted evidence is
+locally ready:
 
 ```powershell
 uv sync --frozen
@@ -193,39 +244,73 @@ python scripts/dev/validate_orchestration.py
 
 No arbitrary coverage target applies. A known accepted baseline skip may remain
 only if it is unchanged and unrelated to E02; no mandatory E02 or E01 proof may
-be skipped.
+be skipped. Do not rerun the FULL gate after every minor edit. If implementation
+changes after a failed FULL gate, record that clearly; independent acceptance
+must run a fresh authoritative post-fix gate.
 
-## Acceptance criteria
+## Frozen E02 acceptance targets
 
-- [ ] One explicit desktop-shell decision is recorded and the local production
-  shell runs without a listener or remote origin.
-- [ ] Renderer and IPC cannot expose keys/paths or invoke untyped, arbitrary or
-  non-allowlisted capabilities; actual CSP/origin/XSS/IPC failure tests pass.
-- [ ] Synthetic users can unlock/lock, inspect privacy status, correct/delete,
-  verify backup health, complete isolated recovery plus separate activation,
-  and preview/export with truthful limitations.
-- [ ] All state changes traverse typed application services and accepted
-  storage/policy/backup paths; direct renderer database/filesystem access is
-  absent.
-- [ ] The bounded UI passes named keyboard/accessibility/error-recovery tasks
-  without manipulative engagement or misleading safety/recovery promises.
-- [ ] Accepted E00/E01 tests and validators pass; deferred surfaces remain
-  disabled; exact final results and material skips are recorded.
-- [ ] `REAL_DATA_GATE` remains `CLOSED`.
+### E02-T1 — Secure local desktop shell
+
+- [ ] The selected shell starts locally with no localhost/network listener and
+  no remote origin; production renderer restrictions are enabled.
+
+### E02-T2 — Typed IPC authority
+
+- [ ] Commands are versioned, allowlisted and typed; unknown commands, fields
+  and origins fail closed; state changes require valid session authority; no
+  arbitrary SQL, process, filesystem or CLI bridge exists.
+
+### E02-T3 — Renderer confidentiality and content safety
+
+- [ ] Renderer-visible state, DOM, logs, URLs and errors expose no vault paths,
+  database keys, VMK, recovery secret, package key or sensitive raw exception
+  data; malicious synthetic markup renders inertly and gains no privilege.
+
+### E02-T4 — Privacy / correction / deletion UX
+
+- [ ] A synthetic flow proves privacy status; correction preserves history;
+  deletion requires dry-run and explicit confirmation, yields a
+  limitation-aware receipt, and preserves state on cancellation/failure.
+
+### E02-T5 — Backup and independent recovery UX
+
+- [ ] The UI preserves accepted E01 backup-health/verify, isolated candidate,
+  validation-only-not-activation, separate explicit activation and
+  failure-preserves-active-vault semantics without redesigning E01.
+
+### E02-T6 — Export UX
+
+- [ ] Preview/execution preserves purpose, audience, scope and
+  encryption/redaction status, distinguishes export from backup, and fails
+  closed on missing policy.
+
+### E02-T7 — Accessibility and offline behavior
+
+- [ ] The bounded UI proves keyboard-first traversal, focus return, accessible
+  names, error association, non-color-only status, reduced motion, offline
+  operation and no production listener/socket.
 
 ## Work and stop rules
 
-Preserve unrelated changes. Do not implement E03, broaden architecture, perform
-a general security scan, conduct research, open the real-data gate, commit or
-push. A material desktop-boundary conflict requires the focused deviation and
-stops only the affected portion. Dependency, CSP, origin, IPC or packaging
-uncertainty is not permission to weaken a check or relabel it as PASS.
+Preserve unrelated changes. When E02-T1 through E02-T7 pass and accepted E00/E01
+invariants remain green, **STOP**. Do not conduct a broad security audit, run
+Security Workbench, redesign the renderer architecture, implement E03, add
+cloud/network, enable imports/blobs, add AI, add updater/release/signing, chase
+arbitrary coverage, or add speculative hardening unrelated to a demonstrated
+T1–T7 failure. Record new hardening ideas as later work unless they demonstrate
+failure of a frozen target.
+
+A material desktop-boundary conflict requires the focused deviation and stops
+only the affected portion. Dependency, CSP, origin, IPC or packaging uncertainty
+is not permission to weaken a check or relabel it as PASS.
 
 Create `docs/development/reports/E02.md` from the epic report template. If all
 implementation criteria and local evidence pass, set only
 `current_epic.status: IMPLEMENTED`; otherwise set `BLOCKED`. Do not accept E02,
-append accepted history, prepare E03 or self-award the required independent
-Codex review.
+append accepted history, prepare E03, merge the candidate PR or self-award the
+required independent Codex review. Candidate commits and the draft PR remain
+review evidence only.
 
 End with changed areas, the desktop choice, exact targeted/final results,
 skips, residual risks and the focused Codex review required for the new

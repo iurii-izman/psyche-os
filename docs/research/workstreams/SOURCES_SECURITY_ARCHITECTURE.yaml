@@ -827,3 +827,198 @@ sources:
     limitations: "Organizational guidance must be scaled to a local-first single-user product."
     rights: "Citation and link only; NIST public document."
     review_due: "2027-02-10"
+
+  - id: "ARCH-056"
+    title: "Tauri v2 prerequisites"
+    authors_or_organization: "The Tauri Programme"
+    year: 2026
+    type: "official_framework_documentation"
+    evidence_tier: "T1_official_vendor"
+    url: "https://v2.tauri.app/start/prerequisites/"
+    accessed_at: "2026-08-13"
+    currentness: "Current Tauri v2 Windows, WebView2, Rust, Node and MSVC prerequisites checked during E02 preflight."
+    domains: ["desktop", "windows", "webview2", "toolchain"]
+    project_implications: "Require WebView2, stable MSVC Rust and Microsoft C++ Build Tools for the selected Windows desktop shell."
+    limitations: "Vendor documentation establishes framework prerequisites, not PSYCHE OS security correctness."
+    rights: "Citation and link only; official public documentation."
+    review_due: "2026-11-13"
+
+  - id: "ARCH-057"
+    title: "Tauri v2 capabilities"
+    authors_or_organization: "The Tauri Programme"
+    year: 2025
+    type: "official_framework_security_documentation"
+    evidence_tier: "T1_official_vendor"
+    url: "https://v2.tauri.app/security/capabilities/"
+    accessed_at: "2026-08-13"
+    currentness: "Current Tauri v2 capability model checked during E02 preflight."
+    domains: ["desktop", "ipc", "least_privilege", "webview"]
+    project_implications: "Grant the packaged main webview only explicit PSYCHE OS commands and no generic filesystem, shell or remote capability."
+    limitations: "Capabilities reduce exposed authority but do not validate application payload or session semantics."
+    rights: "Citation and link only; official public documentation."
+    review_due: "2026-11-13"
+
+  - id: "ARCH-058"
+    title: "Tauri v2 runtime authority"
+    authors_or_organization: "The Tauri Programme"
+    year: 2025
+    type: "official_framework_security_documentation"
+    evidence_tier: "T1_official_vendor"
+    url: "https://v2.tauri.app/security/runtime-authority/"
+    accessed_at: "2026-08-13"
+    currentness: "Current origin, command, capability and scope enforcement description checked during E02 preflight."
+    domains: ["desktop", "ipc", "origin_validation", "authorization"]
+    project_implications: "Use local-only capabilities and verify window/origin/session at the Rust command boundary before Python dispatch."
+    limitations: "Framework origin enforcement is one layer; PSYCHE OS still requires strict typed validation and adversarial tests."
+    rights: "Citation and link only; official public documentation."
+    review_due: "2026-11-13"
+
+  - id: "ARCH-059"
+    title: "Tauri v2 Content Security Policy"
+    authors_or_organization: "The Tauri Programme"
+    year: 2025
+    type: "official_framework_security_documentation"
+    evidence_tier: "T1_official_vendor"
+    url: "https://v2.tauri.app/security/csp/"
+    accessed_at: "2026-08-13"
+    currentness: "Current Tauri v2 CSP generation and remote-content cautions checked during E02 preflight."
+    domains: ["desktop", "csp", "xss", "webview"]
+    project_implications: "Ship a restrictive production CSP over packaged assets and avoid remote scripts, styles and origins."
+    limitations: "CSP is defense in depth and does not replace safe rendering or IPC authorization."
+    rights: "Citation and link only; official public documentation."
+    review_due: "2026-11-13"
+
+  - id: "ARCH-060"
+    title: "Tauri v2 embedding external binaries"
+    authors_or_organization: "The Tauri Programme"
+    year: 2026
+    type: "official_framework_documentation"
+    evidence_tier: "T1_official_vendor"
+    url: "https://v2.tauri.app/develop/sidecar/"
+    accessed_at: "2026-08-13"
+    currentness: "Current Tauri v2 fixed-sidecar packaging and stdin/stdout process API checked during E02 preflight."
+    domains: ["desktop", "python", "sidecar", "ipc", "packaging"]
+    project_implications: "Package one fixed Python sidecar and keep its spawn and pipe handles exclusively in trusted Rust code."
+    limitations: "The examples also expose shell-plugin patterns that PSYCHE OS must not grant to the renderer."
+    rights: "Citation and link only; official public documentation."
+    review_due: "2026-11-13"
+
+  - id: "ARCH-061"
+    title: "Tauri v2 Windows installer"
+    authors_or_organization: "The Tauri Programme"
+    year: 2026
+    type: "official_framework_packaging_documentation"
+    evidence_tier: "T1_official_vendor"
+    url: "https://v2.tauri.app/distribute/windows-installer/"
+    accessed_at: "2026-08-13"
+    currentness: "Current MSI/NSIS and WebView2 packaging paths checked during E02 preflight."
+    domains: ["desktop", "windows", "packaging", "webview2"]
+    project_implications: "Use the debug bundle only for E02 feasibility; defer signed release packaging to E11."
+    limitations: "Installer generation does not establish reproducibility, signing or license completeness."
+    rights: "Citation and link only; official public documentation."
+    review_due: "2026-11-13"
+
+  - id: "ARCH-062"
+    title: "Tauri 2.11.1 release security fixes"
+    authors_or_organization: "The Tauri Programme"
+    year: 2026
+    type: "official_framework_release_note"
+    evidence_tier: "T1_official_vendor"
+    url: "https://v2.tauri.app/release/tauri/v2.11.1/"
+    accessed_at: "2026-08-13"
+    currentness: "Official release notes identify remote-origin ACL and Windows .localhost origin fixes."
+    domains: ["desktop", "ipc", "origin_validation", "security_update"]
+    project_implications: "Do not resolve a Tauri core older than 2.11.1; lock the current compatible 2.x release during E02."
+    limitations: "A version floor does not replace ongoing vulnerability review or runtime tests."
+    rights: "Citation and link only; official public release note."
+    review_due: "2026-09-13"
+
+  - id: "ARCH-063"
+    title: "Electron security recommendations"
+    authors_or_organization: "OpenJS Foundation Electron project"
+    year: 2026
+    type: "official_framework_security_documentation"
+    evidence_tier: "T1_official_vendor"
+    url: "https://www.electronjs.org/docs/latest/tutorial/security"
+    accessed_at: "2026-08-13"
+    currentness: "Current Electron guidance on local content, sandboxing, CSP, navigation, windows and IPC sender validation checked as an alternative."
+    domains: ["desktop", "electron", "sandbox", "ipc", "csp"]
+    project_implications: "Electron can meet the boundary only with local content, sandbox/context isolation, per-message APIs and strict sender/navigation controls."
+    limitations: "Guidance does not remove the larger trusted Node/Chromium dependency surface."
+    rights: "Citation and link only; official public documentation."
+    review_due: "2026-11-13"
+
+  - id: "ARCH-064"
+    title: "Electron context isolation"
+    authors_or_organization: "OpenJS Foundation Electron project"
+    year: 2026
+    type: "official_framework_security_documentation"
+    evidence_tier: "T1_official_vendor"
+    url: "https://www.electronjs.org/docs/latest/tutorial/context-isolation"
+    accessed_at: "2026-08-13"
+    currentness: "Current contextBridge and per-message IPC recommendations checked as an alternative."
+    domains: ["desktop", "electron", "context_isolation", "ipc"]
+    project_implications: "Never expose a generic ipcRenderer transport; expose one validated method per allowed message."
+    limitations: "Context isolation still depends on correct preload/main-process design and dependency updates."
+    rights: "Citation and link only; official public documentation."
+    review_due: "2026-11-13"
+
+  - id: "ARCH-065"
+    title: "Qt for Python overview and licensing"
+    authors_or_organization: "The Qt Company and Qt Project"
+    year: 2026
+    type: "official_framework_documentation"
+    evidence_tier: "T1_official_vendor"
+    url: "https://doc.qt.io/qtforpython-6/"
+    accessed_at: "2026-08-13"
+    currentness: "Current PySide6 Python integration and LGPLv3/GPLv3/commercial licensing summary checked as an alternative."
+    domains: ["desktop", "python", "qt", "license"]
+    project_implications: "PySide6 is a viable Python-native shell but carries Qt-specific distribution obligations."
+    limitations: "Overview does not itself prove WebEngine IPC or packaging security."
+    rights: "Citation and link only; official public documentation."
+    review_due: "2026-11-13"
+
+  - id: "ARCH-066"
+    title: "PySide6 QWebChannel"
+    authors_or_organization: "The Qt Company and Qt Project"
+    year: 2026
+    type: "official_framework_api_documentation"
+    evidence_tier: "T1_official_vendor"
+    url: "https://doc.qt.io/qtforpython-6/PySide6/QtWebChannel/QWebChannel.html"
+    accessed_at: "2026-08-13"
+    currentness: "Current QObject publication model for HTML clients checked as an alternative."
+    domains: ["desktop", "python", "qt", "webchannel", "ipc"]
+    project_implications: "A Qt alternative would publish one narrow QObject only and require application-level strict schemas."
+    limitations: "Published slots form the capability surface; QWebChannel does not supply PSYCHE OS authorization semantics."
+    rights: "Citation and link only; official public documentation."
+    review_due: "2026-11-13"
+
+  - id: "ARCH-067"
+    title: "pyside6-deploy"
+    authors_or_organization: "The Qt Company and Qt Project"
+    year: 2026
+    type: "official_framework_packaging_documentation"
+    evidence_tier: "T1_official_vendor"
+    url: "https://doc.qt.io/qtforpython-6/deployment/deployment-pyside6-deploy.html"
+    accessed_at: "2026-08-13"
+    currentness: "Current Nuitka-backed Windows executable path checked as an alternative."
+    domains: ["desktop", "python", "qt", "packaging"]
+    project_implications: "Qt/Python packaging is plausible but would add a large WebEngine distribution and separate deployment configuration."
+    limitations: "Packaging feasibility does not establish signing, reproducibility or complete licensing."
+    rights: "Citation and link only; official public documentation."
+    review_due: "2026-11-13"
+
+  - id: "ARCH-068"
+    title: "Qt WebEngine licensing"
+    authors_or_organization: "The Qt Company and Qt Project"
+    year: 2026
+    type: "official_framework_license_documentation"
+    evidence_tier: "T1_official_vendor"
+    url: "https://doc.qt.io/qt-6/qtwebengine-licensing.html"
+    accessed_at: "2026-08-13"
+    currentness: "Current Qt WebEngine and embedded Chromium license obligations checked as an alternative."
+    domains: ["desktop", "qt", "chromium", "license"]
+    project_implications: "A Qt WebEngine release needs LGPL/GPL/commercial analysis and Chromium third-party notices."
+    limitations: "Project-specific compliance requires the exact resolved distribution and legal review."
+    rights: "Citation and link only; official public documentation."
+    review_due: "2026-11-13"

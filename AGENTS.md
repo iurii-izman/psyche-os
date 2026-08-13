@@ -28,9 +28,13 @@
 ## Development delivery
 
 - The compact project state is `docs/development/STATE.yaml`; update it only at epic boundaries. The epic plan is `docs/development/EPIC_MAP.md`.
+- `main` is the canonical branch for accepted epics, accepted architecture/governance, and legitimate just-in-time preparation. Do not perform active high-risk epic implementation directly on `main`.
+- Develop each epic on `<agent>/eNN-short-name` from current `main`; E02 uses `codex/e02-secure-desktop-shell`. A candidate branch may contain implementation, focused tests, reports, and candidate evidence and may be pushed intentionally for review, but publication does not make it accepted.
+- The canonical flow is `main` → candidate branch → implementation → targeted tests → candidate commit(s) → candidate push → draft/normal PR → bounded review/repair → acceptance → merge or fast-forward to `main`. A PR means “candidate for review,” not “accepted epic.”
+- Only after the required review and final gate may an epic become `ACCEPTED` and enter `main`; never put an unaccepted implementation SHA in `accepted_epics`.
 - Run the current prompt named by `STATE.yaml`. The initial implementation prompt is `docs/prompts/deepseek/E00_F0_IMPLEMENTATION.md`; later prompts are prepared just in time from `docs/prompts/deepseek/EPIC_IMPLEMENTATION_TEMPLATE.md`.
 - Use targeted tests while iterating and the risk-appropriate final gate once. Every added check must cover a named realistic failure; no arbitrary coverage target or duplicate test theater.
 - Bounded repair prompts preserve accepted findings unless a direct regression is shown; derive threat boundaries from frozen architecture and never silently strengthen or weaken them.
 - A material conflict with the Constitution, master specification, or accepted architecture requires `docs/development/ARCHITECTURE_DEVIATION_TEMPLATE.md` and focused review. Stop only the blocked portion.
 - Validate this delivery layer with `python scripts/dev/validate_orchestration.py`; validate the frozen research foundation with `python scripts/validate_research_foundation.py`.
-- Do not push automatically. Record only accepted epic commits in `STATE.yaml`.
+- Do not push automatically unless the active task explicitly authorizes publication. Record only accepted epic commits in `STATE.yaml`.
