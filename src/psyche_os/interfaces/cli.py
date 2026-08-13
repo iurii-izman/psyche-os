@@ -326,6 +326,20 @@ class F0CLI:
             },
         )
 
+        # --- recovery ---
+        cmds["recovery"] = Command(
+            name="recovery",
+            handler=self._cmd_recovery_help,
+            help="Independent Argon2id recovery operations",
+            subcommands={
+                "restore": Command(
+                    name="restore",
+                    handler=self._cmd_recovery_restore,
+                    help="Recover and restore using recovery secret (no raw VMK needed)",
+                ),
+            },
+        )
+
         return cmds
 
     # ==================================================================
@@ -530,14 +544,26 @@ class F0CLI:
             blob_salt = os.urandom(32)
 
             db_key = derive_domain_key(vmk, "database", salt=db_salt)
-            blob_key = derive_domain_key(vmk, "blob_envelope", salt=blob_salt)
-            backup_key = derive_domain_key(vmk, "backup")
-            export_key = derive_domain_key(vmk, "export")
 
             # OS-wrap VMK
             from psyche_os.adapters.adapters import OSKeyStoreAdapter
 
             os_store = OSKeyStoreAdapter()
+            wrapped = os_store.protect_vmk(vmk, vault_id) if os_store.available else b""
+
+            rw = RecoveryWrapper()
+            if not rw.available:
+                return CliResult(
+                    status="error", data=None,
+                    warnings=["Argon2id recovery is required for E01 vault initialization"],
+                )
+            import json as _json
+
+            recovery_secret = os.urandom(24).hex()
+            recovery_header = rw.wrap(vmk, recovery_secret, vault_id)
+            header_json = _json.dumps(
+                recovery_header.to_dict(), sort_keys=True, separators=(",", ":")
+            )
 
             # F07: Actually create the vault database and apply schema
             db_path = (
@@ -546,15 +572,17 @@ class F0CLI:
 
             from sqlcipher3 import dbapi2
 
-            from psyche_os.storage.schema import apply_schema
+            from psyche_os.storage.migrations import Migrator
 
             # F07: Use the derived database key as the SQLCipher key
-            db_key_hex = db_salt.hex()
+            db_key_hex = db_key.raw.hex()
 
             con = dbapi2.connect(db_path)
             try:
                 con.execute(f"PRAGMA key = \"x'{db_key_hex}'\";")
-                apply_schema(con)
+                migration_report = Migrator(con).apply(1)
+                if migration_report.errors or migration_report.applied != [1]:
+                    raise RuntimeError("Frozen V1 migration could not be applied")
 
                 # Verify: after schema application, verify the vault was created
                 cur = con.cursor()
@@ -575,9 +603,13 @@ class F0CLI:
                 cur.execute(
                     """INSERT INTO vault_config
                        (vault_id, vault_name, data_mode, created_at,
-                        vmk_os_wrapped, db_key_salt, blob_envelope_key_salt, key_state)
-                       VALUES (?, ?, 'synthetic_only', ?, NULL, ?, ?, 'generated')""",
-                    (str(vault_id), "default", now, db_salt, blob_salt),
+                        vmk_os_wrapped, vmk_recovery_header, db_key_salt,
+                        blob_envelope_key_salt, key_state)
+                       VALUES (?, ?, 'synthetic_only', ?, ?, ?, ?, ?, 'generated')""",
+                    (
+                        str(vault_id), "default", now, wrapped,
+                        None, db_salt, blob_salt,
+                    ),
                 )
                 con.commit()
             except Exception as exc:
@@ -590,6 +622,23 @@ class F0CLI:
             finally:
                 con.close()
 
+            # The independent recovery header is separate from both the vault
+            # and every backup package.  Publish through the same narrow E01
+            # scoped authority; the secret is displayed once and never stored.
+            from pathlib import Path as _Path
+
+            from psyche_os.backup_export.package_store import BackupPackageStore
+
+            db_absolute = _Path(db_path).resolve()
+            recovery_header_name = db_absolute.name + ".recovery.json"
+            recovery_store = BackupPackageStore(db_absolute.parent)
+            if recovery_store.exists(recovery_header_name):
+                return CliResult(
+                    status="error", data=None,
+                    warnings=["Recovery header target already exists"],
+                )
+            recovery_store.write_package(recovery_header_name, header_json.encode("utf-8"))
+
             result_data: dict[str, Any] = {
                 "vault_id": str(vault_id),
                 "prepared": True,
@@ -601,16 +650,15 @@ class F0CLI:
                 "tables_created": len(tables),
             }
 
-            if os_store.available:
-                wrapped = os_store.protect_vmk(vmk, vault_id)
-                result_data["os_wrapped"] = True
-            else:
-                result_data["os_wrapped"] = False
-
-            # Recovery wrap readiness
-            rw = RecoveryWrapper()
+            result_data["os_wrapped"] = os_store.available
             result_data["recovery_wrap_available"] = rw.available
-            result_data["recovery_algorithm"] = "Argon2id" if rw.available else "unavailable"
+            result_data["recovery_algorithm"] = "Argon2id"
+            result_data["recovery_header_created"] = True
+            result_data["recovery_header_path"] = str(db_absolute.parent / recovery_header_name)
+            result_data["recovery_secret"] = recovery_secret  # one-time direct output
+
+            vmk.clear()
+            db_key.clear()
 
             return CliResult(status="ok", data=result_data)
 
@@ -795,32 +843,222 @@ class F0CLI:
         )
 
     def _cmd_backup_create(self, args: list[str]) -> CliResult:
-        """Backup creation is DEFERRED to PRE_REAL_DATA — no backup surface in E00."""
-        return CliResult(
-            status="error",
-            data={
-                "feature": "backup.create",
-                "state": "FEATURE_DEFERRED_PRE_REAL_DATA",
-                "reason": (
-                    "Authenticated encrypted backup is deferred per ADR-021. "
-                    "It will be implemented and independently attacked in E01 "
-                    "before RDG-03 can pass."
-                ),
-            },
-            warnings=["Backup creation is not available in E00."],
-        )
+        """Create an authenticated encrypted backup of a vault.
+
+        E01: Activated for synthetic database-only profile.
+        E01 REPAIR: Uses BackupPackageStore for handle-bound, no-overwrite
+        publication. No plaintext staging.
+
+        Required args:
+          --vault-path <path>   Path to the SQLCipher vault database
+          --output <path>       Output path for the backup package
+          --db-key-hex <hex>    Hex-encoded SQLCipher database key (64 chars)
+          --vmk-hex <hex>       Hex-encoded VMK for backup key derivation
+        """
+        vault_path = ""
+        output = ""
+        db_key_hex = ""
+        vmk_hex = ""
+
+        for i, arg in enumerate(args):
+            if arg == "--vault-path" and i + 1 < len(args):
+                vault_path = args[i + 1]
+            elif arg == "--output" and i + 1 < len(args):
+                output = args[i + 1]
+            elif arg == "--db-key-hex" and i + 1 < len(args):
+                db_key_hex = args[i + 1]
+            elif arg == "--vmk-hex" and i + 1 < len(args):
+                vmk_hex = args[i + 1]
+
+        if not vault_path:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--vault-path is required for backup create"],
+            )
+        if not output:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--output is required for backup create"],
+            )
+        if not db_key_hex:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--db-key-hex is required to open the vault"],
+            )
+        if not vmk_hex:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--vmk-hex is required for backup key derivation"],
+            )
+
+        try:
+            from sqlcipher3 import dbapi2
+
+            from psyche_os.backup_export.operations import BackupBuilder
+            from psyche_os.backup_export.package_store import BackupPackageStore
+            from psyche_os.crypto.envelope import SensitiveBytes, derive_domain_key
+            from psyche_os.domain.ids import VaultId
+
+            # Validate hex inputs
+            try:
+                db_key_bytes = bytes.fromhex(db_key_hex)
+                vmk_bytes = bytes.fromhex(vmk_hex)
+            except ValueError:
+                return CliResult(
+                    status="error", data=None,
+                    warnings=["Invalid hex encoding in --db-key-hex or --vmk-hex"],
+                )
+
+            vmk = SensitiveBytes(vmk_bytes)
+            backup_key = derive_domain_key(vmk, "backup")
+
+            if not os.path.exists(vault_path):
+                return CliResult(
+                    status="error", data=None,
+                    warnings=[f"Vault not found: {vault_path}"],
+                )
+
+            # E01 REPAIR: Derive store root from output path (parent dir)
+            # and use basename as relative path within the scoped store.
+            output_abs = os.path.abspath(output)
+            store_root = os.path.dirname(output_abs)
+            relative_name = os.path.basename(output_abs)
+
+            if not relative_name:
+                return CliResult(
+                    status="error", data=None,
+                    warnings=["--output must include a filename for the backup package"],
+                )
+
+            store = BackupPackageStore(store_root)
+
+            # Open vault with SQLCipher
+            con = dbapi2.connect(vault_path)
+            try:
+                con.execute(f"PRAGMA key = \"x'{db_key_hex}'\"")
+                # Verify we can read
+                con.execute("SELECT COUNT(*) FROM sqlite_master")
+            except Exception as exc:
+                return CliResult(
+                    status="error", data=None,
+                    warnings=[f"Cannot open vault (wrong key?): {exc}"],
+                )
+
+            try:
+                # Read vault_id from vault_config
+                cur = con.cursor()
+                cur.execute("SELECT vault_id FROM vault_config")
+                row = cur.fetchone()
+                if not row:
+                    return CliResult(
+                        status="error", data=None,
+                        warnings=["Vault config is empty — vault not initialized?"],
+                    )
+                vault_id = VaultId(row[0])
+                cur.close()
+
+                # Build backup through scoped BackupPackageStore
+                builder = BackupBuilder(vault_id=vault_id, backup_key=backup_key)
+                manifest = builder.build(
+                    connection=con, store=store, relative_path=relative_name,
+                )
+
+                return CliResult(
+                    status="ok",
+                    data={
+                        "manifest_id": str(manifest.manifest_id),
+                        "vault_id": str(manifest.vault_id),
+                        "record_count": manifest.record_count,
+                        "blob_count": manifest.blob_count,
+                        "byte_total": manifest.byte_total,
+                        "sha256_hex": manifest.sha256_hex,
+                        "encrypted": manifest.encrypted,
+                        "storage_path": str(store.backup_root / relative_name),
+                        "sequence_number": manifest.sequence_number,
+                        "table_count": len(manifest.table_inventory),
+                        "feature": "backup.create",
+                        "state": "ACTIVATED_E01",
+                    },
+                )
+            finally:
+                con.close()
+
+        except Exception as exc:
+            return CliResult(
+                status="error", data=None,
+                warnings=[f"Backup creation failed: {exc}"],
+            )
 
     def _cmd_backup_verify(self, args: list[str]) -> CliResult:
-        """Backup verification is DEFERRED to PRE_REAL_DATA."""
-        return CliResult(
-            status="error",
-            data={
-                "feature": "backup.verify",
-                "state": "FEATURE_DEFERRED_PRE_REAL_DATA",
-                "reason": "Backup verification is deferred per ADR-021.",
-            },
-            warnings=["Backup verification is not available in E00."],
-        )
+        """Verify backup integrity and authenticity through BackupPackageStore.
+
+        E01: Activated for synthetic database-only profile.
+        E01 REPAIR: Reads exclusively through BackupPackageStore (handle-bound).
+
+        Required args:
+          --package <path>     Path to the backup package
+          --vmk-hex <hex>      Hex-encoded VMK for backup key derivation
+        """
+        package = ""
+        vmk_hex = ""
+
+        for i, arg in enumerate(args):
+            if arg == "--package" and i + 1 < len(args):
+                package = args[i + 1]
+            elif arg == "--vmk-hex" and i + 1 < len(args):
+                vmk_hex = args[i + 1]
+
+        if not package:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--package is required for backup verify"],
+            )
+        if not vmk_hex:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--vmk-hex is required for backup key derivation"],
+            )
+
+        try:
+            from psyche_os.backup_export.operations import verify_backup_file
+            from psyche_os.backup_export.package_store import BackupPackageStore
+            from psyche_os.crypto.envelope import SensitiveBytes, derive_domain_key
+
+            try:
+                vmk_bytes = bytes.fromhex(vmk_hex)
+            except ValueError:
+                return CliResult(
+                    status="error", data=None,
+                    warnings=["Invalid hex encoding in --vmk-hex"],
+                )
+
+            vmk = SensitiveBytes(vmk_bytes)
+            backup_key = derive_domain_key(vmk, "backup")
+
+            # E01 REPAIR: Use BackupPackageStore for handle-bound read
+            package_abs = os.path.abspath(package)
+            store_root = os.path.dirname(package_abs)
+            relative_name = os.path.basename(package_abs)
+            store = BackupPackageStore(store_root)
+
+            ok, detail = verify_backup_file(store, relative_name, backup_key)
+
+            return CliResult(
+                status="ok" if ok else "error",
+                data={
+                    "feature": "backup.verify",
+                    "state": "ACTIVATED_E01",
+                    "verified": ok,
+                    "detail": detail,
+                    "package": str(store.backup_root / relative_name),
+                },
+            )
+
+        except Exception as exc:
+            return CliResult(
+                status="error", data=None,
+                warnings=[f"Backup verification failed: {exc}"],
+            )
 
     # ==================================================================
     # Restore
@@ -832,28 +1070,213 @@ class F0CLI:
         )
 
     def _cmd_restore_verify(self, args: list[str]) -> CliResult:
-        """Restore verification is DEFERRED to PRE_REAL_DATA."""
-        return CliResult(
-            status="error",
-            data={
-                "feature": "restore.verify",
-                "state": "FEATURE_DEFERRED_PRE_REAL_DATA",
-                "reason": "Restore verification is deferred per ADR-021.",
-            },
-            warnings=["Restore verification is not available in E00."],
-        )
+        """Verify a backup package can be restored — without activating.
+
+        E01: Activated for synthetic database-only profile.
+        E01 REPAIR: Uses BackupPackageStore for read, creates isolated target.
+        restore_backup creates its own SQLCipher database at the target path.
+        Never mutates the caller's active vault.
+
+        Required args:
+          --package <path>     Path to the backup package
+          --target <path>      Path for the restored database (must not exist)
+          --db-key-hex <hex>   Hex-encoded SQLCipher database key for the NEW target
+          --vmk-hex <hex>      Hex-encoded VMK for backup key derivation
+        """
+        package = ""
+        target = ""
+        db_key_hex = ""
+        vmk_hex = ""
+
+        for i, arg in enumerate(args):
+            if arg == "--package" and i + 1 < len(args):
+                package = args[i + 1]
+            elif arg == "--target" and i + 1 < len(args):
+                target = args[i + 1]
+            elif arg == "--db-key-hex" and i + 1 < len(args):
+                db_key_hex = args[i + 1]
+            elif arg == "--vmk-hex" and i + 1 < len(args):
+                vmk_hex = args[i + 1]
+
+        if not package:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--package is required for restore verify"],
+            )
+        if not target:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--target is required for restore verify"],
+            )
+        if not db_key_hex:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--db-key-hex is required for the restored vault"],
+            )
+        if not vmk_hex:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--vmk-hex is required for backup key derivation"],
+            )
+
+        try:
+            from psyche_os.backup_export.operations import restore_backup
+            from psyche_os.backup_export.package_store import BackupPackageStore
+            from psyche_os.crypto.envelope import SensitiveBytes, derive_domain_key
+
+            try:
+                vmk_bytes = bytes.fromhex(vmk_hex)
+            except ValueError:
+                return CliResult(
+                    status="error", data=None,
+                    warnings=["Invalid hex encoding in --vmk-hex or --db-key-hex"],
+                )
+
+            vmk = SensitiveBytes(vmk_bytes)
+            backup_key = derive_domain_key(vmk, "backup")
+
+            # E01 REPAIR: Restore creates its own isolated SQLCipher target.
+            # Package is read through BackupPackageStore.
+            package_abs = os.path.abspath(package)
+            store_root = os.path.dirname(package_abs)
+            relative_name = os.path.basename(package_abs)
+            store = BackupPackageStore(store_root)
+
+            result = restore_backup(
+                store=store,
+                relative_path=relative_name,
+                backup_key=backup_key,
+                restore_db_path=os.path.abspath(target),
+                restore_db_key_hex=db_key_hex,
+            )
+
+            if result.get("success"):
+                return CliResult(
+                    status="ok",
+                    data={
+                        "feature": "restore.verify",
+                        "state": "ACTIVATED_E01",
+                        **result,
+                    },
+                )
+            else:
+                return CliResult(
+                    status="error",
+                    data={
+                        "feature": "restore.verify",
+                        "state": "ACTIVATED_E01",
+                        **result,
+                    },
+                    warnings=[result.get("reason", "Restore verification failed")],
+                )
+
+        except Exception as exc:
+            return CliResult(
+                status="error", data=None,
+                warnings=[f"Restore verification failed: {exc}"],
+            )
 
     def _cmd_restore_activate(self, args: list[str]) -> CliResult:
-        """Restore activation is DEFERRED to PRE_REAL_DATA."""
-        return CliResult(
-            status="error",
-            data={
-                "feature": "restore.activate",
-                "state": "FEATURE_DEFERRED_PRE_REAL_DATA",
-                "reason": "Restore activation is deferred per ADR-021.",
-            },
-            warnings=["Restore activation is not available in E00."],
-        )
+        """Activate a validated restored vault with atomic file-level swap.
+
+        E01: Activated for synthetic database-only profile.
+        E01 REPAIR: Performs atomic file-level replacement with previous-vault
+        preservation. Activation is a SEPARATE step from restore verification.
+
+        Required args:
+          --target <path>      Path to the restored database file
+          --active <path>      Path to the active vault to replace (required)
+          --db-key-hex <hex>   Hex-encoded SQLCipher database key
+          --vmk-hex <hex>      Hex-encoded VMK for backup key derivation
+        """
+        target = ""
+        active = ""
+        db_key_hex = ""
+        vmk_hex = ""
+
+        for i, arg in enumerate(args):
+            if arg == "--target" and i + 1 < len(args):
+                target = args[i + 1]
+            elif arg == "--active" and i + 1 < len(args):
+                active = args[i + 1]
+            elif arg == "--db-key-hex" and i + 1 < len(args):
+                db_key_hex = args[i + 1]
+            elif arg == "--vmk-hex" and i + 1 < len(args):
+                vmk_hex = args[i + 1]
+
+        if not target:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--target is required for restore activate"],
+            )
+        if not db_key_hex:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--db-key-hex is required for the restored vault"],
+            )
+        if not active:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--active is required for restore activation"],
+            )
+
+        if not os.path.exists(target):
+            return CliResult(
+                status="error", data=None,
+                warnings=[f"Restored vault not found: {target}"],
+            )
+
+        try:
+            from psyche_os.backup_export.operations import activate_restored_vault
+            from psyche_os.backup_export.package_store import BackupPackageStore
+            from psyche_os.crypto.envelope import SensitiveBytes, derive_domain_key
+
+            vmk = SensitiveBytes(bytes.fromhex(vmk_hex)) if vmk_hex else None
+            backup_key = derive_domain_key(vmk, "backup") if vmk else None
+
+            target_abs = os.path.abspath(target)
+            active_abs = os.path.abspath(active)
+            if os.path.dirname(target_abs) != os.path.dirname(active_abs):
+                return CliResult(
+                    status="error", data=None,
+                    warnings=["Restored candidate and active vault must share one scoped directory"],
+                )
+            activation_store = BackupPackageStore(os.path.dirname(active_abs))
+            result = activate_restored_vault(
+                restored_db_path=target_abs,
+                db_key_hex=db_key_hex,
+                active_db_path=active_abs,
+                backup_key=backup_key,
+                activation_store=activation_store,
+            )
+
+            if result.get("success"):
+                return CliResult(
+                    status="ok",
+                    data={
+                        "feature": "restore.activate",
+                        "state": "ACTIVATED_E01",
+                        "activated": True,
+                        **result,
+                    },
+                )
+            else:
+                return CliResult(
+                    status="error",
+                    data={
+                        "feature": "restore.activate",
+                        "state": "ACTIVATED_E01",
+                        "activated": False,
+                        **result,
+                    },
+                    warnings=[result.get("reason", "Activation validation failed")],
+                )
+
+        except Exception as exc:
+            return CliResult(
+                status="error", data=None,
+                warnings=[f"Restore activation failed: {exc}"],
+            )
 
     # ==================================================================
     # Export
@@ -901,6 +1324,129 @@ class F0CLI:
             data=None,
             warnings=["Export verification requires an open vault and export envelope key."],
         )
+
+    # ==================================================================
+    # Recovery (E01 Target 5: production independent Argon2id recovery)
+    # ==================================================================
+
+    def _cmd_recovery_help(self, args: list[str]) -> CliResult:
+        return CliResult(
+            status="error", data=None, warnings=["Use: psyche-os recovery restore"]
+        )
+
+    def _cmd_recovery_restore(self, args: list[str]) -> CliResult:
+        """Recover and restore a vault using independent Argon2id recovery.
+
+        E01 REPAIR (Target 5): Production recovery path. Requires only:
+          --package <path>         Path to the encrypted backup package
+          --target <path>          Path for the restored database
+          --recovery-secret <str>  Recovery secret (password) for Argon2id unwrap
+          --recovery-header <str>  Path to recovery header JSON file
+
+        The raw VMK is NEVER required. No --vmk-hex argument is accepted.
+        The normal OS wrapper (DPAPI) is NOT used.
+        """
+        package = ""
+        target = ""
+        recovery_secret = ""
+        header_path = ""
+
+        for i, arg in enumerate(args):
+            if arg == "--package" and i + 1 < len(args):
+                package = args[i + 1]
+            elif arg == "--target" and i + 1 < len(args):
+                target = args[i + 1]
+            elif arg == "--recovery-secret" and i + 1 < len(args):
+                recovery_secret = args[i + 1]
+            elif arg == "--recovery-header" and i + 1 < len(args):
+                header_path = args[i + 1]
+            elif arg == "--vmk-hex":
+                return CliResult(
+                    status="error", data=None,
+                    warnings=[
+                        "--vmk-hex is not accepted for independent recovery. "
+                        "Use --recovery-secret and --recovery-header instead."
+                    ],
+                )
+
+        if not package:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--package is required for recovery restore"],
+            )
+        if not target:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--target is required for recovery restore"],
+            )
+        if not recovery_secret:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--recovery-secret is required for independent recovery"],
+            )
+        if not header_path:
+            return CliResult(
+                status="error", data=None,
+                warnings=["--recovery-header is required for independent recovery"],
+            )
+
+        try:
+            import json as _json
+
+            from psyche_os.backup_export.operations import recover_and_restore
+            from psyche_os.backup_export.package_store import BackupPackageStore
+            from psyche_os.crypto.envelope import RecoveryWrapHeader
+
+            # Read recovery header from file
+            try:
+                with open(header_path, encoding="utf-8") as f:
+                    header_dict = _json.load(f)
+                recovery_header = RecoveryWrapHeader.from_dict(header_dict)
+            except Exception as exc:
+                return CliResult(
+                    status="error", data=None,
+                    warnings=[f"Cannot read recovery header: {exc}"],
+                )
+
+            # Derive store root from package path
+            package_abs = os.path.abspath(package)
+            store_root = os.path.dirname(package_abs)
+            relative_name = os.path.basename(package_abs)
+            store = BackupPackageStore(store_root)
+
+            result = recover_and_restore(
+                store=store,
+                relative_path=relative_name,
+                recovery_header=recovery_header,
+                recovery_secret=recovery_secret,
+                restore_db_path=os.path.abspath(target),
+            )
+
+            if result.get("success"):
+                return CliResult(
+                    status="ok",
+                    data={
+                        "feature": "recovery.restore",
+                        "state": "ACTIVATED_E01",
+                        **result,
+                    },
+                )
+            else:
+                return CliResult(
+                    status="error",
+                    data={
+                        "feature": "recovery.restore",
+                        "state": "ACTIVATED_E01",
+                        **result,
+                    },
+                    warnings=[result.get("reason", "Recovery restore failed")],
+                )
+
+        except Exception as exc:
+            return CliResult(
+                status="error", data=None,
+                warnings=[f"Recovery restore failed: {exc}"],
+            )
 
     # ==================================================================
     # Audit

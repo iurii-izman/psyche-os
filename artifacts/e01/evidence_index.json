@@ -1,0 +1,106 @@
+{
+  "schema_version": "1.0",
+  "epic": "E01",
+  "title": "Synthetic Assurance and Independent Recovery Proof",
+  "accepted_commit": "0090ba0",
+  "repair_commit": "ACCEPTED_E01_BOUNDARY_COMMIT",
+  "platform": "windows",
+  "profile": "synthetic-database-only",
+  "real_data_gate": "CLOSED",
+  "generated_at": "2026-08-13T12:27:14Z",
+  "expiry": "2026-09-12T12:20:00Z",
+  "verdict": "PASS",
+  "targeted_runtime_result": {
+    "passed": 50,
+    "failed": 0,
+    "skipped": 0,
+    "command": "uv run pytest -q tests/integration/test_e01_backup_restore.py tests/integration/test_e01_backup_faults.py tests/integration/test_e01_recovery_drill.py tests/integration/test_e01_windows_boundary.py -x"
+  },
+  "full_gate": {
+    "executed_once_at": "2026-08-13T12:27:14Z",
+    "uv_sync_exit": 0,
+    "pytest_exit": 0,
+    "pytest_result": "294 passed, 1 skipped",
+    "f0_scope_exit": 0,
+    "f0_artifacts_exit": 0,
+    "e01_assurance_exit": 0,
+    "orchestration_exit": 0,
+    "skip_classification": "Accepted baseline/out-of-scope TestF09aPathEscape symlink case for deferred general FilesystemAdapter; no mandatory E01 proof skipped."
+  },
+  "evidence": {
+    "exact_snapshot_and_restore": {
+      "status": "PASS",
+      "capability_state": "ACCEPTED",
+      "description": "Exact unique 20-table authenticated inventory, frozen V1 migration verification, fail-closed sequence/deletion acquisition, exclusive isolated SQLCipher restore, canonical content and integrity validation.",
+      "artifact_digests": {
+        "operations.py": "sha256:33b30c0f06636bf4b56285388603c03d49ab292d7b08c60ce96d9371d203bd5f",
+        "test_e01_backup_restore.py": "sha256:aefa218bcb2bb958cee9de613174356c82c3d23792951a07fccfffb0d35cba0e"
+      }
+    },
+    "atomic_activation_and_faults": {
+      "status": "PASS",
+      "capability_state": "ACCEPTED",
+      "description": "Separate scoped atomic activation and four deterministic failure phases preserve active main/WAL/SHM bytes and canonical per-table semantic digests.",
+      "artifact_digests": {
+        "operations.py": "sha256:33b30c0f06636bf4b56285388603c03d49ab292d7b08c60ce96d9371d203bd5f",
+        "package_store.py": "sha256:c5b0572ed63e6df3734f93f5a80b266647bdb4d65b81bb28c2c1791fe551b8b8",
+        "test_e01_backup_faults.py": "sha256:f4cd3fa61a02e7307fd3feedf7f459599e10d4a6d565f9217edc1c80690c2f90"
+      }
+    },
+    "independent_recovery": {
+      "status": "PASS",
+      "capability_state": "ACCEPTED",
+      "description": "Production vault init and recovery CLI use separate Argon2id material without original raw VMK, retained backup key, retained DB key, OS wrapper, or raw VMK command argument.",
+      "artifact_digests": {
+        "operations.py": "sha256:33b30c0f06636bf4b56285388603c03d49ab292d7b08c60ce96d9371d203bd5f",
+        "envelope.py": "sha256:5f97e59077bc1a94c05b94138709dbbc62f0ec8d407153cad33ed2d753183c4b",
+        "cli.py": "sha256:55335df096cc3428216d7f0777e75e5ad148bed1176ac46c15c8e77fc1834e09",
+        "test_e01_recovery_drill.py": "sha256:8fe0fcd6f5174458f140f16a93ea6949551b0b0faf70d134645d25095190ff63"
+      }
+    },
+    "windows_production_boundary": {
+      "status": "PASS",
+      "capability_state": "ACCEPTED",
+      "description": "Windows source and destination-parent handles remain verified through handle-relative publication/activation; ambiguous identity fails closed; deterministic mid-operation target swap cannot redirect outside writes.",
+      "artifact_digests": {
+        "package_store.py": "sha256:c5b0572ed63e6df3734f93f5a80b266647bdb4d65b81bb28c2c1791fe551b8b8",
+        "test_e01_windows_boundary.py": "sha256:e25e88b5edbda88d86e304a665d4c1f0e64999b7c833e7eac10bc004022108b9"
+      }
+    },
+    "truthful_validator": {
+      "status": "PASS",
+      "capability_state": "ACCEPTED",
+      "description": "Read-only evidence validation rejects missing, stale, future, forbidden-state, wrong-baseline, missing-artifact, empty-digest, wrong-digest and contradictory evidence.",
+      "artifact_digests": {
+        "operations.py": "sha256:33b30c0f06636bf4b56285388603c03d49ab292d7b08c60ce96d9371d203bd5f",
+        "test_e01_windows_boundary.py": "sha256:e25e88b5edbda88d86e304a665d4c1f0e64999b7c833e7eac10bc004022108b9",
+        "validate_e01_assurance.py": "sha256:b2793ab7592a22fce32dec84274af725e43d516de7726882f71e52ac7910362f",
+        "test_e01_evidence_validator.py": "sha256:939c49e9af19dce024bb1575e85fe3d7ea9c6f87eba1a33dd5887c30751ce845"
+      }
+    }
+  },
+  "rollback_claim": {
+    "supported": "Authenticated sequence consistency with the package's own vault manifest history.",
+    "not_claimed": "Detection of a valid older package in a fresh context without a trusted external sequence floor."
+  },
+  "residual_risks": [
+    "No external trusted monotonic rollback floor exists in accepted E00 architecture.",
+    "Python secret zeroization is best-effort.",
+    "Administrator/SYSTEM, hostile kernel/driver, and trusted-process code execution are outside the E01 Windows boundary.",
+    "Independent human crypto/recovery review is still required."
+  ],
+  "deferred_surfaces": [
+    "blob_and_attachment_writes",
+    "general_filesystem_mutation",
+    "broad_imports",
+    "ui",
+    "network_cloud",
+    "llm_provider",
+    "release_signing_and_attestation"
+  ],
+  "reviewer_roles": {
+    "independent_crypto_review": "REQUIRED",
+    "independent_recovery_review": "REQUIRED",
+    "codex_acceptance_review": "COMPLETED"
+  }
+}

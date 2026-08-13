@@ -158,18 +158,24 @@ def _win32_open_no_reparse(path: str, flags: int, mode: int = 0o666) -> int:
     import msvcrt
 
     desired_access = 0x80000000  # GENERIC_READ
-    share_mode = 0x00000001  # FILE_SHARE_READ
+    # E01 scoped backup/activation keeps verified handles open across an
+    # atomic replacement; FILE_SHARE_DELETE is required for that Windows
+    # operation while identity remains handle-bound.
+    share_mode = 0x00000007  # READ | WRITE | DELETE
     if flags & os.O_RDWR:
-        desired_access = 0xC0000000  # GENERIC_READ | GENERIC_WRITE
-        share_mode = 0x00000003  # FILE_SHARE_READ | FILE_SHARE_WRITE
+        desired_access = 0xC0010000  # GENERIC_READ | GENERIC_WRITE | DELETE
+        share_mode = 0x00000007  # READ | WRITE | DELETE
     elif flags & os.O_WRONLY:
-        desired_access = 0x40000000  # GENERIC_WRITE
-        share_mode = 0x00000003
+        desired_access = 0x40010000  # GENERIC_WRITE | DELETE
+        share_mode = 0x00000007
 
     creation_disposition = _WIN32_OPEN_EXISTING  # OPEN_EXISTING
     if flags & os.O_CREAT:
-        creation_disposition = 2  # CREATE_ALWAYS if O_TRUNC else OPEN_ALWAYS
-        if not flags & os.O_TRUNC:
+        if flags & os.O_EXCL:
+            creation_disposition = 1  # CREATE_NEW
+        else:
+            creation_disposition = 2  # CREATE_ALWAYS if O_TRUNC else OPEN_ALWAYS
+        if not flags & (os.O_TRUNC | os.O_EXCL):
             creation_disposition = 4  # OPEN_ALWAYS
 
     handle = ctypes.windll.kernel32.CreateFileW(
@@ -318,10 +324,11 @@ class FilesystemAdapter:
     def _verify_handle_containment(self, fd: int, context: str = "") -> None:
         """Verify an open handle resolves within the base directory."""
         final_path = self._get_handle_final_path(fd)
-        if final_path.startswith("\\\\\\\\?\\\\"):
+        # Normalize Windows path prefixes
+        if final_path.startswith("\\\\?\\"):
             final_path = final_path[4:]
-        if final_path.startswith("\\\\\\\\.\\\\"):
-            # UNC device path — extract the drive-relative portion
+        elif final_path.startswith("\\\\.\\"):
+            # Volume GUID path — skip normalization
             pass
         try:
             Path(final_path).relative_to(str(self._base))

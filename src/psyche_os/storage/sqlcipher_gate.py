@@ -68,7 +68,7 @@ class GateReport:
     def failed_count(self) -> int:
         return sum(1 for r in self.results if not r.passed)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return {
             "gate_state": self.gate_state.value,
             "all_passed": self.all_passed,

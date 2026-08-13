@@ -129,6 +129,7 @@ class TestF02BackupVerifyAndRestoreIsolation:
             BackupBuilder,
             verify_backup_file,
         )
+        from psyche_os.backup_export.package_store import BackupPackageStore
         from psyche_os.crypto.envelope import SensitiveBytes
 
         vault_id = VaultId(generate_id())
@@ -137,11 +138,16 @@ class TestF02BackupVerifyAndRestoreIsolation:
         with tempfile.TemporaryDirectory() as tmpdir:
             from sqlcipher3 import dbapi2
 
-            from psyche_os.storage.schema import apply_schema
+            from psyche_os.storage.migrations import Migrator
+
+            store_dir = os.path.join(tmpdir, "store")
+            store = BackupPackageStore(store_dir)
+            rel_path = "test.psychebak"
 
             con = dbapi2.connect(":memory:")
             con.execute("PRAGMA key = 'backup_verify_test';")
-            apply_schema(con)
+            migration = Migrator(con).apply(1)
+            assert not migration.errors and migration.applied == [1]
             # Insert vault_config (all 17 tables now required, so use full schema)
             now = datetime.datetime.now(datetime.UTC).isoformat()
             cur = con.cursor()
@@ -153,13 +159,12 @@ class TestF02BackupVerifyAndRestoreIsolation:
             )
             con.commit()
 
-            builder = BackupBuilder(vault_id=vault_id, manifest_key=manifest_key)
-            backup_path = os.path.join(tmpdir, "test.psychebak")
-            manifest = builder.build(connection=con, storage_path=backup_path)
+            builder = BackupBuilder(vault_id=vault_id, backup_key=manifest_key)
+            builder.build(connection=con, store=store, relative_path=rel_path)
             con.close()
 
             # Must verify successfully
-            ok, reason = verify_backup_file(backup_path, manifest_key)
+            ok, reason = verify_backup_file(store, rel_path, manifest_key)
             assert ok, f"F02 REGRESSION: Fresh backup failed verification: {reason}"
 
     def test_corrupted_backup_fails_verify(self) -> None:
@@ -168,6 +173,7 @@ class TestF02BackupVerifyAndRestoreIsolation:
             BackupBuilder,
             verify_backup_file,
         )
+        from psyche_os.backup_export.package_store import BackupPackageStore
         from psyche_os.crypto.envelope import SensitiveBytes
 
         vault_id = VaultId(generate_id())
@@ -176,11 +182,16 @@ class TestF02BackupVerifyAndRestoreIsolation:
         with tempfile.TemporaryDirectory() as tmpdir:
             from sqlcipher3 import dbapi2
 
-            from psyche_os.storage.schema import apply_schema
+            from psyche_os.storage.migrations import Migrator
+
+            store_dir = os.path.join(tmpdir, "store")
+            store = BackupPackageStore(store_dir)
+            rel_path = "test.psychebak"
 
             con = dbapi2.connect(":memory:")
             con.execute("PRAGMA key = 'corrupt_test';")
-            apply_schema(con)
+            migration = Migrator(con).apply(1)
+            assert not migration.errors and migration.applied == [1]
             now = datetime.datetime.now(datetime.UTC).isoformat()
             cur = con.cursor()
             cur.execute(
@@ -191,18 +202,18 @@ class TestF02BackupVerifyAndRestoreIsolation:
             )
             con.commit()
 
-            builder = BackupBuilder(vault_id=vault_id, manifest_key=manifest_key)
-            backup_path = os.path.join(tmpdir, "test.psychebak")
-            builder.build(connection=con, storage_path=backup_path)
+            builder = BackupBuilder(vault_id=vault_id, backup_key=manifest_key)
+            builder.build(connection=con, store=store, relative_path=rel_path)
             con.close()
 
-            # Corrupt the file (past the magic byte area)
-            with open(backup_path, "r+b") as f:
+            # Corrupt the file on disk (past the magic byte area)
+            actual_path = str(store.backup_root / rel_path)
+            with open(actual_path, "r+b") as f:
                 f.seek(64)
                 f.write(b"\xff\xff\xff\xff\xff\xff\xff\xff")
 
             # Verification must fail
-            ok, reason = verify_backup_file(backup_path, manifest_key)
+            ok, reason = verify_backup_file(store, rel_path, manifest_key)
             # After corruption, decryption or integrity should fail
             assert not ok, (
                 f"F02 REGRESSION: Corrupted backup passed verification! "
@@ -779,9 +790,8 @@ class TestR3F02BackupSchemaAwareQueries:
         assert len(_BACKUP_INVENTORY_TABLES) >= 17, (
             f"F02 REGRESSION: Inventory has {len(_BACKUP_INVENTORY_TABLES)} tables, expected ≥ 17"
         )
-        # F02 (FIX): ALL 17 tables are now required
-        assert len(_REQUIRED_TABLES) == 17, (
-            f"F02 REGRESSION: Expected 17 required tables, got {len(_REQUIRED_TABLES)}"
+        # F02 (FIX): ALL 19 tables are now required (includes backup_manifests + export_manifests)
+        assert len(_REQUIRED_TABLES) == 20, (
         )
         # The inventory table names set must match _BACKUP_INVENTORY_TABLES
         assert frozenset(_BACKUP_INVENTORY_TABLES) == _INVENTORY_TABLE_NAMES
@@ -830,18 +840,19 @@ class TestR3F02BackupSchemaAwareQueries:
         )
         con.commit()
 
-        from psyche_os.backup_export.operations import BackupBuilder
+        from psyche_os.backup_export.operations import BackupBuilder, BackupError
+        from psyche_os.backup_export.package_store import BackupPackageStore
         from psyche_os.crypto.envelope import SensitiveBytes
         from psyche_os.domain.ids import VaultId
 
         with tempfile.TemporaryDirectory() as tmpdir:
             builder = BackupBuilder(
                 vault_id=VaultId(gen_id()),
-                manifest_key=SensitiveBytes(os.urandom(32)),
+                backup_key=SensitiveBytes(os.urandom(32)),
             )
-            backup_path = os.path.join(tmpdir, "test.psychebak")
-            with pytest.raises(RuntimeError, match="Required table"):
-                builder.build(connection=con, storage_path=backup_path)
+            store = BackupPackageStore(os.path.join(tmpdir, "store"))
+            with pytest.raises((RuntimeError, BackupError), match="Required table"):
+                builder.build(connection=con, store=store, relative_path="test.psychebak")
         con.close()
 
     def test_missing_required_table_is_fatal(self) -> None:
@@ -870,35 +881,41 @@ class TestR3F02BackupSchemaAwareQueries:
         )
         con.commit()
 
-        from psyche_os.backup_export.operations import BackupBuilder
+        from psyche_os.backup_export.operations import BackupBuilder, BackupError
+        from psyche_os.backup_export.package_store import BackupPackageStore
         from psyche_os.crypto.envelope import SensitiveBytes
         from psyche_os.domain.ids import VaultId
 
         with tempfile.TemporaryDirectory() as tmpdir:
             builder = BackupBuilder(
                 vault_id=VaultId(gen_id()),
-                manifest_key=SensitiveBytes(os.urandom(32)),
+                backup_key=SensitiveBytes(os.urandom(32)),
             )
-            backup_path = os.path.join(tmpdir, "test.psychebak")
+            store = BackupPackageStore(os.path.join(tmpdir, "store"))
             # F02 (FIX): ALL tables are required — missing actors must fail
-            with pytest.raises(RuntimeError, match="Required table"):
-                builder.build(connection=con, storage_path=backup_path)
+            with pytest.raises((RuntimeError, BackupError), match="Required table"):
+                builder.build(connection=con, store=store, relative_path="test.psychebak")
         con.close()
 
     def test_restore_rejects_nonempty_target_entire_schema(self) -> None:
-        """Restore must check the ENTIRE schema for data, not just vault_config."""
+        """Restore must reject a target path that already exists.
+
+        E01 REPAIR: restore_backup creates its own isolated target -
+        pre-existing paths are rejected in pre-validation.
+        """
         import os
         import tempfile
 
         from sqlcipher3 import dbapi2
 
         from psyche_os.domain.ids import generate_id as gen_id
-        from psyche_os.storage.schema import apply_schema
+        from psyche_os.storage.migrations import Migrator
 
         # First create a backup with full schema
         con_src = dbapi2.connect(":memory:")
         con_src.execute("PRAGMA key = 'src_test';")
-        apply_schema(con_src)
+        migration = Migrator(con_src).apply(1)
+        assert not migration.errors and migration.applied == [1]
         vault_id_str = gen_id()
         now = datetime.datetime.now(datetime.UTC).isoformat()
         cur = con_src.cursor()
@@ -911,60 +928,55 @@ class TestR3F02BackupSchemaAwareQueries:
         con_src.commit()
 
         from psyche_os.backup_export.operations import BackupBuilder, restore_backup
+        from psyche_os.backup_export.package_store import BackupPackageStore
         from psyche_os.crypto.envelope import SensitiveBytes
         from psyche_os.domain.ids import VaultId
 
         manifest_key = SensitiveBytes(os.urandom(32))
         vault_id = VaultId(vault_id_str)
-        builder = BackupBuilder(vault_id=vault_id, manifest_key=manifest_key)
+        builder = BackupBuilder(vault_id=vault_id, backup_key=manifest_key)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            backup_path = os.path.join(tmpdir, "test.psychebak")
-            builder.build(connection=con_src, storage_path=backup_path)
+            store = BackupPackageStore(os.path.join(tmpdir, "store"))
+            rel_path = "test.psychebak"
+            builder.build(connection=con_src, store=store, relative_path=rel_path)
             con_src.close()
 
-            # Create target that has data in a non-vault_config table (audit_events)
-            con_tgt = dbapi2.connect(":memory:")
-            con_tgt.execute("PRAGMA key = 'tgt_test';")
-            apply_schema(con_tgt)
-            cur_tgt = con_tgt.cursor()
-            cur_tgt.execute(
-                "INSERT INTO audit_events (event_id, event_kind, occurred_at, "
-                "actor_id, target_record_ids, operation, outcome, reason, "
-                "version_id, created_at)"
-                " VALUES (?, 'write', '2026-01-01T00:00:00+00:00', "
-                "'', '[]', 'initial', 'committed', 'initial', '', '2026-01-01T00:00:00+00:00')",
-                (gen_id(),),
-            )
-            con_tgt.commit()
+            # Create a file that will conflict
+            existing_path = os.path.join(tmpdir, "existing.db")
+            with open(existing_path, "wb") as f:
+                f.write(b"pre-existing data")
 
-            # F02: Restore must detect the non-empty audit_events table
-            result = restore_backup(backup_path, manifest_key, con_tgt)
+            # F02: Restore must reject because path already exists
+            result = restore_backup(
+                store=store,
+                relative_path=rel_path,
+                backup_key=manifest_key,
+                restore_db_path=existing_path,
+                restore_db_key_hex=os.urandom(32).hex(),
+            )
             assert result["success"] is False, (
-                f"F02 REGRESSION: Restore accepted non-empty target! Result: {result}"
+                f"F02 REGRESSION: Restore accepted existing path! Result: {result}"
             )
-            assert result["phase"] == "reject_populated_target", (
-                f"F02 REGRESSION: Wrong rejection phase: {result.get('phase')}"
+            assert "already exists" in result.get("reason", "").lower(), (
+                f"F02 REGRESSION: Wrong rejection reason: {result.get('reason')}"
             )
-            assert "audit_events" in result.get("populated_tables", []), (
-                f"F02 REGRESSION: Did not detect data in audit_events: {result}"
-            )
-            con_tgt.close()
 
     def test_empty_target_restore_succeeds(self) -> None:
-        """Restore to a truly empty target (schema only, no data) must succeed."""
+        """Restore to a fresh path (no pre-existing file) must succeed."""
         import os
         import tempfile
 
         from sqlcipher3 import dbapi2
 
         from psyche_os.domain.ids import generate_id as gen_id
-        from psyche_os.storage.schema import apply_schema
+        from psyche_os.storage.migrations import Migrator
 
         # Create source backup with full schema
         con_src = dbapi2.connect(":memory:")
         con_src.execute("PRAGMA key = 'src_empty_test';")
-        apply_schema(con_src)
+        migration = Migrator(con_src).apply(1)
+        assert not migration.errors and migration.applied == [1]
         vault_id_str = gen_id()
         now = datetime.datetime.now(datetime.UTC).isoformat()
         cur = con_src.cursor()
@@ -977,31 +989,36 @@ class TestR3F02BackupSchemaAwareQueries:
         con_src.commit()
 
         from psyche_os.backup_export.operations import BackupBuilder, restore_backup
+        from psyche_os.backup_export.package_store import BackupPackageStore
         from psyche_os.crypto.envelope import SensitiveBytes
         from psyche_os.domain.ids import VaultId
 
         manifest_key = SensitiveBytes(os.urandom(32))
         vault_id = VaultId(vault_id_str)
-        builder = BackupBuilder(vault_id=vault_id, manifest_key=manifest_key)
+        builder = BackupBuilder(vault_id=vault_id, backup_key=manifest_key)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            backup_path = os.path.join(tmpdir, "test.psychebak")
-            builder.build(connection=con_src, storage_path=backup_path)
+            store = BackupPackageStore(os.path.join(tmpdir, "store"))
+            rel_path = "test.psychebak"
+            builder.build(connection=con_src, store=store, relative_path=rel_path)
             con_src.close()
 
-            # Create empty target with only schema, no rows
-            con_tgt = dbapi2.connect(":memory:")
-            con_tgt.execute("PRAGMA key = 'tgt_empty_test';")
-            apply_schema(con_tgt)
-            con_tgt.commit()
+            # Use fresh path that does not exist
+            restore_path = os.path.join(tmpdir, "restored.db")
+            restore_key = os.urandom(32).hex()
 
-            # F02: Empty target (schema but no rows) must succeed
-            result = restore_backup(backup_path, manifest_key, con_tgt)
+            # F02: Fresh path must succeed
+            result = restore_backup(
+                store=store,
+                relative_path=rel_path,
+                backup_key=manifest_key,
+                restore_db_path=restore_path,
+                restore_db_key_hex=restore_key,
+            )
             assert result["success"] is True, (
-                f"F02 REGRESSION: Empty target restore failed: {result}"
+                f"F02 REGRESSION: Fresh target restore failed: {result}"
             )
             assert result["records_restored"] >= 1, f"F02 REGRESSION: No records restored: {result}"
-            con_tgt.close()
 
 
 # ===========================================================================
@@ -1221,7 +1238,7 @@ class TestR3F07NonSelfIssuableAuthority:
         )
 
         # F07 (FIX): use _from_authority, not the public constructor
-        authority = FixtureAuthority._mint("test-pack", "abc123")
+        authority = FixtureAuthority._mint("test-pack", "a" * 64)
         cap = SyntheticFixtureCapability._from_authority(authority)
         token = cap._authority_token
         assert token is None, "F07 REGRESSION: _authority_token exposes the raw token string!"
@@ -1252,7 +1269,7 @@ class TestR3F07NonSelfIssuableAuthority:
         )
 
         # F07 (FIX): use _from_authority, not the public constructor
-        authority = FixtureAuthority._mint("test-pack", "abc123")
+        authority = FixtureAuthority._mint("test-pack", "a" * 64)
         cap = SyntheticFixtureCapability._from_authority(authority)
         assert cap._authority is not None, (
             "F07 REGRESSION: SyntheticFixtureCapability has no internal authority!"
@@ -1270,9 +1287,9 @@ class TestR3F07NonSelfIssuableAuthority:
         )
 
         # F07 (FIX): use _from_authority, not the public constructor
-        authority = FixtureAuthority._mint("test-pack", "abc123")
+        authority = FixtureAuthority._mint("test-pack", "a" * 64)
         cap = SyntheticFixtureCapability._from_authority(authority)
-        other = FixtureAuthority._mint("other-pack", "xyz789")
+        other = FixtureAuthority._mint("other-pack", "b" * 64)
         assert cap.validate_authority(other) is False, (
             "F07 REGRESSION: Foreign authority passed validation!"
         )

@@ -14,6 +14,7 @@ closure_marker propagation with subtype field preservation.
 from __future__ import annotations
 
 from contextlib import contextmanager
+from collections.abc import Generator
 from dataclasses import dataclass, field
 import datetime
 import hashlib
@@ -569,7 +570,9 @@ class UnitOfWorkManager:
         self._authority = _authority
 
     @contextmanager
-    def begin(self, actor_id: str = "", purpose: str = "") -> UnitOfWork:
+    def begin(
+        self, actor_id: str = "", purpose: str = ""
+    ) -> Generator[UnitOfWork, None, None]:
         """Begin a new unit of work. Commits on clean exit, rolls back on exception."""
         uow = UnitOfWork(actor_id=actor_id, purpose=purpose)
         try:

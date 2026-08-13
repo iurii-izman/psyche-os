@@ -11,6 +11,8 @@ entities carries temporal_ref or provenance_ref where applicable.
 
 from __future__ import annotations
 
+from typing import Any
+
 # ---------------------------------------------------------------------------
 # Schema version tracking
 # ---------------------------------------------------------------------------
@@ -602,7 +604,7 @@ ALL_DDL = [
 ]
 
 
-def apply_schema(connection, schema_version: int = CURRENT_SCHEMA_VERSION) -> None:
+def apply_schema(connection: Any, schema_version: int = CURRENT_SCHEMA_VERSION) -> None:
     """Apply all DDL up to the given schema version.
 
     F05 (FIX): Enables PRAGMA foreign_keys = ON so that FK constraints

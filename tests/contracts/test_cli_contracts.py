@@ -1,6 +1,7 @@
 """Contract tests for stable JSON error and CLI output."""
 
 import json
+from pathlib import Path
 
 from psyche_os.interfaces.cli import (
     F0CLI,
@@ -82,9 +83,9 @@ class TestF0CLI:
         result = cli.dispatch(["gate"])
         assert result.status == "error"
 
-    def test_vault_init(self) -> None:
+    def test_vault_init(self, tmp_path: Path) -> None:
         cli = create_cli()
-        result = cli.dispatch(["vault", "init"])
+        result = cli.dispatch(["vault", "init", "--path", str(tmp_path / "vault.db")])
         # May fail if gate not accepted, but should return structured data
         assert result.status in ("ok", "error")
         if result.status == "ok":

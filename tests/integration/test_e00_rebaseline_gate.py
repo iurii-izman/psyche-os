@@ -417,29 +417,45 @@ class TestTruthfulValidation:
 
 
 class TestDeferredSurfaceLock:
-    """Prove that deferred features return FEATURE_DEFERRED_PRE_REAL_DATA."""
+    """Prove that features deferred in E01 remain locked.
 
-    _DEFERRED_FEATURES = [
+    E01 activates backup/restore for the synthetic database-only profile.
+    Blob writes and general filesystem mutation remain DEFERRED.
+    """
+
+    _DEFERRED_FEATURES: list[tuple[list[str], str]] = []
+
+    _ACTIVATED_E01_FEATURES = [
         (["backup", "create", "--output", "x"], "backup.create"),
         (["backup", "verify", "--package", "x"], "backup.verify"),
         (["restore", "verify"], "restore.verify"),
         (["restore", "activate"], "restore.activate"),
     ]
 
-    def test_all_deferred_features_return_deferred_state(self) -> None:
-        """Every deferred CLI command must return FEATURE_DEFERRED_PRE_REAL_DATA."""
+    def test_all_deferred_features_removed_in_e01(self) -> None:
+        """E01 activates backup/restore — no CLI commands remain deferred."""
+        assert self._DEFERRED_FEATURES == [], (
+            "No CLI features should remain deferred in E01"
+        )
+
+    def test_backup_restore_cli_activated_in_e01(self) -> None:
+        """Backup/restore commands return ACTIVATED_E01 state in E01."""
         from psyche_os.interfaces.cli import create_cli
 
         cli = create_cli()
-        for argv, feature_name in self._DEFERRED_FEATURES:
+        for argv, feature_name in self._ACTIVATED_E01_FEATURES:
             result = cli.dispatch(argv)
             data = result.data or {}
             state = data.get("state", "")
-            assert state == "FEATURE_DEFERRED_PRE_REAL_DATA", (
-                f"{feature_name}: expected FEATURE_DEFERRED_PRE_REAL_DATA, got {state}"
+            # In E01, backup/restore are activated but still expect proper args
+            # Without required args, they return error status with a warning
+            assert state != "FEATURE_DEFERRED_PRE_REAL_DATA", (
+                f"{feature_name}: should not return FEATURE_DEFERRED_PRE_REAL_DATA in E01, "
+                f"got data={data}"
             )
             assert result.status == "error", (
-                f"{feature_name}: expected error status, got {result.status}"
+                f"{feature_name}: expected error status (missing required args), "
+                f"got {result.status}"
             )
 
     def test_export_not_deferred(self) -> None:
@@ -454,24 +470,48 @@ class TestDeferredSurfaceLock:
             "Export must not be deferred — only backup/restore are"
         )
 
-    def test_deferred_python_apis_fail_before_mutation(self, tmp_path: Path) -> None:
+    def test_e01_activated_python_apis_no_longer_deferred(self, tmp_path: Path) -> None:
+        """E01 activates backup/restore Python APIs — they no longer raise DeferredFeatureError."""
+        from sqlcipher3 import dbapi2
+
+        from psyche_os.backup_export.operations import (
+            restore_backup,
+            verify_backup_file,
+        )
+        from psyche_os.backup_export.package_store import BackupPackageStore
+        from psyche_os.storage.schema import apply_schema
+
+        # verify_backup_file through BackupPackageStore — no longer deferred
+        store = BackupPackageStore(str(tmp_path / "store"))
+        missing_rel = "must-not-be-created.backup"
+        # Returns (False, reason) tuple instead of raising
+        result = verify_backup_file(store, missing_rel, None)  # type: ignore[arg-type]
+        assert isinstance(result, tuple)
+        assert result[0] is False  # File doesn't exist, so verification fails
+        assert not (tmp_path / "store" / "must-not-be-created.backup").exists()
+
+        # restore_backup — now creates its own target, no caller connection
+        restore_path = str(tmp_path / "restored.db")
+        restore_key = os.urandom(32).hex()
+        result = restore_backup(
+            store=store,
+            relative_path=missing_rel,
+            backup_key=None,  # type: ignore[arg-type]
+            restore_db_path=restore_path,
+            restore_db_key_hex=restore_key,
+        )
+        assert isinstance(result, dict)
+        assert result.get("success") is False  # Missing backup file
+
+    def test_blob_and_filesystem_still_deferred(self, tmp_path: Path) -> None:
+        """Blob writes and general filesystem mutation remain DEFERRED in E01."""
         from sqlcipher3 import dbapi2
 
         from psyche_os.adapters.adapters import FilesystemAdapter, FilesystemError
         from psyche_os.application.ports import FixtureAuthority
-        from psyche_os.backup_export.operations import (
-            DeferredFeatureError,
-            restore_backup,
-            verify_backup_file,
-        )
         from psyche_os.domain.ids import BlobId, RecordId, VaultId, generate_id
         from psyche_os.storage.schema import apply_schema
         from psyche_os.storage.uow import UnitOfWorkError, UnitOfWorkManager
-
-        missing_backup = tmp_path / "must-not-be-created.backup"
-        with pytest.raises(DeferredFeatureError, match="FEATURE_DEFERRED_PRE_REAL_DATA"):
-            verify_backup_file(str(missing_backup), None)  # type: ignore[arg-type]
-        assert not missing_backup.exists()
 
         con = dbapi2.connect(":memory:")
         con.execute("PRAGMA key='deferred-surface-test'")
@@ -487,8 +527,6 @@ class TestDeferredSurfaceLock:
                     VaultId(generate_id()),
                 )
         assert con.execute("SELECT COUNT(*) FROM blobs").fetchone()[0] == 0
-        with pytest.raises(DeferredFeatureError, match="FEATURE_DEFERRED_PRE_REAL_DATA"):
-            restore_backup(str(missing_backup), None, con)  # type: ignore[arg-type]
         con.close()
 
         adapter = FilesystemAdapter(tmp_path)

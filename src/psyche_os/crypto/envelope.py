@@ -509,7 +509,7 @@ class RecoveryWrapHeader:
     wrapped_key: bytes = b""  # nonce (12) + AES-GCM ciphertext
     vault_id: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         """Serialize to dict for JSON storage."""
         return {
             "version": self.version,
@@ -523,17 +523,30 @@ class RecoveryWrapHeader:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> RecoveryWrapHeader:
+    def from_dict(cls, d: dict[str, object]) -> RecoveryWrapHeader:
         """Deserialize from dict."""
+        def integer(name: str, default: int) -> int:
+            value = d.get(name, default)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ValueError(f"Recovery header field '{name}' must be an integer")
+            return value
+
+        salt_hex = d.get("salt_hex")
+        wrapped_key_hex = d.get("wrapped_key_hex")
+        vault_id = d.get("vault_id", "")
+        if not isinstance(salt_hex, str) or not isinstance(wrapped_key_hex, str):
+            raise ValueError("Recovery header key material must be hexadecimal strings")
+        if not isinstance(vault_id, str):
+            raise ValueError("Recovery header vault_id must be a string")
         return cls(
-            version=d.get("version", RECOVERY_WRAP_VERSION),
-            salt=bytes.fromhex(d["salt_hex"]),
-            time_cost=d.get("time_cost", 3),
-            memory_cost=d.get("memory_cost", 65536),
-            parallelism=d.get("parallelism", 4),
-            hash_len=d.get("hash_len", 32),
-            wrapped_key=bytes.fromhex(d["wrapped_key_hex"]),
-            vault_id=d.get("vault_id", ""),
+            version=integer("version", RECOVERY_WRAP_VERSION),
+            salt=bytes.fromhex(salt_hex),
+            time_cost=integer("time_cost", 3),
+            memory_cost=integer("memory_cost", 65536),
+            parallelism=integer("parallelism", 4),
+            hash_len=integer("hash_len", 32),
+            wrapped_key=bytes.fromhex(wrapped_key_hex),
+            vault_id=vault_id,
         )
 
 

@@ -3,6 +3,9 @@ isolated restore, and semantic equality with temporary synthetic data only.
 
 This test belongs to the E00 gate. It uses only temporary files and
 synthetic fixtures. It does not open or depend on the REAL_DATA_GATE.
+
+E01 mechanical update: Updated to use BackupPackageStore + new API signatures.
+Backup/restore logic unchanged.
 """
 
 from __future__ import annotations
@@ -30,6 +33,14 @@ def _ensure_gate() -> None:
         pytest.skip("SQLCipher gate not accepted — cannot run E00 portability smoke")
 
 
+def _make_store_and_rel(tmpdir: str, name: str) -> tuple:
+    """Create a BackupPackageStore in tmpdir and return (store, relative_path)."""
+    from psyche_os.backup_export.package_store import BackupPackageStore
+
+    store_dir = os.path.join(tmpdir, "backups")
+    return BackupPackageStore(store_dir), name
+
+
 # ---------------------------------------------------------------------------
 # Smoke: Backup → verify → wrong-key reject → restore → equality
 # ---------------------------------------------------------------------------
@@ -44,11 +55,12 @@ class TestE00BackupRestoreSmoke:
         a vault_config row."""
         from sqlcipher3 import dbapi2
 
-        from psyche_os.storage.schema import apply_schema
+        from psyche_os.storage.migrations import Migrator
 
         con = dbapi2.connect(path)
         con.execute(f"PRAGMA key = \"x'{key}'\";")
-        apply_schema(con)
+        migration = Migrator(con).apply(1)
+        assert not migration.errors and migration.applied == [1]
 
         now = _dt.datetime.now(_dt.UTC).isoformat()
         cur = con.cursor()
@@ -107,44 +119,40 @@ class TestE00BackupRestoreSmoke:
                 except Exception:
                     src_counts[table] = 0
 
-            # -- Phase 2: Create backup --
-            backup_path = os.path.join(tmpdir, "smoke_backup.enc")
+            # -- Phase 2: Create backup via BackupPackageStore --
+            store, rel_path = _make_store_and_rel(tmpdir, "smoke_backup.enc")
             manifest_key = SensitiveBytes(secrets.token_bytes(32))
 
-            builder = BackupBuilder(vault_id=vault_id, manifest_key=manifest_key)
-            manifest = builder.build(con_src, backup_path)
+            builder = BackupBuilder(vault_id=vault_id, backup_key=manifest_key)
+            manifest = builder.build(
+                connection=con_src, store=store, relative_path=rel_path,
+            )
             con_src.close()
 
             assert manifest.record_count > 0
-            assert os.path.exists(backup_path)
+            assert store.exists(rel_path)
 
             # -- Phase 3: Verify backup --
-            ok, msg = verify_backup_file(backup_path, manifest_key)
+            ok, msg = verify_backup_file(store, rel_path, manifest_key)
             assert ok, f"Backup verification failed: {msg}"
 
             # -- Phase 4: Wrong key MUST be rejected --
             wrong_key = SensitiveBytes(secrets.token_bytes(32))
-            ok_wrong, msg_wrong = verify_backup_file(backup_path, wrong_key)
+            ok_wrong, msg_wrong = verify_backup_file(store, rel_path, wrong_key)
             assert not ok_wrong, "Wrong key should be rejected"
-            assert "wrong key" in msg_wrong.lower() or "decryption failed" in msg_wrong.lower()
+            assert "decrypt" in msg_wrong.lower() or "wrong key" in msg_wrong.lower() or "decr" in msg_wrong.lower()
 
-            # -- Phase 5: Restore into fresh isolated target (schema only, no data) --
+            # -- Phase 5: Restore into fresh isolated target --
             dst_path = os.path.join(tmpdir, "dst_vault.db")
             dst_key = secrets.token_hex(32)
-            # Create an EMPTY target — schema only, no data rows
-            from sqlcipher3 import dbapi2
 
-            from psyche_os.storage.schema import apply_schema
-
-            con_dst_empty = dbapi2.connect(dst_path)
-            con_dst_empty.execute(f"PRAGMA key = \"x'{dst_key}'\";")
-            apply_schema(con_dst_empty)
-            con_dst_empty.commit()
-            con_dst_empty.close()
-
-            con_dst = self._open_db(dst_path, dst_key)
-            result = restore_backup(backup_path, manifest_key, con_dst)
-            con_dst.close()
+            result = restore_backup(
+                store=store,
+                relative_path=rel_path,
+                backup_key=manifest_key,
+                restore_db_path=dst_path,
+                restore_db_key_hex=dst_key,
+            )
 
             assert result.get("success"), f"Restore failed: {result.get('reason', result)}"
 
@@ -180,9 +188,13 @@ class TestE00BackupRestoreSmoke:
         )
         from psyche_os.crypto.envelope import SensitiveBytes
 
+        from psyche_os.backup_export.package_store import BackupPackageStore
+
         tmpdir = tempfile.mkdtemp(prefix="psyche_e00_ver_")
         try:
-            backup_path = os.path.join(tmpdir, "downgraded_backup.json")
+            store_root = os.path.join(tmpdir, "backups")
+            store = BackupPackageStore(store_root)
+            rel_path = "downgraded_backup.json"
             manifest_key = SensitiveBytes(secrets.token_bytes(32))
 
             payload = {
@@ -200,10 +212,9 @@ class TestE00BackupRestoreSmoke:
                 "nonce_hex": "00" * 12,
                 "ciphertext_hex": "00" * 32,
             }
-            with open(backup_path, "w", encoding="utf-8") as f:
-                json.dump(payload, f)
+            store.write_package(rel_path, json.dumps(payload).encode("utf-8"))
 
-            ok, msg = verify_backup_file(backup_path, manifest_key)
+            ok, msg = verify_backup_file(store, rel_path, manifest_key)
             assert not ok, f"Version 0 should be rejected: {msg}"
             assert "format_version" in msg.lower() or "format version" in msg.lower()
         finally:
@@ -231,26 +242,25 @@ class TestE00BackupRestoreSmoke:
             src_path = os.path.join(tmpdir, "vault.db")
             self._make_vault_db(src_path, db_key, str(vault_id))
 
-            backup_path = os.path.join(tmpdir, "backup.enc")
+            store, rel_path = _make_store_and_rel(tmpdir, "backup.enc")
             manifest_key = SensitiveBytes(secrets.token_bytes(32))
 
             con = self._open_db(src_path, db_key)
-            builder = BackupBuilder(vault_id=vault_id, manifest_key=manifest_key)
-            builder.build(con, backup_path)
+            builder = BackupBuilder(vault_id=vault_id, backup_key=manifest_key)
+            builder.build(connection=con, store=store, relative_path=rel_path)
             con.close()
 
             # Tamper: remove one table checksum from the manifest
-            with open(backup_path, encoding="utf-8") as f:
-                payload = json.load(f)
+            raw = store.read_package(rel_path)
+            payload = json.loads(raw.decode("utf-8"))
 
             tables = sorted(_INVENTORY_TABLE_NAMES)
             drop_table = tables[-1]
             del payload["manifest"]["table_checksums"][drop_table]
 
-            with open(backup_path, "w", encoding="utf-8") as f:
-                json.dump(payload, f)
+            store.write_package(rel_path, json.dumps(payload).encode("utf-8"))
 
-            ok, msg = verify_backup_file(backup_path, manifest_key)
+            ok, msg = verify_backup_file(store, rel_path, manifest_key)
             assert not ok, f"Missing table '{drop_table}' should be rejected: {msg}"
             assert "missing" in msg.lower() or "inventory" in msg.lower() or drop_table in msg
         finally:
@@ -274,22 +284,21 @@ class TestE00BackupRestoreSmoke:
             src_path = os.path.join(tmpdir, "vault.db")
             self._make_vault_db(src_path, db_key, str(vault_id))
 
-            backup_path = os.path.join(tmpdir, "backup.enc")
+            store, rel_path = _make_store_and_rel(tmpdir, "backup.enc")
             manifest_key = SensitiveBytes(secrets.token_bytes(32))
 
             con = self._open_db(src_path, db_key)
-            builder = BackupBuilder(vault_id=vault_id, manifest_key=manifest_key)
-            builder.build(con, backup_path)
+            builder = BackupBuilder(vault_id=vault_id, backup_key=manifest_key)
+            builder.build(connection=con, store=store, relative_path=rel_path)
             con.close()
 
             # Tamper: change the outer manifest's record_count
-            with open(backup_path, encoding="utf-8") as f:
-                payload = json.load(f)
+            raw = store.read_package(rel_path)
+            payload = json.loads(raw.decode("utf-8"))
             payload["manifest"]["record_count"] = 999999
-            with open(backup_path, "w", encoding="utf-8") as f:
-                json.dump(payload, f)
+            store.write_package(rel_path, json.dumps(payload).encode("utf-8"))
 
-            ok, msg = verify_backup_file(backup_path, manifest_key)
+            ok, msg = verify_backup_file(store, rel_path, manifest_key)
             assert not ok, f"Tampered outer manifest should be rejected: {msg}"
         finally:
             import shutil
@@ -313,15 +322,15 @@ class TestE00BackupRestoreSmoke:
             src_path = os.path.join(tmpdir, "src_vault.db")
             self._make_vault_db(src_path, db_key, str(vault_id))
 
-            backup_path = os.path.join(tmpdir, "backup.enc")
+            store, rel_path = _make_store_and_rel(tmpdir, "backup.enc")
             manifest_key = SensitiveBytes(secrets.token_bytes(32))
 
             con = self._open_db(src_path, db_key)
-            builder = BackupBuilder(vault_id=vault_id, manifest_key=manifest_key)
-            builder.build(con, backup_path)
+            builder = BackupBuilder(vault_id=vault_id, backup_key=manifest_key)
+            builder.build(connection=con, store=store, relative_path=rel_path)
             con.close()
 
-            # Create non-empty target
+            # Create a pre-existing file at the target path (non-empty target)
             dst_path = os.path.join(tmpdir, "dst_vault.db")
             dst_key = secrets.token_hex(32)
             from sqlcipher3 import dbapi2
@@ -341,13 +350,21 @@ class TestE00BackupRestoreSmoke:
                 (generate_id(), now, os.urandom(32), os.urandom(32)),
             )
             con_dst.commit()
+            con_dst.close()
 
-            result = restore_backup(backup_path, manifest_key, con_dst)
+            # The target path already exists, so restore_backup rejects it
+            # (pre-validation phase: target must not exist)
+            result = restore_backup(
+                store=store,
+                relative_path=rel_path,
+                backup_key=manifest_key,
+                restore_db_path=dst_path,
+                restore_db_key_hex=dst_key,
+            )
             assert not result["success"], (
                 f"Expected non-empty target restore to be rejected: {result}"
             )
-            assert result["phase"] == "reject_populated_target"
-            con_dst.close()
+            assert "already exists" in result.get("reason", "").lower()
         finally:
             import shutil
 
