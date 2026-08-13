@@ -386,6 +386,22 @@ class Unknown(VersionRow):
     unknown_reason: str = ""  # not_observed, not_asked, declined, forgotten, not_applicable, measurement_failed, source_unavailable, ambiguous, rights_blocked
 
 
+@dataclass(frozen=True, slots=True)
+class PersonalModelSnapshot(VersionRow):
+    """Immutable, deterministic selection of pinned canonical versions."""
+
+    evidence_transaction_cutoff: datetime.datetime | None = None
+    domain_time_lower: datetime.datetime | None = None
+    domain_time_upper: datetime.datetime | None = None
+    domain_time_precision: str = "unknown"
+    knowledge_snapshot_id: str = ""
+    previous_snapshot_record_id: RecordId | None = None
+    previous_snapshot_version_id: VersionId | None = None
+    change_summary: str = ""
+    user_review_status: str = "not_reviewed"
+    generation_derivation_id: DerivationId | None = None
+
+
 # ---------------------------------------------------------------------------
 # Derivation
 # ---------------------------------------------------------------------------

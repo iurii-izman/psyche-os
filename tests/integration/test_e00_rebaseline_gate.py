@@ -161,6 +161,8 @@ class TestTransactionalMigrations:
             # Register it
             from psyche_os.storage.schema import SCHEMA_VERSIONS
 
+            original_v2 = MIGRATIONS.get(2)
+            original_v2_label = SCHEMA_VERSIONS.get(2)
             SCHEMA_VERSIONS[2] = "test_bad_migration"
             MIGRATIONS[2] = bad_migration
 
@@ -189,8 +191,14 @@ class TestTransactionalMigrations:
                 row = cur.fetchone()
                 assert row is None, "Bookkeeping shows v1 applied after injected failure!"
             finally:
-                MIGRATIONS.pop(2, None)
-                SCHEMA_VERSIONS.pop(2, None)
+                if original_v2 is not None:
+                    MIGRATIONS[2] = original_v2
+                else:
+                    MIGRATIONS.pop(2, None)
+                if original_v2_label is not None:
+                    SCHEMA_VERSIONS[2] = original_v2_label
+                else:
+                    SCHEMA_VERSIONS.pop(2, None)
         finally:
             con.close()
 
@@ -208,6 +216,8 @@ class TestTransactionalMigrations:
                 "INSERT INTO _missing_table_ VALUES (1);"
             ],
         )
+        original_v2 = MIGRATIONS.get(2)
+        original_v2_label = SCHEMA_VERSIONS.get(2)
         MIGRATIONS[2] = migration
         SCHEMA_VERSIONS[2] = migration.label
         try:
@@ -220,8 +230,14 @@ class TestTransactionalMigrations:
             assert "_must_rollback_" not in names
             assert list(con.execute("SELECT version FROM schema_migrations")) == []
         finally:
-            MIGRATIONS.pop(2, None)
-            SCHEMA_VERSIONS.pop(2, None)
+            if original_v2 is not None:
+                MIGRATIONS[2] = original_v2
+            else:
+                MIGRATIONS.pop(2, None)
+            if original_v2_label is not None:
+                SCHEMA_VERSIONS[2] = original_v2_label
+            else:
+                SCHEMA_VERSIONS.pop(2, None)
             con.close()
 
     def test_clean_database_failure_rolls_back_bookkeeping_table(self) -> None:

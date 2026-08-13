@@ -22,6 +22,11 @@ from psyche_os.storage.schema import (
     SCHEMA_MIGRATIONS_DDL,
     SCHEMA_VERSIONS,
 )
+from psyche_os.storage.e03_schema import V2_MIGRATION_CHECKSUM, V2_MIGRATION_STATEMENTS
+
+# The accepted default reader remains V1.  E03 calls target_version=2
+# explicitly; this prevents legacy callers from silently migrating a vault.
+CURRENT_SCHEMA_VERSION = 1
 
 # ---------------------------------------------------------------------------
 # Migration record
@@ -99,6 +104,13 @@ def _migration_v1() -> Migration:
 
 MIGRATIONS: dict[int, Migration] = {
     1: _migration_v1(),
+    2: Migration(
+        version=2,
+        label="e03_evidence_archive_v2",
+        statements=list(V2_MIGRATION_STATEMENTS),
+        down_sql="",
+        checksum=V2_MIGRATION_CHECKSUM,
+    ),
 }
 
 
@@ -204,7 +216,13 @@ class Migrator:
 
         return report
 
-    def apply(self, target_version: int = CURRENT_SCHEMA_VERSION) -> MigrationReport:
+    def apply(
+        self,
+        target_version: int = CURRENT_SCHEMA_VERSION,
+        *,
+        backup_verified: bool = False,
+        export_verified: bool = False,
+    ) -> MigrationReport:
         """Apply migrations up to target_version in a single transaction.
 
         Every statement from the migration's explicit statement list is applied
@@ -232,6 +250,44 @@ class Migrator:
         if target_version < current:
             report.errors.append(f"Cannot downgrade from {current} to {target_version}")
             return report
+
+        if current == 1 and target_version >= 2:
+            try:
+                from psyche_os.storage.e03_schema import V1_INVENTORY
+
+                tables = {
+                    row[0]
+                    for row in self._con.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+                    )
+                }
+                if tables != set(V1_INVENTORY):
+                    raise MigrationError("V1 exact inventory mismatch")
+                pending = self._con.execute(
+                    "SELECT COUNT(*) FROM deletion_requests WHERE status IN ('pending','approved','in_progress')"
+                ).fetchone()[0]
+                if pending:
+                    raise MigrationError("Pending deletion blocks migration")
+                domains = self._con.execute(
+                    "SELECT COUNT(*) FROM claims WHERE claim_type NOT IN "
+                    "('descriptive','causal','predictive','evaluative','normative','definitional','diagnostic','synthetic','comparative','existential','prudential','taxonomic') "
+                    "OR claim_status NOT IN ('proposed','supported','contradicted','resolved','retracted','superseded','disconfirmed','pending_review') "
+                    "OR claim_origin NOT IN ('observation','inference','derivation','abduction','analogy','testimony')"
+                ).fetchone()[0]
+                if domains:
+                    raise MigrationError("Malformed or out-of-domain V1 claim")
+                integrity = self._con.execute("PRAGMA integrity_check").fetchone()
+                if not integrity or integrity[0] != "ok":
+                    raise MigrationError("V1 integrity check failed")
+                semantic_rows = sum(
+                    self._con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                    for table in ("source_artifacts", "reports", "observations", "assertions", "claims")
+                )
+                if semantic_rows and not (backup_verified and export_verified):
+                    raise MigrationError("Verified V1 backup and export are required")
+            except Exception as exc:
+                report.errors.append(str(exc))
+                return report
 
         try:
             chain = get_migration_chain(target_version)
