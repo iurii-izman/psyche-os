@@ -1,8 +1,8 @@
 # Post-E11 Conversational Psychological Support North Star
 
-**Status:** forward-compatibility contract; documentation only  
-**Horizon:** after E11 and only through separately authorized capability work  
-**Owner profile:** one adult owner of one personal vault  
+**Status:** forward-compatibility contract; documentation only
+**Horizon:** after E11 and only through separately authorized capability work
+**Owner profile:** one adult owner of one personal vault
 **REAL_DATA_GATE:** `CLOSED`
 
 ## Authority and boundary
