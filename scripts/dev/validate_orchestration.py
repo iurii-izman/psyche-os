@@ -135,6 +135,9 @@ def main() -> int:
         for entry in accepted_entries
         if isinstance(entry, (str, dict))
     }
+    epic_text = EPIC_MAP_PATH.read_text(encoding="utf-8") if EPIC_MAP_PATH.is_file() else ""
+    epic_matches = EPIC_RE.findall(epic_text)
+    epic_ids = [epic_id for epic_id, _ in epic_matches]
     result.check(
         isinstance(current_id, str) and re.fullmatch(r"E\d{2}", current_id) is not None,
         "current epic id is valid",
@@ -159,7 +162,27 @@ def main() -> int:
         result.check(next_epic.get("status") == "PLANNED", "E01 remains PLANNED until JIT preparation")
     elif current_id != "E00":
         result.check("E00" in accepted_ids, "accepted E00 precedes later epic work")
-        result.check(current.get("status") in {"READY", "IN_PROGRESS", "IMPLEMENTED", "BLOCKED"}, "later current epic has an actionable status")
+        if current.get("status") == "ACCEPTED":
+            result.check(current_id in accepted_ids, "later current epic acceptance is recorded")
+            current_index = epic_ids.index(current_id) if current_id in epic_ids else -1
+            expected_next_id = (
+                epic_ids[current_index + 1]
+                if 0 <= current_index < len(epic_ids) - 1
+                else None
+            )
+            result.check(
+                next_epic.get("id") == expected_next_id,
+                "mapped successor follows accepted later current epic",
+            )
+            result.check(
+                next_epic.get("status") == "PLANNED",
+                "successor remains PLANNED until JIT preparation",
+            )
+        else:
+            result.check(
+                current.get("status") in {"READY", "IN_PROGRESS", "IMPLEMENTED", "BLOCKED"},
+                "later current epic has an actionable status",
+            )
     else:
         result.check(current.get("status") == "READY", "E00 is READY")
         result.check(not accepted_ids, "no implementation epic is prematurely accepted")
@@ -167,9 +190,6 @@ def main() -> int:
     for relative in nested_path_values(state):
         result.check((ROOT / relative).is_file(), f"state reference exists: {relative}")
 
-    epic_text = EPIC_MAP_PATH.read_text(encoding="utf-8") if EPIC_MAP_PATH.is_file() else ""
-    epic_matches = EPIC_RE.findall(epic_text)
-    epic_ids = [epic_id for epic_id, _ in epic_matches]
     result.check(bool(epic_ids), "epic map contains epic headings")
     result.check(len(epic_ids) == len(set(epic_ids)), "epic IDs are unique")
     result.check(
