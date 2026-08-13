@@ -24,7 +24,7 @@ class VersionedPackageError(Exception):
 
 def _schema_version(connection: Any) -> int:
     row = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()
-    if not row or row[0] not in (1, 2, 3):
+    if not row or row[0] not in (1, 2, 3, 4):
         raise VersionedPackageError("Schema migration evidence is missing")
     return int(row[0])
 
