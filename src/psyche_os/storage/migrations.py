@@ -23,6 +23,7 @@ from psyche_os.storage.schema import (
     SCHEMA_VERSIONS,
 )
 from psyche_os.storage.e03_schema import V2_MIGRATION_CHECKSUM, V2_MIGRATION_STATEMENTS
+from psyche_os.storage.e05_schema import V3_MIGRATION_CHECKSUM, V3_MIGRATION_STATEMENTS
 
 # The accepted default reader remains V1.  E03 calls target_version=2
 # explicitly; this prevents legacy callers from silently migrating a vault.
@@ -110,6 +111,13 @@ MIGRATIONS: dict[int, Migration] = {
         statements=list(V2_MIGRATION_STATEMENTS),
         down_sql="",
         checksum=V2_MIGRATION_CHECKSUM,
+    ),
+    3: Migration(
+        version=3,
+        label="e05_longitudinal_analysis_v3",
+        statements=list(V3_MIGRATION_STATEMENTS),
+        down_sql="",
+        checksum=V3_MIGRATION_CHECKSUM,
     ),
 }
 
@@ -286,6 +294,32 @@ class Migrator:
                 # an implicit prerequisite exception.
                 if not (backup_verified and export_verified):
                     raise MigrationError("Verified V1 backup and export are required")
+            except Exception as exc:
+                report.errors.append(str(exc))
+                return report
+
+        if current == 2 and target_version >= 3:
+            try:
+                from psyche_os.storage.e03_schema import V2_INVENTORY
+
+                tables = {
+                    row[0]
+                    for row in self._con.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+                    )
+                }
+                if tables != set(V2_INVENTORY):
+                    raise MigrationError("V2 exact inventory mismatch")
+                pending = self._con.execute(
+                    "SELECT COUNT(*) FROM deletion_requests WHERE status IN ('pending','approved','in_progress')"
+                ).fetchone()[0]
+                if pending:
+                    raise MigrationError("Pending deletion blocks migration")
+                integrity = self._con.execute("PRAGMA integrity_check").fetchone()
+                if not integrity or integrity[0] != "ok":
+                    raise MigrationError("V2 integrity check failed")
+                if not (backup_verified and export_verified):
+                    raise MigrationError("Verified V2 backup and export are required")
             except Exception as exc:
                 report.errors.append(str(exc))
                 return report

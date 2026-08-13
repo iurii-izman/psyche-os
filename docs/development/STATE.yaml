@@ -11,9 +11,9 @@ real_data_gate:
 current_epic:
   id: "E05"
   name: "Longitudinal, EMA, Sleep, and Descriptive Analysis"
-  status: "READY"
-  implementation_status: "NOT_STARTED"
-  review_verdict: "PENDING_IMPLEMENTATION"
+  status: "ACCEPTED"
+  implementation_status: "ACCEPTED"
+  review_verdict: "ACCEPTED"
   risk: "RISK-M"
   expected_final_gate: "EPIC"
   prompt: "docs/prompts/deepseek/E05_LONGITUDINAL_EMA_SLEEP_DESCRIPTIVE_ANALYSIS.md"
@@ -43,6 +43,10 @@ accepted_epics:
     status: "ACCEPTED"
     report: "docs/implementation/E04_ACCEPTANCE_REPORT.md"
     commit: "9197441a43c79a8c1905bdd7547f00073c76ece4"
+  - id: "E05"
+    status: "ACCEPTED"
+    report: "docs/implementation/E05_ACCEPTANCE_REPORT.md"
+    commit: "8097de1a1f2e3e7e8e6199f633a774180e298069"
 
 next_epic:
   id: "E06"
@@ -58,10 +62,10 @@ architecture:
   epic_map: "docs/development/EPIC_MAP.md"
 
 git:
-  branch: "main"
+  branch: "codex/e05-longitudinal-ema-sleep-analysis"
   prepared_from_commit: "10030be3b1b13e72f047fa07878d9c2a6ac089b6"
-  accepted_commit: "9197441a43c79a8c1905bdd7547f00073c76ece4"
+  accepted_commit: "8097de1a1f2e3e7e8e6199f633a774180e298069"
 
 next_action:
-  prompt: "docs/prompts/deepseek/E05_LONGITUDINAL_EMA_SLEEP_DESCRIPTIVE_ANALYSIS.md"
-  instruction: "Give the E05 prompt to DeepSeek. Implement only the fixed synthetic longitudinal vertical slice; do not add real capture, passive sensing, clinical/causal claims, or prepare E06, and keep REAL_DATA_GATE CLOSED."
+  prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
+  instruction: "Prepare exactly E06 from accepted E05 on main. Do not implement E06 and keep REAL_DATA_GATE CLOSED."

@@ -1,4 +1,4 @@
-"""Explicit schema-versioned V1/V2 logical portability and export helpers.
+"""Explicit schema-versioned V1/V2/V3 logical portability and export helpers.
 
 The accepted encrypted E01 V1 package reader remains unchanged.  E03 uses this
 small dispatch layer for exact-inventory semantic portability proofs and for
@@ -24,7 +24,7 @@ class VersionedPackageError(Exception):
 
 def _schema_version(connection: Any) -> int:
     row = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()
-    if not row or row[0] not in (1, 2):
+    if not row or row[0] not in (1, 2, 3):
         raise VersionedPackageError("Schema migration evidence is missing")
     return int(row[0])
 
