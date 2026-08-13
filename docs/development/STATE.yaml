@@ -11,9 +11,9 @@ real_data_gate:
 current_epic:
   id: "E03"
   name: "Evidence Archive, Timeline, and Epistemic Explorer"
-  status: "READY"
-  implementation_status: "NOT_STARTED"
-  review_verdict: "PENDING_IMPLEMENTATION_AND_CODEX_REVIEW"
+  status: "IMPLEMENTED"
+  implementation_status: "IMPLEMENTED"
+  review_verdict: "PENDING_INDEPENDENT_CODEX_REVIEW"
   risk: "RISK-H"
   expected_final_gate: "FULL"
   prompt: "docs/prompts/deepseek/E03_EVIDENCE_ARCHIVE_TIMELINE.md"
