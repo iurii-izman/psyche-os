@@ -10,8 +10,6 @@ from psyche_os.domain.experiments import (
     FIXED_R1_ID,
     ActionRiskTier,
     AnalysisResult,
-    ClaimEvidence,
-    ClaimLevel,
     DesignTier,
     ExperimentProtocol,
     ExperimentValidationError,
@@ -71,8 +69,8 @@ def fictional_protocol() -> ExperimentProtocol:
         "fictional-scale-v1",
         "no historical baseline; eight randomized fixture periods define the test window",
         "eight-period balanced randomized crossover",
-        "python_mt19937_balanced_shuffle",
-        "python-random-v1",
+        "psyche_sha256_balanced_rank",
+        "sha256-rank-v1",
         6062044,
         "fixture labels are not blinded",
         8,
@@ -124,14 +122,12 @@ def fictional_records(protocol: ExperimentProtocol) -> tuple[PeriodRecord, ...]:
     return tuple(records)
 
 
-FULL_EVIDENCE = ClaimEvidence(*((ClaimLevel.C5_RANDOMIZED_SINGLE_CASE,) * 7))
-
-
 class E06ExperimentService:
     """No raw payload entry point: only exact fixture operations and choices."""
 
     _ALLOWED: ClassVar[set[tuple[str, str]]] = {
         ("LOAD_FICTIONAL_PRISM", "fictional_prism_v1"),
+        *(("ADVANCE_FICTIONAL_PRISM", f"period_{period}") for period in range(1, 9)),
         ("ANALYZE_FICTIONAL_PRISM", "preregistered_known_answer"),
         ("STOP_FICTIONAL_PRISM", "user_stop"),
         ("SIGNAL_ADVERSE_FICTIONAL_PRISM", "adverse_signal"),
@@ -156,6 +152,8 @@ class E06ExperimentService:
             return self._results[idempotency_key]
         if operation == "LOAD_FICTIONAL_PRISM":
             result: Any = self._load()
+        elif operation == "ADVANCE_FICTIONAL_PRISM":
+            result = self._advance(choice)
         elif operation == "ANALYZE_FICTIONAL_PRISM":
             result = self._analyze()
         elif operation == "DELETE_FICTIONAL_PRISM":
@@ -186,7 +184,6 @@ class E06ExperimentService:
             raise E06ExperimentError(protocol_decision.code.value)
         assignments = seeded_assignments(protocol)
         digest = assignment_digest(assignments)
-        records = fictional_records(protocol)
         with self.connection:
             self.connection.execute(
                 "INSERT OR IGNORE INTO intervention_definitions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -262,32 +259,161 @@ class E06ExperimentService:
                     "2044-06-01T00:00:00+00:00",
                 ),
             )
-            for record in records:
-                self.connection.execute(
-                    "INSERT OR IGNORE INTO experiment_period_records VALUES(?,?,?,?,?,?,?,?,?,?)",
-                    (
-                        RUN_ID,
-                        record.period,
-                        4,
-                        record.scheduled_condition,
-                        record.actual_exposure,
-                        record.outcome_time.isoformat() if record.outcome_time else None,
-                        record.outcome,
-                        record.missingness.value,
-                        record.deviation,
-                        record.concurrent_change,
-                    ),
-                )
         return {
             "interventions": 1,
             "protocols": 1,
             "runs": 1,
-            "periods": 8,
+            "scheduled_periods": 8,
+            "executed_periods": 0,
             "data_mode": "synthetic_only",
         }
 
+    def _canonical_protocol(self) -> ExperimentProtocol:
+        row = self.connection.execute(
+            "SELECT * FROM experiment_protocols WHERE protocol_id='fictional-prism-crossover' AND protocol_version='1.0.0'"
+        ).fetchone()
+        if row is None or row[2] != 4:
+            raise E06ExperimentError("CANONICAL_PROTOCOL_UNAVAILABLE")
+        try:
+            return ExperimentProtocol(
+                row[0],
+                row[1],
+                DesignTier(row[3]),
+                row[4],
+                row[5],
+                row[6],
+                row[7],
+                row[8],
+                row[9],
+                row[10],
+                row[11],
+                row[12],
+                row[13],
+                row[14],
+                row[15],
+                row[16],
+                row[17],
+                row[18],
+                row[19],
+                row[20],
+                row[21],
+                row[22],
+                row[23],
+                row[24],
+                row[25],
+                row[26],
+                row[27],
+                row[28],
+                row[29],
+                dt.datetime.fromisoformat(row[30]),
+                row[31],
+            )
+        except (TypeError, ValueError) as exc:
+            raise E06ExperimentError("CANONICAL_PROTOCOL_INVALID") from exc
+
+    def _canonical_intervention(self) -> InterventionDefinition:
+        row = self.connection.execute(
+            "SELECT * FROM intervention_definitions WHERE intervention_id=? AND intervention_version='1.0.0'",
+            (FIXED_R1_ID,),
+        ).fetchone()
+        if row is None or row[2] != 4:
+            raise E06ExperimentError("CANONICAL_INTERVENTION_UNAVAILABLE")
+        try:
+            definition = InterventionDefinition(
+                row[0],
+                row[1],
+                row[3],
+                (row[4],),
+                row[5],
+                bool(row[6]),
+                row[7],
+                row[8],
+                row[9],
+                row[10],
+                row[11],
+                row[12],
+                ActionRiskTier(row[13]),
+                row[14],
+                row[15],
+            )
+        except (TypeError, ValueError) as exc:
+            raise E06ExperimentError("CANONICAL_INTERVENTION_INVALID") from exc
+        if not resolve_intervention(definition).allowed:
+            raise E06ExperimentError("CANONICAL_INTERVENTION_DENIED")
+        return definition
+
+    def _canonical_records(self) -> tuple[PeriodRecord, ...]:
+        rows = self.connection.execute(
+            "SELECT period,scheduled_condition,actual_exposure,outcome_time,outcome_value,missingness,deviation_code,concurrent_change_code "
+            "FROM experiment_period_records WHERE run_id=? ORDER BY period",
+            (RUN_ID,),
+        ).fetchall()
+        try:
+            return tuple(
+                PeriodRecord(
+                    row[0],
+                    row[1],
+                    row[2],
+                    dt.datetime.fromisoformat(row[3]) if row[3] else None,
+                    row[4],
+                    MissingOutcome(row[5]),
+                    row[6],
+                    row[7],
+                )
+                for row in rows
+            )
+        except (TypeError, ValueError) as exc:
+            raise E06ExperimentError("CANONICAL_EXECUTION_INVALID") from exc
+
+    def _advance(self, choice: str) -> dict[str, int | str]:
+        requested_period = int(choice.removeprefix("period_"))
+        row = self.connection.execute(
+            "SELECT preregistration_digest,assignment_digest,status FROM experiment_runs WHERE run_id=?",
+            (RUN_ID,),
+        ).fetchone()
+        if row is None:
+            raise E06ExperimentError("FIXTURE_NOT_LOADED")
+        preregistration, expected_assignment, status = row
+        if status != "active":
+            raise E06ExperimentError("EXECUTION_FROZEN")
+        protocol = self._canonical_protocol()
+        if preregistration != protocol.digest:
+            self._stop(StopReason.STALE_PROTOCOL)
+            raise E06ExperimentError("STALE_PROTOCOL")
+        if assignment_digest(seeded_assignments(protocol)) != expected_assignment:
+            self._stop(StopReason.ASSIGNMENT_DRIFT)
+            raise E06ExperimentError("ASSIGNMENT_DRIFT")
+        executed = self.connection.execute(
+            "SELECT COUNT(*) FROM experiment_period_records WHERE run_id=?", (RUN_ID,)
+        ).fetchone()[0]
+        if requested_period != executed + 1:
+            raise E06ExperimentError("PERIOD_TRANSITION_OUT_OF_ORDER")
+        record = fictional_records(protocol)[requested_period - 1]
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO experiment_period_records VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (
+                    RUN_ID,
+                    record.period,
+                    4,
+                    record.scheduled_condition,
+                    record.actual_exposure,
+                    record.outcome_time.isoformat() if record.outcome_time else None,
+                    record.outcome,
+                    record.missingness.value,
+                    record.deviation,
+                    record.concurrent_change,
+                ),
+            )
+        return {
+            "executed_period": requested_period,
+            "remaining_periods": 8 - requested_period,
+            "status": "active",
+        }
+
     def _analyze(self) -> AnalysisResult:
-        protocol = fictional_protocol()
+        protocol = self._canonical_protocol()
+        intervention = self._canonical_intervention()
         row = self.connection.execute(
             "SELECT preregistration_digest,assignment_digest,status,stop_reason FROM experiment_runs WHERE run_id=?",
             (RUN_ID,),
@@ -303,10 +429,9 @@ class E06ExperimentService:
         try:
             return analyze_known_answer(
                 protocol,
-                fictional_intervention(),
-                fictional_records(protocol),
+                intervention,
+                self._canonical_records(),
                 expected_assignment,
-                FULL_EVIDENCE,
             )
         except ExperimentValidationError as exc:
             if "assignment drift" in str(exc):

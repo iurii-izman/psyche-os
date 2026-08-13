@@ -8,7 +8,6 @@ from decimal import Decimal
 from enum import IntEnum, StrEnum
 import hashlib
 import json
-import random
 
 
 class ExperimentValidationError(ValueError):
@@ -126,7 +125,22 @@ def resolve_intervention(definition: InterventionDefinition) -> RiskDecision:
     if definition.risk_tier is ActionRiskTier.R2_MODERATE_OR_SYMPTOM_TARGETING:
         return RiskDecision(False, definition.risk_tier, RiskDecisionCode.QUALIFIED_REVIEW_REQUIRED)
     if definition.risk_tier is ActionRiskTier.R0_OBSERVATIONAL:
-        allowed = definition.intervention_id == FIXED_R0_ID
+        allowed = (
+            definition.intervention_id == FIXED_R0_ID
+            and definition.version == "1.0.0"
+            and definition.label == "Fictional prism observation"
+            and definition.components == ("observe the fictional prism marker without changing it",)
+            and definition.delivery == "fixture_observation_only"
+            and definition.reversible
+            and definition.evidence_certainty == "mechanics_fixture_only"
+            and definition.harms_boundary == "stop_on_any_unwanted_or_adverse_signal"
+            and definition.contraindication_boundary == "any_contraindication_blocks"
+            and definition.accessibility_equity == "neutral_nonclinical_fixture"
+            and definition.rights_state == "repository_owned_fictional"
+            and definition.guideline_context == "none_fixture_only"
+            and definition.review_state == "fixture_observational_allowlisted"
+            and definition.review_trigger == "identity_component_or_risk_change"
+        )
         return RiskDecision(
             allowed,
             definition.risk_tier,
@@ -238,13 +252,28 @@ class Assignment:
 
 def seeded_assignments(protocol: ExperimentProtocol) -> tuple[Assignment, ...]:
     if (
-        protocol.assignment_algorithm != "python_mt19937_balanced_shuffle"
-        or protocol.assignment_version != "python-random-v1"
+        protocol.assignment_algorithm != "psyche_sha256_balanced_rank"
+        or protocol.assignment_version != "sha256-rank-v1"
     ):
         raise ExperimentValidationError("assignment algorithm/config drift")
-    labels = [protocol.condition_a] * 4 + [protocol.condition_b] * 4
-    random.Random(protocol.seed).shuffle(labels)
-    return tuple(Assignment(index, label) for index, label in enumerate(labels, 1))
+    # Fully specified PSYCHE OS algorithm: rank period numbers by the unsigned
+    # SHA-256 digest of this exact ASCII payload, assign the first half A and
+    # the second half B, then return records in period order. No runtime RNG
+    # implementation participates in historical reproduction.
+    ranked = sorted(
+        range(1, protocol.duration_periods + 1),
+        key=lambda period: hashlib.sha256(
+            f"psyche-os-e06-assignment-v1:{protocol.seed}:{period}".encode("ascii")
+        ).digest(),
+    )
+    a_periods = frozenset(ranked[: protocol.duration_periods // 2])
+    return tuple(
+        Assignment(
+            period,
+            protocol.condition_a if period in a_periods else protocol.condition_b,
+        )
+        for period in range(1, protocol.duration_periods + 1)
+    )
 
 
 def assignment_digest(assignments: tuple[Assignment, ...]) -> str:
@@ -290,9 +319,12 @@ class ClaimEvidence:
 
 @dataclass(frozen=True, slots=True)
 class ClaimDecision:
-    ceiling: ClaimLevel
-    reasons: tuple[str, ...]
-    wording: str
+    supported_ceiling: ClaimLevel
+    requested_level: ClaimLevel
+    allowed: bool
+    denial_reasons: tuple[str, ...]
+    emitted_level: ClaimLevel | None
+    wording: str | None
 
 
 DESIGN_CEILING = {
@@ -330,13 +362,29 @@ def resolve_claim(
         "intervention_risk": RISK_CEILING[risk],
         **{f.name: getattr(evidence, f.name) for f in fields(evidence)},
     }
-    ceiling = min(named.values())
-    reasons = tuple(
-        f"{name}_ceiling={value.name}" for name, value in named.items() if value == ceiling
+    supported_ceiling = min(named.values())
+    limiting_reasons = tuple(
+        f"{name}_ceiling={value.name}"
+        for name, value in named.items()
+        if value == supported_ceiling
     )
-    if requested > ceiling:
-        reasons += (f"requested_{requested.name}_denied",)
-    return ClaimDecision(ceiling, reasons, CLAIM_WORDING[ceiling])
+    if requested > supported_ceiling:
+        return ClaimDecision(
+            supported_ceiling,
+            requested,
+            False,
+            (*limiting_reasons, f"requested_{requested.name}_denied"),
+            None,
+            None,
+        )
+    return ClaimDecision(
+        supported_ceiling,
+        requested,
+        True,
+        (),
+        requested,
+        CLAIM_WORDING[requested],
+    )
 
 
 PROHIBITED_OUTPUT = (
@@ -385,6 +433,105 @@ class PeriodRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceEvaluation:
+    evidence: ClaimEvidence
+    coverage: Decimal
+    sensitivity_results: tuple[str, ...]
+
+
+def _contrast(records: tuple[PeriodRecord, ...], protocol: ExperimentProtocol) -> Decimal | None:
+    observed = tuple(record for record in records if record.missingness is MissingOutcome.OBSERVED)
+    a_values = tuple(
+        record.outcome
+        for record in observed
+        if record.scheduled_condition == protocol.condition_a and record.outcome is not None
+    )
+    b_values = tuple(
+        record.outcome
+        for record in observed
+        if record.scheduled_condition == protocol.condition_b and record.outcome is not None
+    )
+    if not a_values or not b_values:
+        return None
+    return Decimal(sum(b_values)) / Decimal(len(b_values)) - Decimal(sum(a_values)) / Decimal(
+        len(a_values)
+    )
+
+
+def evaluate_evidence(
+    protocol: ExperimentProtocol,
+    records: tuple[PeriodRecord, ...],
+    *,
+    assignment_integrity: bool,
+) -> EvidenceEvaluation:
+    """Derive the seven frozen fixture axes from protocol and execution state."""
+    observed = tuple(record for record in records if record.missingness is MissingOutcome.OBSERVED)
+    coverage = Decimal(len(observed)) / Decimal(protocol.duration_periods)
+    missing = tuple(
+        record for record in records if record.missingness is not MissingOutcome.OBSERVED
+    )
+    counts = {
+        condition: sum(record.scheduled_condition == condition for record in observed)
+        for condition in (protocol.condition_a, protocol.condition_b)
+    }
+    base_contrast = _contrast(records, protocol)
+    leave_one_out = tuple(
+        contrast
+        for index in range(len(records))
+        if (contrast := _contrast(records[:index] + records[index + 1 :], protocol)) is not None
+    )
+    sensitivity_ok = (
+        base_contrast is not None
+        and base_contrast != 0
+        and len(leave_one_out) == len(records)
+        and all((contrast > 0) == (base_contrast > 0) for contrast in leave_one_out)
+    )
+    sensitivity_results = (
+        "leave-one-period-out preserves contrast direction"
+        if sensitivity_ok
+        else "leave-one-period-out sensitivity failed",
+        "no missing outcome imputation",
+    )
+    high = ClaimLevel.C5_RANDOMIZED_SINGLE_CASE
+    low = ClaimLevel.C2_TEMPORAL_PRECEDENCE
+    evidence = ClaimEvidence(
+        measurement=(
+            high
+            if protocol.measurement_version == "fictional-scale-v1"
+            else ClaimLevel.C1_COOCCURRENCE
+        ),
+        coverage=(high if coverage >= Decimal("0.875") else low),
+        missingness=(
+            high
+            if len(missing) <= 1
+            and all(record.missingness is MissingOutcome.TECHNICAL_FAILURE for record in missing)
+            else low
+        ),
+        serial_dependence=(
+            high
+            if protocol.autocorrelation_plan
+            == "report lag-one contrast and leave-one-period-out sensitivity"
+            else low
+        ),
+        carryover=(
+            high
+            if protocol.washout_carryover
+            == "each period is independent by construction; lag-one sensitivity is required"
+            else low
+        ),
+        replication=(
+            high
+            if assignment_integrity
+            and counts[protocol.condition_a] >= 3
+            and counts[protocol.condition_b] >= 3
+            else ClaimLevel.C1_COOCCURRENCE
+        ),
+        sensitivity=(high if sensitivity_ok else low),
+    )
+    return EvidenceEvaluation(evidence, coverage, sensitivity_results)
+
+
+@dataclass(frozen=True, slots=True)
 class AnalysisResult:
     scope: str
     window: str
@@ -416,7 +563,7 @@ def analyze_known_answer(
     intervention: InterventionDefinition,
     records: tuple[PeriodRecord, ...],
     expected_assignment_digest: str,
-    evidence: ClaimEvidence,
+    requested_level: ClaimLevel = ClaimLevel.C5_RANDOMIZED_SINGLE_CASE,
 ) -> AnalysisResult:
     assignments = seeded_assignments(protocol)
     actual_digest = assignment_digest(assignments)
@@ -427,6 +574,7 @@ def analyze_known_answer(
         for r, a in zip(records, assignments, strict=True)
     ):
         raise ExperimentValidationError("scheduled assignment mismatch")
+    evaluation = evaluate_evidence(protocol, records, assignment_integrity=True)
     observed = tuple(r for r in records if r.missingness is MissingOutcome.OBSERVED)
     a_values = tuple(
         r.outcome
@@ -443,7 +591,7 @@ def analyze_known_answer(
     mean_a = Decimal(sum(a_values)) / Decimal(len(a_values))
     mean_b = Decimal(sum(b_values)) / Decimal(len(b_values))
     claim = resolve_claim(
-        protocol.design_tier, intervention.risk_tier, evidence, ClaimLevel.C5_RANDOMIZED_SINGLE_CASE
+        protocol.design_tier, intervention.risk_tier, evaluation.evidence, requested_level
     )
     return AnalysisResult(
         "single repository-owned fictional prism run",
@@ -458,7 +606,7 @@ def analyze_known_answer(
         protocol.analysis_version,
         tuple(r.period for r in observed),
         tuple(r.period for r in records if r not in observed),
-        Decimal(len(observed)) / Decimal(len(records)),
+        evaluation.coverage,
         tuple((state, sum(r.missingness is state for r in records)) for state in MissingOutcome),
         mean_a,
         mean_b,
@@ -466,7 +614,7 @@ def analyze_known_answer(
         protocol.autocorrelation_plan,
         protocol.washout_carryover,
         protocol.multiplicity_family,
-        ("leave-one-period-out preserves contrast direction", "no missing outcome imputation"),
+        evaluation.sensitivity_results,
         claim,
         (
             "Synthetic mechanics fixture only.",
