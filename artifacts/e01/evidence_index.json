@@ -3,7 +3,7 @@
   "epic": "E01",
   "title": "Synthetic Assurance and Independent Recovery Proof",
   "accepted_commit": "0090ba0",
-  "repair_commit": "ACCEPTED_E01_BOUNDARY_COMMIT",
+  "repair_commit": "eac9031",
   "platform": "windows",
   "profile": "synthetic-database-only",
   "real_data_gate": "CLOSED",

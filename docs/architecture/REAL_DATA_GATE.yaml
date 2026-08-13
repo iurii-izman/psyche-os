@@ -21,7 +21,7 @@ authority:
   privacy_security: "docs/architecture/PRIVACY_SECURITY_MODEL.md"
   threat_model: "docs/architecture/THREAT_MODEL.md"
   frozen_f0_contract: "docs/prompts/F0_IMPLEMENTATION_PROMPT.md"
-  next_implementation_contract: "docs/prompts/deepseek/E01_FINAL_TARGETED_FIX.md"
+  next_implementation_contract: "docs/prompts/deepseek/E02_SECURE_DESKTOP_SHELL.md"
   e00_rebaseline: "docs/development/E00_REBASELINE_DECISION.md"
 opening_rule:
   automatic_opening_forbidden: true
@@ -124,4 +124,4 @@ regression_triggers:
 current_decision:
   decision: "Do not ingest, copy, migrate or test with real personal data."
   reason: "E01 database-only backup/recovery is accepted, but blob/general-filesystem controls and all independent real-data evidence remain unsatisfied."
-  next_action: "Prepare exactly E02 with synthetic fixtures only; do not open the gate."
+  next_action: "Execute docs/prompts/deepseek/E02_SECURE_DESKTOP_SHELL.md with synthetic fixtures only; do not open the gate."

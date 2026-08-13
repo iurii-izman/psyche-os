@@ -9,20 +9,18 @@ real_data_gate:
   authority: "docs/architecture/REAL_DATA_GATE.yaml"
 
 current_epic:
-  id: "E01"
-  name: "Synthetic Assurance and Independent Recovery Proof"
-  status: "ACCEPTED"
-  implementation_status: "ACCEPTED"
-  review_verdict: "ACCEPTED"
+  id: "E02"
+  name: "Secure Desktop Shell and Vault Operations UX"
+  status: "READY"
+  implementation_status: "NOT_STARTED"
+  review_verdict: "PENDING_IMPLEMENTATION_AND_CODEX_REVIEW"
   risk: "RISK-H"
   expected_final_gate: "FULL"
-  prompt: "docs/prompts/deepseek/E01_SYNTHETIC_ASSURANCE_RECOVERY.md"
-  fix_prompt: "docs/prompts/deepseek/E01_FINAL_TARGETED_FIX.md"
-  report: "docs/development/reports/E01.md"
-  acceptance_report: "docs/implementation/E01_ACCEPTANCE_REPORT.md"
-  depends_on_epic: "E00"
-  depends_on_commit: "0090ba0"
-  codex_review_required: false
+  prompt: "docs/prompts/deepseek/E02_SECURE_DESKTOP_SHELL.md"
+  report: "docs/development/reports/E02.md"
+  depends_on_epic: "E01"
+  depends_on_commit: "eac9031"
+  codex_review_required: true
 
 accepted_epics:
   - id: "E00"
@@ -32,10 +30,10 @@ accepted_epics:
   - id: "E01"
     status: "ACCEPTED"
     report: "docs/implementation/E01_ACCEPTANCE_REPORT.md"
-    commit: null
+    commit: "eac9031"
 
 next_epic:
-  id: "E02"
+  id: "E03"
   status: "PLANNED"
   prompt: null
   preparation_prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
@@ -49,9 +47,9 @@ architecture:
 
 git:
   branch: "deepseek/e00-f0"
-  prepared_from_commit: "eff1a97"
-  accepted_commit: "0090ba0"
+  prepared_from_commit: "eac9031"
+  accepted_commit: "eac9031"
 
 next_action:
-  prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
-  instruction: "Prepare exactly E02 from accepted E01. Keep REAL_DATA_GATE CLOSED and do not prepare E03+."
+  prompt: "docs/prompts/deepseek/E02_SECURE_DESKTOP_SHELL.md"
+  instruction: "Give the E02 prompt to DeepSeek. Implement E02 only with synthetic fixtures; do not prepare E03 and keep REAL_DATA_GATE CLOSED."

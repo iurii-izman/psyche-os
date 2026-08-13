@@ -3,6 +3,7 @@
 **Review date:** 2026-08-13  
 **Verdict:** `ACCEPTED`  
 **Accepted baseline:** `0090ba0`  
+**Accepted E01 commit:** `eac9031`
 **Profile:** synthetic database-only  
 **REAL_DATA_GATE:** `CLOSED`
 
