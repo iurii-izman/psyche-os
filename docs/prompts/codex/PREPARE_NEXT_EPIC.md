@@ -23,6 +23,14 @@ The North Star is not implementation authority. It must not add deliverables, ca
 2. Confirm the next epic is neither already delivered nor made obsolete by the accepted implementation. Narrow/defer it rather than inventing work.
 3. Reclassify risk only if concrete changed boundaries justify it. If material architecture drift exists, require a deviation decision before preparing blocked scope.
 4. Extract exact accepted toolchain/gate commands from the current repository. Do not invent commands or arbitrary coverage targets.
+   Do not silently strengthen static-analysis scope beyond the accepted
+   repository baseline. Until repository-wide Ruff/mypy debt is explicitly
+   cleared, require strict cleanliness for touched/current-epic code plus a
+   no-new-diagnostics ratchet against the exact preparation baseline. Compare
+   stable diagnostic identities, not counts alone. Accepted untouched lint/type
+   debt does not block an unrelated epic unless that epic materially depends on
+   or changes the affected code. This does not weaken functional, safety,
+   privacy, migration or FULL pytest gates.
 5. Instantiate the template with one bounded objective, exact read list, relevant exclusions/invariants, named failure-driven tests, objective acceptance criteria, report path, and required review.
    For E07–E11, include only the smallest compatibility note applicable to that epic; defer every future conversational capability outside its mapped scope.
 6. Save exactly one prompt as `docs/prompts/deepseek/{NEXT_ID}_{SHORT_NAME}.md`.

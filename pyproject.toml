@@ -141,6 +141,7 @@ dev = [
     "psutil==7.2.2",
     "pyinstaller==6.22.0",
     "pywinauto==0.6.9",
+    "pyyaml>=6.0.3",
 ]
 
 [tool.hatch.build.targets.wheel]
