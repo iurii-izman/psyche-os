@@ -277,6 +277,22 @@ struct ExportExecuteRequest {
     confirmation: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ArchiveOperationRequest {
+    session_token: Option<String>,
+    operation: String,
+    choice: String,
+    idempotency_key: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct TimelineRequest {
+    session_token: Option<String>,
+    temporal_role: String,
+}
+
 fn bounded(values: &[&str]) -> Result<(), String> {
     if values
         .iter()
@@ -399,6 +415,60 @@ macro_rules! session_command {
 session_command!(desktop_backup_status, "backup.status");
 session_command!(desktop_verify_backup, "backup.verify");
 session_command!(desktop_validate_recovery, "recovery.validate");
+session_command!(desktop_archive_explorer, "archive.explorer");
+session_command!(desktop_archive_snapshot_diff, "archive.snapshot_diff");
+
+#[tauri::command]
+fn desktop_archive_operate(
+    window: WebviewWindow,
+    state: tauri::State<'_, DesktopState>,
+    request: ArchiveOperationRequest,
+) -> Result<Value, String> {
+    bounded(&[
+        &request.operation,
+        &request.choice,
+        &request.idempotency_key,
+    ])?;
+    invoke_python(
+        &window,
+        &state,
+        "archive.operate",
+        request.session_token.as_deref(),
+        json!({ "operation": request.operation, "choice": request.choice, "idempotency_key": request.idempotency_key }),
+    )
+}
+
+#[tauri::command]
+fn desktop_archive_timeline(
+    window: WebviewWindow,
+    state: tauri::State<'_, DesktopState>,
+    request: TimelineRequest,
+) -> Result<Value, String> {
+    bounded(&[&request.temporal_role])?;
+    invoke_python(
+        &window,
+        &state,
+        "archive.timeline",
+        request.session_token.as_deref(),
+        json!({ "temporal_role": request.temporal_role }),
+    )
+}
+
+#[tauri::command]
+fn desktop_archive_execute_deletion(
+    window: WebviewWindow,
+    state: tauri::State<'_, DesktopState>,
+    request: DeletionRequest,
+) -> Result<Value, String> {
+    bounded(&[&request.plan_id, &request.confirmation])?;
+    invoke_python(
+        &window,
+        &state,
+        "archive.deletion.execute",
+        request.session_token.as_deref(),
+        json!({ "plan_id": request.plan_id, "confirmation": request.confirmation }),
+    )
+}
 
 #[tauri::command]
 fn desktop_activate_recovery(
@@ -465,7 +535,12 @@ pub fn run() {
             desktop_validate_recovery,
             desktop_activate_recovery,
             desktop_preview_export,
-            desktop_execute_export
+            desktop_execute_export,
+            desktop_archive_operate,
+            desktop_archive_timeline,
+            desktop_archive_explorer,
+            desktop_archive_snapshot_diff,
+            desktop_archive_execute_deletion
         ])
         .setup(|app| {
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))

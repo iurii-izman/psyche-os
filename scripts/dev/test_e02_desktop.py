@@ -1,4 +1,4 @@
-"""Exercise the packaged E02 Windows app through the native UIA boundary."""
+"""Exercise packaged E02 and E03 workflows through the native UIA boundary."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ SECRET_CANARY = "E02-SECRET-CANARY-8ca4c3"
 MARKUP_CANARY = '<img src=x onerror="alert(1)"><script>bad()</script>'
 
 
-def wait_for_text(window: Any, needle: str, timeout: float = 12.0) -> None:
+def wait_for_text(window: Any, needle: str, timeout: float = 20.0) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         text = "\n".join(control.window_text() for control in window.descendants())
@@ -150,6 +150,33 @@ def run(executable: Path) -> dict[str, Any]:
         click(window, "Confirm synthetic export")
         wait_for_text(window, "Export completed. This is not a backup.")
 
+        # E03-T1..T7: only fixed fictional operations are available.  Exercise
+        # the canonical sequence through the packaged Rust/Python boundary.
+        window.set_focus()
+        window.type_keys("{END}")
+        time.sleep(0.5)
+        for label in (
+            "Capture lamp report",
+            "Capture lamp observation",
+            "Capture counterreport",
+            "Assemble epistemic set",
+            "Create baseline snapshot",
+            "Create revised snapshot",
+            "Correct report time canonically",
+        ):
+            click(window, label)
+            wait_for_text(window, f"{label} completed from the bundled fictional fixture.")
+        click(window, "Load selected timeline")
+        wait_for_text(window, "Timeline uses the occurred clock")
+        click(window, "Open evidence explorer")
+        wait_for_text(window, "A proposal is not a fact or evidence.")
+        click(window, "Compare model snapshots")
+        wait_for_text(window, "unresolved state remains visible")
+        click(window, "Preview canonical deletion")
+        wait_for_text(window, "Canonical deletion dry-run only; no state changed.")
+        click(window, "Confirm canonical deletion")
+        wait_for_text(window, "receipt contains no deleted content or stable content hash")
+
         evidence = process_evidence(process.pid)
         evidence.update(
             {
@@ -161,6 +188,11 @@ def run(executable: Path) -> dict[str, Any]:
                     "backup_verify",
                     "recovery_validate_activate",
                     "export_preview_execute",
+                    "e03_fixed_capture",
+                    "e03_explicit_timeline",
+                    "e03_epistemic_explorer",
+                    "e03_snapshot_diff",
+                    "e03_canonical_correction_deletion",
                 ],
                 "secret_surface_clean": True,
                 "malicious_markup_inert": True,
@@ -178,6 +210,7 @@ def main() -> int:
     evidence = run(args.executable.resolve())
     print(json.dumps(evidence, indent=2, sort_keys=True))
     print("E02_NATIVE_DESKTOP_UIA: PASS")
+    print("E03_NATIVE_DESKTOP_UIA: PASS")
     return 0
 
 

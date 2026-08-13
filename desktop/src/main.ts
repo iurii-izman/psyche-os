@@ -136,6 +136,81 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   const grid = el("div");
   grid.className = "grid";
 
+  let operationSequence = 0;
+  const archive = el("section");
+  archive.className = "card archive-card";
+  archive.append(el("p", "EVIDENCE ARCHIVE"), el("h2", "Orchid Station fixture"));
+  archive.append(el("p", "Closed fictional capture only. Sources, reports, assertions, proposals, conflicts, and unknowns remain distinct."));
+  const archiveAction = (label: string, operation: string, choice: string): HTMLButtonElement =>
+    button(label, async () => {
+      operationSequence += 1;
+      try {
+        const result = await api.archiveOperate(operation, choice, `desktop_${operationSequence.toString().padStart(3, "0")}`);
+        renderResult(operationStatus, result, `${label} completed from the bundled fictional fixture.`);
+      } catch (error) { safeError(operationStatus, error); }
+    });
+  archive.append(
+    archiveAction("Capture lamp report", "CAPTURE_LAMP_REPORT", "occurred_summer_2042"),
+    archiveAction("Capture lamp observation", "CAPTURE_LAMP_OBSERVATION", "observed_interval"),
+    archiveAction("Capture counterreport", "CAPTURE_COUNTERREPORT", "occurred_unknown"),
+    archiveAction("Assemble epistemic set", "ASSEMBLE_EPISTEMIC_SET", "descriptive_proposed"),
+    archiveAction("Create baseline snapshot", "CREATE_BASELINE_SNAPSHOT", "baseline"),
+    archiveAction("Create revised snapshot", "CREATE_REVISED_SNAPSHOT", "revised"),
+    archiveAction("Correct report time canonically", "CORRECT_LAMP_REPORT_TIME", "corrected_reported_exact")
+  );
+
+  const explore = el("section");
+  explore.className = "card";
+  explore.append(el("p", "TIMELINE & EPISTEMICS"), el("h2", "Select a clock explicitly"));
+  const clockLabel = el("label", "Timeline clock");
+  clockLabel.htmlFor = "timeline-clock";
+  const clock = el("select");
+  clock.id = "timeline-clock";
+  for (const role of ["occurred", "observed", "reported", "recorded", "asserted"]) {
+    const option = el("option", role);
+    option.value = role;
+    clock.append(option);
+  }
+  const timelineButton = button("Load selected timeline", async () => {
+    try { renderResult(operationStatus, await api.archiveTimeline(clock.value), `Timeline uses the ${clock.value} clock; fuzzy and unknown values remain explicit.`); }
+    catch (error) { safeError(operationStatus, error); }
+  });
+  const explorerButton = button("Open evidence explorer", async () => {
+    try { renderResult(operationStatus, await api.archiveExplorer(), "Explorer loaded. A proposal is not a fact or evidence."); }
+    catch (error) { safeError(operationStatus, error); }
+  });
+  const diffButton = button("Compare model snapshots", async () => {
+    try { renderResult(operationStatus, await api.archiveSnapshotDiff(), "Immutable deterministic snapshot change loaded; unresolved state remains visible."); }
+    catch (error) { safeError(operationStatus, error); }
+  });
+  explore.append(clockLabel, clock, timelineButton, explorerButton, diffButton);
+
+  const canonicalDeletion = el("section");
+  canonicalDeletion.className = "card";
+  canonicalDeletion.append(el("p", "CANONICAL DELETION"), el("h2", "Preview dependency closure"));
+  canonicalDeletion.append(el("p", "Dry-run changes nothing. External copies and retained backups have stated limits."));
+  let archivePlan = "";
+  const archiveDeleteConfirm = button("Confirm canonical deletion", async () => {
+    try {
+      const result = await api.archiveExecuteDeletion(archivePlan, "DELETE ORCHID LAMP SOURCE");
+      renderResult(operationStatus, result, "Canonical source and reconstructive descendants deleted; receipt contains no deleted content or stable content hash.");
+      archiveDeleteConfirm.disabled = true;
+      archiveDeletePreview.focus();
+    } catch (error) { safeError(operationStatus, error); }
+  }, "danger");
+  archiveDeleteConfirm.disabled = true;
+  const archiveDeletePreview = button("Preview canonical deletion", async () => {
+    try {
+      operationSequence += 1;
+      const result = await api.archiveOperate("DELETE_LAMP_SOURCE", "dry_run", `desktop_delete_${operationSequence}`);
+      archivePlan = String(result.plan_id ?? "");
+      renderResult(operationStatus, result, "Canonical deletion dry-run only; no state changed.");
+      archiveDeleteConfirm.disabled = !archivePlan;
+      archiveDeleteConfirm.focus();
+    } catch (error) { safeError(operationStatus, error); }
+  });
+  canonicalDeletion.append(archiveDeletePreview, archiveDeleteConfirm);
+
   const privacy = el("section");
   privacy.className = "card";
   privacy.append(el("p", "PRIVACY"), el("h2", "Correction and deletion"));
@@ -253,7 +328,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   });
   exports.append(exportForm);
 
-  grid.append(privacy, recovery, exports);
+  grid.append(privacy, recovery, exports, archive, explore, canonicalDeletion);
   main.append(statusRegion, title, grid, operationStatus);
   root.append(header, main);
 }

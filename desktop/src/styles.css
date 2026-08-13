@@ -7,10 +7,10 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 button { min-height: 44px; border: 1px solid #869287; border-radius: 10px; padding: .7rem 1rem; cursor: pointer; background: #edf0ea; color: #14241d; }
 button:hover { background: #e1e7df; }
-button:focus-visible, input:focus-visible, .skip-link:focus { outline: 3px solid #17694c; outline-offset: 3px; }
+button:focus-visible, input:focus-visible, select:focus-visible, .skip-link:focus { outline: 3px solid #17694c; outline-offset: 3px; }
 button:disabled { cursor: not-allowed; opacity: .52; }
 .primary { background: #164f3c; color: white; border-color: #164f3c; }
 .danger { color: #8a1f1f; border-color: #a35f5f; }
@@ -34,6 +34,7 @@ h2 { font-family: Georgia, serif; font-size: 1.7rem; font-weight: 500; margin: .
 .card button { width: 100%; margin-top: .55rem; }
 label { font-weight: 650; font-size: .88rem; margin-top: .3rem; }
 input[type="text"], input[type="password"] { min-height: 44px; border: 1px solid #9ba79e; border-radius: 8px; padding: .65rem .75rem; width: 100%; }
+select { min-height: 44px; border: 1px solid #9ba79e; border-radius: 8px; padding: .65rem .75rem; width: 100%; background: white; }
 label:has(input[type="checkbox"]) { display: flex; align-items: center; gap: .5rem; font-weight: 500; }
 input[type="checkbox"] { width: 20px; height: 20px; }
 hr { border: 0; border-top: 1px solid #e0e4dd; margin: 1.2rem 0; }

@@ -29,6 +29,11 @@ fn main() {
         "desktop_activate_recovery",
         "desktop_preview_export",
         "desktop_execute_export",
+        "desktop_archive_operate",
+        "desktop_archive_timeline",
+        "desktop_archive_explorer",
+        "desktop_archive_snapshot_diff",
+        "desktop_archive_execute_deletion",
     ];
     let attributes = tauri_build::Attributes::new()
         .app_manifest(tauri_build::AppManifest::new().commands(COMMANDS));
