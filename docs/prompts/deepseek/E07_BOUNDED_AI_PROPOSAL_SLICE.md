@@ -301,8 +301,8 @@ uv run pytest -q tests/unit/test_e07_bounded_ai_proposal.py tests/integration/te
 uv run pytest -q
 uv run python scripts/validate_f0_scope.py
 uv run python scripts/dev/validate_orchestration.py
-uv run ruff check src/psyche_os tests/unit/test_e07_bounded_ai_proposal.py tests/integration/test_e07_bounded_ai_proposal.py
-uv run mypy src/psyche_os
+uv run ruff check src/psyche_os/domain/ai_proposal.py src/psyche_os/application/e07_bounded_ai.py src/psyche_os/adapters/e07_provider.py tests/unit/test_e07_bounded_ai_proposal.py tests/integration/test_e07_bounded_ai_proposal.py
+uv run mypy src/psyche_os/domain/ai_proposal.py src/psyche_os/application/e07_bounded_ai.py src/psyche_os/adapters/e07_provider.py
 ```
 
 The first pytest command is the authoritative targeted E07 and adjacent-regression
@@ -310,6 +310,19 @@ set; preserve the exact new test paths. The full pytest command is the required
 `FULL` repository gate and runs once after targeted evidence is ready. Do not run
 Security Workbench. Desktop/native gates are out of scope because E07 must not
 touch desktop files.
+
+Static analysis is a no-new-diagnostics ratchet against exact preparation
+baseline `32ea55114a9285057602ef2b88b11a2edcadf58b`. In addition to the clean
+touched-file commands above, run `uv run ruff check src/psyche_os` and
+`uv run mypy src/psyche_os` on both that isolated committed baseline and the
+candidate with the same Ruff/mypy versions. Compare normalized diagnostic
+identity by repository-relative file, rule/error code and normalized message;
+count-only comparison is insufficient. E07 must introduce zero new Ruff and
+zero new mypy diagnostics. An unchanged diagnostic in an accepted untouched
+E00–E06 file is known accepted static-analysis baseline debt, not an E07 pass or
+blocker. Any diagnostic in an E07-touched Python file remains blocking. Do not
+add suppressions, weaken configuration or modify accepted files merely to make
+the repository-wide commands return zero.
 
 Record deterministic results separately from any optional provider/model
 regression. A skipped mandatory policy, privacy, safety, provider-removal or

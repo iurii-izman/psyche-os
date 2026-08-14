@@ -11,9 +11,9 @@ real_data_gate:
 current_epic:
   id: "E07"
   name: "One Optional Bounded AI Proposal Slice"
-  status: "READY"
-  implementation_status: "NOT_STARTED"
-  review_verdict: "PENDING_IMPLEMENTATION"
+  status: "ACCEPTED"
+  implementation_status: "ACCEPTED"
+  review_verdict: "ACCEPTED"
   risk: "RISK-H"
   expected_final_gate: "FULL"
   prompt: "docs/prompts/deepseek/E07_BOUNDED_AI_PROPOSAL_SLICE.md"
@@ -51,6 +51,10 @@ accepted_epics:
     status: "ACCEPTED"
     report: "docs/implementation/E06_ACCEPTANCE_REPORT.md"
     commit: "e6225c537ff94390abd1953d70d3caaf5b452712"
+  - id: "E07"
+    status: "ACCEPTED"
+    report: "docs/implementation/E07_ACCEPTANCE_REPORT.md"
+    commit: "7d6c040eb22e15ab214f904bdf97d22d38014599"
 
 next_epic:
   id: "E08"
@@ -68,8 +72,8 @@ architecture:
 git:
   branch: "main"
   prepared_from_commit: "a9c48ccd2a1b3671d25bfd48a3c134b8c9695018"
-  accepted_commit: "e6225c537ff94390abd1953d70d3caaf5b452712"
+  accepted_commit: "7d6c040eb22e15ab214f904bdf97d22d38014599"
 
 next_action:
-  prompt: "docs/prompts/deepseek/E07_BOUNDED_AI_PROPOSAL_SLICE.md"
-  instruction: "Give the E07 prompt to DeepSeek. Implement only on codex/e07-bounded-ai-proposal; require the focused Codex high-risk review before acceptance, do not prepare E08, and keep REAL_DATA_GATE CLOSED."
+  prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
+  instruction: "Inspect accepted E07 once. Prepare E08 only in a separate task, and keep REAL_DATA_GATE CLOSED."
