@@ -10,21 +10,21 @@ Schema versions:
 
 from __future__ import annotations
 
+from contextlib import suppress
 from dataclasses import dataclass, field
 import datetime
 import hashlib
 import sqlite3
 from typing import Any
 
-from psyche_os.storage.schema import (
-    ALL_DDL,
-    CURRENT_SCHEMA_VERSION,
-    SCHEMA_MIGRATIONS_DDL,
-    SCHEMA_VERSIONS,
-)
 from psyche_os.storage.e03_schema import V2_MIGRATION_CHECKSUM, V2_MIGRATION_STATEMENTS
 from psyche_os.storage.e05_schema import V3_MIGRATION_CHECKSUM, V3_MIGRATION_STATEMENTS
 from psyche_os.storage.e06_schema import V4_MIGRATION_CHECKSUM, V4_MIGRATION_STATEMENTS
+from psyche_os.storage.e08_schema import V5_MIGRATION_CHECKSUM, V5_MIGRATION_STATEMENTS
+from psyche_os.storage.schema import (
+    ALL_DDL,
+    SCHEMA_VERSIONS,
+)
 
 # The accepted default reader remains V1.  E03 calls target_version=2
 # explicitly; this prevents legacy callers from silently migrating a vault.
@@ -126,6 +126,13 @@ MIGRATIONS: dict[int, Migration] = {
         statements=list(V4_MIGRATION_STATEMENTS),
         down_sql="",
         checksum=V4_MIGRATION_CHECKSUM,
+    ),
+    5: Migration(
+        version=5,
+        label="e08_untrusted_import_v5",
+        statements=list(V5_MIGRATION_STATEMENTS),
+        down_sql="",
+        checksum=V5_MIGRATION_CHECKSUM,
     ),
 }
 
@@ -358,6 +365,32 @@ class Migrator:
                 report.errors.append(str(exc))
                 return report
 
+        if current == 4 and target_version >= 5:
+            try:
+                from psyche_os.storage.e06_schema import V4_INVENTORY
+
+                tables = {
+                    row[0]
+                    for row in self._con.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+                    )
+                }
+                if tables != set(V4_INVENTORY):
+                    raise MigrationError("V4 exact inventory mismatch")
+                pending = self._con.execute(
+                    "SELECT COUNT(*) FROM deletion_requests WHERE status IN ('pending','approved','in_progress')"
+                ).fetchone()[0]
+                if pending:
+                    raise MigrationError("Pending deletion blocks migration")
+                integrity = self._con.execute("PRAGMA integrity_check").fetchone()
+                if not integrity or integrity[0] != "ok":
+                    raise MigrationError("V4 integrity check failed")
+                if not (backup_verified and export_verified):
+                    raise MigrationError("Verified V4 backup and export are required")
+            except Exception as exc:
+                report.errors.append(str(exc))
+                return report
+
         try:
             chain = get_migration_chain(target_version)
             cur = self._con.cursor()
@@ -421,10 +454,8 @@ class Migrator:
 
         except Exception as exc:
             report.errors.append(str(exc))
-            try:
+            with suppress(Exception):
                 self._con.rollback()
-            except Exception:
-                pass
 
         return report
 

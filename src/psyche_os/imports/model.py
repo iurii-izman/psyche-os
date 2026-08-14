@@ -51,6 +51,12 @@ class ParsedSegment:
     newline: str
     text: str = field(repr=False)
 
+    def __repr__(self) -> str:
+        return (
+            f"ParsedSegment(physical_line={self.physical_line!r}, "
+            f"byte_count={self.byte_end - self.byte_start!r}, text=<redacted>)"
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class ParsedImportCandidate:
@@ -59,7 +65,7 @@ class ParsedImportCandidate:
     quarantine_id: str
     source_candidate_id: str
     source_version_id: str
-    protected_digest_ref: str
+    protected_digest_ref: str = field(repr=False)
     byte_count: int
     encoding: str
     bom: bool
@@ -72,9 +78,17 @@ class ParsedImportCandidate:
     physical_line_count: int
     segment_count: int
     transformations: tuple[str, ...]
-    segments: tuple[ParsedSegment, ...]
+    segments: tuple[ParsedSegment, ...] = field(repr=False)
     untrusted_content: bool
     policy_lineage_id: str
+
+    def __repr__(self) -> str:
+        return (
+            f"ParsedImportCandidate(byte_count={self.byte_count!r}, "
+            f"character_count={self.character_count!r}, "
+            f"physical_line_count={self.physical_line_count!r}, "
+            f"segment_count={self.segment_count!r}, content=<redacted>)"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,7 +101,7 @@ class ImportTransformation:
     def __repr__(self) -> str:
         replacement = "None" if self.replacement is None else "<redacted>"
         return (
-            f"ImportTransformation(segment_id={self.segment_id!r}, kind={self.kind!r}, "
+            f"ImportTransformation(kind={self.kind!r}, "
             f"method_version={self.method_version!r}, replacement={replacement})"
         )
 
@@ -96,6 +110,9 @@ class ImportTransformation:
 class ProposedMapping:
     segment_id: str
     mapping: CanonicalMapping
+
+    def __repr__(self) -> str:
+        return f"ProposedMapping(mapping={self.mapping!r})"
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +130,7 @@ class ImportPreview:
     parser_identity: str
     mappings: tuple[ProposedMapping, ...]
     transformations: tuple[ImportTransformation, ...]
-    escaped_samples: tuple[str, ...]
+    escaped_samples: tuple[str, ...] = field(repr=False)
     samples_truncated: bool
     privacy_effect: str
     policy_lineage_id: str
@@ -122,3 +139,11 @@ class ImportPreview:
     correction_of: str | None = None
     urls_active: bool = False
     markdown_active: bool = False
+
+    def __repr__(self) -> str:
+        return (
+            f"ImportPreview(byte_count={self.byte_count!r}, "
+            f"character_count={self.character_count!r}, "
+            f"physical_line_count={self.physical_line_count!r}, "
+            f"segment_count={self.segment_count!r}, samples=<redacted>)"
+        )

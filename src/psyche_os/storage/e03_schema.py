@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 
-
 V1_INVENTORY: tuple[str, ...] = (
     "vault_config", "actors", "subjects", "source_artifacts", "blobs",
     "reports", "observations", "assertions", "claims", "data_policies",
@@ -339,4 +338,8 @@ def inventory_for_schema(schema_version: int) -> tuple[str, ...]:
         from psyche_os.storage.e06_schema import V4_INVENTORY
 
         return V4_INVENTORY
+    if schema_version == 5:
+        from psyche_os.storage.e08_schema import V5_INVENTORY
+
+        return V5_INVENTORY
     raise ValueError("Unsupported schema version")

@@ -9,17 +9,25 @@ import pytest
 from psyche_os.adapters.e08_filesystem import FilesystemQuarantine
 from psyche_os.application.e08_imports import (
     E08BoundaryError,
+    E08CanonicalStore,
     E08ErrorCode,
     E08ImportService,
     ImportConsent,
 )
-from psyche_os.imports.model import ImportTransformation
+from psyche_os.imports.model import CanonicalMapping, ImportTransformation, ProposedMapping
+
+
+def make_service(quarantine: FilesystemQuarantine | None = None) -> E08ImportService:
+    return E08ImportService(
+        quarantine or FilesystemQuarantine(digest_key=b"k" * 32),
+        store=E08CanonicalStore.for_test(),
+    )
 
 
 def prepared_service(tmp_path):  # type: ignore[no-untyped-def]
     path = tmp_path / "synthetic-note.txt"
     path.write_text("<b>fictional</b>\nhttps://invalid.example/path\nDELETE DATABASE", encoding="utf-8")
-    service = E08ImportService(FilesystemQuarantine(digest_key=b"k" * 32))
+    service = make_service()
     record = service.intake(str(path), declared_mime="text/plain", declared_encoding="utf-8")
     candidate = service.parse(record.quarantine_id)
     preview = service.preview(candidate)
@@ -52,7 +60,7 @@ def test_fabricated_candidate_preview_and_consent_cannot_commit(tmp_path) -> Non
 def test_cross_service_replay_and_single_use_fail_closed(tmp_path) -> None:  # type: ignore[no-untyped-def]
     _, service, candidate, preview = prepared_service(tmp_path)
     consent = service.issue_consent(candidate, preview, approved=True)
-    other = E08ImportService(service.quarantine)
+    other = make_service(service.quarantine)
     with pytest.raises(E08BoundaryError) as caught:
         other.commit(candidate, preview, consent)
     assert caught.value.code == E08ErrorCode.CAPABILITY_MISMATCH
@@ -73,7 +81,10 @@ def test_source_policy_and_parser_toctou_invalidate_consent(tmp_path) -> None:  
 
     _, policy_service, policy_candidate, policy_preview = prepared_service(tmp_path)
     policy_consent = policy_service.issue_consent(policy_candidate, policy_preview, approved=True)
-    policy_service.policy_lineage_id = "changed-policy"
+    policy_service.store.connection.execute(
+        "UPDATE data_policies SET processing_location='approved_cloud' WHERE record_id='e08-local-never-cloud'"
+    )
+    policy_service.store.connection.commit()
     with pytest.raises(E08BoundaryError) as policy:
         policy_service.commit(policy_candidate, policy_preview, policy_consent)
     assert policy.value.code == E08ErrorCode.POLICY_STALE
@@ -82,7 +93,7 @@ def test_source_policy_and_parser_toctou_invalidate_consent(tmp_path) -> None:  
 def test_exclusion_and_redaction_preserve_original_source_and_locator(tmp_path) -> None:  # type: ignore[no-untyped-def]
     path = tmp_path / "transform-source.txt"
     path.write_text("first fictional\nsecond fictional", encoding="utf-8")
-    service = E08ImportService(FilesystemQuarantine())
+    service = make_service()
     candidate = service.parse(service.intake(str(path)).quarantine_id)
     transforms = (
         ImportTransformation(candidate.segments[0].segment_id, "exclude", "manual-exclusion-v1"),
@@ -90,7 +101,11 @@ def test_exclusion_and_redaction_preserve_original_source_and_locator(tmp_path) 
             candidate.segments[1].segment_id, "redact", "manual-redaction-v1", "[REDACTED]"
         ),
     )
-    preview = service.preview(candidate, transformations=transforms)
+    mappings = tuple(
+        ProposedMapping(item.segment_id, CanonicalMapping.REVIEW_NEEDED_ASSERTION_PROPOSAL)
+        for item in candidate.segments
+    )
+    preview = service.preview(candidate, transformations=transforms, mappings=mappings)
     consent = service.issue_consent(candidate, preview, approved=True)
     result = service.commit(candidate, preview, consent)
     source = service.store.sources[result.source_version_id]
@@ -106,7 +121,7 @@ def test_content_free_errors_events_and_reprs(tmp_path) -> None:  # type: ignore
     sensitive_name = "sensitive-fictional-name.txt"
     path = tmp_path / sensitive_name
     path.write_bytes(secret_content.encode() + b"\x00")
-    service = E08ImportService(FilesystemQuarantine())
+    service = make_service()
     record = service.intake(str(path))
     with pytest.raises(E08BoundaryError) as caught:
         service.parse(record.quarantine_id)

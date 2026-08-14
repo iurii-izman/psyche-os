@@ -63,12 +63,11 @@ class PlainTextParser:
     ) -> ParsedImportCandidate:
         if len(bounded_bytes) > profile.maximum_original_bytes:
             raise rejection("byte_limit_exceeded")
-        for signature, _kind in INCOMPATIBLE_SIGNATURES:
-            if bounded_bytes.startswith(signature):
-                raise rejection("incompatible_signature")
-
         bom = bounded_bytes.startswith(UTF8_BOM)
         payload = bounded_bytes[len(UTF8_BOM) :] if bom else bounded_bytes
+        for signature, _kind in INCOMPATIBLE_SIGNATURES:
+            if payload.startswith(signature):
+                raise rejection("incompatible_signature")
         decoder = codecs.getincrementaldecoder("utf-8")("strict")
         decoded_parts: list[str] = []
         decoded_count = 0

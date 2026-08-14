@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
+from contextlib import suppress
 from dataclasses import asdict, dataclass
+import datetime
 from enum import StrEnum
 import html
+import json
 import secrets
+import sqlite3
 from typing import Protocol
 
 from psyche_os.adapters.e08_filesystem import (
@@ -84,6 +87,9 @@ class ImportConsent:
     preview_id: str
     policy_lineage_id: str
 
+    def __repr__(self) -> str:
+        return "ImportConsent(capability=<redacted>)"
+
 
 @dataclass(frozen=True, slots=True)
 class CanonicalSource:
@@ -103,9 +109,8 @@ class CanonicalSource:
 
     def __repr__(self) -> str:
         return (
-            f"CanonicalSource(source_id={self.source_id!r}, "
-            f"source_version_id={self.source_version_id!r}, quarantine_id={self.quarantine_id!r}, "
-            f"byte_count={self.byte_count!r}, state={self.state!r}, original_bytes=<redacted>)"
+            f"CanonicalSource(byte_count={self.byte_count!r}, state={self.state!r}, "
+            "original_bytes=<redacted>)"
         )
 
 
@@ -124,10 +129,7 @@ class CanonicalNode:
 
     def __repr__(self) -> str:
         return (
-            f"CanonicalNode(record_id={self.record_id!r}, version_id={self.version_id!r}, "
-            f"kind={self.kind!r}, source_version_id={self.source_version_id!r}, "
-            f"parent_ids={self.parent_ids!r}, policy_lineage_id={self.policy_lineage_id!r}, "
-            f"locator={self.locator!r}, method_version={self.method_version!r}, "
+            f"CanonicalNode(kind={self.kind!r}, parent_count={len(self.parent_ids)!r}, "
             f"status={self.status!r}, content=<redacted>)"
         )
 
@@ -141,6 +143,12 @@ class ImportCommitResult:
     correction_of: str | None
     untrusted_content: bool = True
 
+    def __repr__(self) -> str:
+        return (
+            f"ImportCommitResult(record_count={len(self.record_ids)!r}, "
+            f"segment_count={len(self.segment_ids)!r}, untrusted_content=True)"
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class ImportDeletionPlan:
@@ -150,6 +158,12 @@ class ImportDeletionPlan:
     invalidate_ids: tuple[str, ...]
     graph_identity: str
     confirmation: str
+
+    def __repr__(self) -> str:
+        return (
+            f"ImportDeletionPlan(delete_count={len(self.delete_ids)!r}, "
+            f"invalidate_count={len(self.invalidate_ids)!r})"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,15 +179,254 @@ class ImportDeletionReceipt:
     external_copies: str = "outside_local_control"
     backup_state: str = "governed_expiry"
 
+    def __repr__(self) -> str:
+        return (
+            f"ImportDeletionReceipt(records_deleted={self.records_deleted!r}, "
+            f"records_invalidated={self.records_invalidated!r}, "
+            f"canonical_absence={self.canonical_absence!r}, "
+            f"raw_storage_absence={self.raw_storage_absence!r})"
+        )
+
 
 class E08CanonicalStore:
-    """Bounded transactional canonical extension using accepted E03 semantics."""
+    """Durable V5 repository; dictionaries are reloadable read caches only."""
 
-    def __init__(self) -> None:
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        version = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()
+        if not version or version[0] != 5:
+            raise ValueError("E08 requires an explicitly migrated V5 canonical store")
+        connection.execute("PRAGMA foreign_keys=ON")
+        self.connection = connection
         self.sources: dict[str, CanonicalSource] = {}
         self.nodes: dict[str, CanonicalNode] = {}
         self.relations: set[tuple[str, str, str]] = set()
         self.receipts: list[ImportDeletionReceipt] = []
+        self.reload()
+
+    @classmethod
+    def for_test(cls, connection: sqlite3.Connection | None = None) -> E08CanonicalStore:
+        """Create a synthetic V5 store with an accepted conservative policy."""
+        from psyche_os.storage.migrations import Migrator
+
+        con = connection or sqlite3.connect(":memory:")
+        report = Migrator(con).apply(5)
+        if not report.success:
+            raise ValueError("Synthetic V5 store migration failed")
+        now = datetime.datetime.now(datetime.UTC).isoformat()
+        con.execute(
+            "INSERT OR IGNORE INTO data_policies(record_id,policy_id,version_id,target_record_id,"
+            "sensitivity,processing_location,cloud_policy,purpose,third_party_scope,"
+            "retention_policy_id,export_rule,lineage_rule,tx_from,is_active,created_at) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("e08-local-never-cloud", "e08-local-never-cloud", "e08-policy-v1", "e08-imports",
+             "deeply_sensitive", "local_only", "never_cloud", "synthetic import fixture",
+             "none", "governed", "block", "most_restrictive_parent", now, 1, now),
+        )
+        con.commit()
+        return cls(con)
+
+    def reload(self) -> None:
+        self.sources.clear()
+        self.nodes.clear()
+        self.relations.clear()
+        self.receipts.clear()
+        for row in self.connection.execute(
+            "SELECT s.source_record_id,s.source_version_id,s.quarantine_id,q.protected_digest_ref,"
+            "q.byte_count,s.parser_identity,s.profile_identity,s.policy_decision_id,s.preview_id,"
+            "s.consent_id,s.correction_of,s.state,q.bounded_bytes FROM e08_import_sources s "
+            "JOIN e08_quarantine_objects q USING(quarantine_id)"
+        ):
+            self.sources[row[1]] = CanonicalSource(
+                row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7],
+                row[8], row[9], row[10], row[11], bytes(row[12]),
+            )
+        for row in self.connection.execute(
+            "SELECT record_id,version_id,kind,source_version_id,parent_ids,policy_decision_id,"
+            "locator,method_version,status,content FROM e08_import_nodes"
+        ):
+            locator = tuple(json.loads(row[6])) if row[6] is not None else None
+            self.nodes[row[0]] = CanonicalNode(
+                row[0], row[1], row[2], row[3], tuple(json.loads(row[4])), row[5],
+                locator, row[7], row[8], row[9],
+            )
+        for row in self.connection.execute(
+            "SELECT parent_record_id,child_record_id,relation_kind FROM record_relations "
+            "WHERE relation_id LIKE 'e08-rel-%'"
+        ):
+            self.relations.add((row[0], row[1], row[2]))
+        for row in self.connection.execute(
+            "SELECT receipt_id,plan_id,records_deleted,records_invalidated FROM deletion_receipts "
+            "WHERE receipt_id LIKE 'e08-receipt-%'"
+        ):
+            self.receipts.append(ImportDeletionReceipt(row[0], row[1], row[2], row[3], True, True, True, True))
+
+    def resolve_policy(self, policy_record_id: str) -> tuple[str, str, str]:
+        """Return exact own version and a fail-closed effective lineage identity."""
+        selected: list[tuple[object, ...]] = []
+        edges: list[tuple[str, str]] = []
+        pending = [policy_record_id]
+        seen: set[str] = set()
+        while pending:
+            record_id = pending.pop()
+            if record_id in seen:
+                raise E08BoundaryError(E08ErrorCode.POLICY_STALE)
+            seen.add(record_id)
+            rows = self.connection.execute(
+                "SELECT record_id,policy_id,version_id,sensitivity,processing_location,cloud_policy,"
+                "purpose,third_party_scope,retention_policy_id,export_rule,export_audience,lineage_rule "
+                "FROM data_policies WHERE record_id=? AND is_active=1 AND tx_to IS NULL",
+                (record_id,),
+            ).fetchall()
+            if len(rows) != 1:
+                raise E08BoundaryError(E08ErrorCode.POLICY_STALE)
+            row = rows[0]
+            selected.append(tuple(row))
+            parents = self.connection.execute(
+                "SELECT parent_policy_id,child_policy_id FROM policy_lineage WHERE child_policy_id=?",
+                (row[1],),
+            ).fetchall()
+            for parent_policy_id, child_policy_id in parents:
+                parent_records = self.connection.execute(
+                    "SELECT DISTINCT record_id FROM data_policies WHERE policy_id=? AND is_active=1 AND tx_to IS NULL",
+                    (parent_policy_id,),
+                ).fetchall()
+                if len(parent_records) != 1:
+                    raise E08BoundaryError(E08ErrorCode.POLICY_STALE)
+                edges.append((parent_policy_id, child_policy_id))
+                pending.append(parent_records[0][0])
+        if any(row[4] != "local_only" or row[5] != "never_cloud" for row in selected):
+            raise E08BoundaryError(E08ErrorCode.POLICY_STALE)
+        own = selected[0]
+        decision = identity_digest({"policies": sorted(selected), "lineage": sorted(edges)})
+        return str(own[0]), str(own[2]), decision
+
+    def persist_import(
+        self,
+        source: CanonicalSource,
+        *,
+        policy_record_id: str,
+        inject_failure: bool = False,
+    ) -> None:
+        """Persist quarantine, E08 metadata and accepted E03 records atomically."""
+        now = datetime.datetime.now(datetime.UTC).isoformat()
+        policy_record_id, policy_version_id, decision = self.resolve_policy(policy_record_id)
+        if decision != source.policy_lineage_id:
+            raise E08BoundaryError(E08ErrorCode.POLICY_STALE)
+        try:
+            self.connection.execute("BEGIN IMMEDIATE")
+            self.connection.execute(
+                "INSERT INTO e08_quarantine_objects VALUES(?,?,?,?,?,?,?)",
+                (source.quarantine_id, source.original_bytes, source.protected_digest_ref,
+                 source.protected_digest_ref.split(":", 1)[0], "committed", source.byte_count, now),
+            )
+            previous = source.correction_of or ""
+            self.connection.execute(
+                "INSERT INTO source_artifacts(record_id,artifact_id,version_id,previous_version_id,source_kind,"
+                "source_label,uri_or_path,mime_type,source_metadata,tx_from,is_active,created_at,semantic_version,"
+                "schema_version,change_reason_code,created_by_actor_id,artifact_kind,origin_kind,captured_at,"
+                "language_tags,declared_mime_type,observed_mime_type,byte_size,parser_state,quarantine_state,policy_id,rights_note) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (source.source_id, source.source_id, source.source_version_id, previous, "document", "", "", "text/plain",
+                 '{"untrusted_content":true}', now, 1, now, 2, 2, "e08_import", "actor:local-owner",
+                 "standalone_plain_text", "user_import", now, "[]", "text/plain", "text/plain", source.byte_count,
+                 "certified", "committed", policy_record_id, "user-provided synthetic fixture"),
+            )
+            self.connection.execute(
+                "INSERT INTO e08_import_sources VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (source.source_version_id, source.source_id, source.quarantine_id, source.parser_identity,
+                 source.profile_identity, policy_record_id, policy_version_id, decision, source.preview_id,
+                 source.consent_id, source.correction_of, source.state, now),
+            )
+            for node in [n for n in self.nodes.values() if n.source_version_id == source.source_version_id]:
+                self._insert_node(node, now)
+            if source.correction_of:
+                self._supersede(source.correction_of, now)
+                old = self.sources[source.correction_of]
+                self._insert_relation(old.source_id, source.correction_of, source.source_id,
+                                      source.source_version_id, "corrects", now)
+            if inject_failure:
+                raise RuntimeError("injected")
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+        self.reload()
+
+    def _insert_node(self, node: CanonicalNode, now: str) -> None:
+        self.connection.execute(
+            "INSERT INTO e08_import_nodes VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (node.record_id, node.version_id, node.kind, node.source_version_id,
+             json.dumps(node.parent_ids), node.policy_lineage_id,
+             json.dumps(node.locator) if node.locator is not None else None,
+             node.method_version, node.status, node.content, now),
+        )
+        if node.kind == "source_segment":
+            self.connection.execute(
+                "INSERT INTO source_locators(record_id,version_id,schema_version,tx_from,is_active,change_reason_code,"
+                "created_by_actor_id,artifact_record_id,artifact_version_id,locator_type,locator_value,extractor_name,extractor_version) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (node.record_id, node.version_id, 2, now, 1, "e08_import", "actor:local-owner",
+                 self.sources[node.source_version_id].source_id, node.source_version_id, "extractor_locator",
+                 json.dumps(node.locator), "e08_plain_text", "1.0.0"),
+            )
+        elif node.kind == "attributed_verbatim_report":
+            self.connection.execute(
+                "INSERT INTO reports(record_id,report_id,version_id,source_ids,structured_data,tx_from,is_active,created_at,"
+                "semantic_version,schema_version,change_reason_code,created_by_actor_id,report_kind,verbatim_content,"
+                "perspective,elicitation_method,source_locator_record_id,source_locator_version_id) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (node.record_id, node.record_id, node.version_id, json.dumps([node.source_version_id]), "{}", now, 1, now,
+                 2, 2, "e08_import", "actor:local-owner", "other", node.content, "document_author", "import",
+                 node.parent_ids[0], self.nodes[node.parent_ids[0]].version_id),
+            )
+        elif node.kind == "review_needed_assertion_proposal":
+            self.connection.execute(
+                "INSERT INTO assertions(record_id,assertion_id,version_id,assertion_type,predicate,support_ids,contra_ids,"
+                "tx_from,is_active,created_at,provenance_ref,semantic_version,schema_version,change_reason_code,"
+                "created_by_actor_id,object_value,qualifiers,negation,modality,scope,source_locator_record_id,source_locator_version_id) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (node.record_id, node.record_id, node.version_id, "review_needed_proposal", "untrusted_import_text",
+                 json.dumps(list(node.parent_ids)), "[]", now, 1, now, node.source_version_id, 2, 2, "e08_import",
+                 "actor:local-owner", node.content, "[]", 0, "reported", "imported_segment",
+                 node.parent_ids[0], self.nodes[node.parent_ids[0]].version_id),
+            )
+        for parent in node.parent_ids:
+            self._insert_relation(parent, self.nodes[parent].version_id, node.record_id, node.version_id, "derived_from", now)
+
+    def _insert_relation(self, parent: str, parent_version: str, child: str, child_version: str,
+                         kind: str, now: str) -> None:
+        self.connection.execute(
+            "INSERT OR IGNORE INTO record_relations VALUES(?,?,?,?,?,?,?,?)",
+            ("e08-rel-" + identity_digest((parent, child, kind)), parent, parent_version,
+             child, child_version, kind, None, now),
+        )
+
+    def _supersede(self, source_version_id: str, now: str) -> None:
+        self.connection.execute(
+            "UPDATE e08_import_sources SET state='superseded' WHERE source_version_id=?", (source_version_id,)
+        )
+        self.connection.execute(
+            "UPDATE source_artifacts SET is_active=0,tx_to=?,closure_marker='invalidated' WHERE version_id=?",
+            (now, source_version_id),
+        )
+        ids = [r[0] for r in self.connection.execute(
+            "SELECT record_id FROM e08_import_nodes WHERE source_version_id=?", (source_version_id,)
+        )]
+        self.connection.execute(
+            "UPDATE e08_import_nodes SET status='superseded',content=NULL WHERE source_version_id=?",
+            (source_version_id,),
+        )
+        if ids:
+            marks = ",".join("?" for _ in ids)
+            self.connection.execute(
+                f"UPDATE source_locators SET is_active=0,tx_to=? WHERE record_id IN ({marks})",
+                (now, *ids),
+            )
+            for table in ("reports", "assertions"):
+                self.connection.execute(
+                    f"UPDATE {table} SET is_active=0,tx_to=?,closure_marker='invalidated' "
+                    f"WHERE record_id IN ({marks})", (now, *ids),
+                )
 
     def graph_identity(self) -> str:
         return identity_digest(
@@ -229,7 +482,131 @@ class E08CanonicalStore:
         )
         for parent in parent_ids:
             self.relations.add((parent, record_id, "derived_from"))
+        now = datetime.datetime.now(datetime.UTC).isoformat()
+        try:
+            self.connection.execute("BEGIN IMMEDIATE")
+            self._insert_node(self.nodes[record_id], now)
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            self.reload()
+            raise
         return record_id
+
+    def delete_import(
+        self, plan: ImportDeletionPlan, *, fault_at: str | None = None
+    ) -> ImportDeletionReceipt:
+        """Delete accepted canonical rows, governed bytes and receipt in one transaction."""
+        source = self.sources[plan.source_version_id]
+        now = datetime.datetime.now(datetime.UTC).isoformat()
+        request_id = "e08-request-" + identity_digest(plan.plan_id)
+        receipt_id = "e08-receipt-" + identity_digest((plan.plan_id, plan.graph_identity))
+        delete_ids = list(plan.delete_ids)
+        invalidate_ids = list(plan.invalidate_ids)
+        try:
+            self.connection.execute("BEGIN IMMEDIATE")
+            if fault_at == "A":
+                raise RuntimeError("fault A")
+            self.connection.execute(
+                "INSERT INTO deletion_requests(request_id,reason,scope,target_ids,status,created_at) "
+                "VALUES(?,?,?,?,?,?)",
+                (request_id, "e08_governed_source_deletion", "tree",
+                 json.dumps([plan.source_version_id]), "in_progress", now),
+            )
+            self.connection.execute(
+                "INSERT INTO deletion_plans(plan_id,request_id,target_record_ids,exclusive_descendant_ids,"
+                "mixed_descendant_ids,invalidate_ids,recompute_ids,dependency_graph_snapshot,status,created_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (plan.plan_id, request_id, json.dumps([plan.source_version_id]), json.dumps(delete_ids),
+                 json.dumps(invalidate_ids), json.dumps(invalidate_ids), "[]",
+                 json.dumps({"identity": plan.graph_identity}), "executing", now),
+            )
+            for table in ("reports", "assertions", "source_locators"):
+                if delete_ids:
+                    marks = ",".join("?" for _ in delete_ids)
+                    self.connection.execute(f"DELETE FROM {table} WHERE record_id IN ({marks})", delete_ids)
+                if invalidate_ids:
+                    marks = ",".join("?" for _ in invalidate_ids)
+                    closure = ",closure_marker='invalidated'" if table != "source_locators" else ""
+                    self.connection.execute(
+                        f"UPDATE {table} SET is_active=0,tx_to=?{closure} "
+                        f"WHERE record_id IN ({marks})", (now, *invalidate_ids),
+                    )
+            if invalidate_ids:
+                marks = ",".join("?" for _ in invalidate_ids)
+                self.connection.execute(
+                    f"UPDATE e08_import_nodes SET status='invalidated',content=NULL "
+                    f"WHERE record_id IN ({marks})", invalidate_ids,
+                )
+            if delete_ids:
+                marks = ",".join("?" for _ in delete_ids)
+                self.connection.execute(f"DELETE FROM e08_import_nodes WHERE record_id IN ({marks})", delete_ids)
+                self.connection.execute(
+                    f"DELETE FROM record_relations WHERE parent_record_id IN ({marks}) "
+                    f"OR child_record_id IN ({marks})", (*delete_ids, *delete_ids),
+                )
+            if fault_at == "B":
+                raise RuntimeError("fault B")
+            self.connection.execute(
+                "DELETE FROM record_relations WHERE parent_record_id=? OR child_record_id=?",
+                (source.source_id, source.source_id),
+            )
+            self.connection.execute(
+                "DELETE FROM e08_import_sources WHERE source_version_id=?", (plan.source_version_id,)
+            )
+            self.connection.execute(
+                "DELETE FROM source_artifacts WHERE record_id=? AND version_id=?",
+                (source.source_id, plan.source_version_id),
+            )
+            if fault_at == "C":
+                raise RuntimeError("fault C")
+            self.connection.execute(
+                "DELETE FROM e08_quarantine_objects WHERE quarantine_id=?", (source.quarantine_id,)
+            )
+            if fault_at == "D":
+                raise RuntimeError("fault D")
+            absent = self.connection.execute(
+                "SELECT NOT EXISTS(SELECT 1 FROM e08_import_sources WHERE source_version_id=?) "
+                "AND NOT EXISTS(SELECT 1 FROM e08_quarantine_objects WHERE quarantine_id=?)",
+                (plan.source_version_id, source.quarantine_id),
+            ).fetchone()[0]
+            dangling = self.connection.execute(
+                "SELECT COUNT(*) FROM record_relations WHERE parent_record_id=? OR child_record_id=?",
+                (source.source_id, source.source_id),
+            ).fetchone()[0]
+            if not absent or dangling:
+                raise RuntimeError("deletion verification failed")
+            if fault_at == "E":
+                raise RuntimeError("fault E")
+            if fault_at == "F":
+                raise RuntimeError("fault F")
+            verification = identity_digest(
+                {"plan": plan.plan_id, "deleted": len(delete_ids) + 1, "invalidated": len(invalidate_ids)}
+            )
+            self.connection.execute(
+                "INSERT INTO deletion_receipts(receipt_id,plan_id,request_id,records_deleted,"
+                "records_invalidated,records_recomputed,verification_hash,executed_at,created_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?)",
+                (receipt_id, plan.plan_id, request_id, len(delete_ids) + 1, len(invalidate_ids),
+                 0, verification, now, now),
+            )
+            self.connection.execute(
+                "UPDATE deletion_plans SET status='completed',executed_at=?,receipt_id=? WHERE plan_id=?",
+                (now, receipt_id, plan.plan_id),
+            )
+            self.connection.execute(
+                "UPDATE deletion_requests SET status='completed' WHERE request_id=?", (request_id,)
+            )
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            self.reload()
+            raise E08BoundaryError(E08ErrorCode.STORAGE_FAILURE) from None
+        self.reload()
+        return ImportDeletionReceipt(
+            receipt_id, plan.plan_id, len(delete_ids) + 1, len(invalidate_ids),
+            True, True, True, True,
+        )
 
 
 class E08ImportService:
@@ -241,14 +618,15 @@ class E08ImportService:
         *,
         parser: CandidateParser | None = None,
         profile: PlainTextResourceProfile = PLAIN_TEXT_PROFILE,
-        policy_lineage_id: str = "e08-local-never-cloud-v1",
-        store: E08CanonicalStore | None = None,
+        policy_record_id: str = "e08-local-never-cloud",
+        store: E08CanonicalStore,
     ) -> None:
         self.quarantine = quarantine
         self.parser = parser or PlainTextParser()
         self.profile = profile
-        self.policy_lineage_id = policy_lineage_id
-        self.store = store or E08CanonicalStore()
+        self.policy_record_id = policy_record_id
+        self.store = store
+        self.policy_lineage_id = self.store.resolve_policy(policy_record_id)[2]
         self.events: list[dict[str, str]] = []
         self._candidates: dict[str, ParsedImportCandidate] = {}
         self._previews: dict[str, tuple[ParsedImportCandidate, ImportPreview]] = {}
@@ -268,6 +646,7 @@ class E08ImportService:
         declared_encoding: str | None = None,
     ) -> QuarantineRecord:
         try:
+            self.policy_lineage_id = self.store.resolve_policy(self.policy_record_id)[2]
             return self.quarantine.intake(
                 user_path,
                 profile=self.profile,
@@ -349,6 +728,13 @@ class E08ImportService:
         ):
             raise E08BoundaryError(E08ErrorCode.INVALID_MAPPING)
         self._validate_transformations(candidate, transformations)
+        redacted = {item.segment_id for item in transformations if item.kind == "redact"}
+        if any(
+            item.segment_id in redacted
+            and item.mapping == CanonicalMapping.ATTRIBUTED_VERBATIM_REPORT
+            for item in proposed
+        ):
+            raise E08BoundaryError(E08ErrorCode.INVALID_MAPPING)
         samples = tuple(html.escape(item.text[:256], quote=True) for item in candidate.segments[:8])
         material = {
             "candidate_id": candidate.candidate_id,
@@ -424,19 +810,21 @@ class E08ImportService:
         self._final_revalidation(candidate, preview, consent)
 
         snapshot = self._snapshot(candidate.quarantine_id)
-        before = deepcopy((self.store.sources, self.store.nodes, self.store.relations))
         try:
             result = self._canonical_commit(
-                candidate, preview, consent, snapshot.bounded_bytes
+                candidate,
+                preview,
+                consent,
+                snapshot.bounded_bytes,
+                inject_failure=inject_failure,
             )
-            if inject_failure:
-                raise RuntimeError("injected")
         except Exception as exc:
-            self.store.sources, self.store.nodes, self.store.relations = before
+            self.store.reload()
             if isinstance(exc, E08BoundaryError):
                 raise
             raise E08BoundaryError(E08ErrorCode.STORAGE_FAILURE) from None
-        self.quarantine.transition(candidate.quarantine_id, "committed")
+        with suppress(FilesystemBoundaryError):
+            self.quarantine.transition(candidate.quarantine_id, "committed")
         self._candidates.pop(candidate.candidate_id, None)
         self._event(candidate.quarantine_id, "committed", "accepted")
         return result
@@ -479,6 +867,7 @@ class E08ImportService:
         confirmation: str,
         *,
         inject_failure: bool = False,
+        fault_at: str | None = None,
     ) -> ImportDeletionReceipt:
         if self._plans.get(plan.plan_id) is not plan:
             raise E08BoundaryError(E08ErrorCode.DELETION_PLAN_INVALID)
@@ -491,61 +880,11 @@ class E08ImportService:
             or tuple(sorted(current_invalidate)) != plan.invalidate_ids
         ):
             raise E08BoundaryError(E08ErrorCode.DELETION_PLAN_STALE)
-        backup = deepcopy(
-            (self.store.sources, self.store.nodes, self.store.relations, self.store.receipts)
-        )
         source = self.store.sources[plan.source_version_id]
-        try:
-            for record_id in plan.delete_ids:
-                self.store.nodes.pop(record_id, None)
-            for record_id in plan.invalidate_ids:
-                node = self.store.nodes[record_id]
-                self.store.nodes[record_id] = CanonicalNode(
-                    node.record_id,
-                    node.version_id,
-                    node.kind,
-                    node.source_version_id,
-                    node.parent_ids,
-                    node.policy_lineage_id,
-                    node.locator,
-                    node.method_version,
-                    "invalidated",
-                    None,
-                )
-            self.store.relations = {
-                relation
-                for relation in self.store.relations
-                if relation[0] not in plan.delete_ids
-                and relation[1] not in plan.delete_ids
-                and relation[0] != plan.source_version_id
-                and relation[1] != plan.source_version_id
-            }
-            self.store.sources.pop(plan.source_version_id)
-            if inject_failure:
-                raise RuntimeError("injected")
-            self.quarantine.remove(source.quarantine_id)
-            exported = self.store.export()
-            receipt = ImportDeletionReceipt(
-                "receipt-" + secrets.token_hex(16),
-                plan.plan_id,
-                len(plan.delete_ids) + 1,
-                len(plan.invalidate_ids),
-                not self.quarantine.contains(source.quarantine_id),
-                plan.source_version_id not in self.store.sources
-                and all(record_id not in self.store.nodes for record_id in plan.delete_ids),
-                plan.source_version_id not in exported["source_versions"]
-                and all(record_id not in exported["record_ids"] for record_id in plan.delete_ids),
-                plan.source_version_id not in self.store.sources,
-            )
-            self.store.receipts.append(receipt)
-        except Exception:
-            (
-                self.store.sources,
-                self.store.nodes,
-                self.store.relations,
-                self.store.receipts,
-            ) = backup
-            raise E08BoundaryError(E08ErrorCode.STORAGE_FAILURE) from None
+        receipt = self.store.delete_import(
+            plan, fault_at=fault_at or ("C" if inject_failure else None)
+        )
+        self.quarantine.remove(source.quarantine_id)
         del self._plans[plan.plan_id]
         return receipt
 
@@ -555,6 +894,8 @@ class E08ImportService:
         preview: ImportPreview,
         consent: ImportConsent,
         original_bytes: bytes,
+        *,
+        inject_failure: bool = False,
     ) -> ImportCommitResult:
         source_id = candidate.source_candidate_id
         source_version_id = candidate.source_version_id
@@ -676,6 +1017,11 @@ class E08ImportService:
                 old.original_bytes,
             )
             self.store.relations.add((preview.correction_of, source_version_id, "corrects"))
+        self.store.persist_import(
+            source,
+            policy_record_id=self.policy_record_id,
+            inject_failure=inject_failure,
+        )
         return ImportCommitResult(
             source_id,
             source_version_id,
@@ -690,13 +1036,14 @@ class E08ImportService:
         preview: ImportPreview,
         consent: ImportConsent,
     ) -> None:
-        if candidate.policy_lineage_id != self.policy_lineage_id:
+        current_policy = self.store.resolve_policy(self.policy_record_id)[2]
+        if candidate.policy_lineage_id != current_policy:
             raise E08BoundaryError(E08ErrorCode.POLICY_STALE)
         if candidate.profile_identity != self.profile.identity or preview.profile_id != self.profile.profile_id:
             raise E08BoundaryError(E08ErrorCode.PARSER_STALE)
         if preview.parser_identity != self.parser_identity:
             raise E08BoundaryError(E08ErrorCode.PARSER_STALE)
-        if consent.policy_lineage_id != self.policy_lineage_id:
+        if consent.policy_lineage_id != current_policy:
             raise E08BoundaryError(E08ErrorCode.POLICY_STALE)
         snapshot = self._snapshot(candidate.quarantine_id)
         if not snapshot.source_identity_current:
@@ -704,7 +1051,7 @@ class E08ImportService:
         if snapshot.record.protected_digest_ref != candidate.protected_digest_ref:
             raise E08BoundaryError(E08ErrorCode.SOURCE_STALE)
         try:
-            reparsed = self.parser.parse(
+            reparsed = PlainTextParser().parse(
                 snapshot.bounded_bytes,
                 quarantine_id=candidate.quarantine_id,
                 source_candidate_id=candidate.source_candidate_id,
@@ -725,6 +1072,25 @@ class E08ImportService:
         if not isinstance(candidate, ParsedImportCandidate):
             raise E08BoundaryError(E08ErrorCode.MALFORMED_CANDIDATE)
         if (
+            self.parser.name != PlainTextParser.name
+            or self.parser.version != PlainTextParser.version
+            or self.parser.config_digest != PlainTextParser.config_digest
+        ):
+            raise E08BoundaryError(E08ErrorCode.MALFORMED_CANDIDATE)
+        try:
+            certified = PlainTextParser().parse(
+                bounded_bytes,
+                quarantine_id=record.quarantine_id,
+                source_candidate_id=record.source_candidate_id,
+                source_version_id=record.source_version_id,
+                protected_digest_ref=record.protected_digest_ref,
+                policy_lineage_id=record.policy_lineage_id,
+                profile=self.profile,
+                rejection=self._parser_rejection,
+            )
+        except Exception:
+            raise E08BoundaryError(E08ErrorCode.MALFORMED_CANDIDATE) from None
+        if (
             candidate.quarantine_id != record.quarantine_id
             or candidate.source_version_id != record.source_version_id
             or candidate.protected_digest_ref != record.protected_digest_ref
@@ -736,6 +1102,7 @@ class E08ImportService:
             or candidate.policy_lineage_id != self.policy_lineage_id
             or not candidate.untrusted_content
             or candidate.segment_count != len(candidate.segments)
+            or candidate != certified
         ):
             raise E08BoundaryError(E08ErrorCode.MALFORMED_CANDIDATE)
         for segment in candidate.segments:

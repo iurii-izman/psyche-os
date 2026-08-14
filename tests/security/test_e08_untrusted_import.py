@@ -8,11 +8,23 @@ from pathlib import Path
 import pytest
 
 from psyche_os.adapters.e08_filesystem import FilesystemQuarantine
-from psyche_os.application.e08_imports import E08BoundaryError, E08ErrorCode, E08ImportService
+from psyche_os.application.e08_imports import (
+    E08BoundaryError,
+    E08CanonicalStore,
+    E08ErrorCode,
+    E08ImportService,
+)
+
+
+def make_service(quarantine: FilesystemQuarantine | None = None) -> E08ImportService:
+    return E08ImportService(
+        quarantine or FilesystemQuarantine(digest_key=b"k" * 32),
+        store=E08CanonicalStore.for_test(),
+    )
 
 
 def test_directory_and_symlink_mode_are_rejected_without_read(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    service = E08ImportService(FilesystemQuarantine())
+    service = make_service()
     with pytest.raises(E08BoundaryError) as directory:
         service.intake(str(tmp_path))
     assert directory.value.code == E08ErrorCode.FILESYSTEM_REJECTED
@@ -42,7 +54,7 @@ def test_path_replacement_between_inspection_and_open_fails_closed(tmp_path) -> 
         path.unlink()
         replacement.rename(path)
 
-    service = E08ImportService(FilesystemQuarantine(identity_hook=replace_path))
+    service = make_service(FilesystemQuarantine(identity_hook=replace_path, digest_key=b"k" * 32))
     with pytest.raises(E08BoundaryError) as caught:
         service.intake(str(path))
     assert caught.value.code == E08ErrorCode.FILESYSTEM_REJECTED
@@ -51,7 +63,7 @@ def test_path_replacement_between_inspection_and_open_fails_closed(tmp_path) -> 
 def test_byte_bound_is_enforced_during_quarantine_read(tmp_path) -> None:  # type: ignore[no-untyped-def]
     path = tmp_path / "oversize.txt"
     path.write_bytes(b"x" * (1_048_576 + 1))
-    service = E08ImportService(FilesystemQuarantine())
+    service = make_service()
     with pytest.raises(E08BoundaryError) as caught:
         service.intake(str(path))
     assert caught.value.code == E08ErrorCode.BYTE_LIMIT_EXCEEDED
@@ -60,7 +72,7 @@ def test_byte_bound_is_enforced_during_quarantine_read(tmp_path) -> None:  # typ
 def test_extension_and_caller_mime_cannot_make_pdf_valid(tmp_path) -> None:  # type: ignore[no-untyped-def]
     path = tmp_path / "renamed.txt"
     path.write_bytes(b"%PDF-1.7 synthetic")
-    service = E08ImportService(FilesystemQuarantine())
+    service = make_service()
     record = service.intake(str(path), declared_mime="text/plain")
     with pytest.raises(E08BoundaryError) as caught:
         service.parse(record.quarantine_id)
@@ -76,21 +88,21 @@ def test_hostile_instruction_shaped_content_stays_inert_and_provider_free(tmp_pa
         "[tool](https://invalid.example)"
     )
     path.write_text(hostile, encoding="utf-8")
-    service = E08ImportService(FilesystemQuarantine())
+    service = make_service()
     candidate = service.parse(service.intake(str(path)).quarantine_id)
     preview = service.preview(candidate)
     result = service.commit(candidate, preview, service.issue_consent(candidate, preview, approved=True))
     assert result.untrusted_content is True
     assert not hasattr(service, "provider")
     assert preview.urls_active is False and preview.markdown_active is False
-    assert all(node.policy_lineage_id == "e08-local-never-cloud-v1" for node in service.store.nodes.values())
+    assert all(node.policy_lineage_id == service.policy_lineage_id for node in service.store.nodes.values())
 
 
 def test_quarantine_corruption_after_consent_fails_without_canonical_write(tmp_path) -> None:  # type: ignore[no-untyped-def]
     path = tmp_path / "corruption.txt"
     path.write_text("fictional stable bytes", encoding="utf-8")
-    quarantine = FilesystemQuarantine()
-    service = E08ImportService(quarantine)
+    quarantine = FilesystemQuarantine(digest_key=b"k" * 32)
+    service = make_service(quarantine)
     candidate = service.parse(service.intake(str(path)).quarantine_id)
     preview = service.preview(candidate)
     consent = service.issue_consent(candidate, preview, approved=True)

@@ -24,6 +24,7 @@ class FileIdentity:
     inode: int
     size: int
     modified_ns: int
+    changed_ns: int
     mode: int
 
 
@@ -41,6 +42,12 @@ class QuarantineRecord:
     declared_encoding: str | None
     processing_state: str
     rejection_reason: str | None = None
+
+    def __repr__(self) -> str:
+        return (
+            f"QuarantineRecord(quarantine_id={self.quarantine_id!r}, "
+            f"byte_count={self.byte_count!r}, processing_state={self.processing_state!r})"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +75,9 @@ class _StoredObject:
     path: Path
     identity: FileIdentity
 
+    def __repr__(self) -> str:
+        return "_StoredObject(record=<redacted>, bounded_bytes=<redacted>, path=<redacted>)"
+
 
 class FilesystemQuarantine:
     """Only E08 component that sees user paths; quarantine names are opaque."""
@@ -76,11 +86,15 @@ class FilesystemQuarantine:
         self,
         *,
         identity_hook: Callable[[Path], None] | None = None,
-        digest_key: bytes | None = None,
+        digest_key: bytes,
+        fingerprint_key_version: str = "vault-fingerprint-v1",
     ) -> None:
         self._objects: dict[str, _StoredObject] = {}
         self._identity_hook = identity_hook
-        self._digest_key = digest_key or secrets.token_bytes(32)
+        if len(digest_key) < 32 or not fingerprint_key_version:
+            raise ValueError("A versioned vault-scoped fingerprint key is required")
+        self._digest_key = digest_key
+        self._fingerprint_key_version = fingerprint_key_version
 
     def intake(
         self,
@@ -112,8 +126,10 @@ class FilesystemQuarantine:
         try:
             opened = os.fstat(descriptor)
             self._validate_regular(opened)
-            if self._identity(opened) != identity:
+            opened_identity = self._identity(opened)
+            if self._stable_identity(opened_identity) != self._stable_identity(identity):
                 raise FilesystemBoundaryError("source_identity_changed")
+            self._verify_path(path, identity)
             chunks: list[bytes] = []
             total = 0
             while True:
@@ -125,8 +141,9 @@ class FilesystemQuarantine:
                 if total > profile.maximum_original_bytes:
                     raise FilesystemBoundaryError("byte_limit_exceeded")
             final = os.fstat(descriptor)
-            if self._identity(final) != identity:
+            if self._identity(final) != opened_identity:
                 raise FilesystemBoundaryError("source_identity_changed")
+            self._verify_path(path, identity)
         finally:
             os.close(descriptor)
 
@@ -134,7 +151,9 @@ class FilesystemQuarantine:
         quarantine_id = "q-" + secrets.token_hex(16)
         source_candidate_id = "import-" + secrets.token_hex(16)
         source_version_id = source_candidate_id + "-v1"
-        protected_ref = hmac.new(self._digest_key, bounded_bytes, hashlib.sha256).hexdigest()
+        protected_ref = self._fingerprint_key_version + ":" + hmac.new(
+            self._digest_key, bounded_bytes, hashlib.sha256
+        ).hexdigest()
         record = QuarantineRecord(
             quarantine_id=quarantine_id,
             source_candidate_id=source_candidate_id,
@@ -156,7 +175,9 @@ class FilesystemQuarantine:
         if stored is None:
             raise FilesystemBoundaryError("quarantine_unavailable")
         current = self._current_identity(stored.path) == stored.identity
-        expected = hmac.new(self._digest_key, stored.bounded_bytes, hashlib.sha256).hexdigest()
+        expected = self._fingerprint_key_version + ":" + hmac.new(
+            self._digest_key, stored.bounded_bytes, hashlib.sha256
+        ).hexdigest()
         if not hmac.compare_digest(expected, stored.record.protected_digest_ref):
             raise FilesystemBoundaryError("quarantine_integrity_failed")
         return QuarantineSnapshot(stored.record, stored.bounded_bytes, current)
@@ -182,7 +203,34 @@ class FilesystemQuarantine:
 
     @staticmethod
     def _identity(info: os.stat_result) -> FileIdentity:
-        return FileIdentity(info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_mode)
+        return FileIdentity(
+            info.st_dev,
+            info.st_ino,
+            info.st_size,
+            info.st_mtime_ns,
+            info.st_ctime_ns,
+            info.st_mode,
+        )
+
+    @classmethod
+    def _verify_path(cls, path: Path, expected: FileIdentity) -> None:
+        try:
+            info = path.lstat()
+            cls._validate_regular(info)
+        except (OSError, FilesystemBoundaryError):
+            raise FilesystemBoundaryError("source_identity_changed") from None
+        if cls._stable_identity(cls._identity(info)) != cls._stable_identity(expected):
+            raise FilesystemBoundaryError("source_identity_changed")
+
+    @staticmethod
+    def _stable_identity(identity: FileIdentity) -> tuple[int, int, int, int, int]:
+        return (
+            identity.device,
+            identity.inode,
+            identity.size,
+            identity.modified_ns,
+            identity.mode,
+        )
 
     @staticmethod
     def _validate_regular(info: os.stat_result) -> None:
