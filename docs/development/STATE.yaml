@@ -9,18 +9,18 @@ real_data_gate:
   authority: "docs/architecture/REAL_DATA_GATE.yaml"
 
 current_epic:
-  id: "E08"
-  name: "Untrusted Import Core and First Bounded Importer"
+  id: "E09"
+  name: "Rebuildable Projections and Local Retrieval"
   status: "ACCEPTED"
   implementation_status: "IMPLEMENTED"
   review_verdict: "ACCEPTED"
-  risk: "RISK-H"
-  expected_final_gate: "FULL"
-  prompt: "docs/prompts/deepseek/E08_UNTRUSTED_IMPORT_CORE.md"
-  report: "docs/development/reports/E08.md"
-  depends_on_epic: "E03"
-  depends_on_commit: "6721e0b00a82f808405c17ab67358ad2f51199bc"
-  codex_review_required: true
+  risk: "RISK-M"
+  expected_final_gate: "EPIC"
+  prompt: "docs/prompts/deepseek/E09_REBUILDABLE_LOCAL_RETRIEVAL.md"
+  report: "docs/development/reports/E09.md"
+  depends_on_epic: "E08"
+  depends_on_commit: "1e6dcd86dd226bc84ef728d643fd21db4ecc1fb9"
+  codex_review_required: false
 
 accepted_epics:
   - id: "E00"
@@ -59,9 +59,14 @@ accepted_epics:
     status: "ACCEPTED"
     report: "docs/implementation/E08_ACCEPTANCE_REPORT.md"
     commit: "1e6dcd86dd226bc84ef728d643fd21db4ecc1fb9"
+  - id: "E09"
+    status: "ACCEPTED"
+    report: "docs/implementation/E09_ACCEPTANCE_REPORT.md"
+    commit: "27c536fa8af784a7dc69a3ac99fc1cecd831d906"
 
 next_epic:
-  id: "E09"
+  id: "E10"
+  name: "User-Controlled Professional Report and Interchange"
   status: "PLANNED"
   prompt: null
   preparation_prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
@@ -76,8 +81,8 @@ architecture:
 git:
   branch: "main"
   prepared_from_commit: "24a882c88002ec88d8f79277a5868fb114d32d14"
-  accepted_commit: "1e6dcd86dd226bc84ef728d643fd21db4ecc1fb9"
+  accepted_commit: "27c536fa8af784a7dc69a3ac99fc1cecd831d906"
 
 next_action:
   prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
-  instruction: "E08 is accepted. E09 remains PLANNED and unprepared; keep REAL_DATA_GATE CLOSED."
+  instruction: "E09 is accepted. E10 remains PLANNED and unprepared; keep REAL_DATA_GATE CLOSED."

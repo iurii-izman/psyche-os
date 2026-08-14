@@ -1,7 +1,7 @@
 # PSYCHE OS — E09 Rebuildable Projections and Local Retrieval
 
 **Project root:** `C:\Dev\psyche-os`
-**Branch:** `codex/e09-local-retrieval`
+**Implementation branch:** `codex/e09-local-retrieval`
 **Prepared from:** E08 accepted `1e6dcd86dd226bc84ef728d643fd21db4ecc1fb9`
 **Risk:** `RISK-M` — no independent Codex review unless an escalation trigger appears.
 
