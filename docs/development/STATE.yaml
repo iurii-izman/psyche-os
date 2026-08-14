@@ -9,17 +9,17 @@ real_data_gate:
   authority: "docs/architecture/REAL_DATA_GATE.yaml"
 
 current_epic:
-  id: "E07"
-  name: "One Optional Bounded AI Proposal Slice"
-  status: "ACCEPTED"
-  implementation_status: "ACCEPTED"
-  review_verdict: "ACCEPTED"
+  id: "E08"
+  name: "Untrusted Import Core and First Bounded Importer"
+  status: "READY"
+  implementation_status: "NOT_STARTED"
+  review_verdict: "PENDING_IMPLEMENTATION"
   risk: "RISK-H"
   expected_final_gate: "FULL"
-  prompt: "docs/prompts/deepseek/E07_BOUNDED_AI_PROPOSAL_SLICE.md"
-  report: "docs/development/reports/E07.md"
-  depends_on_epic: "E06"
-  depends_on_commit: "e6225c537ff94390abd1953d70d3caaf5b452712"
+  prompt: "docs/prompts/deepseek/E08_UNTRUSTED_IMPORT_CORE.md"
+  report: "docs/development/reports/E08.md"
+  depends_on_epic: "E03"
+  depends_on_commit: "6721e0b00a82f808405c17ab67358ad2f51199bc"
   codex_review_required: true
 
 accepted_epics:
@@ -57,7 +57,7 @@ accepted_epics:
     commit: "7d6c040eb22e15ab214f904bdf97d22d38014599"
 
 next_epic:
-  id: "E08"
+  id: "E09"
   status: "PLANNED"
   prompt: null
   preparation_prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
@@ -71,9 +71,9 @@ architecture:
 
 git:
   branch: "main"
-  prepared_from_commit: "a9c48ccd2a1b3671d25bfd48a3c134b8c9695018"
+  prepared_from_commit: "24a882c88002ec88d8f79277a5868fb114d32d14"
   accepted_commit: "7d6c040eb22e15ab214f904bdf97d22d38014599"
 
 next_action:
-  prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
-  instruction: "Inspect accepted E07 once. Prepare E08 only in a separate task, and keep REAL_DATA_GATE CLOSED."
+  prompt: "docs/prompts/deepseek/E08_UNTRUSTED_IMPORT_CORE.md"
+  instruction: "Give the E08 prompt to DeepSeek. Implement only on codex/e08-untrusted-import-core; require the focused Codex high-risk review before acceptance, do not prepare E09, and keep REAL_DATA_GATE CLOSED."
