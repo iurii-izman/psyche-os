@@ -11,9 +11,9 @@ real_data_gate:
 current_epic:
   id: "E08"
   name: "Untrusted Import Core and First Bounded Importer"
-  status: "READY"
-  implementation_status: "NOT_STARTED"
-  review_verdict: "PENDING_IMPLEMENTATION"
+  status: "IMPLEMENTED"
+  implementation_status: "IMPLEMENTED"
+  review_verdict: "PENDING_REVIEW"
   risk: "RISK-H"
   expected_final_gate: "FULL"
   prompt: "docs/prompts/deepseek/E08_UNTRUSTED_IMPORT_CORE.md"
