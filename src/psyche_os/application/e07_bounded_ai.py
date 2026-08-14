@@ -48,6 +48,8 @@ class E07ErrorCode(StrEnum):
     AUTHORIZATION_MISMATCH = "authorization_mismatch"
     AUTHORIZATION_EXPIRED = "authorization_expired"
     AUTHORIZATION_CONSUMED = "authorization_consumed"
+    INTERACTION_REUSED = "interaction_reused"
+    POLICY_STALE = "policy_stale"
     PROVIDER_UNAVAILABLE = "provider_unavailable"
     PROVIDER_TIMEOUT = "provider_timeout"
     OUTPUT_REJECTED = "output_rejected"
@@ -197,6 +199,11 @@ class BoundedAIProposalService:
         self._reader = reader
         self._registry = registry
         self._provider = provider
+        self._pending_prepared: dict[str, PreparedDisclosure] = {}
+        self._issued_authorizations: dict[
+            str, tuple[PreparedDisclosure, DisclosureAuthorization]
+        ] = {}
+        self._interaction_ids: set[str] = set()
         self._consumed_authorizations: set[str] = set()
         self.receipts: list[DisclosureReceipt] = []
         self.events: list[dict[str, str]] = []
@@ -212,6 +219,8 @@ class BoundedAIProposalService:
     ) -> PreparedDisclosure:
         if purpose != PURPOSE:
             raise E07BoundaryError(E07ErrorCode.INVALID_PURPOSE)
+        if interaction_id in self._interaction_ids:
+            raise E07BoundaryError(E07ErrorCode.INTERACTION_REUSED)
         if cutoff.tzinfo is None or cutoff.utcoffset() is None:
             raise E07BoundaryError(E07ErrorCode.INVALID_SELECTION)
         ids = tuple(record_id for record_id, _ in selected)
@@ -227,25 +236,7 @@ class BoundedAIProposalService:
             metadata = self._reader.read_metadata(record_id)
             if metadata is None:
                 raise E07BoundaryError(E07ErrorCode.RECORD_NOT_FOUND)
-            try:
-                resolution = resolve_with_own_policy(
-                    metadata.own_policy,
-                    PolicyId(metadata.own_policy_id),
-                    [policy for _, _, policy in metadata.parent_policies],
-                    [PolicyId(policy_id) for policy_id, _, _ in metadata.parent_policies],
-                )
-            except (PolicyCompositionError, ValueError):
-                raise E07BoundaryError(E07ErrorCode.POLICY_BLOCKED) from None
-            effective = resolution.effective
-            if (
-                resolution.is_never_cloud
-                or effective.processing_location.value != "approved_cloud"
-                or effective.cloud_policy not in {CloudPolicy.ASK_EACH_TIME, CloudPolicy.NAMED_PURPOSE_AND_PROVIDER}
-                or effective.purpose != purpose
-            ):
-                raise E07BoundaryError(E07ErrorCode.POLICY_BLOCKED)
-            if effective.purpose_expiry is None or effective.purpose_expiry <= cutoff:
-                raise E07BoundaryError(E07ErrorCode.POLICY_EXPIRED)
+            policy = self._resolve_policy(metadata, purpose=purpose, at=cutoff)
             records.append(
                 ManifestRecord(
                     metadata.record_id,
@@ -255,28 +246,7 @@ class BoundedAIProposalService:
                     metadata.own_policy_id,
                 )
             )
-            policy_material.append(
-                {
-                    "record_id": metadata.record_id,
-                    "version_id": metadata.version_id,
-                    "own_policy": metadata.own_policy_id,
-                    "own_policy_version": metadata.own_policy_version_id,
-                    "parents": [
-                        {"policy_id": policy_id, "version_id": version_id}
-                        for policy_id, version_id, _ in metadata.parent_policies
-                    ],
-                    "effective": {
-                        "processing_location": effective.processing_location.value,
-                        "cloud_policy": effective.cloud_policy.value,
-                        "purpose": effective.purpose,
-                        "purpose_expiry": effective.purpose_expiry.isoformat()
-                        if effective.purpose_expiry
-                        else None,
-                        "retention_policy_id": effective.retention_policy_id,
-                        "lineage_rule": effective.lineage_rule,
-                    },
-                }
-            )
+            policy_material.append(policy)
         policy_decision_id = identity_digest(
             {
                 "policy_snapshot": entry.policy_snapshot,
@@ -294,11 +264,14 @@ class BoundedAIProposalService:
             claim_ceiling=entry.claim_ceiling,
             action_ceiling=entry.action_ceiling,
         )
-        return PreparedDisclosure(
+        prepared = PreparedDisclosure(
             interaction_id,
             manifest,
             DisclosurePreview.create(manifest, TRANSFORMATIONS),
         )
+        self._interaction_ids.add(interaction_id)
+        self._pending_prepared[interaction_id] = prepared
+        return prepared
 
     def authorize(
         self,
@@ -308,6 +281,8 @@ class BoundedAIProposalService:
         expires_at: dt.datetime,
         opt_in: bool,
     ) -> DisclosureAuthorization:
+        if self._pending_prepared.get(prepared.interaction_id) is not prepared:
+            raise E07BoundaryError(E07ErrorCode.AUTHORIZATION_MISMATCH)
         if (
             authorized_at.tzinfo is None
             or authorized_at.utcoffset() is None
@@ -325,9 +300,12 @@ class BoundedAIProposalService:
                 "expires_at": expires_at.isoformat(),
             }
         )
-        return DisclosureAuthorization(
+        authorization = DisclosureAuthorization(
             authorization_id, prepared.preview.preview_id, authorized_at, expires_at
         )
+        del self._pending_prepared[prepared.interaction_id]
+        self._issued_authorizations[authorization_id] = (prepared, authorization)
+        return authorization
 
     def execute(
         self,
@@ -340,16 +318,47 @@ class BoundedAIProposalService:
     ) -> BoundedAIResult:
         if authorization.authorization_id in self._consumed_authorizations:
             raise E07BoundaryError(E07ErrorCode.AUTHORIZATION_CONSUMED)
-        if authorization.preview_id != prepared.preview.preview_id:
+        issued = self._issued_authorizations.get(authorization.authorization_id)
+        if (
+            issued is None
+            or issued[0] is not prepared
+            or issued[1] is not authorization
+            or authorization.preview_id != prepared.preview.preview_id
+        ):
             raise E07BoundaryError(E07ErrorCode.AUTHORIZATION_MISMATCH)
-        if now > authorization.expires_at:
+        del self._issued_authorizations[authorization.authorization_id]
+        self._consumed_authorizations.add(authorization.authorization_id)
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise E07BoundaryError(E07ErrorCode.AUTHORIZATION_EXPIRED)
+        if now < authorization.authorized_at or now > authorization.expires_at:
             raise E07BoundaryError(E07ErrorCode.AUTHORIZATION_EXPIRED)
         entry = self._registry.resolve(prepared.manifest.provider_identity)
+        policy_material: list[dict[str, Any]] = []
         for pinned in prepared.manifest.records:
             current = self._reader.read_metadata(pinned.record_id)
-            if current is None or current.version_id != pinned.version_id:
+            if (
+                current is None
+                or current.version_id != pinned.version_id
+                or current.category != pinned.category
+            ):
                 raise E07BoundaryError(E07ErrorCode.STALE_VERSION)
-        self._consumed_authorizations.add(authorization.authorization_id)
+            try:
+                policy_material.append(
+                    self._resolve_policy(current, purpose=prepared.manifest.purpose, at=now)
+                )
+            except E07BoundaryError as exc:
+                if exc.code in {E07ErrorCode.POLICY_BLOCKED, E07ErrorCode.POLICY_EXPIRED}:
+                    raise E07BoundaryError(E07ErrorCode.POLICY_STALE) from None
+                raise
+        current_policy_decision_id = identity_digest(
+            {
+                "policy_snapshot": entry.policy_snapshot,
+                "records": policy_material,
+                "purpose": prepared.manifest.purpose,
+            }
+        )
+        if current_policy_decision_id != prepared.manifest.policy_decision_id:
+            raise E07BoundaryError(E07ErrorCode.POLICY_STALE)
         context = tuple(
             ProviderContextRecord(
                 item.record_id,
@@ -403,6 +412,55 @@ class BoundedAIProposalService:
             proposal_status=proposal.status.value,
         )
         return BoundedAIResult(envelope, proposal, receipt)
+
+    @staticmethod
+    def _resolve_policy(
+        metadata: CanonicalRecordMetadata, *, purpose: str, at: dt.datetime
+    ) -> dict[str, Any]:
+        try:
+            resolution = resolve_with_own_policy(
+                metadata.own_policy,
+                PolicyId(metadata.own_policy_id),
+                [policy for _, _, policy in metadata.parent_policies],
+                [PolicyId(policy_id) for policy_id, _, _ in metadata.parent_policies],
+            )
+        except (PolicyCompositionError, ValueError):
+            raise E07BoundaryError(E07ErrorCode.POLICY_BLOCKED) from None
+        effective = resolution.effective
+        if (
+            resolution.is_never_cloud
+            or effective.processing_location.value != "approved_cloud"
+            or effective.cloud_policy
+            not in {CloudPolicy.ASK_EACH_TIME, CloudPolicy.NAMED_PURPOSE_AND_PROVIDER}
+            or effective.purpose != purpose
+        ):
+            raise E07BoundaryError(E07ErrorCode.POLICY_BLOCKED)
+        expiry = effective.purpose_expiry
+        if (
+            expiry is None
+            or expiry.tzinfo is None
+            or expiry.utcoffset() is None
+            or expiry <= at
+        ):
+            raise E07BoundaryError(E07ErrorCode.POLICY_EXPIRED)
+        return {
+            "record_id": metadata.record_id,
+            "version_id": metadata.version_id,
+            "own_policy": metadata.own_policy_id,
+            "own_policy_version": metadata.own_policy_version_id,
+            "parents": [
+                {"policy_id": policy_id, "version_id": version_id}
+                for policy_id, version_id, _ in metadata.parent_policies
+            ],
+            "effective": {
+                "processing_location": effective.processing_location.value,
+                "cloud_policy": effective.cloud_policy.value,
+                "purpose": effective.purpose,
+                "purpose_expiry": expiry.isoformat(),
+                "retention_policy_id": effective.retention_policy_id,
+                "lineage_rule": effective.lineage_rule,
+            },
+        }
 
     def _record_receipt(
         self,

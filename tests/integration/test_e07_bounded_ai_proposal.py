@@ -209,8 +209,41 @@ def test_canonical_version_change_invalidates_authorization_and_changes_manifest
         service.execute(prepared, authorization, now=NOW)  # type: ignore[arg-type]
     assert raised.value.code is E07ErrorCode.STALE_VERSION
     assert reader.content_reads == 0 and provider.invocation_count == 0
-    revised, _ = _prepare(service)
+    revised_service, _, _, _ = _service(connection)
+    revised, _ = _prepare(revised_service)
     assert revised.manifest.manifest_id != prepared.manifest.manifest_id  # type: ignore[union-attr]
+    connection.close()
+
+
+@pytest.mark.parametrize("lineage", ["direct", "reconstructive"])
+def test_policy_revocation_after_authorization_blocks_before_disclosure(lineage: str) -> None:
+    connection, _ = _fixture_connection()
+    service, reader, provider, _ = _service(connection)
+    prepared, authorization = _prepare(service)
+    if lineage == "direct":
+        connection.execute(
+            "UPDATE data_policies SET cloud_policy='never_cloud',processing_location='local_only' "
+            "WHERE target_record_id='assertion-lamp'"
+        )
+    else:
+        _insert_policy(
+            connection,
+            policy_id="policy-revoked-parent",
+            target_record_id="synthetic-parent",
+            cloud_policy="never_cloud",
+        )
+        connection.commit()
+        connection.execute("PRAGMA foreign_keys=OFF")
+        connection.execute(
+            "INSERT INTO policy_lineage(parent_policy_id,child_policy_id,created_at) "
+            "VALUES(?,?,?)",
+            ("policy-revoked-parent", "policy-assertion-lamp", NOW.isoformat()),
+        )
+        connection.execute("PRAGMA foreign_keys=ON")
+    connection.commit()
+    with pytest.raises(E07BoundaryError, match="policy_stale"):
+        service.execute(prepared, authorization, now=NOW)  # type: ignore[arg-type]
+    assert reader.content_reads == 0 and provider.invocation_count == 0
     connection.close()
 
 

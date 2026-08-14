@@ -14,10 +14,12 @@ from psyche_os.application.e07_bounded_ai import (
     CanonicalRecordMetadata,
     E07BoundaryError,
     E07ErrorCode,
+    PreparedDisclosure,
     ProviderRegistry,
     ProviderRegistryEntry,
 )
 from psyche_os.domain.ai_proposal import (
+    DisclosureAuthorization,
     EvaluationAction,
     EvidenceRole,
     ProposalValidationError,
@@ -228,6 +230,204 @@ def test_material_preview_change_and_stale_version_invalidate_authorization() ->
     assert provider.invocation_count == 0 and reader.content_reads == 0
 
 
+def test_prepared_and_authorization_lookalikes_are_not_service_minted_capabilities() -> None:
+    service, reader, provider, _ = make_service()
+    prepared = service.prepare(
+        interaction_id="capability-minting",
+        purpose=PURPOSE,
+        selected=SELECTED,
+        provider_identity=IDENTITY,
+        cutoff=NOW,
+    )
+    fabricated_prepared = PreparedDisclosure(
+        prepared.interaction_id, prepared.manifest, prepared.preview
+    )
+    with pytest.raises(E07BoundaryError, match="authorization_mismatch"):
+        service.authorize(
+            fabricated_prepared,
+            authorized_at=NOW,
+            expires_at=NOW + dt.timedelta(minutes=5),
+            opt_in=True,
+        )
+
+    authorization = service.authorize(
+        prepared,
+        authorized_at=NOW,
+        expires_at=NOW + dt.timedelta(minutes=5),
+        opt_in=True,
+    )
+    fabricated_authorization = DisclosureAuthorization(
+        authorization.authorization_id,
+        authorization.preview_id,
+        authorization.authorized_at,
+        authorization.expires_at,
+    )
+    with pytest.raises(E07BoundaryError, match="authorization_mismatch"):
+        service.execute(prepared, fabricated_authorization, now=NOW)
+    with pytest.raises(E07BoundaryError, match="authorization_mismatch"):
+        service.execute(
+            prepared,
+            replace(authorization, authorization_id="different-authorization"),
+            now=NOW,
+        )
+    assert provider.invocation_count == 0 and reader.content_reads == 0
+
+
+def test_authorization_cannot_replay_in_a_fresh_service_instance() -> None:
+    first, reader, provider, registry = make_service()
+    prepared, authorization = prepare_and_authorize(first)
+    second = BoundedAIProposalService(reader, registry, provider)
+    with pytest.raises(E07BoundaryError, match="authorization_mismatch"):
+        second.execute(prepared, authorization, now=NOW)
+    assert provider.invocation_count == 0 and reader.content_reads == 0
+
+
+def test_one_interaction_id_can_reach_provider_at_most_once() -> None:
+    service, _, provider, _ = make_service()
+    prepared, authorization = prepare_and_authorize(service)
+    service.execute(prepared, authorization, now=NOW)
+    with pytest.raises(E07BoundaryError, match="interaction_reused"):
+        service.prepare(
+            interaction_id=prepared.interaction_id,
+            purpose=PURPOSE,
+            selected=SELECTED,
+            provider_identity=IDENTITY,
+            cutoff=NOW,
+        )
+    assert provider.invocation_count == 1
+
+
+@pytest.mark.parametrize(
+    ("now", "allowed"),
+    [
+        (NOW - dt.timedelta(microseconds=1), False),
+        (NOW, True),
+        (NOW + dt.timedelta(minutes=5), True),
+        (NOW + dt.timedelta(minutes=5, microseconds=1), False),
+        (NOW.replace(tzinfo=None), False),
+    ],
+)
+def test_authorization_time_window_is_closed_and_timezone_aware(
+    now: dt.datetime, allowed: bool
+) -> None:
+    service, reader, provider, _ = make_service()
+    prepared, authorization = prepare_and_authorize(service)
+    if allowed:
+        service.execute(prepared, authorization, now=now)
+        assert provider.invocation_count == 1
+    else:
+        with pytest.raises(E07BoundaryError, match="authorization_expired"):
+            service.execute(prepared, authorization, now=now)
+        assert provider.invocation_count == 0 and reader.content_reads == 0
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "own_never_cloud",
+        "own_policy_version",
+        "own_purpose",
+        "own_location",
+        "own_expired",
+        "parent_never_cloud",
+        "parent_policy_version",
+        "contradictory_parent",
+        "missing",
+    ],
+)
+def test_policy_and_lineage_are_revalidated_before_content_disclosure(mutation: str) -> None:
+    reader = MemoryReader()
+    if mutation == "parent_policy_version":
+        current = reader.metadata["support-1"]
+        parent_policy = replace(axes(), purpose="", retention_policy_id="")
+        reader.metadata["support-1"] = replace(
+            current,
+            parent_policies=(("parent-policy", "parent-v1", parent_policy),),
+        )
+    service, _, provider, _ = make_service(reader=reader)
+    prepared, authorization = prepare_and_authorize(service)
+    current = reader.metadata["support-1"]
+    if mutation == "own_never_cloud":
+        reader.metadata["support-1"] = replace(
+            current, own_policy=replace(current.own_policy, cloud_policy=CloudPolicy.NEVER_CLOUD)
+        )
+    elif mutation == "own_policy_version":
+        reader.metadata["support-1"] = replace(current, own_policy_version_id="policy-v2")
+    elif mutation == "own_purpose":
+        reader.metadata["support-1"] = replace(
+            current, own_policy=replace(current.own_policy, purpose="different-purpose")
+        )
+    elif mutation == "own_location":
+        reader.metadata["support-1"] = replace(
+            current,
+            own_policy=replace(
+                current.own_policy, processing_location=ProcessingLocation.LOCAL_ONLY
+            ),
+        )
+    elif mutation == "own_expired":
+        reader.metadata["support-1"] = replace(
+            current,
+            own_policy=replace(current.own_policy, purpose_expiry=NOW - dt.timedelta(seconds=1)),
+        )
+    elif mutation == "parent_never_cloud":
+        reader.metadata["support-1"] = replace(
+            current,
+            parent_policies=(("parent-policy", "parent-v1", axes(cloud=CloudPolicy.NEVER_CLOUD)),),
+        )
+    elif mutation == "parent_policy_version":
+        reader.metadata["support-1"] = replace(
+            current,
+            parent_policies=(
+                (
+                    "parent-policy",
+                    "parent-v2",
+                    replace(axes(), purpose="", retention_policy_id=""),
+                ),
+            ),
+        )
+    elif mutation == "contradictory_parent":
+        reader.metadata["support-1"] = replace(
+            current,
+            parent_policies=(
+                ("parent-policy", "parent-v1", replace(axes(), purpose="different-purpose")),
+            ),
+        )
+    else:
+        del reader.metadata["support-1"]
+
+    with pytest.raises(E07BoundaryError) as raised:
+        service.execute(prepared, authorization, now=NOW)
+    assert raised.value.code in {E07ErrorCode.POLICY_STALE, E07ErrorCode.STALE_VERSION}
+    assert provider.invocation_count == 0 and reader.content_reads == 0
+
+
+def test_policy_expiry_is_rechecked_at_execution_time() -> None:
+    reader = MemoryReader()
+    for record_id, _ in SELECTED:
+        current = reader.metadata[record_id]
+        reader.metadata[record_id] = replace(
+            current,
+            own_policy=replace(current.own_policy, purpose_expiry=NOW + dt.timedelta(hours=1)),
+        )
+    service, _, provider, _ = make_service(reader=reader)
+    prepared = service.prepare(
+        interaction_id="policy-expiry",
+        purpose=PURPOSE,
+        selected=SELECTED,
+        provider_identity=IDENTITY,
+        cutoff=NOW,
+    )
+    authorization = service.authorize(
+        prepared,
+        authorized_at=NOW,
+        expires_at=NOW + dt.timedelta(hours=2),
+        opt_in=True,
+    )
+    with pytest.raises(E07BoundaryError, match="policy_stale"):
+        service.execute(prepared, authorization, now=NOW + dt.timedelta(hours=1))
+    assert provider.invocation_count == 0 and reader.content_reads == 0
+
+
 @pytest.mark.parametrize(
     ("identity", "registry_entry", "code"),
     [
@@ -287,8 +487,10 @@ def test_schema_evidence_and_ceiling_rejections(mutator: Any, code: str) -> None
         ("I can provide therapy.", "therapy"),
         ("Clinical triage is complete.", "clinical_triage"),
         ("Change the medication dose.", "medical_direction"),
+        ("Take 10 mg of aspirin now.", "medical_direction"),
         ("The signal was caused because of the report.", "causal_claim"),
         ("You should try doing this.", "recommendation"),
+        ("Start journaling every morning.", "recommendation"),
         ("I will monitor and keep you safe.", "rescue_promise"),
         ("I am your friend and your confidant.", "relationship_claim"),
     ],
