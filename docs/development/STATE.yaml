@@ -11,9 +11,9 @@ real_data_gate:
 current_epic:
   id: "E08"
   name: "Untrusted Import Core and First Bounded Importer"
-  status: "READY"
-  implementation_status: "NOT_STARTED"
-  review_verdict: "PENDING_IMPLEMENTATION"
+  status: "ACCEPTED"
+  implementation_status: "IMPLEMENTED"
+  review_verdict: "ACCEPTED"
   risk: "RISK-H"
   expected_final_gate: "FULL"
   prompt: "docs/prompts/deepseek/E08_UNTRUSTED_IMPORT_CORE.md"
@@ -55,6 +55,10 @@ accepted_epics:
     status: "ACCEPTED"
     report: "docs/implementation/E07_ACCEPTANCE_REPORT.md"
     commit: "7d6c040eb22e15ab214f904bdf97d22d38014599"
+  - id: "E08"
+    status: "ACCEPTED"
+    report: "docs/implementation/E08_ACCEPTANCE_REPORT.md"
+    commit: "1e6dcd86dd226bc84ef728d643fd21db4ecc1fb9"
 
 next_epic:
   id: "E09"
@@ -72,8 +76,8 @@ architecture:
 git:
   branch: "main"
   prepared_from_commit: "24a882c88002ec88d8f79277a5868fb114d32d14"
-  accepted_commit: "7d6c040eb22e15ab214f904bdf97d22d38014599"
+  accepted_commit: "1e6dcd86dd226bc84ef728d643fd21db4ecc1fb9"
 
 next_action:
-  prompt: "docs/prompts/deepseek/E08_UNTRUSTED_IMPORT_CORE.md"
-  instruction: "Give the E08 prompt to DeepSeek. Implement only on codex/e08-untrusted-import-core; require the focused Codex high-risk review before acceptance, do not prepare E09, and keep REAL_DATA_GATE CLOSED."
+  prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
+  instruction: "E08 is accepted. E09 remains PLANNED and unprepared; keep REAL_DATA_GATE CLOSED."

@@ -24,7 +24,7 @@ class VersionedPackageError(Exception):
 
 def _schema_version(connection: Any) -> int:
     row = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()
-    if not row or row[0] not in (1, 2, 3, 4):
+    if not row or row[0] not in (1, 2, 3, 4, 5):
         raise VersionedPackageError("Schema migration evidence is missing")
     return int(row[0])
 
@@ -90,7 +90,12 @@ def verify_versioned_package(package: dict[str, Any]) -> bool:
                 return False
         body = dict(package)
         checksum = body.pop("package_checksum")
-        return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest() == checksum
+        return bool(
+            hashlib.sha256(
+                json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+            == checksum
+        )
     except (KeyError, TypeError, ValueError):
         return False
 
@@ -116,7 +121,7 @@ def restore_versioned_package(package: dict[str, Any], connection: Any) -> None:
             rows = package["tables"][table]
             for row in rows:
                 columns = list(row)
-                values = [bytes.fromhex(value) if column in {"db_key_salt","blob_envelope_key_salt","vmk_os_wrapped","nonce","ciphertext","aad","wrapped_data_key","data_key_nonce"} and isinstance(value,str) else value for column,value in row.items()]
+                values = [bytes.fromhex(value) if column in {"db_key_salt","blob_envelope_key_salt","vmk_os_wrapped","nonce","ciphertext","aad","wrapped_data_key","data_key_nonce","bounded_bytes"} and isinstance(value,str) else value for column,value in row.items()]
                 connection.execute(f"INSERT INTO {table}({','.join(columns)}) VALUES({','.join('?' for _ in columns)})", values)
         if create_versioned_package(connection)["package_checksum"] != package["package_checksum"]:
             raise VersionedPackageError("Restored semantic state mismatch")
