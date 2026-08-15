@@ -18,6 +18,17 @@ import secrets
 from typing import Any
 
 from psyche_os.adapters.e10_filesystem import E10FileWriteError, ExportFileInfo
+from psyche_os.domain.ids import PolicyId
+from psyche_os.policy.engine import (
+    CloudPolicy,
+    ExportRule,
+    PolicyAxes,
+    PolicyCompositionError,
+    ProcessingLocation,
+    Sensitivity,
+    ThirdPartyScope,
+    resolve_with_own_policy,
+)
 from psyche_os.reports.e10_professional import (
     EXPORT_RETENTION_NOTE,
     EXTERNAL_COPY_NOTICE,
@@ -148,27 +159,82 @@ def _validate_redactions(
     return tuple(sorted(result, key=lambda r: (r.record_id, r.version_id, r.field)))
 
 
-def _policy_state(connection: Any, audience: str) -> str:
-    """Export-policy gate: ``"missing"``, ``"blocked"`` or ``"ok"``.
+def _rows_dict(connection: Any, sql: str, args: Sequence[Any] = ()) -> list[dict[str, Any]]:
+    cursor = connection.execute(sql, args)
+    columns = tuple(item[0] for item in cursor.description)
+    return [dict(zip(columns, values, strict=True)) for values in cursor.fetchall()]
 
-    PS-01 / Master Spec §409: missing or ambiguous policy fails closed, so zero
-    active policies is ``"missing"`` (never silently permissive).  Any active
-    policy outside the local/no-cloud, audience-bounded export profile is
-    ``"blocked"``.
+
+def _policy_axes(row: dict[str, Any]) -> PolicyAxes:
+    """Map one data_policies row to typed orthogonal axes (PS-01)."""
+    def _optional_iso(value: Any) -> datetime | None:
+        return datetime.fromisoformat(value) if value else None
+
+    return PolicyAxes(
+        sensitivity=Sensitivity(row["sensitivity"]),
+        processing_location=ProcessingLocation(row["processing_location"]),
+        cloud_policy=CloudPolicy(row["cloud_policy"]),
+        purpose=str(row["purpose"]),
+        purpose_expiry=_optional_iso(row.get("purpose_expiry")),
+        third_party_scope=ThirdPartyScope(row["third_party_scope"]),
+        retention_policy_id=str(row["retention_policy_id"]),
+        retention_review_date=_optional_iso(row.get("retention_review")),
+        export_rule=ExportRule(row["export_rule"]),
+        export_audience=str(row["export_audience"]),
+        lineage_rule=str(row["lineage_rule"]),
+    )
+
+
+def _applicable_export_policy(
+    connection: Any, record_id: str
+) -> tuple[str, PolicyAxes | None]:
+    """Resolve the effective applicable policy for one disclosed record.
+
+    Reuses the accepted per-record resolution (E07 canonical reader + the
+    policy engine): own policy is the active row whose ``target_record_id`` is
+    the record; lineage parents come from ``policy_lineage``; the effective
+    axes are the most-restrictive meet of own + ancestors.  Returns
+    ``("missing", None)`` when no policy applies, ``("blocked", None)`` when
+    the applicable policy is ambiguous/contradictory, else ``("ok", axes)``.
     """
-    if (
-        connection.execute("SELECT 1 FROM data_policies WHERE is_active=1 LIMIT 1").fetchone()
-        is None
-    ):
-        return "missing"
-    violating = connection.execute(
-        "SELECT 1 FROM data_policies WHERE is_active=1 AND "
-        "(processing_location != 'local_only' OR cloud_policy != 'never_cloud' OR "
-        "export_rule NOT IN ('allow','redact') OR "
-        "(export_audience != '' AND export_audience != ?)) LIMIT 1",
-        (audience,),
-    ).fetchone()
-    return "ok" if violating is None else "blocked"
+    own_rows = _rows_dict(
+        connection,
+        "SELECT * FROM data_policies WHERE target_record_id=? AND is_active=1",
+        (record_id,),
+    )
+    if not own_rows:
+        return "missing", None
+    if len(own_rows) != 1:
+        # Multiple active policies target the same record: ambiguous.
+        return "blocked", None
+    own = own_rows[0]
+    parents = _rows_dict(
+        connection,
+        "SELECT p.* FROM policy_lineage l JOIN data_policies p "
+        "ON p.policy_id=l.parent_policy_id AND p.is_active=1 "
+        "WHERE l.child_policy_id=? ORDER BY p.policy_id",
+        (own["policy_id"],),
+    )
+    try:
+        resolution = resolve_with_own_policy(
+            _policy_axes(own),
+            PolicyId(str(own["policy_id"])),
+            [_policy_axes(parent) for parent in parents],
+            [PolicyId(str(parent["policy_id"])) for parent in parents],
+        )
+    except (PolicyCompositionError, ValueError):
+        return "blocked", None
+    return "ok", resolution.effective
+
+
+def _axes_allows_professional_handoff(axes: PolicyAxes, audience: str) -> bool:
+    """Frozen E10 local/no-cloud, audience-bounded export profile."""
+    return (
+        axes.processing_location == ProcessingLocation.LOCAL_ONLY
+        and axes.cloud_policy == CloudPolicy.NEVER_CLOUD
+        and axes.export_rule in (ExportRule.ALLOW, ExportRule.REDACT)
+        and (not axes.export_audience or axes.export_audience == audience)
+    )
 
 
 def _validate_destination(destination: str) -> None:
@@ -182,15 +248,18 @@ def _validate_destination(destination: str) -> None:
 
 
 class E10ProfessionalHandoffService:
-    """One service instance; authorizations never cross instances."""
+    """One service instance owns one immutable filesystem writer; authorizations
+    never cross instances."""
 
     def __init__(
         self,
         connection: Any,
+        writer: Any,
         config: ReportConfig | None = None,
         instance_id: str | None = None,
     ) -> None:
         self.connection = connection
+        self._writer = writer
         self.config = config or ReportConfig()
         self._instance_id = instance_id or ("e10-instance-" + secrets.token_hex(8))
         self._authorization_states: dict[str, str] = {}
@@ -212,6 +281,10 @@ class E10ProfessionalHandoffService:
         the preview digest; it never enters the report bytes.
         """
         _validate_destination(destination)
+        try:
+            export_target = str(self._writer.resolve_destination(destination))
+        except E10FileWriteError:
+            raise E10ReportError("INVALID_DESTINATION") from None
         selected = _normalise_selection(selection)
         exclusions_norm = _normalise_exclusions(exclusions)
         excluded_keys = {(e.record_id, e.version_id) for e in exclusions_norm}
@@ -223,11 +296,6 @@ class E10ProfessionalHandoffService:
         effective = tuple(pair for pair in selected if pair not in excluded_keys)
         if not effective:
             raise E10ReportError("EMPTY_SELECTION")
-        state = _policy_state(self.connection, self.config.audience)
-        if state == "missing":
-            raise E10ReportError("POLICY_MISSING")
-        if state == "blocked":
-            raise E10ReportError("POLICY_BLOCKED")
 
         known_fields: dict[tuple[str, str], frozenset[str]] = {}
         selected_kinds: dict[tuple[str, str], str] = {}
@@ -248,6 +316,18 @@ class E10ProfessionalHandoffService:
                 raise E10ReportError("COUNTEREVIDENCE_UNAVAILABLE")
             known_fields[(rid, vid)] = frozenset(label for label, _value in content.fields)
 
+        # F8: every record actually disclosed (effective selection + auto-added
+        # counterevidence) must resolve an applicable, eligible export policy.
+        for rid, _vid in (*effective, *counterevidence_ids):
+            state, axes = _applicable_export_policy(self.connection, rid)
+            if state == "missing":
+                raise E10ReportError("POLICY_MISSING")
+            if state == "blocked":
+                raise E10ReportError("POLICY_BLOCKED")
+            assert axes is not None
+            if not _axes_allows_professional_handoff(axes, self.config.audience):
+                raise E10ReportError("POLICY_BLOCKED")
+
         redactions_norm = _validate_redactions(
             redactions,
             frozenset(effective) | frozenset(counterevidence_ids),
@@ -267,6 +347,7 @@ class E10ProfessionalHandoffService:
             ),
             output_format=self.config.output_format,
             destination=destination,
+            export_target=export_target,
             retention_note=EXPORT_RETENTION_NOTE,
             external_copy_notice=EXTERNAL_COPY_NOTICE,
             builder_version=self.config.builder_version,
@@ -346,15 +427,13 @@ class E10ProfessionalHandoffService:
         self,
         preview: ReportPreview,
         authorization: HandoffAuthorization,
-        writer: Any,
-        *,
-        overwrite: bool = False,
     ) -> DisclosureOutcome:
         """The complete authorized disclosure action.
 
         The single-use capability covers revalidation, deterministic report
-        construction AND the write to the exact authorized destination.  The
-        write failure path invalidates the capability; it is never reusable.
+        construction AND the write to the exact authorized target through this
+        service's immutable writer.  Overwrite is frozen to ``False``; the write
+        failure path invalidates the capability; it is never reusable.
         """
         self._validate_authorization(authorization)
         try:
@@ -368,8 +447,8 @@ class E10ProfessionalHandoffService:
 
         package = self._build_package(current)
         try:
-            info: ExportFileInfo = writer.write(
-                package.markdown, current.destination, overwrite=overwrite
+            info: ExportFileInfo = self._writer.write(
+                package.markdown, current.destination
             )
         except E10FileWriteError:
             self._authorization_states[authorization.authorization_id] = "invalidated"

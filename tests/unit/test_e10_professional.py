@@ -90,6 +90,7 @@ def _identity_preview_for_unit():
         uncertainty_record_count=0,
         output_format="markdown+json",
         destination="handoff.md",
+        export_target="e10-memory-base/handoff.md",
         retention_note=EXPORT_RETENTION_NOTE,
         external_copy_notice=EXTERNAL_COPY_NOTICE,
         builder_version="e10-professional-builder-v1",

@@ -331,6 +331,7 @@ class ReportPreview:
     uncertainty_record_count: int
     output_format: str
     destination: str
+    export_target: str
     retention_note: str
     external_copy_notice: str
     builder_version: str
@@ -357,6 +358,7 @@ class ReportPreview:
                 "uncertainty_record_count": self.uncertainty_record_count,
                 "output_format": self.output_format,
                 "destination": self.destination,
+                "export_target": self.export_target,
                 "retention_note": self.retention_note,
                 "external_copy_notice": self.external_copy_notice,
                 "builder_version": self.builder_version,

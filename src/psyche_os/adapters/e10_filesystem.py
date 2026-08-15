@@ -44,19 +44,21 @@ class ReportFileWriter:
     def __init__(self, base_dir: str | os.PathLike[str]) -> None:
         self._base_dir = Path(base_dir).resolve()
 
-    def write(
-        self,
-        text: str,
-        destination: str,
-        *,
-        overwrite: bool = False,
-    ) -> ExportFileInfo:
+    @property
+    def base_dir(self) -> Path:
+        return self._base_dir
+
+    def resolve_destination(self, destination: str) -> Path:
+        """Validate and resolve a relative destination to its concrete target.
+
+        Returns the resolved absolute target path; raises a content-free
+        E10FileWriteError otherwise.  The destination link is rejected before
+        resolution so a symlink whose target stays inside base_dir cannot hide.
+        """
         candidate = Path(destination)
         if candidate.is_absolute() or ".." in candidate.parts:
             raise E10FileWriteError("destination_outside_base")
         candidate_path = self._base_dir / candidate
-        # Reject the destination link before resolution: a symlink whose target
-        # remains inside base_dir must not hide behind .resolve().
         if candidate_path.is_symlink():
             raise E10FileWriteError("link_rejected")
         resolved = candidate_path.resolve()
@@ -64,6 +66,16 @@ class ReportFileWriter:
             raise E10FileWriteError("destination_outside_base")
         if resolved.is_symlink():
             raise E10FileWriteError("link_rejected")
+        return resolved
+
+    def write(
+        self,
+        text: str,
+        destination: str,
+        *,
+        overwrite: bool = False,
+    ) -> ExportFileInfo:
+        resolved = self.resolve_destination(destination)
         if resolved.exists():
             if not resolved.is_file():
                 raise E10FileWriteError("not_regular_file")
