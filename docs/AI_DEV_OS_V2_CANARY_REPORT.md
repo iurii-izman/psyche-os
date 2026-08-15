@@ -3,7 +3,7 @@
 **Status:** `IMPLEMENTED / PENDING_REVIEW` (CANARY, not production-ready)
 **Base:** `ceb3031dd5d7d75564691f59ddf6e23dd71a812f`
 **Branch:** `ai-dev/v2-control-canary`
-**Candidate SHA (freeze for review):** `6b86489f4d043f67f38dd22852d5a72091978cae`
+**Candidate SHA (freeze for review):** `1868237c15ef02fdba20c6ed0d47bb6486d23b8f`
 **V1:** unchanged — `VERIFIED / PRODUCTION_READY`
 
 This report distinguishes **CLAIM** (what the implementation states), **EVIDENCE**
@@ -132,7 +132,7 @@ Four verified boundary defects and two provenance inconsistencies were fixed:
 | Orchestration | `uv run python scripts/dev/validate_orchestration.py` | `113 passed, 1 failed` (branch-name gate, pre-existing) |
 | Ruff ratchet | `uv run python scripts/ai_dev_v2.py ratchet compare` | `ruff: PASS — no new diagnostics` |
 | mypy ratchet | (same) | `mypy: PASS — no new diagnostics` |
-| Full pytest | `uv run pytest -q` | `733 passed, 2 skipped` (pre-existing symlink skips) |
+| Full pytest | `uv run pytest -q` | `749 passed, 2 skipped` (pre-existing symlink skips) |
 | App-source diff | `git diff --stat ceb3031 -- src desktop` | empty (0 changes) |
 | Packet determinism | render twice, byte-diff | identical |
 
@@ -181,6 +181,6 @@ T0 files (`security_guard.py`, `schema.json`, `state.yaml`) to the base SHA rest
 
 Next: **FRESH STRONG V2 CANARY REVIEW REQUIRED** (do not run here).
 
-> Review freeze: `base = ceb3031…`, `candidate = 6b86489…` (the content HEAD). The review
+> Review freeze: `base = ceb3031…`, `candidate = 1868237…` (the content HEAD). The review
 > packet is committed in a separate packaging commit on the branch, which is excluded from
 > review scope; it does not change the frozen candidate SHA.

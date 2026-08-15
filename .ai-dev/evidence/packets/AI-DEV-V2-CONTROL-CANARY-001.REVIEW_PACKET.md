@@ -3,7 +3,7 @@
 
 - task_id: AI-DEV-V2-CONTROL-CANARY-001
 - base_sha: ceb3031dd5d7d75564691f59ddf6e23dd71a812f
-- candidate_sha: 6b86489f4d043f67f38dd22852d5a72091978cae
+- candidate_sha: 1868237c15ef02fdba20c6ed0d47bb6486d23b8f
 - risk: high
 - acceptance_blocked: false
 
@@ -13,8 +13,6 @@
   .ai-dev/evidence/decisions/V2-CANARY-CONTROL-PLANE-CHANGE.md
   .ai-dev/evidence/diagnostics/historical-debt.yaml
   .ai-dev/evidence/diagnostics/history.jsonl
-  .ai-dev/evidence/diagnostics/mypy.baseline.yaml
-  .ai-dev/evidence/diagnostics/ruff.baseline.yaml
   .ai-dev/evidence/packets/AI-DEV-V2-CONTROL-CANARY-001.REVIEW_PACKET.md
   .ai-dev/evidence/packets/AI-DEV-V2-CONTROL-CANARY-001.TASK_PACKET.md
   .ai-dev/evidence/packets/AI-DEV-V2-CONTROL-CANARY-001.review-state.yaml
@@ -22,6 +20,8 @@
   .ai-dev/routing/provider-mapping.yaml
   .ai-dev/state.yaml
   .ai-dev/telemetry/schema.json
+  .ai-dev/verification/baselines/mypy.baseline.yaml
+  .ai-dev/verification/baselines/ruff.baseline.yaml
   docs/AI_DEV_OS_V2_CANARY_REPORT.md
   docs/AI_DEV_OS_V2_DRAFT.md
   scripts/ai_dev_doctor.py
@@ -70,12 +70,12 @@
 - app_source_diff: 0 changes under src/ and desktop/
 - dispatcher_smoke: ALL PASS (uv run python .ai-dev/hooks/test_dispatcher.py)
 - doctor: RESULT: PASS
-- focused_v2_tests: 89 passed (uv run pytest tests/control_plane/ -q)
-- full_pytest: 733 passed, 2 skipped (pre-existing symlink skips)
-- mypy_ratchet: PASS - no new diagnostics
+- focused_v2_tests: 105 passed (uv run pytest tests/control_plane/ -q)
+- full_pytest: 749 passed, 2 skipped (pre-existing symlink skips)
+- mypy_ratchet: PASS - no new diagnostics (canonical baseline, git ancestry verified)
 - orchestration: 113 passed, 1 failed (branch-name gate, pre-existing)
 - packet_determinism: byte-identical on repeat render
-- ruff_ratchet: PASS - no new diagnostics
+- ruff_ratchet: PASS - no new diagnostics (canonical baseline, git ancestry verified)
 - telemetry_self_test: SELF-TEST OK
 
 ## Model / provider attestation
@@ -101,13 +101,11 @@
 
 ## Review questions / verdict requested
 - review_questions: Can the requested model ever be promoted to the effective backend model?
-  Can the provider mapping apply without proven endpoint/upstream context?
-  Can a Windows case-variant or traversal path bypass the protected-path guard?
-  Can a same-count diagnostic change evade the identity-aware ratchet?
-  Can a tampered baseline (digest/count/identity mismatch) pass the ratchet?
-  Can an unresolved HIGH/CRITICAL authority conflict or a contract-check violation produce an acceptance-ready packet?
+  Can the provider mapping apply without a provider-owned endpoint/upstream host?
+  Can a canonical baseline be mutated without an explicit propose+promote (approval) transaction?
+  Can a tampered baseline (digest/count/identity/ancestry mismatch) pass the ratchet?
+  Can an unresolved HIGH/CRITICAL authority conflict or contract-check violation produce an acceptance-ready packet?
   Can nested secret/raw-prompt content survive packet sanitization?
-  Can packet output vary across renders of identical input?
   Can V2 become required and break the V1 rollback path?
 
 - verdict requested: ACCEPT_CANARY | FIX_REQUIRED | REDESIGN_REQUIRED

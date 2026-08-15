@@ -1,7 +1,7 @@
 # Bounded task/evidence state for the V2.0 Control Canary review packet.
 # candidate_sha is the content HEAD to review; the review-packet packaging commit is
 # recorded separately (see the implementation report GIT section).
-candidate_sha: 6b86489f4d043f67f38dd22852d5a72091978cae
+candidate_sha: 1868237c15ef02fdba20c6ed0d47bb6486d23b8f
 
 changed_files:
   - .ai-dev/contracts/AI-DEV-V2-CONTROL-CANARY-001.yaml
@@ -9,8 +9,6 @@ changed_files:
   - .ai-dev/evidence/decisions/V2-CANARY-CONTROL-PLANE-CHANGE.md
   - .ai-dev/evidence/diagnostics/historical-debt.yaml
   - .ai-dev/evidence/diagnostics/history.jsonl
-  - .ai-dev/evidence/diagnostics/mypy.baseline.yaml
-  - .ai-dev/evidence/diagnostics/ruff.baseline.yaml
   - .ai-dev/evidence/packets/AI-DEV-V2-CONTROL-CANARY-001.REVIEW_PACKET.md
   - .ai-dev/evidence/packets/AI-DEV-V2-CONTROL-CANARY-001.TASK_PACKET.md
   - .ai-dev/evidence/packets/AI-DEV-V2-CONTROL-CANARY-001.review-state.yaml
@@ -18,6 +16,8 @@ changed_files:
   - .ai-dev/routing/provider-mapping.yaml
   - .ai-dev/state.yaml
   - .ai-dev/telemetry/schema.json
+  - .ai-dev/verification/baselines/mypy.baseline.yaml
+  - .ai-dev/verification/baselines/ruff.baseline.yaml
   - docs/AI_DEV_OS_V2_CANARY_REPORT.md
   - docs/AI_DEV_OS_V2_DRAFT.md
   - scripts/ai_dev_doctor.py
@@ -30,14 +30,14 @@ changed_files:
   - tests/control_plane/test_telemetry_redaction.py
 
 verification_evidence:
-  focused_v2_tests: "89 passed (uv run pytest tests/control_plane/ -q)"
+  focused_v2_tests: "105 passed (uv run pytest tests/control_plane/ -q)"
   dispatcher_smoke: "ALL PASS (uv run python .ai-dev/hooks/test_dispatcher.py)"
   telemetry_self_test: "SELF-TEST OK"
   doctor: "RESULT: PASS"
   orchestration: "113 passed, 1 failed (branch-name gate, pre-existing)"
-  ruff_ratchet: "PASS - no new diagnostics"
-  mypy_ratchet: "PASS - no new diagnostics"
-  full_pytest: "733 passed, 2 skipped (pre-existing symlink skips)"
+  ruff_ratchet: "PASS - no new diagnostics (canonical baseline, git ancestry verified)"
+  mypy_ratchet: "PASS - no new diagnostics (canonical baseline, git ancestry verified)"
+  full_pytest: "749 passed, 2 skipped (pre-existing symlink skips)"
   app_source_diff: "0 changes under src/ and desktop/"
   packet_determinism: "byte-identical on repeat render"
 
@@ -67,11 +67,9 @@ blockers: []
 
 review_questions:
   - Can the requested model ever be promoted to the effective backend model?
-  - Can the provider mapping apply without proven endpoint/upstream context?
-  - Can a Windows case-variant or traversal path bypass the protected-path guard?
-  - Can a same-count diagnostic change evade the identity-aware ratchet?
-  - Can a tampered baseline (digest/count/identity mismatch) pass the ratchet?
-  - Can an unresolved HIGH/CRITICAL authority conflict or a contract-check violation produce an acceptance-ready packet?
+  - Can the provider mapping apply without a provider-owned endpoint/upstream host?
+  - Can a canonical baseline be mutated without an explicit propose+promote (approval) transaction?
+  - Can a tampered baseline (digest/count/identity/ancestry mismatch) pass the ratchet?
+  - Can an unresolved HIGH/CRITICAL authority conflict or contract-check violation produce an acceptance-ready packet?
   - Can nested secret/raw-prompt content survive packet sanitization?
-  - Can packet output vary across renders of identical input?
   - Can V2 become required and break the V1 rollback path?
