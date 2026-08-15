@@ -60,14 +60,22 @@ transcript; it exists to minimize future review cost.
   disclosed (effective selection + auto-added counterevidence), the applicable
   policy is resolved per the accepted authority (own policy = active
   `data_policies` row whose `target_record_id` is the record, per the E07
-  canonical reader; lineage parents via `policy_lineage`; effective axes =
-  most-restrictive meet of own + ancestors via `resolve_with_own_policy` in
-  `src/psyche_os/policy/engine.py`). No applicable policy → `POLICY_MISSING`;
-  ambiguous/contradictory applicable policy (multiple active policies targeting
-  the record, or unresolvable axes) → `POLICY_BLOCKED`; an applicable policy
-  must satisfy the frozen local/no-cloud, audience-bounded export rules. An
-  unrelated policy never authorizes a record without its own applicable policy.
-  No new generic policy engine was introduced.
+  canonical reader; the effective axes = most-restrictive meet of own + the
+  **complete transitive `policy_lineage` ancestor set** via
+  `resolve_with_own_policy` in `src/psyche_os/policy/engine.py`). Lineage is
+  transitive (PS-02): a restrictive grandparent or deeper ancestor survives
+  and can never be weakened by a descendant; a lineage cycle, missing/ambiguous
+  ancestor reference, or composition failure fails closed; ancestors are
+  deduplicated deterministically; counterevidence uses the same transitive
+  resolution. No applicable policy → `POLICY_MISSING`; ambiguous/contradictory
+  applicable policy (multiple active policies targeting the record, unresolvable
+  axes, or malformed lineage) → `POLICY_BLOCKED`; an applicable policy must
+  satisfy the frozen local/no-cloud, audience-bounded export rules (local_only,
+  never_cloud, export rule allow/redact, and every non-empty named
+  `export_audience` permits the frozen audience). An unrelated policy never
+  authorizes a record without its own applicable policy. No new generic policy
+  engine was introduced. See `docs/development/reviews/E10_STRONG_REVIEW.md`
+  for the strong-review finding (G-2) and its fix.
 - **F9 — authorization binds the real file operation:** the service owns one
   immutable filesystem writer; `build_preview` resolves the destination to the
   concrete export target through that writer and binds target + destination
@@ -108,19 +116,26 @@ transcript; it exists to minimize future review cost.
   across destinations, destination absent from bounded surfaces (F7),
   filesystem path/overwrite safety, exclusion ⊆ selection + excluded-version
   availability (F3), selected-counterevidence non-duplication (F4), real +
-  deterministic symlink rejection (F5), provider/network absence.
+  deterministic symlink rejection (F5), provider/network absence, **transitive
+  policy-lineage closure (F10): grandparent BLOCK → parent ALLOW → child ALLOW
+  stays blocked; NEVER_CLOUD grandparent survives permissive descendants;
+  three-level all-eligible lineage discloses; lineage cycle fails closed;
+  dangling/missing ancestor fails closed; counterevidence with a restrictive
+  transitive ancestor fails closed.**
 
 ## Policy semantics conclusion (authority-backed, no deviation)
 
 - **Applicable policy is per-record, and missing/ambiguous policy fails
   closed.** The accepted per-record resolution (E07 canonical reader: own
   policy = active `data_policies` row whose `target_record_id` is the record;
-  `policy_lineage` parents; effective axes via `resolve_with_own_policy`) is
-  combined with PS-01 "Missing or contradictory policy fails closed"
+  complete transitive `policy_lineage` ancestor set; effective axes via
+  `resolve_with_own_policy`) is combined with PS-01 "Missing or contradictory
+  policy fails closed"
   (`docs/architecture/PRIVACY_SECURITY_MODEL.md`) and Master Spec §409
   "Missing/ambiguous policy fails closed". No applicable policy for a disclosed
-  record → `POLICY_MISSING`; ambiguous/contradictory applicable policy or
-  ineligible axes → `POLICY_BLOCKED`. The earlier E09-precedent allow-by-absence
+  record → `POLICY_MISSING`; ambiguous/contradictory applicable policy,
+  malformed lineage (cycle, missing or ambiguous ancestor), or ineligible axes
+  → `POLICY_BLOCKED`. The earlier E09-precedent allow-by-absence
   reading was explicitly set aside; no "global/all" policy semantic exists in
   the authority. An unrelated permissive policy never authorizes a record
   without its own applicable policy.
@@ -185,6 +200,14 @@ No `E10_ARCHITECTURE_DEVIATION_REQUIRED`.
     immutable writer; target + destination in the preview digest); overwrite is
     frozen to `false` and cannot change after authorization; an existing target
     is never replaced.
+17. Effective export policy is the most-restrictive meet of the record's own
+    policy and its **complete transitive** `policy_lineage` ancestor set: a
+    restrictive ancestor at any depth (including a grandparent or deeper)
+    survives and can never be weakened by a descendant; a lineage cycle,
+    dangling/missing ancestor, ambiguous ancestor reference, or composition
+    failure fails closed; ancestors are deduplicated deterministically;
+    counterevidence uses the same transitive resolution. (F10 / strong-review
+    G-2.)
 
 ## Trust-boundary summary
 
@@ -212,25 +235,36 @@ Recorded truthfully (not invented, not waived) in the report/preview/manifest:
 
 ## Verification results (exact)
 
-- Targeted E10: `uv run pytest tests/unit/test_e10_professional.py
-  tests/integration/test_e10_professional_handoff.py -q` → **49 passed,
+- Targeted E10 (F1–F10): `uv run pytest tests/unit/test_e10_professional.py
+  tests/integration/test_e10_professional_handoff.py -q` → **55 passed,
   1 skipped** (real-symlink creation unavailable on Windows without privilege;
   deterministic link-rejection path-validation coverage is provided).
-- FULL: `uv run pytest -q` → **638 passed, 2 skipped** (both are Windows
+- FULL: `uv run pytest -q` → **644 passed, 2 skipped** (both are Windows
   symlink/admin skips: the E10 link test and the pre-existing
   `tests/regression/test_regression_proofs.py:263`).
 - F0: `uv run python scripts/validate_f0_scope.py` → **PASS**.
 - Orchestration: `uv run python scripts/dev/validate_orchestration.py` →
   **112 passed, 0 failed; gate CLOSED**.
 - Touched Ruff: clean. Touched strict mypy: clean.
-- Ratchet (stable identities vs exact E10 preparation baseline): Ruff 92→92
-  (0 new), mypy 13→13 (0 new).
+- No-new-diagnostic ratchet (full repo, current tool versions): Ruff 215→215
+  (0 new), mypy 40→40 (0 new). (The earlier F1–F9 ratchet figures of Ruff
+  92→92 / mypy 13→13 were measured with the tool versions pinned at E10
+  preparation.)
+- Strong review: `docs/development/reviews/E10_STRONG_REVIEW.md` (finding G-2
+  fixed by F10; filesystem no-clobber race accepted as a LOW residual;
+  reviewer runtime reported `claude-opus-5[1m]`, DeepSeek V4 Pro not
+  observably confirmed).
 
 ## Known limitations
 
 - Per-record applicable policy must be present and unambiguous for every
   disclosed record (see Policy conclusion); `data_policies.purpose` is not an
   export-gate input by accepted privacy-model authority (export "by audience").
+- **Filesystem no-clobber race (accepted LOW residual):**
+  `ReportFileWriter.write()` performs `exists()` → concurrent creation →
+  `os.replace()`. A concurrently created target can be clobbered in the window
+  between the check and the replace. Accepted under the single-user threat
+  model; no absolute race-free no-clobber behavior is claimed.
 - Extractor covers the six semantic text tables; E05 measurement and E06
   experiment-result tables are not separately indexed.
 - Revalidation is against the current connection immediately before the
@@ -240,6 +274,9 @@ Recorded truthfully (not invented, not waived) in the report/preview/manifest:
   access-control policy boundary. Real symlink rejection is verified only where
   the OS permits symlink creation; the link-rejection path-validation logic has
   deterministic coverage on all platforms.
+- The E07 canonical reader retains its direct-parent `policy_lineage` reader for
+  the E07 LLM-disclosure path; that inherited behavior is E07-scoped debt,
+  documented separately, not part of the E10 disclosure gate.
 
 ## Highest-value adversarial review questions
 
