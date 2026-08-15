@@ -199,7 +199,12 @@ class E10ReportError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class ReportConfig:
-    """Frozen E10 profile configuration; its identity is part of the report."""
+    """Frozen E10 profile configuration; its identity is part of the report.
+
+    E10 is authorized for exactly one profile/audience/purpose/output format.
+    Any other configuration fails closed at construction; there is no generic
+    profile framework.
+    """
 
     profile: str = PROFILE_ID
     audience: str = AUDIENCE
@@ -208,6 +213,16 @@ class ReportConfig:
     builder_version: str = BUILDER_VERSION
     config_version: str = CONFIG_VERSION
     output_format: str = OUTPUT_FORMAT
+
+    def __post_init__(self) -> None:
+        if self.profile != PROFILE_ID:
+            raise E10ReportError("UNSUPPORTED_PROFILE")
+        if self.audience != AUDIENCE:
+            raise E10ReportError("UNSUPPORTED_AUDIENCE")
+        if self.purpose != PURPOSE:
+            raise E10ReportError("UNSUPPORTED_PURPOSE")
+        if self.output_format != OUTPUT_FORMAT:
+            raise E10ReportError("UNSUPPORTED_OUTPUT_FORMAT")
 
     @property
     def identity(self) -> str:
@@ -456,6 +471,8 @@ def collect_counterevidence_ids(
     )
     targets: set[tuple[str, str]] = set()
     for rid, vid in effective_ids:
+        # Contradiction-set membership is direction-independent: sibling
+        # members of any set the selected record belongs to are material.
         for ref in expansion.get(rid, ()):
             if ref.role == "contradiction_set":
                 for member_id, member_vid in _contradiction_members(
@@ -463,10 +480,6 @@ def collect_counterevidence_ids(
                 ):
                     if (member_id, member_vid) != (rid, vid):
                         targets.add((member_id, member_vid))
-            elif ref.role in _CONTRADICTION_ROLES:
-                resolved = resolve_active(connection, ref.related_record_id)
-                if resolved is not None and resolved != (rid, vid):
-                    targets.add(resolved)
         # A selected claim that directly names a contradiction set must not
         # be presented without that set's material.
         set_row = connection.execute(
@@ -480,7 +493,25 @@ def collect_counterevidence_ids(
             ):
                 if (member_id, member_vid) != (rid, vid):
                     targets.add((member_id, member_vid))
-    return tuple(sorted(targets))
+    # Contradicts-family evidence links are directional: a source record that
+    # contradicts a selected target is that target's material counterevidence;
+    # the contradicted target is not the source's counterevidence.
+    selected_rids = [rid for rid, _vid in effective_ids]
+    if selected_rids:
+        roles = tuple(sorted(_CONTRADICTION_ROLES))
+        role_ph = ",".join("?" for _ in roles)
+        target_ph = ",".join("?" for _ in selected_rids)
+        rows = connection.execute(
+            f"SELECT source_record_id, source_version_id FROM evidence_links "
+            f"WHERE target_claim_record_id IN ({target_ph}) AND relation IN ({role_ph})",
+            (*selected_rids, *roles),
+        ).fetchall()
+        for source_id, source_vid in rows:
+            targets.add((str(source_id), str(source_vid)))
+    # A materially linked record that is already explicitly selected appears
+    # once, as a selected record; it is not emitted a second time as
+    # automatically included counterevidence.
+    return tuple(sorted(targets - set(effective_ids)))
 
 
 def policy_identity_of(connection: Any) -> str:

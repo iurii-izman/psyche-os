@@ -172,6 +172,11 @@ class E10ProfessionalHandoffService:
         selected = _normalise_selection(selection)
         exclusions_norm = _normalise_exclusions(exclusions)
         excluded_keys = {(e.record_id, e.version_id) for e in exclusions_norm}
+        # F3: exclusion is a transformation over the exact explicit selection;
+        # fabricated/unselected IDs cannot appear as excluded metadata.
+        for key in excluded_keys:
+            if key not in selected:
+                raise E10ReportError("INVALID_EXCLUSION")
         effective = tuple(pair for pair in selected if pair not in excluded_keys)
         if not effective:
             raise E10ReportError("EMPTY_SELECTION")
@@ -180,12 +185,15 @@ class E10ProfessionalHandoffService:
 
         known_fields: dict[tuple[str, str], frozenset[str]] = {}
         selected_kinds: dict[tuple[str, str], str] = {}
-        for rid, vid in effective:
+        # Every explicitly selected version must exist and be available,
+        # including ones excluded from this candidate.
+        for rid, vid in selected:
             content = resolve_record(self.connection, rid, vid)
             if content is None:
                 raise E10ReportError("RECORD_UNAVAILABLE")
-            known_fields[(rid, vid)] = frozenset(label for label, _value in content.fields)
-            selected_kinds[(rid, vid)] = content.kind
+            if (rid, vid) in effective:
+                known_fields[(rid, vid)] = frozenset(label for label, _value in content.fields)
+                selected_kinds[(rid, vid)] = content.kind
 
         counterevidence_ids = collect_counterevidence_ids(self.connection, effective)
         for rid, vid in counterevidence_ids:
@@ -325,7 +333,3 @@ class E10ProfessionalHandoffService:
     @staticmethod
     def manifest_bytes(package: ReportPackage) -> bytes:
         return manifest_bytes(package.manifest)
-
-    def force_register_for_test(self, authorization: HandoffAuthorization) -> None:
-        """Test-only hook to exercise cross-instance rejection paths."""
-        self._authorization_states[authorization.authorization_id] = "issued"

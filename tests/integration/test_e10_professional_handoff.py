@@ -3,6 +3,7 @@ authorization, TOCTOU, counterevidence, redaction, export, receipt."""
 
 from __future__ import annotations
 
+from pathlib import Path
 import sqlite3
 
 import pytest
@@ -266,6 +267,35 @@ def test_claim_naming_contradiction_set_includes_material() -> None:
     assert "## Linked counterevidence (automatically included)" in package.markdown
 
 
+def test_selected_counterevidence_not_duplicated() -> None:
+    service = _fixture()
+    _add_policy(service.connection)
+    handoff = E10ProfessionalHandoffService(service.connection)
+    # Select both sides of the canonical contradiction explicitly.
+    preview, _auth, package = _generate(
+        handoff,
+        (
+            ("assertion-lamp", "assertion-lamp-v1"),
+            ("assertion-counter", "assertion-counter-v1"),
+        ),
+    )
+    # Nothing is auto-added that is already explicitly selected.
+    assert preview.counterevidence_ids == ()
+    lamp_heading = f"### {_escape_text('assertion-lamp')} · {_escape_text('assertion-lamp-v1')}"
+    counter_heading = (
+        f"### {_escape_text('assertion-counter')} · {_escape_text('assertion-counter-v1')}"
+    )
+    assert package.markdown.count(lamp_heading) == 1
+    assert package.markdown.count(counter_heading) == 1
+    ids = [(record["record_id"], record["version_id"]) for record in package.manifest["records"]]
+    assert ids.count(("assertion-lamp", "assertion-lamp-v1")) == 1
+    assert ids.count(("assertion-counter", "assertion-counter-v1")) == 1
+    assert set(package.identity.selected_ids) == {
+        ("assertion-lamp", "assertion-lamp-v1"),
+        ("assertion-counter", "assertion-counter-v1"),
+    }
+
+
 def test_redaction_cannot_mutate_canonical() -> None:
     service = _fixture()
     _add_policy(service.connection)
@@ -307,6 +337,40 @@ def test_exclusion_is_report_transformation_only() -> None:
         "AND version_id='observation-lamp-v1' AND is_active=1"
     ).fetchone()
     assert row is not None
+
+
+def test_exclusion_must_be_member_of_explicit_selection() -> None:
+    service = _fixture()
+    _add_policy(service.connection)
+    handoff = E10ProfessionalHandoffService(service.connection)
+    # An unselected record cannot be excluded from this candidate.
+    with pytest.raises(E10ReportError) as exc:
+        handoff.build_preview(
+            (("report-lamp", "report-lamp-v1"),),
+            exclusions=(Exclusion("observation-lamp", "observation-lamp-v1"),),
+        )
+    assert exc.value.code == "INVALID_EXCLUSION"
+    # Fabricated IDs cannot appear as excluded metadata.
+    with pytest.raises(E10ReportError) as exc:
+        handoff.build_preview(
+            (("report-lamp", "report-lamp-v1"),),
+            exclusions=(Exclusion("report-fabricated", "report-fabricated-v1"),),
+        )
+    assert exc.value.code == "INVALID_EXCLUSION"
+
+
+def test_excluded_version_must_exist_and_be_available() -> None:
+    service = _fixture()
+    _add_policy(service.connection)
+    handoff = E10ProfessionalHandoffService(service.connection)
+    # Supersede report-lamp-v1, then select both versions and exclude v1.
+    service.correct_lamp_report_time("report-lamp-v1")
+    with pytest.raises(E10ReportError) as exc:
+        handoff.build_preview(
+            (("report-lamp", "report-lamp-v1"), ("report-lamp", "report-lamp-v2")),
+            exclusions=(Exclusion("report-lamp", "report-lamp-v1"),),
+        )
+    assert exc.value.code == "RECORD_UNAVAILABLE"
 
 
 def test_hostile_imported_content_stays_inert() -> None:
@@ -370,11 +434,34 @@ def test_authorization_non_transferable_across_instances() -> None:
     with pytest.raises(E10ReportError) as exc:
         right.generate_report(preview, authorization)
     assert exc.value.code == "AUTHORIZATION_FABRICATED"
-    # A capability registered under a foreign instance id is non-transferable.
-    right.force_register_for_test(authorization)
+    # Test-only state injection (no callable production path): a capability
+    # registered under a foreign instance id is still non-transferable.
+    right._authorization_states[authorization.authorization_id] = "issued"
     with pytest.raises(E10ReportError) as exc:
         right.generate_report(preview, authorization)
     assert exc.value.code == "AUTHORIZATION_NON_TRANSFERABLE"
+
+
+def test_no_production_authorization_registration_bypass() -> None:
+    import inspect
+
+    service = _fixture()
+    _add_policy(service.connection)
+    handoff = E10ProfessionalHandoffService(service.connection)
+    preview = handoff.build_preview((("report-lamp", "report-lamp-v1"),))
+    arbitrary = HandoffAuthorization(
+        authorization_id="e10-auth-arbitrary",
+        service_instance_id=handoff.instance_id,
+        preview_digest=preview.digest,
+    )
+    with pytest.raises(E10ReportError) as exc:
+        handoff.generate_report(preview, arbitrary)
+    assert exc.value.code == "AUTHORIZATION_FABRICATED"
+    # No callable production path can register an arbitrary authorization.
+    assert not hasattr(E10ProfessionalHandoffService, "force_register_for_test")
+    assert "force_register_for_test" not in inspect.getsource(
+        E10ProfessionalHandoffService
+    )
 
 
 def test_source_version_toctou_invalidates_authorization() -> None:
@@ -502,6 +589,37 @@ def test_filesystem_path_and_overwrite_safety(tmp_path) -> None:  # type: ignore
     with pytest.raises(E10FileWriteError) as exc:
         writer.write("x", str(tmp_path / "abs.md"))
     assert exc.value.code == "destination_outside_base"
+
+
+def test_filesystem_rejects_symlink_destination(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    writer = ReportFileWriter(tmp_path)
+    target = tmp_path / "real.md"
+    target.write_text("original", encoding="utf-8")
+    try:
+        (tmp_path / "link.md").symlink_to(target.name)
+    except OSError as exc:
+        pytest.skip(f"real symlink unavailable on this platform: {exc}")
+    with pytest.raises(E10FileWriteError) as exc:
+        writer.write("overwrite", "link.md", overwrite=True)
+    assert exc.value.code == "link_rejected"
+    # The symlink target is never written through.
+    assert target.read_text(encoding="utf-8") == "original"
+
+
+def test_filesystem_rejects_symlink_deterministically(
+    tmp_path, monkeypatch  # type: ignore[no-untyped-def]
+) -> None:
+    # Deterministic coverage of the link rejection logic on platforms that
+    # cannot create a real symlink without privilege.
+    writer = ReportFileWriter(tmp_path)
+
+    def _fake_is_symlink(self: Path) -> bool:
+        return self.name == "link.md"
+
+    monkeypatch.setattr(Path, "is_symlink", _fake_is_symlink)
+    with pytest.raises(E10FileWriteError) as exc:
+        writer.write("x", "link.md")
+    assert exc.value.code == "link_rejected"
 
 
 def test_provider_and_network_absence(tmp_path) -> None:  # type: ignore[no-untyped-def]

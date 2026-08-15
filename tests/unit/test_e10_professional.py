@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
+
 from psyche_os.reports.e10_professional import (
     DISCLOSURE_STATE,
     EXTERNAL_COPY_NOTICE,
     INTENDED_USE_TEXT,
     PENDING_REVIEW_ITEMS,
+    E10ReportError,
     RecordContent,
     Redaction,
     ReportConfig,
@@ -147,3 +150,20 @@ def test_manifest_is_content_free() -> None:
 
 def test_preview_digest_is_deterministic() -> None:
     assert _identity_preview_for_unit().digest == _identity_preview_for_unit().digest
+
+
+def test_frozen_profile_cannot_be_widened() -> None:
+    with pytest.raises(E10ReportError) as exc:
+        ReportConfig(profile="generic_profile")
+    assert exc.value.code == "UNSUPPORTED_PROFILE"
+    with pytest.raises(E10ReportError) as exc:
+        ReportConfig(audience="anyone")
+    assert exc.value.code == "UNSUPPORTED_AUDIENCE"
+    with pytest.raises(E10ReportError) as exc:
+        ReportConfig(purpose="anything_else")
+    assert exc.value.code == "UNSUPPORTED_PURPOSE"
+    with pytest.raises(E10ReportError) as exc:
+        ReportConfig(output_format="pdf")
+    assert exc.value.code == "UNSUPPORTED_OUTPUT_FORMAT"
+    # The frozen default remains valid and deterministic.
+    assert ReportConfig().identity == ReportConfig().identity

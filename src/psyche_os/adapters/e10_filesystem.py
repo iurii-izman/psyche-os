@@ -54,7 +54,12 @@ class ReportFileWriter:
         candidate = Path(destination)
         if candidate.is_absolute() or ".." in candidate.parts:
             raise E10FileWriteError("destination_outside_base")
-        resolved = (self._base_dir / candidate).resolve()
+        candidate_path = self._base_dir / candidate
+        # Reject the destination link before resolution: a symlink whose target
+        # remains inside base_dir must not hide behind .resolve().
+        if candidate_path.is_symlink():
+            raise E10FileWriteError("link_rejected")
+        resolved = candidate_path.resolve()
         if not resolved.is_relative_to(self._base_dir):
             raise E10FileWriteError("destination_outside_base")
         if resolved.is_symlink():
