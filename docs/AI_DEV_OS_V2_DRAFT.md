@@ -29,17 +29,20 @@ Statuses: `CONFIRMED`, `MAPPED_BY_PROVIDER_CONTRACT`, `HARNESS_ONLY`, `UNKNOWN`,
 
 Rules: configuration is not runtime proof; a harness-reported Claude-style name is
 harness evidence only; a documented deterministic provider alias mapping yields
-`MAPPED_BY_PROVIDER_CONTRACT` (never `CONFIRMED`); a direct-backend contradiction yields
-`CONFLICT`; unobservable backend yields `UNKNOWN`/weaker mapped status. Secrets are never
-persisted. No live network probe is required.
+`MAPPED_BY_PROVIDER_CONTRACT` (never `CONFIRMED`) **only when the active endpoint/upstream
+is itself proven**; a direct-backend contradiction yields `CONFLICT`; unobservable backend
+yields `UNKNOWN`/weaker mapped status. Secrets are never persisted. No live network probe
+is required.
 
 ### B. Versioned diagnostic ratchet (Ruff + mypy only)
 
 Each baseline binds `tool`, `tool_version`, `config_fingerprint`, `baseline_commit`,
 `finding_identity_digest`, `finding_count`, `finding_identities`, `captured_at`.
 Comparison is identity-aware. Version/config drift yields `BASELINE_INCOMPATIBLE`, never a
-false regression. Rebaseline is a separate explicit command and appends to an
-append-only history ledger; it never runs automatically after a failure.
+false regression. Baselines are integrity-checked (required fields + digest/count/identity
+consistency); a tampered or malformed baseline fails closed. Rebaseline is a separate
+explicit command (requires a stated reason) and appends to an append-only history ledger;
+it never runs automatically after a failure.
 
 ### C. Cross-platform hook conformance
 
@@ -51,14 +54,17 @@ dot-relative, absolute Windows, mixed separators, case variants, worktree-absolu
 
 HIGH/CRITICAL contracts carry `authority` (`highest` / `supporting` /
 `implementation_precedent`) and `authority_conflicts` (`status` / `items`).
-`implementation_precedent` never outranks normative authority. An `unresolved` conflict
-blocks acceptance-ready output. V1 flat-list contracts remain readable (legacy interpretation).
+`implementation_precedent` never outranks normative authority. A single guard decision
+drives both contract check and packet rendering: unresolved/invalid conflict status,
+precedence violations, malformed resolution, or missing V2 structure block acceptance-ready
+output. V1 flat-list contracts remain readable (legacy interpretation).
 
 ### E. Task / review packet compiler
 
 Deterministic renderer (no LLM, no network, no timestamps/random IDs). Same input →
-byte-identical output. Omits generic `AGENTS.md` / `.ai-dev` policy and drops/redacts
-secret and raw-prompt content. HIGH/CRITICAL unresolved conflicts render a BLOCKED packet.
+byte-identical output. Recursively sanitizes input (drop raw-prompt/tool-IO/transcript/CoT;
+redact secret keys and bounded secret patterns) and omits generic `AGENTS.md` / `.ai-dev`
+policy. HIGH/CRITICAL unresolved conflicts render a BLOCKED packet.
 
 ## 3. Invariants
 

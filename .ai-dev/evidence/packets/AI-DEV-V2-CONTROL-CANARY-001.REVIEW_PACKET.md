@@ -3,7 +3,7 @@
 
 - task_id: AI-DEV-V2-CONTROL-CANARY-001
 - base_sha: ceb3031dd5d7d75564691f59ddf6e23dd71a812f
-- candidate_sha: b81c53b4275a1fc6b3dc9bbd4a62f43b1fc8857c
+- candidate_sha: 6b86489f4d043f67f38dd22852d5a72091978cae
 - risk: high
 - acceptance_blocked: false
 
@@ -15,7 +15,9 @@
   .ai-dev/evidence/diagnostics/history.jsonl
   .ai-dev/evidence/diagnostics/mypy.baseline.yaml
   .ai-dev/evidence/diagnostics/ruff.baseline.yaml
+  .ai-dev/evidence/packets/AI-DEV-V2-CONTROL-CANARY-001.REVIEW_PACKET.md
   .ai-dev/evidence/packets/AI-DEV-V2-CONTROL-CANARY-001.TASK_PACKET.md
+  .ai-dev/evidence/packets/AI-DEV-V2-CONTROL-CANARY-001.review-state.yaml
   .ai-dev/hooks/modules/security_guard.py
   .ai-dev/routing/provider-mapping.yaml
   .ai-dev/state.yaml
@@ -68,8 +70,8 @@
 - app_source_diff: 0 changes under src/ and desktop/
 - dispatcher_smoke: ALL PASS (uv run python .ai-dev/hooks/test_dispatcher.py)
 - doctor: RESULT: PASS
-- focused_v2_tests: 69 passed (uv run pytest tests/control_plane/ -q)
-- full_pytest: 713 passed, 2 skipped (pre-existing symlink skips)
+- focused_v2_tests: 89 passed (uv run pytest tests/control_plane/ -q)
+- full_pytest: 733 passed, 2 skipped (pre-existing symlink skips)
 - mypy_ratchet: PASS - no new diagnostics
 - orchestration: 113 passed, 1 failed (branch-name gate, pre-existing)
 - packet_determinism: byte-identical on repeat render
@@ -81,15 +83,15 @@
 - configured_model: deepseek-v4-pro
 - requested_model: deepseek-v4-pro
 - harness_reported_model: claude-opus-5[1m]
-- provider_mapping: claude-opus* -> deepseek-v4-pro (DeepSeek Anthropic-compatible contract)
-- effective_backend_model: deepseek-v4-pro
+- provider_mapping: None
+- effective_backend_model: UNKNOWN
 - effective_backend_observable: False
-- attestation_status: MAPPED_BY_PROVIDER_CONTRACT
-- evidence_source: ['env:DEEPSEEK_API_KEY present', 'env:ANTHROPIC_BASE_URL present (host=127.0.0.1)', 'config:cc-switch present']
+- attestation_status: HARNESS_ONLY
+- evidence_source: ['env:DEEPSEEK_API_KEY present', 'env:ANTHROPIC_BASE_URL present (host=127.0.0.1)', 'config:cc-switch present', {'cc-switch': 'no current claude-harness provider (upstream unproven)'}]
 
 ## Known residuals
-- residuals: Effective backend identity is not directly observable; attestation is MAPPED_BY_PROVIDER_CONTRACT, never CONFIRMED.
-  Live network/provider probing is intentionally not implemented (not required to pass).
+- residuals: Effective backend not directly observable; this run is HARNESS_ONLY/UNKNOWN (localhost endpoint, no proven DeepSeek upstream).
+  Live network/provider probing intentionally not implemented (not required to pass).
   Ratchet covers Ruff and mypy only; no generic scanner platform.
   Symlink/reparse conformance limited to what Windows permits without admin.
   Pre-existing endpoint_identifier_without_secret field name triggers telemetry redaction (bounded non-secret value).
@@ -99,10 +101,13 @@
 
 ## Review questions / verdict requested
 - review_questions: Can the requested model ever be promoted to the effective backend model?
+  Can the provider mapping apply without proven endpoint/upstream context?
   Can a Windows case-variant or traversal path bypass the protected-path guard?
   Can a same-count diagnostic change evade the identity-aware ratchet?
-  Can an unresolved HIGH/CRITICAL authority conflict produce an acceptance-ready packet?
-  Can packet output vary across renders of identical input, or leak secret/raw-prompt content?
+  Can a tampered baseline (digest/count/identity mismatch) pass the ratchet?
+  Can an unresolved HIGH/CRITICAL authority conflict or a contract-check violation produce an acceptance-ready packet?
+  Can nested secret/raw-prompt content survive packet sanitization?
+  Can packet output vary across renders of identical input?
   Can V2 become required and break the V1 rollback path?
 
 - verdict requested: ACCEPT_CANARY | FIX_REQUIRED | REDESIGN_REQUIRED

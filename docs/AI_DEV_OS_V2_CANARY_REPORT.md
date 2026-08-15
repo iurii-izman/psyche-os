@@ -3,7 +3,7 @@
 **Status:** `IMPLEMENTED / PENDING_REVIEW` (CANARY, not production-ready)
 **Base:** `ceb3031dd5d7d75564691f59ddf6e23dd71a812f`
 **Branch:** `ai-dev/v2-control-canary`
-**Implementation SHA:** `b81c53b4275a1fc6b3dc9bbd4a62f43b1fc8857c`
+**Candidate SHA (freeze for review):** `6b86489f4d043f67f38dd22852d5a72091978cae`
 **V1:** unchanged — `VERIFIED / PRODUCTION_READY`
 
 This report distinguishes **CLAIM** (what the implementation states), **EVIDENCE**
@@ -164,3 +164,7 @@ T0 files (`security_guard.py`, `schema.json`, `state.yaml`) to the base SHA rest
 - **REAL_DATA_GATE:** `CLOSED`
 
 Next: **FRESH STRONG V2 CANARY REVIEW REQUIRED** (do not run here).
+
+> Review freeze: `base = ceb3031…`, `candidate = 6b86489…` (the content HEAD). The review
+> packet is committed in a separate packaging commit on the branch, which is excluded from
+> review scope; it does not change the frozen candidate SHA.
