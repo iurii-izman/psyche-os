@@ -32,22 +32,23 @@ new dependency, no daemon, no server, no gateway, no framework. Application sour
 **CLAIM** — the canary records observable identity without unsupported inference.
 
 **EVIDENCE**
-- `env:DEEPSEEK_API_KEY present`
-- `env:ANTHROPIC_BASE_URL present (host=127.0.0.1)` — a localhost Anthropic-compatible endpoint
+- `env:DEEPSEEK_API_KEY present` (a key exists; presence is declaration, not routing proof)
+- `env:ANTHROPIC_BASE_URL present (host=127.0.0.1)` — a localhost Anthropic-compatible proxy
 - `config:cc-switch present`
+- cc-switch: no current `claude`-harness provider (upstream unproven) — the only current
+  DeepSeek provider is scoped to `claude-desktop`, not the Claude Code CLI
 - harness-reported model: `claude-opus-5[1m]`
-- routing strong role: `deepseek-v4-pro` (`.ai-dev/routing/routing.yaml`)
 
-**INFERENCE** — `claude-opus-5[1m]` maps to `deepseek-v4-pro` via the documented
-DeepSeek Anthropic/Claude Code compatibility contract → status
-`MAPPED_BY_PROVIDER_CONTRACT` (never `CONFIRMED`).
+**INFERENCE** — none. The mapping contract is **not** applied because its applicability to
+the active endpoint/upstream is not proven: the endpoint is localhost and cc-switch's
+active CLI-harness provider is not observably DeepSeek.
 
-**UNKNOWN** — whether the backend actually executed as `deepseek-v4-pro`; the backend is
-not directly observable, so `effective_backend_observable: false`.
+**UNKNOWN** — the effective backend model. Status is `HARNESS_ONLY`, effective backend
+`UNKNOWN`, `effective_backend_observable: false`.
 
 Machine-readable record: `.ai-dev/evidence/attestation/AI-DEV-V2-CONTROL-CANARY-001.attest.yaml`
-(status `MAPPED_BY_PROVIDER_CONTRACT`). The requested model was never promoted to
-effective state; the harness-reported Claude-style name was preserved separately.
+(status `HARNESS_ONLY`). The requested model was never promoted to effective state; the
+harness-reported Claude-style name was preserved separately.
 
 ---
 
@@ -77,11 +78,37 @@ and the existing dispatcher smoke test re-confirmed (`ALL PASS`, 12/12).
 
 ---
 
+## 4b. Targeted fix pass (post-implementation)
+
+Four verified boundary defects and two provenance inconsistencies were fixed:
+
+- **F1** — attestation no longer applies the provider mapping without proven mapping
+  context (endpoint host identifies the provider, or an explicitly-parsed active upstream
+  provider config names it). A key merely being present does not establish applicability.
+  Direct backend provider without an observed model is not `CONFIRMED`; model-level
+  contradiction yields `CONFLICT`; mapping is scoped to the named provider (no fall-through).
+- **F2** — a single `guard_decision()` now drives `contract check` AND both packet
+  renderers; HIGH/CRITICAL acceptance-ready rendering is blocked on unresolved/invalid
+  conflict status, authority precedence violations, malformed resolution, or missing V2
+  authority/conflict structure. Legacy V1 flat contracts remain readable.
+- **F3** — packet rendering recursively sanitizes contract/state/attestation (drop
+  raw-prompt/tool-IO/transcript/CoT; redact secret keys and bounded secret patterns;
+  nested mappings/lists/conflict items included).
+- **F4** — the ratchet is fail-closed: baselines are verified for required fields and
+  digest/count/identity consistency; rebaseline requires an explicit `--reason` and records
+  the previous baseline in history.
+- **P1** — implementation vs review-artifact HEAD ambiguity is closed (candidate SHA is the
+  content HEAD; the packaging commit is stated separately).
+- **P2** — the temporary kill-switch use is recorded truthfully in
+  `.ai-dev/evidence/decisions/V2-CANARY-CONTROL-PLANE-CHANGE.md`.
+
+---
+
 ## 5. Verification (exact commands and results)
 
 | Check | Command | Result |
 |---|---|---|
-| Focused V2 suite | `uv run pytest tests/control_plane/ -q` | `69 passed` |
+| Focused V2 suite | `uv run pytest tests/control_plane/ -q` | `89 passed` |
 | Dispatcher smoke | `uv run python .ai-dev/hooks/test_dispatcher.py` | `ALL PASS` |
 | Hook conformance | (part of focused suite) | `passed` |
 | Telemetry self-test | `uv run python .ai-dev/telemetry/writer.py --self-test` | `SELF-TEST OK` |
@@ -89,7 +116,7 @@ and the existing dispatcher smoke test re-confirmed (`ALL PASS`, 12/12).
 | Orchestration | `uv run python scripts/dev/validate_orchestration.py` | `113 passed, 1 failed` (branch-name gate, pre-existing) |
 | Ruff ratchet | `uv run python scripts/ai_dev_v2.py ratchet compare` | `ruff: PASS — no new diagnostics` |
 | mypy ratchet | (same) | `mypy: PASS — no new diagnostics` |
-| Full pytest | `uv run pytest -q` | `713 passed, 2 skipped` (pre-existing symlink skips) |
+| Full pytest | `uv run pytest -q` | `733 passed, 2 skipped` (pre-existing symlink skips) |
 | App-source diff | `git diff --stat ceb3031 -- src desktop` | empty (0 changes) |
 | Packet determinism | render twice, byte-diff | identical |
 
@@ -115,8 +142,9 @@ T0 files (`security_guard.py`, `schema.json`, `state.yaml`) to the base SHA rest
 
 ## 7. Residuals (exact remaining canary limitations)
 
-1. Effective backend identity is not directly observable in this environment; attestation is
-   `MAPPED_BY_PROVIDER_CONTRACT`, never `CONFIRMED`.
+1. Effective backend identity is not directly observable in this environment; for this run the
+   attestation is `HARNESS_ONLY` / `UNKNOWN` (localhost endpoint, no proven DeepSeek upstream).
+   The mapping contract would only apply with proven endpoint/upstream context.
 2. Live network/provider probing is intentionally not implemented (not required to pass).
 3. The ratchet covers Ruff and mypy only; no generic scanner platform.
 4. Symlink/reparse conformance is limited to what Windows permits without admin (the two

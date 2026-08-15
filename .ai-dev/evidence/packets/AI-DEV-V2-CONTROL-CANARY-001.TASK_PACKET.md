@@ -102,8 +102,8 @@
 - configured_model: deepseek-v4-pro
 - requested_model: deepseek-v4-pro
 - harness_reported_model: claude-opus-5[1m]
-- provider_mapping: claude-opus* -> deepseek-v4-pro (DeepSeek Anthropic-compatible contract)
-- effective_backend_model: deepseek-v4-pro
+- provider_mapping: None
+- effective_backend_model: UNKNOWN
 - effective_backend_observable: False
-- attestation_status: MAPPED_BY_PROVIDER_CONTRACT
-- evidence_source: ['env:DEEPSEEK_API_KEY present', 'env:ANTHROPIC_BASE_URL present (host=127.0.0.1)', 'config:cc-switch present']
+- attestation_status: HARNESS_ONLY
+- evidence_source: ['env:DEEPSEEK_API_KEY present', 'env:ANTHROPIC_BASE_URL present (host=127.0.0.1)', 'config:cc-switch present', 'cc-switch: no current claude-harness provider (upstream unproven)']

@@ -124,3 +124,78 @@ class TestBlockedPacket:
         text = v2.render_review_packet(contract, {"attestation": {}})
         assert "BLOCKED" not in text
         assert "acceptance_blocked: false" in text
+
+
+class TestGuardComposedIntoPacket:
+    def test_review_packet_blocked_on_authority_precedence_violation(self) -> None:
+        # A contract check would flag this violation; packet rendering must not bypass it.
+        c = sample_contract()
+        c["authority"] = {
+            "highest": ["CONSTITUTION.md"],
+            "supporting": [],
+            "implementation_precedent": ["E10 acceptance evidence"],
+        }
+        c["authority_conflicts"] = {
+            "status": "resolved",
+            "items": [
+                {
+                    "refs": ["CONSTITUTION.md", "E10 acceptance evidence"],
+                    "outranks": "E10 acceptance evidence",
+                    "disposition": "precedent wins",
+                    "blocks_acceptance": False,
+                }
+            ],
+        }
+        assert v2.guard_decision(c)["violations"]
+        text = v2.render_review_packet(c, {"attestation": {}})
+        assert "BLOCKED" in text
+        assert "acceptance_blocked: true" in text
+
+    def test_review_packet_blocked_on_missing_authority_conflicts(self) -> None:
+        c = {
+            "task_id": "T-1",
+            "base_sha": "x",
+            "risk": "high",
+            "profile": "quality",
+            "authority": {"highest": ["CONSTITUTION.md"], "supporting": [], "implementation_precedent": []},
+        }
+        text = v2.render_review_packet(c, {"attestation": {}})
+        assert "BLOCKED" in text
+
+
+class TestNestedSanitization:
+    def test_nested_secret_and_raw_prompt_are_sanitized(self) -> None:
+        state = {
+            "verification_evidence": {
+                "pytest": {
+                    "token": "SUPERSECRET",
+                    "raw_prompt": "DO-NOT-LEAK",
+                    "nested": {"client_secret": "VALUE", "ok": "keep-me"},
+                },
+                "items": [{"api_key": "AKIA0123456789ABCDEF"}, "sk-abcdefghijklmnopqrstuvwxyz"],
+            },
+            "attestation": {},
+        }
+        text = v2.render_review_packet(sample_contract(), state)
+        assert "SUPERSECRET" not in text
+        assert "DO-NOT-LEAK" not in text
+        assert "VALUE" not in text
+        assert "AKIA0123456789ABCDEF" not in text
+        assert "sk-abcdefghijklmnopqrstuvwxyz" not in text
+        assert "keep-me" in text  # ordinary evidence survives
+
+    def test_conflict_items_are_sanitized(self) -> None:
+        c = sample_contract(conflict_status="resolved")
+        c["authority_conflicts"] = {
+            "status": "resolved",
+            "items": [
+                {
+                    "refs": ["CONSTITUTION.md"],
+                    "outranks": "CONSTITUTION.md",
+                    "disposition": "resolved",
+                    "evidence": "note: token bearer abcdefghijklmnopqrstuvwx",
+                }
+            ],
+        }
+        text = v2.render_task_packet(c)
+        assert "abcdefghijklmnopqrstuvwx" not in text

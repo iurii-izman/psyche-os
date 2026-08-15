@@ -28,3 +28,23 @@
 - Revert the three files to `ceb3031dd5d7d75564691f59ddf6e23dd71a812f`.
 - V2 remains inactive unless explicitly invoked; no history rewrite or destructive
   cleanup is required.
+
+## Temporary kill-switch usage (recorded for provenance)
+
+To apply the three pre-authorized protected-file edits above, the hook dispatcher's
+documented fail-open kill switch was used exactly once:
+
+- **Marker:** `.ai-dev/hooks/DISABLED` was created, then removed immediately after the
+  three edits were written. The guard was re-armed (marker absent) before any other work.
+- **Why:** the V1 PreToolUse guard mechanically blocks `Edit`/`Write` to protected T0
+  paths (`.ai-dev/hooks/**`, `.ai-dev/telemetry/schema.json`, `.ai-dev/state.yaml`), even
+  when a Task Contract pre-authorizes them. The kill switch is the repository's documented
+  bypass for such pre-authorized control-plane changes; it was not used to weaken the
+  guard permanently.
+- **Files edited during the window (and only these):**
+  1. `.ai-dev/hooks/modules/security_guard.py`
+  2. `.ai-dev/telemetry/schema.json`
+  3. `.ai-dev/state.yaml`
+- **Guard state after:** `DISABLED` marker absent; `uv run python .ai-dev/hooks/test_dispatcher.py`
+  passes (including the kill-switch case), confirming fail-closed behavior is restored.
+

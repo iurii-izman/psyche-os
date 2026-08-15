@@ -107,3 +107,53 @@ class TestBackwardsCompatibility:
         c = contract(risk="high", conflict_status="weird")
         assert v2.authority_conflict_status(c) == "unresolved"
         assert v2.acceptance_blocked(c)[0]
+
+
+class TestGuardBlockingRules:
+    def test_high_resolved_precedent_outranks_highest_is_blocked(self) -> None:
+        item = {
+            "refs": ["CONSTITUTION.md", "E10 acceptance evidence"],
+            "outranks": "E10 acceptance evidence",
+            "disposition": "precedent wins (invalid)",
+            "blocks_acceptance": False,
+        }
+        c = contract(
+            risk="high",
+            conflict_status="resolved",
+            items=[item],
+            authority={
+                "highest": ["CONSTITUTION.md"],
+                "supporting": [],
+                "implementation_precedent": ["E10 acceptance evidence"],
+            },
+        )
+        guard = v2.guard_decision(c)
+        assert guard["violations"]
+        assert guard["acceptance_blocked"] is True
+
+    def test_high_v2_missing_authority_conflicts_is_blocked(self) -> None:
+        c = {
+            "task_id": "T-1",
+            "risk": "high",
+            "authority": {
+                "highest": ["CONSTITUTION.md"],
+                "supporting": [],
+                "implementation_precedent": [],
+            },
+        }
+        assert v2.guard_decision(c)["acceptance_blocked"] is True
+
+    def test_malformed_resolution_missing_disposition_is_blocked(self) -> None:
+        item = {"refs": ["CONSTITUTION.md", "E10 acceptance evidence"], "outranks": "CONSTITUTION.md"}
+        c = contract(risk="high", conflict_status="resolved", items=[item])
+        assert v2.guard_decision(c)["acceptance_blocked"] is True
+
+    def test_resolved_item_still_blocks_acceptance_is_blocked(self) -> None:
+        item = {
+            "refs": ["CONSTITUTION.md", "E10 acceptance evidence"],
+            "outranks": "CONSTITUTION.md",
+            "disposition": "resolved",
+            "blocks_acceptance": True,
+        }
+        c = contract(risk="high", conflict_status="resolved", items=[item])
+        assert v2.guard_decision(c)["acceptance_blocked"] is True

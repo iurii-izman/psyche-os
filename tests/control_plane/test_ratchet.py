@@ -11,6 +11,10 @@ VERSION = "0.0.0"
 FINGERPRINT = "abc123"
 
 
+def _digest(ids: list[str]) -> str:
+    return v2._sha256("\n".join(ids))
+
+
 def baseline(ids: list[str], **overrides) -> dict:
     data = {
         "tool": "ruff",
@@ -19,6 +23,8 @@ def baseline(ids: list[str], **overrides) -> dict:
         "baseline_commit": "ceb3031",
         "finding_count": len(ids),
         "finding_identities": ids,
+        "finding_identity_digest": _digest(ids),
+        "captured_at": "2026-08-15T00:00:00+00:00",
     }
     data.update(overrides)
     return data
@@ -32,6 +38,8 @@ def current(ids: list[str], **overrides) -> dict:
         "baseline_commit": "ceb3031",
         "finding_count": len(ids),
         "finding_identities": ids,
+        "finding_identity_digest": _digest(ids),
+        "captured_at": "2026-08-15T00:00:00+00:00",
     }
     data.update(overrides)
     return data
@@ -108,3 +116,31 @@ class TestNoAutomaticRebaseline:
         monkeypatch.setattr(v2, "_write_baseline", _noop)
         v2.ratchet_compare(baseline(["a"]), current(["a", "b"]))
         assert calls == []
+
+
+class TestBaselineIntegrity:
+    def test_tampered_digest_fails_closed(self) -> None:
+        base = baseline(["a", "b"])
+        base["finding_identity_digest"] = _digest(["forged"])
+        result = v2.ratchet_compare(base, current(["a", "b"]))
+        assert result["status"] == "FAIL"
+        assert "digest" in result["detail"]
+
+    def test_count_mismatch_fails_closed(self) -> None:
+        base = baseline(["a", "b"])
+        base["finding_count"] = 3
+        result = v2.ratchet_compare(base, current(["a", "b"]))
+        assert result["status"] == "FAIL"
+        assert "count" in result["detail"]
+
+    def test_non_list_identities_fails_closed(self) -> None:
+        base = baseline(["a"])
+        base["finding_identities"] = "not-a-list"
+        result = v2.ratchet_compare(base, current(["a"]))
+        assert result["status"] == "FAIL"
+
+    def test_missing_digest_field_fails_closed(self) -> None:
+        base = baseline(["a"])
+        del base["finding_identity_digest"]
+        result = v2.ratchet_compare(base, current(["a"]))
+        assert result["status"] == "FAIL"
