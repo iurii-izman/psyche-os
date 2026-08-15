@@ -3,7 +3,7 @@
 
 - task_id: AI-DEV-V2-CONTROL-CANARY-001
 - base_sha: ceb3031dd5d7d75564691f59ddf6e23dd71a812f
-- candidate_sha: 1868237c15ef02fdba20c6ed0d47bb6486d23b8f
+- candidate_sha: d0d1ed573b7ba8db135b82d51593359ee0937a09
 - risk: high
 - acceptance_blocked: false
 
@@ -67,15 +67,17 @@
 - items: (none)
 
 ## Verification evidence
+- adversarial_baseline_mutation: PASS - working-tree A+B mutation still detected B as NEW via trusted ref
 - app_source_diff: 0 changes under src/ and desktop/
 - dispatcher_smoke: ALL PASS (uv run python .ai-dev/hooks/test_dispatcher.py)
 - doctor: RESULT: PASS
-- focused_v2_tests: 105 passed (uv run pytest tests/control_plane/ -q)
-- full_pytest: 749 passed, 2 skipped (pre-existing symlink skips)
-- mypy_ratchet: PASS - no new diagnostics (canonical baseline, git ancestry verified)
+- focused_v2_tests: 114 passed (uv run pytest tests/control_plane/ -q)
+- full_pytest: 758 passed, 2 skipped (pre-existing symlink skips)
+- mypy_ratchet: PASS - no new diagnostics (baseline-ref 1868237c15ef02fdba20c6ed0d47bb6486d23b8f)
 - orchestration: 113 passed, 1 failed (branch-name gate, pre-existing)
 - packet_determinism: byte-identical on repeat render
-- ruff_ratchet: PASS - no new diagnostics (canonical baseline, git ancestry verified)
+- proposal_does_not_green: PASS - propose after FAIL leaves trusted-ref comparison FAIL
+- ruff_ratchet: PASS - no new diagnostics (baseline-ref 1868237c15ef02fdba20c6ed0d47bb6486d23b8f)
 - telemetry_self_test: SELF-TEST OK
 
 ## Model / provider attestation
@@ -95,6 +97,7 @@
   Ratchet covers Ruff and mypy only; no generic scanner platform.
   Symlink/reparse conformance limited to what Windows permits without admin.
   Pre-existing endpoint_identifier_without_secret field name triggers telemetry redaction (bounded non-secret value).
+  Promotion has no dedicated utility; it is a documented human-gated PR transaction (no signing/tokens/ACLs built).
 
 ## Blockers
 - blockers: (none)
@@ -102,7 +105,9 @@
 ## Review questions / verdict requested
 - review_questions: Can the requested model ever be promoted to the effective backend model?
   Can the provider mapping apply without a provider-owned endpoint/upstream host?
-  Can a canonical baseline be mutated without an explicit propose+promote (approval) transaction?
+  Can the coding-agent CLI mutate the canonical baseline (compare/propose/promote)?
+  Can a working-tree baseline mutation green a trusted-ref comparison?
+  Can an arbitrary evidence string authorize canonical promotion?
   Can a tampered baseline (digest/count/identity/ancestry mismatch) pass the ratchet?
   Can an unresolved HIGH/CRITICAL authority conflict or contract-check violation produce an acceptance-ready packet?
   Can nested secret/raw-prompt content survive packet sanitization?

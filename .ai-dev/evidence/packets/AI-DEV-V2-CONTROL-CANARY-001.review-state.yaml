@@ -1,7 +1,7 @@
 # Bounded task/evidence state for the V2.0 Control Canary review packet.
 # candidate_sha is the content HEAD to review; the review-packet packaging commit is
 # recorded separately (see the implementation report GIT section).
-candidate_sha: 1868237c15ef02fdba20c6ed0d47bb6486d23b8f
+candidate_sha: d0d1ed573b7ba8db135b82d51593359ee0937a09
 
 changed_files:
   - .ai-dev/contracts/AI-DEV-V2-CONTROL-CANARY-001.yaml
@@ -30,14 +30,16 @@ changed_files:
   - tests/control_plane/test_telemetry_redaction.py
 
 verification_evidence:
-  focused_v2_tests: "105 passed (uv run pytest tests/control_plane/ -q)"
+  focused_v2_tests: "114 passed (uv run pytest tests/control_plane/ -q)"
   dispatcher_smoke: "ALL PASS (uv run python .ai-dev/hooks/test_dispatcher.py)"
   telemetry_self_test: "SELF-TEST OK"
   doctor: "RESULT: PASS"
   orchestration: "113 passed, 1 failed (branch-name gate, pre-existing)"
-  ruff_ratchet: "PASS - no new diagnostics (canonical baseline, git ancestry verified)"
-  mypy_ratchet: "PASS - no new diagnostics (canonical baseline, git ancestry verified)"
-  full_pytest: "749 passed, 2 skipped (pre-existing symlink skips)"
+  ruff_ratchet: "PASS - no new diagnostics (baseline-ref 1868237c15ef02fdba20c6ed0d47bb6486d23b8f)"
+  mypy_ratchet: "PASS - no new diagnostics (baseline-ref 1868237c15ef02fdba20c6ed0d47bb6486d23b8f)"
+  adversarial_baseline_mutation: "PASS - working-tree A+B mutation still detected B as NEW via trusted ref"
+  proposal_does_not_green: "PASS - propose after FAIL leaves trusted-ref comparison FAIL"
+  full_pytest: "758 passed, 2 skipped (pre-existing symlink skips)"
   app_source_diff: "0 changes under src/ and desktop/"
   packet_determinism: "byte-identical on repeat render"
 
@@ -62,13 +64,16 @@ residuals:
   - Ratchet covers Ruff and mypy only; no generic scanner platform.
   - Symlink/reparse conformance limited to what Windows permits without admin.
   - Pre-existing endpoint_identifier_without_secret field name triggers telemetry redaction (bounded non-secret value).
+  - Promotion has no dedicated utility; it is a documented human-gated PR transaction (no signing/tokens/ACLs built).
 
 blockers: []
 
 review_questions:
   - Can the requested model ever be promoted to the effective backend model?
   - Can the provider mapping apply without a provider-owned endpoint/upstream host?
-  - Can a canonical baseline be mutated without an explicit propose+promote (approval) transaction?
+  - Can the coding-agent CLI mutate the canonical baseline (compare/propose/promote)?
+  - Can a working-tree baseline mutation green a trusted-ref comparison?
+  - Can an arbitrary evidence string authorize canonical promotion?
   - Can a tampered baseline (digest/count/identity/ancestry mismatch) pass the ratchet?
   - Can an unresolved HIGH/CRITICAL authority conflict or contract-check violation produce an acceptance-ready packet?
   - Can nested secret/raw-prompt content survive packet sanitization?

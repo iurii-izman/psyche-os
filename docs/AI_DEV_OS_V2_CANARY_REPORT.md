@@ -3,7 +3,10 @@
 **Status:** `IMPLEMENTED / PENDING_REVIEW` (CANARY, not production-ready)
 **Base:** `ceb3031dd5d7d75564691f59ddf6e23dd71a812f`
 **Branch:** `ai-dev/v2-control-canary`
-**Candidate SHA (freeze for review):** `1868237c15ef02fdba20c6ed0d47bb6486d23b8f`
+**Candidate SHA (freeze for review):** `d0d1ed573b7ba8db135b82d51593359ee0937a09`
+**Trusted baseline ref (immutable):** `1868237c15ef02fdba20c6ed0d47bb6486d23b8f` — baseline
+findings were captured against the base SHA `ceb3031…`; comparison reads the baseline from
+this immutable commit via `git show`, never the working-tree file.
 **V1:** unchanged — `VERIFIED / PRODUCTION_READY`
 
 This report distinguishes **CLAIM** (what the implementation states), **EVIDENCE**
@@ -161,15 +164,17 @@ does not change the trusted-ref comparison result.
 
 | Check | Command | Result |
 |---|---|---|
-| Focused V2 suite | `uv run pytest tests/control_plane/ -q` | `105 passed` |
+| Focused V2 suite | `uv run pytest tests/control_plane/ -q` | `114 passed` |
 | Dispatcher smoke | `uv run python .ai-dev/hooks/test_dispatcher.py` | `ALL PASS` |
 | Hook conformance | (part of focused suite) | `passed` |
 | Telemetry self-test | `uv run python .ai-dev/telemetry/writer.py --self-test` | `SELF-TEST OK` |
 | Doctor | `uv run python scripts/ai_dev_doctor.py` | `RESULT: PASS` |
 | Orchestration | `uv run python scripts/dev/validate_orchestration.py` | `113 passed, 1 failed` (branch-name gate, pre-existing) |
-| Ruff ratchet | `uv run python scripts/ai_dev_v2.py ratchet compare` | `ruff: PASS — no new diagnostics` |
-| mypy ratchet | (same) | `mypy: PASS — no new diagnostics` |
-| Full pytest | `uv run pytest -q` | `749 passed, 2 skipped` (pre-existing symlink skips) |
+| Ruff ratchet (immutable ref) | `uv run python scripts/ai_dev_v2.py ratchet compare --baseline-ref 1868237c…` | `ruff: PASS — no new diagnostics` |
+| mypy ratchet (immutable ref) | (same) | `mypy: PASS — no new diagnostics` |
+| Adversarial baseline mutation | `pytest -k working_tree_absorbs_new_diagnostic_still_fails` | `PASS` |
+| Proposal-does-not-green | `pytest -k propose_after_failure_compare_still_fails` | `PASS` |
+| Full pytest | `uv run pytest -q` | `758 passed, 2 skipped` (pre-existing symlink skips) |
 | App-source diff | `git diff --stat ceb3031 -- src desktop` | empty (0 changes) |
 | Packet determinism | render twice, byte-diff | identical |
 
@@ -218,6 +223,6 @@ T0 files (`security_guard.py`, `schema.json`, `state.yaml`) to the base SHA rest
 
 Next: **FRESH STRONG V2 CANARY REVIEW REQUIRED** (do not run here).
 
-> Review freeze: `base = ceb3031…`, `candidate = 1868237…` (the content HEAD). The review
+> Review freeze: `base = ceb3031…`, `candidate = d0d1ed5…` (the content HEAD). The review
 > packet is committed in a separate packaging commit on the branch, which is excluded from
 > review scope; it does not change the frozen candidate SHA.
