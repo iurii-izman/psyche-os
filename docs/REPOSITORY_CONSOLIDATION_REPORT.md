@@ -51,8 +51,9 @@ AI Dev OS lineage (the unique work):
 - `.ai-dev/state.yaml`: `production_ready: true`, `acceptance_status: VERIFIED`.
 
 Dangling superseded object (no unique content, documented for completeness):
-- `fe3c55e` (`chore(ai-dev): finalize v1 acceptance`) is referenced by
-  `.ai-dev/state.yaml` as `acceptance_commit` but is unreachable from any ref.
+- `fe3c55e` (`chore(ai-dev): finalize v1 acceptance`) was referenced by
+  `.ai-dev/state.yaml` as `acceptance_commit` at freeze time (later corrected to
+  `91fdad0` in the metadata hygiene pass). It is unreachable from any ref;
   `git diff fe3c55e 91fdad0` = 1 line in `.ai-dev/state.yaml` (the `acceptance_commit`
   field itself). Fully subsumed by `91fdad0`; retained in the object store (dangling).
 
@@ -285,9 +286,10 @@ directories remain on disk pending OS handle release — see Known Risks).
    are removed and contents deleted, but the top-level dirs return "Device or resource
    busy" (an OS handle is still open). Harmless; removable after the handle releases or
    on reboot. Not a git state issue.
-2. **`.ai-dev/state.yaml` `acceptance_commit`** points to the dangling `fe3c55e` instead
-   of `a672dde`. Content is fully preserved; not corrected (out of scope — no AI Dev OS
-   modification). Recorded for transparency.
+2. **Resolved — `.ai-dev/state.yaml` provenance**: the dangling
+   `acceptance_commit: fe3c55e` was corrected to `91fdad0`, with
+   `live_acceptance_commit: a672dde` and `consolidation_commit` added, in the follow-up
+   metadata hygiene pass. No dangling refs remain in state.
 3. **Pre-existing tool debt**: `ruff` 215, `mypy` 40, research-validator env-artifact
    errors, osv-scanner RUSTSEC, semgrep 1. All pre-existing and unrelated to this pass.
 

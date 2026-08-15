@@ -23,9 +23,12 @@ environment:
 repository:
   original_base_sha: "256057ca4a23efb1051631e29e54ade5d4536fc4"
   implementation_commit: "77b3ac8"
-  implementation_branch: claude/sad-chebyshev-784466
-  acceptance_commit: "fe3c55ede8b14d5fa5db7593f653875d04df4a59"
-  worktree: "C:\\Dev\\psyche-os\\.claude\\worktrees\\sad-chebyshev-784466"
+  acceptance_commit: "91fdad0"
+  live_acceptance_commit: "a672dde"
+  consolidation_commit: "24c9bae023fa3403c9c0327781cfc68530c99929"
+  canonical_branch: main
+  canonical_worktree: "C:\\Dev\\psyche-os"
+  historical_implementation_branch: claude/sad-chebyshev-784466
 
 harness:
   name: claude-code
