@@ -1,0 +1,414 @@
+tool: ruff
+tool_version: 0.15.10
+config_fingerprint: e6e151a33840c5d9a5463486b5e2ff86ad95318206aa51937a37e0e27ea54d9e
+baseline_commit: ceb3031dd5d7d75564691f59ddf6e23dd71a812f
+finding_identity_digest: 41b5bcb7ec4e370dac65e36d00c3cf015dcb2050798880f0ec6498b9202f1f35
+finding_count: 215
+finding_identities:
+- scripts/dev/build_desktop_sidecar.py:3:1:I001:Import block is un-sorted or un-formatted
+- scripts/dev/test_e02_desktop.py:3:1:I001:Import block is un-sorted or un-formatted
+- scripts/validate_e01_assurance.py:146:9:I001:Import block is un-sorted or un-formatted
+- scripts/validate_e01_assurance.py:16:1:I001:Import block is un-sorted or un-formatted
+- scripts/validate_e01_assurance.py:198:25:C401:Unnecessary generator (rewrite as
+  a set comprehension)
+- scripts/validate_e01_assurance.py:274:9:I001:Import block is un-sorted or un-formatted
+- scripts/validate_e01_assurance.py:441:5:N806:Variable `KNOWN_ARTIFACTS` in function
+  should be lowercase
+- scripts/validate_e01_assurance.py:556:11:F541:f-string without any placeholders
+- scripts/validate_e01_assurance.py:90:46:F541:f-string without any placeholders
+- scripts/validate_research_foundation.py:44:37:RUF001:String contains ambiguous `–`
+  (EN DASH). Did you mean `-` (HYPHEN-MINUS)?
+- src/psyche_os/adapters/adapters.py:121:9:N806:Variable `FSCTL_GET_REPARSE_POINT`
+  in function should be lowercase
+- src/psyche_os/adapters/adapters.py:174:9:SIM108:Use ternary operator `creation_disposition
+  = 1 if flags & os.O_EXCL else 2` instead of `if`-`else`-block
+- src/psyche_os/adapters/adapters.py:20:1:E402:Module level import not at top of file
+- src/psyche_os/adapters/adapters.py:26:1:E402:Module level import not at top of file
+- src/psyche_os/adapters/adapters.py:276:13:B904:Within an `except` clause, raise
+  exceptions with `raise ... from err` or `raise ... from None` to distinguish them
+  from errors in exception handling
+- src/psyche_os/adapters/adapters.py:287:21:B904:Within an `except` clause, raise
+  exceptions with `raise ... from err` or `raise ... from None` to distinguish them
+  from errors in exception handling
+- src/psyche_os/adapters/adapters.py:336:13:B904:Within an `except` clause, raise
+  exceptions with `raise ... from err` or `raise ... from None` to distinguish them
+  from errors in exception handling
+- src/psyche_os/adapters/adapters.py:382:13:B904:Within an `except` clause, raise
+  exceptions with `raise ... from err` or `raise ... from None` to distinguish them
+  from errors in exception handling
+- src/psyche_os/adapters/adapters.py:451:17:B904:Within an `except` clause, raise
+  exceptions with `raise ... from err` or `raise ... from None` to distinguish them
+  from errors in exception handling
+- src/psyche_os/adapters/adapters.py:466:13:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/application/desktop_service.py:9:1:I001:Import block is un-sorted
+  or un-formatted
+- src/psyche_os/application/e03_archive.py:12:20:F401:`datetime` imported but unused
+- src/psyche_os/application/e03_archive.py:182:228:RUF001:String contains ambiguous
+  `–` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?
+- src/psyche_os/application/e03_archive.py:243:27:E701:Multiple statements on one
+  line (colon)
+- src/psyche_os/application/e03_archive.py:244:53:E701:Multiple statements on one
+  line (colon)
+- src/psyche_os/application/e03_archive.py:250:28:E701:Multiple statements on one
+  line (colon)
+- src/psyche_os/application/e03_archive.py:258:89:E701:Multiple statements on one
+  line (colon)
+- src/psyche_os/application/e03_archive.py:407:24:E701:Multiple statements on one
+  line (colon)
+- src/psyche_os/application/e03_archive.py:408:55:E701:Multiple statements on one
+  line (colon)
+- src/psyche_os/application/e03_archive.py:430:30:E701:Multiple statements on one
+  line (colon)
+- src/psyche_os/application/e03_archive.py:447:30:E701:Multiple statements on one
+  line (colon)
+- src/psyche_os/application/e03_archive.py:70:17:B905:`zip()` without an explicit
+  `strict=` parameter
+- src/psyche_os/application/e03_archive.py:76:18:B905:`zip()` without an explicit
+  `strict=` parameter
+- src/psyche_os/application/e03_archive.py:9:1:I001:Import block is un-sorted or un-formatted
+- src/psyche_os/application/ports.py:407:30:RUF012:Mutable default value for class
+  attribute
+- src/psyche_os/backup_export/__init__.py:13:1:I001:Import block is un-sorted or un-formatted
+- src/psyche_os/backup_export/__init__.py:35:11:RUF022:`__all__` is not sorted
+- src/psyche_os/backup_export/operations.py:1059:9:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/backup_export/operations.py:1113:21:SIM102:Use a single `if` statement
+  instead of nested `if` statements
+- src/psyche_os/backup_export/operations.py:1171:17:B904:Within an `except` clause,
+  raise exceptions with `raise ... from err` or `raise ... from None` to distinguish
+  them from errors in exception handling
+- src/psyche_os/backup_export/operations.py:1196:17:B904:Within an `except` clause,
+  raise exceptions with `raise ... from err` or `raise ... from None` to distinguish
+  them from errors in exception handling
+- src/psyche_os/backup_export/operations.py:1231:13:SIM105:Use `contextlib.suppress(Exception)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/backup_export/operations.py:1235:13:SIM105:Use `contextlib.suppress(Exception)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/backup_export/operations.py:1240:9:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/backup_export/operations.py:1252:13:SIM105:Use `contextlib.suppress(Exception)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/backup_export/operations.py:1646:37:B905:`zip()` without an explicit
+  `strict=` parameter
+- src/psyche_os/backup_export/operations.py:443:29:B904:Within an `except` clause,
+  raise exceptions with `raise ... from err` or `raise ... from None` to distinguish
+  them from errors in exception handling
+- src/psyche_os/backup_export/operations.py:449:21:B904:Within an `except` clause,
+  raise exceptions with `raise ... from err` or `raise ... from None` to distinguish
+  them from errors in exception handling
+- src/psyche_os/backup_export/operations.py:510:13:SIM105:Use `contextlib.suppress(Exception)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/backup_export/operations.py:613:13:B904:Within an `except` clause,
+  raise exceptions with `raise ... from err` or `raise ... from None` to distinguish
+  them from errors in exception handling
+- src/psyche_os/backup_export/operations.py:942:17:F402:Import `field` from line 36
+  shadowed by loop variable
+- src/psyche_os/backup_export/package_store.py:144:17:B904:Within an `except` clause,
+  raise exceptions with `raise ... from err` or `raise ... from None` to distinguish
+  them from errors in exception handling
+- src/psyche_os/backup_export/package_store.py:153:17:B904:Within an `except` clause,
+  raise exceptions with `raise ... from err` or `raise ... from None` to distinguish
+  them from errors in exception handling
+- src/psyche_os/backup_export/package_store.py:195:19:N801:Class name `_IO_STATUS_BLOCK`
+  should use CapWords convention
+- src/psyche_os/backup_export/package_store.py:201:19:N801:Class name `_FILE_RENAME_INFORMATION`
+  should use CapWords convention
+- src/psyche_os/backup_export/package_store.py:260:19:N801:Class name `_IO_STATUS_BLOCK`
+  should use CapWords convention
+- src/psyche_os/backup_export/package_store.py:266:19:N801:Class name `_FILE_LINK_INFORMATION`
+  should use CapWords convention
+- src/psyche_os/backup_export/package_store.py:376:13:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/backup_export/package_store.py:403:13:B904:Within an `except` clause,
+  raise exceptions with `raise ... from err` or `raise ... from None` to distinguish
+  them from errors in exception handling
+- src/psyche_os/backup_export/package_store.py:442:13:B904:Within an `except` clause,
+  raise exceptions with `raise ... from err` or `raise ... from None` to distinguish
+  them from errors in exception handling
+- src/psyche_os/backup_export/package_store.py:486:13:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/backup_export/package_store.py:562:17:B904:Within an `except` clause,
+  raise exceptions with `raise ... from err` or `raise ... from None` to distinguish
+  them from errors in exception handling
+- src/psyche_os/backup_export/package_store.py:72:13:B904:Within an `except` clause,
+  raise exceptions with `raise ... from err` or `raise ... from None` to distinguish
+  them from errors in exception handling
+- src/psyche_os/crypto/envelope.py:285:13:B904:Within an `except` clause, raise exceptions
+  with `raise ... from err` or `raise ... from None` to distinguish them from errors
+  in exception handling
+- src/psyche_os/crypto/envelope.py:327:13:B904:Within an `except` clause, raise exceptions
+  with `raise ... from err` or `raise ... from None` to distinguish them from errors
+  in exception handling
+- src/psyche_os/crypto/envelope.py:380:15:N801:Class name `DATA_BLOB` should use CapWords
+  convention
+- src/psyche_os/crypto/envelope.py:392:9:N806:Variable `CRYPTPROTECT_UI_FORBIDDEN`
+  in function should be lowercase
+- src/psyche_os/crypto/envelope.py:3:17:RUF002:Docstring contains ambiguous `–` (EN
+  DASH). Did you mean `-` (HYPHEN-MINUS)?
+- src/psyche_os/crypto/envelope.py:417:15:N801:Class name `DATA_BLOB` should use CapWords
+  convention
+- src/psyche_os/crypto/envelope.py:48:7:UP042:Class KeyState inherits from both `str`
+  and `enum.Enum`
+- src/psyche_os/crypto/envelope.py:696:13:B904:Within an `except` clause, raise exceptions
+  with `raise ... from err` or `raise ... from None` to distinguish them from errors
+  in exception handling
+- src/psyche_os/domain/__init__.py:107:11:RUF022:`__all__` is not sorted
+- src/psyche_os/domain/__init__.py:6:1:I001:Import block is un-sorted or un-formatted
+- src/psyche_os/domain/entities.py:532:17:F821:Undefined name `DeletionRequestId`
+- src/psyche_os/domain/entities.py:547:14:F821:Undefined name `DeletionPlanId`
+- src/psyche_os/domain/entities.py:548:17:F821:Undefined name `DeletionRequestId`
+- src/psyche_os/domain/entities.py:562:17:F821:Undefined name `DeletionRequestId`
+- src/psyche_os/domain/entities.py:563:14:F821:Undefined name `DeletionPlanId`
+- src/psyche_os/domain/entities.py:584:19:F821:Undefined name `MigrationId`
+- src/psyche_os/domain/entities.py:603:16:F821:Undefined name `BackupId`
+- src/psyche_os/domain/entities.py:625:16:F821:Undefined name `ExportId`
+- src/psyche_os/domain/entities.py:635:28:F821:Undefined name `KnowledgeSnapshotId`
+- src/psyche_os/domain/entities.py:653:16:F821:Undefined name `KnowledgeSourceId`
+- src/psyche_os/domain/entities.py:656:34:RUF003:Comment contains ambiguous `–` (EN
+  DASH). Did you mean `-` (HYPHEN-MINUS)?
+- src/psyche_os/domain/entities.py:669:18:F821:Undefined name `KnowledgeSnapshotId`
+- src/psyche_os/domain/entities.py:673:22:F821:Undefined name `KnowledgeSourceId`
+- src/psyche_os/domain/invariants.py:196:34:C401:Unnecessary generator (rewrite as
+  a set comprehension)
+- src/psyche_os/fixtures/__init__.py:111:9:B904:Within an `except` clause, raise exceptions
+  with `raise ... from err` or `raise ... from None` to distinguish them from errors
+  in exception handling
+- src/psyche_os/interfaces/cli.py:1296:17:F841:Local variable `path` is assigned to
+  but never used
+- src/psyche_os/interfaces/cli.py:1300:17:F841:Local variable `audience` is assigned
+  to but never used
+- src/psyche_os/interfaces/cli.py:739:17:F841:Local variable `path` is assigned to
+  but never used
+- src/psyche_os/interfaces/cli.py:808:17:F841:Local variable `scope` is assigned to
+  but never used
+- src/psyche_os/interfaces/cli.py:904:17:F841:Local variable `db_key_bytes` is assigned
+  to but never used
+- src/psyche_os/interfaces/desktop_sidecar.py:3:1:I001:Import block is un-sorted or
+  un-formatted
+- src/psyche_os/policy/engine.py:181:9:RUF034:Useless `if`-`else` condition
+- src/psyche_os/policy/engine.py:184:9:RUF034:Useless `if`-`else` condition
+- src/psyche_os/policy/engine.py:189:9:RUF034:Useless `if`-`else` condition
+- src/psyche_os/policy/engine.py:192:9:RUF034:Useless `if`-`else` condition
+- src/psyche_os/policy/engine.py:197:9:RUF034:Useless `if`-`else` condition
+- src/psyche_os/policy/engine.py:208:9:B007:Loop control variable `i` not used within
+  loop body
+- src/psyche_os/policy/engine.py:239:9:SIM102:Use a single `if` statement instead
+  of nested `if` statements
+- src/psyche_os/policy/engine.py:244:9:SIM102:Use a single `if` statement instead
+  of nested `if` statements
+- src/psyche_os/policy/engine.py:285:20:RUF005:Consider `[own_policy, *list(parent_policies)]`
+  instead of concatenation
+- src/psyche_os/policy/engine.py:286:15:RUF005:Consider `[own_policy_id, *list(parent_ids)]`
+  instead of concatenation
+- src/psyche_os/policy/engine.py:31:7:UP042:Class Sensitivity inherits from both `str`
+  and `enum.Enum`
+- src/psyche_os/policy/engine.py:3:17:RUF002:Docstring contains ambiguous `–` (EN
+  DASH). Did you mean `-` (HYPHEN-MINUS)?
+- src/psyche_os/policy/engine.py:42:7:UP042:Class ProcessingLocation inherits from
+  both `str` and `enum.Enum`
+- src/psyche_os/policy/engine.py:54:7:UP042:Class CloudPolicy inherits from both `str`
+  and `enum.Enum`
+- src/psyche_os/policy/engine.py:69:7:UP042:Class ThirdPartyScope inherits from both
+  `str` and `enum.Enum`
+- src/psyche_os/policy/engine.py:87:7:UP042:Class ExportRule inherits from both `str`
+  and `enum.Enum`
+- src/psyche_os/provenance/provenance.py:32:7:UP042:Class EdgeKind inherits from both
+  `str` and `enum.Enum`
+- src/psyche_os/provenance/provenance.py:3:69:RUF002:Docstring contains ambiguous
+  `–` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?
+- src/psyche_os/provenance/provenance.py:88:7:UP042:Class Directness inherits from
+  both `str` and `enum.Enum`
+- src/psyche_os/provenance/provenance.py:95:7:UP042:Class StrengthClass inherits from
+  both `str` and `enum.Enum`
+- src/psyche_os/storage/__init__.py:39:11:RUF022:`__all__` is not sorted
+- src/psyche_os/storage/sqlcipher_gate.py:151:5:N806:Variable `_RECOGNISED_VERSION_RE`
+  in function should be lowercase
+- src/psyche_os/storage/sqlcipher_gate.py:156:5:N806:Variable `_BARE_VERSION_RE` in
+  function should be lowercase
+- src/psyche_os/storage/sqlcipher_gate.py:237:5:N806:Variable `_LICENCE_TIER_RE` in
+  function should be lowercase
+- src/psyche_os/storage/sqlcipher_gate.py:32:7:UP042:Class GateState inherits from
+  both `str` and `enum.Enum`
+- src/psyche_os/storage/sqlcipher_gate.py:437:9:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/storage/sqlcipher_gate.py:486:9:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/storage/sqlcipher_gate.py:544:9:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/storage/sqlcipher_gate.py:628:9:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/storage/sqlcipher_gate.py:792:13:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- src/psyche_os/storage/uow.py:14:1:I001:Import block is un-sorted or un-formatted
+- src/psyche_os/storage/uow.py:414:25:RUF012:Mutable default value for class attribute
+- src/psyche_os/storage/uow.py:757:9:SIM105:Use `contextlib.suppress(Exception)` instead
+  of `try`-`except`-`pass`
+- src/psyche_os/temporal/temporal.py:19:7:UP042:Class TemporalRole inherits from both
+  `str` and `enum.Enum`
+- src/psyche_os/temporal/temporal.py:29:7:UP042:Class ValueKind inherits from both
+  `str` and `enum.Enum`
+- src/psyche_os/temporal/temporal.py:38:7:UP042:Class Precision inherits from both
+  `str` and `enum.Enum`
+- src/psyche_os/temporal/temporal.py:50:7:UP042:Class CertaintyClass inherits from
+  both `str` and `enum.Enum`
+- src/psyche_os/temporal/temporal.py:97:9:SIM102:Use a single `if` statement instead
+  of nested `if` statements
+- tests/integration/test_e00_portability_smoke.py:185:9:I001:Import block is un-sorted
+  or un-formatted
+- tests/integration/test_e00_portability_smoke.py:98:46:F401:`psyche_os.storage.schema.apply_schema`
+  imported but unused
+- tests/integration/test_e00_rebaseline_gate.py:112:27:RUF005:Consider `[*list(orig.statements),
+  "SELECT 1;"]` instead of concatenation
+- tests/integration/test_e00_rebaseline_gate.py:138:9:I001:Import block is un-sorted
+  or un-formatted
+- tests/integration/test_e00_rebaseline_gate.py:139:13:F401:`psyche_os.storage.migrations.CURRENT_SCHEMA_VERSION`
+  imported but unused
+- tests/integration/test_e00_rebaseline_gate.py:145:46:F401:`psyche_os.storage.schema.ALL_DDL`
+  imported but unused
+- tests/integration/test_e00_rebaseline_gate.py:145:55:F401:`psyche_os.storage.schema.SCHEMA_MIGRATIONS_DDL`
+  imported but unused
+- tests/integration/test_e00_rebaseline_gate.py:21:8:F401:`datetime` imported but
+  unused
+- tests/integration/test_e00_rebaseline_gate.py:27:8:F401:`tempfile` imported but
+  unused
+- tests/integration/test_e00_rebaseline_gate.py:291:21:F541:f-string without any placeholders
+- tests/integration/test_e00_rebaseline_gate.py:442:55:RUF012:Mutable default value
+  for class attribute
+- tests/integration/test_e00_rebaseline_gate.py:444:31:RUF012:Mutable default value
+  for class attribute
+- tests/integration/test_e00_rebaseline_gate.py:491:32:F401:`sqlcipher3.dbapi2` imported
+  but unused
+- tests/integration/test_e00_rebaseline_gate.py:498:46:F401:`psyche_os.storage.schema.apply_schema`
+  imported but unused
+- tests/integration/test_e00_rebaseline_gate.py:537:9:SIM117:Use a single `with` statement
+  with multiple contexts instead of nested `with` statements
+- tests/integration/test_e00_rebaseline_gate.py:63:32:F401:`sqlcipher3.dbapi2` imported
+  but unused
+- tests/integration/test_e01_backup_faults.py:129:26:RUF059:Unpacked variable `vault_id`
+  is never used
+- tests/integration/test_e01_backup_faults.py:129:36:RUF059:Unpacked variable `db_key_hex`
+  is never used
+- tests/integration/test_e01_backup_faults.py:129:48:RUF059:Unpacked variable `backup_key`
+  is never used
+- tests/integration/test_e01_backup_faults.py:142:26:RUF059:Unpacked variable `vault_id`
+  is never used
+- tests/integration/test_e01_backup_faults.py:142:36:RUF059:Unpacked variable `db_key_hex`
+  is never used
+- tests/integration/test_e01_backup_faults.py:162:26:RUF059:Unpacked variable `vault_id`
+  is never used
+- tests/integration/test_e01_backup_faults.py:162:36:RUF059:Unpacked variable `db_key_hex`
+  is never used
+- tests/integration/test_e01_backup_faults.py:16:1:I001:Import block is un-sorted
+  or un-formatted
+- tests/integration/test_e01_backup_faults.py:18:8:F401:`hashlib` imported but unused
+- tests/integration/test_e01_backup_faults.py:203:26:RUF059:Unpacked variable `vault_id`
+  is never used
+- tests/integration/test_e01_backup_faults.py:203:36:RUF059:Unpacked variable `db_key_hex`
+  is never used
+- tests/integration/test_e01_backup_faults.py:218:26:RUF059:Unpacked variable `vault_id`
+  is never used
+- tests/integration/test_e01_backup_faults.py:218:36:RUF059:Unpacked variable `db_key_hex`
+  is never used
+- tests/integration/test_e01_backup_faults.py:244:26:RUF059:Unpacked variable `vault_id`
+  is never used
+- tests/integration/test_e01_backup_faults.py:244:36:RUF059:Unpacked variable `db_key_hex`
+  is never used
+- tests/integration/test_e01_backup_faults.py:244:48:RUF059:Unpacked variable `backup_key`
+  is never used
+- tests/integration/test_e01_backup_faults.py:27:5:F401:`psyche_os.backup_export.operations.BACKUP_FORMAT_VERSION`
+  imported but unused
+- tests/integration/test_e01_backup_faults.py:28:5:F401:`psyche_os.backup_export.operations.BACKUP_MAGIC`
+  imported but unused
+- tests/integration/test_e01_backup_faults.py:293:26:RUF059:Unpacked variable `vault_id`
+  is never used
+- tests/integration/test_e01_backup_faults.py:293:36:RUF059:Unpacked variable `db_key_hex`
+  is never used
+- tests/integration/test_e01_backup_faults.py:312:26:RUF059:Unpacked variable `vault_id`
+  is never used
+- tests/integration/test_e01_backup_faults.py:312:36:RUF059:Unpacked variable `db_key_hex`
+  is never used
+- tests/integration/test_e01_backup_faults.py:405:26:RUF059:Unpacked variable `vault_id_str`
+  is never used
+- tests/integration/test_e01_backup_faults.py:405:40:RUF059:Unpacked variable `db_key_hex`
+  is never used
+- tests/integration/test_e01_backup_faults.py:495:13:F541:f-string without any placeholders
+- tests/integration/test_e01_backup_restore.py:16:1:I001:Import block is un-sorted
+  or un-formatted
+- tests/integration/test_e01_backup_restore.py:213:13:RUF059:Unpacked variable `detail`
+  is never used
+- 'tests/integration/test_e01_evidence_validator.py:9:1:UP035:Import from `collections.abc`
+  instead: `Callable`'
+- tests/integration/test_e01_recovery_drill.py:11:1:I001:Import block is un-sorted
+  or un-formatted
+- tests/integration/test_e01_recovery_drill.py:15:8:F401:`secrets` imported but unused
+- tests/integration/test_e01_recovery_drill.py:260:36:RUF059:Unpacked variable `db_key_hex`
+  is never used
+- tests/integration/test_e01_recovery_drill.py:287:26:RUF059:Unpacked variable `canary_name`
+  is never used
+- tests/integration/test_e01_recovery_drill.py:287:39:RUF059:Unpacked variable `backup_key`
+  is never used
+- tests/integration/test_e01_recovery_drill.py:300:26:RUF059:Unpacked variable `canary_name`
+  is never used
+- tests/integration/test_e01_recovery_drill.py:300:39:RUF059:Unpacked variable `backup_key`
+  is never used
+- tests/integration/test_e01_recovery_drill.py:310:26:RUF059:Unpacked variable `vault_id`
+  is never used
+- tests/integration/test_e01_recovery_drill.py:310:36:RUF059:Unpacked variable `db_key_hex`
+  is never used
+- tests/integration/test_e01_recovery_drill.py:310:60:RUF059:Unpacked variable `vmk`
+  is never used
+- tests/integration/test_e01_windows_boundary.py:19:1:I001:Import block is un-sorted
+  or un-formatted
+- tests/integration/test_e01_windows_boundary.py:269:13:F841:Local variable `manifest`
+  is assigned to but never used
+- tests/integration/test_e03_migration.py:122:29:E701:Multiple statements on one line
+  (colon)
+- tests/integration/test_e03_migration.py:123:29:E701:Multiple statements on one line
+  (colon)
+- tests/integration/test_e03_migration.py:124:33:E701:Multiple statements on one line
+  (colon)
+- tests/integration/test_e03_migration.py:125:30:E701:Multiple statements on one line
+  (colon)
+- tests/integration/test_e03_migration.py:126:9:E701:Multiple statements on one line
+  (colon)
+- tests/integration/test_e03_migration.py:3:1:I001:Import block is un-sorted or un-formatted
+- tests/integration/test_storage_integration.py:167:9:F841:Local variable `bop` is
+  assigned to but never used
+- tests/integration/test_storage_integration.py:202:9:F841:Local variable `vault_id`
+  is assigned to but never used
+- tests/integration/test_storage_integration.py:40:5:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- tests/regression/test_regression_proofs.py:1039:9:F841:Local variable `version`
+  is assigned to but never used
+- tests/regression/test_regression_proofs.py:1325:22:SIM115:Use a context manager
+  for opening files
+- tests/regression/test_regression_proofs.py:1362:33:SIM115:Use a context manager
+  for opening files
+- tests/regression/test_regression_proofs.py:1:39:RUF002:Docstring contains ambiguous
+  `–` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?
+- tests/regression/test_regression_proofs.py:527:18:RUF015:Prefer `next(r for r in
+  report.results if r.probe_number == 3)` over single element slice
+- tests/regression/test_regression_proofs.py:543:18:RUF015:Prefer `next(r for r in
+  report.results if r.probe_number == 7)` over single element slice
+- 'tests/security/test_crypto_security.py:103:14:B017:Do not assert blind exception:
+  `Exception`'
+- 'tests/security/test_crypto_security.py:131:14:B017:Do not assert blind exception:
+  `Exception`'
+- 'tests/security/test_crypto_security.py:156:14:B017:Do not assert blind exception:
+  `Exception`'
+- 'tests/security/test_crypto_security.py:205:18:B017:Do not assert blind exception:
+  `Exception`'
+- tests/security/test_crypto_security.py:213:13:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- tests/security/test_crypto_security.py:240:13:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- 'tests/security/test_crypto_security.py:265:18:B017:Do not assert blind exception:
+  `Exception`'
+- tests/security/test_crypto_security.py:270:13:SIM105:Use `contextlib.suppress(OSError)`
+  instead of `try`-`except`-`pass`
+- 'tests/unit/test_crypto.py:104:14:B017:Do not assert blind exception: `Exception`'
+- 'tests/unit/test_crypto.py:127:14:B017:Do not assert blind exception: `Exception`'
+- 'tests/unit/test_temporal.py:87:14:B017:Do not assert blind exception: `Exception`'
+- 'tests/unit/test_versions.py:67:14:B017:Do not assert blind exception: `Exception`'
+captured_at: '2026-08-15T20:15:04.998046+00:00'

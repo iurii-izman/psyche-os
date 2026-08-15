@@ -114,3 +114,20 @@ known_issues:
   - osv-scanner: pre-existing RUSTSEC advisories in desktop Tauri transitive deps
   - semgrep: pre-existing SQL f-string in src/psyche_os/storage/uow.py
   - fixed in closeout: guard matched only relative protected paths; absolute Windows tool paths bypassed the Edit/Write block (added _relativize, fixed _norm dot-strip)
+
+# ---- V2.0 Control Canary (additive; does NOT replace the V1 status above) ----
+# V1 remains VERIFIED / PRODUCTION_READY. V2 is a CANARY pending review.
+v2_control_canary:
+  version: 2.0.0-canary.1
+  implementation_status: IMPLEMENTED
+  review_status: PENDING_REVIEW
+  production_ready: false
+  activation: inactive
+  rollback: V1
+  field_test: PREPARE_E11_PENDING
+  components:
+    - model_provider_attestation
+    - versioned_diagnostic_ratchet
+    - cross_platform_hook_conformance
+    - authority_contract_guard
+    - task_review_packet_compiler

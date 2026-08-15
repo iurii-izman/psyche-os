@@ -1,0 +1,24 @@
+# Provider mapping — explicit, versionable, documentation-sourced.
+# This records a documented deterministic alias contract, NOT direct runtime proof.
+# DeepSeek's Anthropic/Claude Code compatibility documentation maps Claude-style
+# model names onto DeepSeek models. A harness-reported name such as
+# `claude-opus-5[1m]` is therefore harness evidence only; it does not by itself
+# prove which backend executed the request.
+#
+# Use: MAPPED_BY_PROVIDER_CONTRACT (weaker than CONFIRMED). Never silently upgrade.
+
+version: 1
+
+provider_mapping:
+  deepseek:
+    compatibility: anthropic-compatible
+    documentation_note: >
+      DeepSeek Anthropic/Claude Code compatibility maps claude-opus* -> deepseek-v4-pro
+      and claude-sonnet* / claude-haiku* -> deepseek-v4-flash.
+    aliases:
+      - pattern: "claude-opus"
+        maps_to: deepseek-v4-pro
+      - pattern: "claude-sonnet"
+        maps_to: deepseek-v4-flash
+      - pattern: "claude-haiku"
+        maps_to: deepseek-v4-flash

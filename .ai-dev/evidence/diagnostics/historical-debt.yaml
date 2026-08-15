@@ -1,0 +1,23 @@
+# Historical V1 diagnostic debt (count-only operational evidence).
+# These counts were recorded under AI Dev OS V1 with the same local tool versions
+# but WITHOUT version/config/finding-identity binding. They are preserved as
+# historical evidence; the identity-aware baseline in `ruff.baseline.yaml` /
+# `mypy.baseline.yaml` is the comparison baseline going forward.
+# Do NOT reinterpret these counts against the new identity-aware baseline.
+
+version: 1
+
+historical:
+  ruff:
+    debt_count: 215
+    note: pre-existing lint errors (mostly import sorting) — not introduced by AI Dev OS
+    recorded_in: .ai-dev/state.yaml
+  mypy:
+    debt_count: 40
+    note: pre-existing type errors (incl. sqlcipher3 untyped) — not introduced by AI Dev OS
+    recorded_in: .ai-dev/state.yaml
+
+migration_note: >
+  V2 ratchet baseline was bootstrapped at ceb3031dd5d7d75564691f59ddf6e23dd71a812f
+  with ruff 0.15.10 / mypy 2.3.0 and identity-aware finding sets (215 / 40).
+  No historical count was reinterpreted as a V2 baseline finding.

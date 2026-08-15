@@ -52,7 +52,10 @@ def _load_protected(repo: str) -> list:
 
 
 def _norm(p: str) -> str:
-    p = p.replace("\\", "/")
+    # Normalize separators and collapse `.`/`..` so traversal cannot reach a
+    # protected file without matching it. `os.path.normpath` uses Windows path
+    # semantics on this repository's filesystem.
+    p = os.path.normpath(p).replace("\\", "/")
     while p.startswith("./"):
         p = p[2:]
     return p
@@ -76,9 +79,9 @@ def _relativize(target: str, repo: str) -> str:
 
 
 def _is_protected(target: str, repo: str, protected: list) -> bool:
-    t = _relativize(target, repo)
+    t = _relativize(target, repo).lower()
     for p in protected:
-        pn = _norm(p)
+        pn = _norm(p).lower()
         if t == pn or (pn and t.startswith(pn.rstrip("/") + "/")):
             return True
     return False

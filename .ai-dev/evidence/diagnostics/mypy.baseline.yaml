@@ -1,0 +1,64 @@
+tool: mypy
+tool_version: 2.3.0
+config_fingerprint: cf866f84de3f51b43abc107f01e3e9895490d2973921fb65ab19ea66a7dad2f0
+baseline_commit: ceb3031dd5d7d75564691f59ddf6e23dd71a812f
+finding_identity_digest: 6495c4a13379a054a7a2a9c7ce03e349d40ef3c5d4113cb24d9b87f60a277e1e
+finding_count: 40
+finding_identities:
+- 'src/psyche_os/application/desktop_service.py:18::Skipping analyzing "sqlcipher3":
+  module is installed, but missing library stubs or py.typed marker  [import-untyped]'
+- src/psyche_os/application/e03_archive.py:171::Incompatible types in assignment (expression
+  has type "tuple[str, str, str, str, str, str, int, None]", variable has type "tuple[str,
+  str, str, str, str, str, int, str]")  [assignment]
+- src/psyche_os/application/e03_archive.py:364::Incompatible types in assignment (expression
+  has type "str | None", variable has type "str")  [assignment]
+- src/psyche_os/application/ports.py:351::"FixtureAuthority" has no attribute "_token"  [attr-defined]
+- src/psyche_os/application/ports.py:352::"FixtureAuthority" has no attribute "_bound_fixture_id"  [attr-defined]
+- src/psyche_os/application/ports.py:353::"FixtureAuthority" has no attribute "_bound_digest"  [attr-defined]
+- src/psyche_os/application/ports.py:359::"FixtureAuthority" has no attribute "_bound_digest"  [attr-defined]
+- src/psyche_os/application/ports.py:359::"FixtureAuthority" has no attribute "_bound_fixture_id"  [attr-defined]
+- src/psyche_os/application/ports.py:359::"FixtureAuthority" has no attribute "_token"  [attr-defined]
+- src/psyche_os/application/ports.py:370::Return type "object" of "__reduce__" incompatible
+  with return type "str | tuple[Any, ...]" in supertype "builtins.object"  [override]
+- src/psyche_os/application/ports.py:381::"FixtureAuthority" has no attribute "_token"  [attr-defined]
+- src/psyche_os/application/ports.py:382::"FixtureAuthority" has no attribute "_token"  [attr-defined]
+- src/psyche_os/application/ports.py:383::"FixtureAuthority" has no attribute "_bound_fixture_id"  [attr-defined]
+- src/psyche_os/application/ports.py:384::"FixtureAuthority" has no attribute "_bound_fixture_id"  [attr-defined]
+- src/psyche_os/application/ports.py:385::"FixtureAuthority" has no attribute "_bound_digest"  [attr-defined]
+- src/psyche_os/application/ports.py:386::"FixtureAuthority" has no attribute "_bound_digest"  [attr-defined]
+- src/psyche_os/application/ports.py:387::"FixtureAuthority" has no attribute "_bound_digest"  [attr-defined]
+- src/psyche_os/application/ports.py:462::"SyntheticFixtureCapability" has no attribute
+  "_authority"; maybe "_from_authority" or "_authority_token"?  [attr-defined]
+- src/psyche_os/application/ports.py:462::Returning Any from function declared to
+  return "bool"  [no-any-return]
+- 'src/psyche_os/backup_export/operations.py:1000::Skipping analyzing "sqlcipher3":
+  module is installed, but missing library stubs or py.typed marker  [import-untyped]'
+- src/psyche_os/backup_export/operations.py:553::Incompatible types in assignment
+  (expression has type "frozenset[str]", variable has type "list[Any]")  [assignment]
+- src/psyche_os/backup_export/operations.py:554::Incompatible types in assignment
+  (expression has type "frozenset[str]", variable has type "list[str]")  [assignment]
+- src/psyche_os/domain/entities.py:532::Name "DeletionRequestId" is not defined  [name-defined]
+- src/psyche_os/domain/entities.py:547::Name "DeletionPlanId" is not defined  [name-defined]
+- src/psyche_os/domain/entities.py:548::Name "DeletionRequestId" is not defined  [name-defined]
+- src/psyche_os/domain/entities.py:562::Name "DeletionRequestId" is not defined  [name-defined]
+- src/psyche_os/domain/entities.py:563::Name "DeletionPlanId" is not defined  [name-defined]
+- src/psyche_os/domain/entities.py:584::Name "MigrationId" is not defined; did you
+  mean "migration_id"?  [name-defined]
+- src/psyche_os/domain/entities.py:603::Name "BackupId" is not defined  [name-defined]
+- src/psyche_os/domain/entities.py:625::Name "ExportId" is not defined  [name-defined]
+- src/psyche_os/domain/entities.py:635::Name "KnowledgeSnapshotId" is not defined  [name-defined]
+- src/psyche_os/domain/entities.py:653::Name "KnowledgeSourceId" is not defined  [name-defined]
+- src/psyche_os/domain/entities.py:669::Name "KnowledgeSnapshotId" is not defined  [name-defined]
+- src/psyche_os/domain/entities.py:673::Name "KnowledgeSourceId" is not defined  [name-defined]
+- src/psyche_os/interfaces/cli.py:1495::Returning Any from function declared to return
+  "CliResult"  [no-any-return]
+- src/psyche_os/interfaces/cli.py:1497::Returning Any from function declared to return
+  "CliResult"  [no-any-return]
+- 'src/psyche_os/interfaces/cli.py:573::Skipping analyzing "sqlcipher3": module is
+  installed, but missing library stubs or py.typed marker  [import-untyped]'
+- 'src/psyche_os/interfaces/desktop_sidecar.py:10::Skipping analyzing "sqlcipher3":
+  module is installed, but missing library stubs or py.typed marker  [import-untyped]'
+- 'src/psyche_os/storage/sqlcipher_gate.py:99::Skipping analyzing "sqlcipher3": module
+  is installed, but missing library stubs or py.typed marker  [import-untyped]'
+- src/psyche_os/temporal/temporal.py:182::Statement is unreachable  [unreachable]
+captured_at: '2026-08-15T20:15:06.255662+00:00'

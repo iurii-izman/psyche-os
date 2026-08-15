@@ -213,6 +213,14 @@ def main() -> int:
     else:
         emit("OK", "manual actions", "none documented")
 
+    # 13. V2 control canary (additive; NEVER blocks V1 operation/rollback)
+    v2_contract = os.path.join(AI_DEV, "contracts", "AI-DEV-V2-CONTROL-CANARY-001.yaml")
+    v2_cli = os.path.join(REPO, "scripts", "ai_dev_v2.py")
+    if os.path.isfile(v2_contract) and os.path.isfile(v2_cli):
+        emit("OK", "V2 control canary", "present (PENDING_REVIEW / CANARY)")
+    else:
+        emit("DEFER", "V2 control canary", "not present (V1 path unaffected)")
+
     # Deferred (by design)
     emit("DEFER", "LAB capabilities (Pathfinder, SymLens, projectmem, Reasonix, …)")
 
