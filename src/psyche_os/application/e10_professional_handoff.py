@@ -185,6 +185,86 @@ def _policy_axes(row: dict[str, Any]) -> PolicyAxes:
     )
 
 
+def _transitive_ancestor_policies(
+    connection: Any, child_policy_id: str
+) -> tuple[list[PolicyAxes], list[PolicyId]]:
+    """Resolve the complete transitive ancestor set for one policy (PS-02).
+
+    Policy lineage is transitive: a node's effective policy is the
+    most-restrictive meet of its own policy and ALL ancestors (the canonical
+    policy engine's ``resolve_with_own_policy`` contract).  Every referenced
+    ancestor row — active or inactive — is included so a restriction inherited
+    from any ancestor survives and can never be weakened by a descendant.  A
+    dangling (missing) or ambiguous ancestor reference and any lineage cycle
+    fail closed with ``PolicyCompositionError``.
+
+    Returns deduplicated ancestor axes and ids in a deterministic order.
+    """
+    # Snapshot all lineage edges once; parent lists are already deterministically
+    # ordered so the traversal and the resulting ancestor order are stable.
+    edges = _rows_dict(
+        connection,
+        "SELECT parent_policy_id, child_policy_id FROM policy_lineage "
+        "ORDER BY parent_policy_id, child_policy_id",
+    )
+    parents_of: dict[str, list[str]] = {}
+    for edge in edges:
+        child = str(edge["child_policy_id"])
+        parents_of.setdefault(child, []).append(str(edge["parent_policy_id"]))
+
+    # Deterministic iterative DFS (white/gray/black).  Revisiting a gray node is
+    # a lineage cycle (fail closed); revisiting a black node is a shared ancestor
+    # reachable from another branch (deduplicate, do not traverse it again).
+    state: dict[str, str] = {}
+    stack: list[str] = [child_policy_id]
+    state[child_policy_id] = "gray"
+    ancestor_ids: list[str] = []
+    while stack:
+        node_id = stack[-1]
+        advanced = False
+        for parent_id in parents_of.get(node_id, ()):
+            parent_state = state.get(parent_id)
+            if parent_state == "gray":
+                raise PolicyCompositionError(
+                    f"Cycle detected in policy lineage at {parent_id}",
+                    parent_ids=[PolicyId(child_policy_id)],
+                )
+            if parent_state == "black":
+                continue
+            state[parent_id] = "gray"
+            stack.append(parent_id)
+            advanced = True
+            break
+        if advanced:
+            continue
+        state[node_id] = "black"
+        stack.pop()
+        if node_id != child_policy_id:
+            ancestor_ids.append(node_id)
+
+    axes: list[PolicyAxes] = []
+    ids: list[PolicyId] = []
+    for policy_id in ancestor_ids:
+        rows = _rows_dict(
+            connection,
+            "SELECT * FROM data_policies WHERE policy_id=?",
+            (policy_id,),
+        )
+        if not rows:
+            raise PolicyCompositionError(
+                f"Missing required ancestor policy: {policy_id}",
+                parent_ids=[PolicyId(policy_id)],
+            )
+        if len(rows) != 1:
+            raise PolicyCompositionError(
+                f"Ambiguous ancestor policy reference: {policy_id}",
+                parent_ids=[PolicyId(policy_id)],
+            )
+        axes.append(_policy_axes(rows[0]))
+        ids.append(PolicyId(policy_id))
+    return axes, ids
+
+
 def _applicable_export_policy(
     connection: Any, record_id: str
 ) -> tuple[str, PolicyAxes | None]:
@@ -192,10 +272,12 @@ def _applicable_export_policy(
 
     Reuses the accepted per-record resolution (E07 canonical reader + the
     policy engine): own policy is the active row whose ``target_record_id`` is
-    the record; lineage parents come from ``policy_lineage``; the effective
-    axes are the most-restrictive meet of own + ancestors.  Returns
+    the record; the effective axes are the most-restrictive meet of own + the
+    complete transitive ``policy_lineage`` ancestor set, so a restrictive
+    grandparent or deeper ancestor can never be omitted.  Returns
     ``("missing", None)`` when no policy applies, ``("blocked", None)`` when
-    the applicable policy is ambiguous/contradictory, else ``("ok", axes)``.
+    the applicable policy is ambiguous/contradictory or the lineage is
+    malformed (cycle, missing or ambiguous ancestor), else ``("ok", axes)``.
     """
     own_rows = _rows_dict(
         connection,
@@ -208,19 +290,15 @@ def _applicable_export_policy(
         # Multiple active policies target the same record: ambiguous.
         return "blocked", None
     own = own_rows[0]
-    parents = _rows_dict(
-        connection,
-        "SELECT p.* FROM policy_lineage l JOIN data_policies p "
-        "ON p.policy_id=l.parent_policy_id AND p.is_active=1 "
-        "WHERE l.child_policy_id=? ORDER BY p.policy_id",
-        (own["policy_id"],),
-    )
     try:
+        ancestor_axes, ancestor_ids = _transitive_ancestor_policies(
+            connection, str(own["policy_id"])
+        )
         resolution = resolve_with_own_policy(
             _policy_axes(own),
             PolicyId(str(own["policy_id"])),
-            [_policy_axes(parent) for parent in parents],
-            [PolicyId(str(parent["policy_id"])) for parent in parents],
+            ancestor_axes,
+            ancestor_ids,
         )
     except (PolicyCompositionError, ValueError):
         return "blocked", None
@@ -228,12 +306,22 @@ def _applicable_export_policy(
 
 
 def _axes_allows_professional_handoff(axes: PolicyAxes, audience: str) -> bool:
-    """Frozen E10 local/no-cloud, audience-bounded export profile."""
+    """Frozen E10 local/no-cloud, audience-bounded export profile.
+
+    ``export_audience`` is the canonical engine's union of the named audiences
+    across own policy + all ancestors (``;``-joined).  The disclosure is
+    eligible only when every non-empty named audience permits the frozen
+    audience; a policy restricting to any other audience blocks it.
+    """
+    if axes.export_audience:
+        named = {part.strip() for part in axes.export_audience.split(";")}
+        named.discard("")
+        if any(part != audience for part in named):
+            return False
     return (
         axes.processing_location == ProcessingLocation.LOCAL_ONLY
         and axes.cloud_policy == CloudPolicy.NEVER_CLOUD
         and axes.export_rule in (ExportRule.ALLOW, ExportRule.REDACT)
-        and (not axes.export_audience or axes.export_audience == audience)
     )
 
 

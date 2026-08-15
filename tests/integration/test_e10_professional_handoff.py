@@ -13,7 +13,9 @@ from psyche_os.application.e03_archive import E03ArchiveService
 from psyche_os.application.e10_professional_handoff import (
     E10ProfessionalHandoffService,
     HandoffAuthorization,
+    _applicable_export_policy,
 )
+from psyche_os.policy.engine import CloudPolicy
 from psyche_os.reports.e10_professional import (
     AUDIENCE,
     PURPOSE,
@@ -96,6 +98,72 @@ def _deactivate_policy(conn: sqlite3.Connection, *, record_id: str) -> None:
         "UPDATE data_policies SET is_active=0 WHERE record_id=? AND is_active=1",
         (f"pol-{record_id}",),
     )
+    conn.commit()
+
+
+def _insert_policy(
+    conn: sqlite3.Connection,
+    *,
+    policy_id: str,
+    target_record_id: str,
+    export_rule: str = "allow",
+    cloud_policy: str = "never_cloud",
+    export_audience: str = "",
+) -> None:
+    """Insert one synthetic active policy row for lineage-ancestor fixtures.
+
+    Ancestors default to an unrestricted ``export_audience`` so the lineage
+    tests discriminate on lineage (not on the canonical engine's joined
+    audience string).
+    """
+    conn.execute(
+        "INSERT INTO data_policies(record_id,policy_id,version_id,target_record_id,"
+        "sensitivity,processing_location,cloud_policy,purpose,third_party_scope,"
+        "retention_policy_id,export_rule,export_audience,lineage_rule,tx_from,is_active,created_at) "
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            policy_id,
+            policy_id,
+            f"{policy_id}-v1",
+            target_record_id,
+            "sensitive",
+            "local_only",
+            cloud_policy,
+            "test",
+            "none",
+            "",
+            export_rule,
+            export_audience,
+            "most_restrictive_parent",
+            _NOW,
+            1,
+            _NOW,
+        ),
+    )
+    conn.commit()
+
+
+def _update_policy_cloud(
+    conn: sqlite3.Connection, *, record_id: str, cloud_policy: str
+) -> None:
+    conn.execute(
+        "UPDATE data_policies SET cloud_policy=? WHERE record_id=? AND is_active=1",
+        (cloud_policy, f"pol-{record_id}"),
+    )
+    conn.commit()
+
+
+def _add_lineage_edge(
+    conn: sqlite3.Connection, *, parent: str, child: str
+) -> None:
+    """Insert one policy_lineage edge (FKs are toggled as in the E07 tests)."""
+    conn.execute("PRAGMA foreign_keys=OFF")
+    conn.execute(
+        "INSERT INTO policy_lineage(parent_policy_id,child_policy_id,created_at) "
+        "VALUES(?,?,?)",
+        (parent, child, _NOW),
+    )
+    conn.execute("PRAGMA foreign_keys=ON")
     conn.commit()
 
 
@@ -931,4 +999,159 @@ def test_ambiguous_applicable_policy_fails_closed() -> None:
     handoff = E10ProfessionalHandoffService(service.connection, _MemoryWriter())
     with pytest.raises(E10ReportError) as exc:
         handoff.build_preview((("report-lamp", "report-lamp-v1"),))
+    assert exc.value.code == "POLICY_BLOCKED"
+
+
+# ---------------------------------------------------------------------------
+# F10: transitive policy-lineage closure (G-2 fix)
+# ---------------------------------------------------------------------------
+
+
+def test_transitive_grandparent_block_blocks_disclosure() -> None:
+    """A: grandparent BLOCK -> parent ALLOW -> child ALLOW stays blocked.
+
+    A restrictive ancestor two levels up must not be omitted from the
+    child's effective policy (PS-02 transitive lineage).
+    """
+    service = _fixture()
+    _add_policies(service.connection, export_rule="allow")
+    _insert_policy(
+        service.connection,
+        policy_id="pol-grand",
+        target_record_id="synthetic-grand",
+        export_rule="block",
+    )
+    _insert_policy(
+        service.connection,
+        policy_id="pol-parent",
+        target_record_id="synthetic-parent",
+        export_rule="allow",
+    )
+    _add_lineage_edge(service.connection, parent="pol-grand", child="pol-parent")
+    _add_lineage_edge(service.connection, parent="pol-parent", child="pol-report-lamp")
+    handoff = E10ProfessionalHandoffService(service.connection, _MemoryWriter())
+    with pytest.raises(E10ReportError) as exc:
+        handoff.build_preview((("report-lamp", "report-lamp-v1"),))
+    assert exc.value.code == "POLICY_BLOCKED"
+
+
+def test_transitive_never_cloud_inheritance_survives() -> None:
+    """B: a NEVER_CLOUD grandparent restriction survives transitively.
+
+    Permissive descendants (ask_each_time / named_purpose_and_provider) cannot
+    weaken NEVER_CLOUD inherited from a grandparent; the record's effective
+    policy stays never_cloud and the local no-cloud handoff is allowed.
+    """
+    service = _fixture()
+    _add_policies(service.connection, export_rule="allow")
+    _update_policy_cloud(
+        service.connection,
+        record_id="report-lamp",
+        cloud_policy="named_purpose_and_provider",
+    )
+    _insert_policy(
+        service.connection,
+        policy_id="pol-grand",
+        target_record_id="synthetic-grand",
+        cloud_policy="never_cloud",
+    )
+    _insert_policy(
+        service.connection,
+        policy_id="pol-parent",
+        target_record_id="synthetic-parent",
+        cloud_policy="ask_each_time",
+    )
+    _add_lineage_edge(service.connection, parent="pol-grand", child="pol-parent")
+    _add_lineage_edge(service.connection, parent="pol-parent", child="pol-report-lamp")
+    handoff = E10ProfessionalHandoffService(service.connection, _MemoryWriter())
+    state, axes = _applicable_export_policy(service.connection, "report-lamp")
+    assert state == "ok"
+    assert axes is not None
+    assert axes.cloud_policy == CloudPolicy.NEVER_CLOUD
+    _preview, _auth, package = _disclose(
+        handoff, (("report-lamp", "report-lamp-v1"),)
+    )
+    assert package.identity.report_id.startswith("e10-report-")
+
+
+def test_three_level_eligible_lineage_discloses() -> None:
+    """C: a three-level all-eligible lineage discloses successfully."""
+    service = _fixture()
+    _add_policies(service.connection, export_rule="allow")
+    _insert_policy(
+        service.connection,
+        policy_id="pol-grand",
+        target_record_id="synthetic-grand",
+        export_rule="allow",
+    )
+    _insert_policy(
+        service.connection,
+        policy_id="pol-parent",
+        target_record_id="synthetic-parent",
+        export_rule="allow",
+    )
+    _add_lineage_edge(service.connection, parent="pol-grand", child="pol-parent")
+    _add_lineage_edge(service.connection, parent="pol-parent", child="pol-report-lamp")
+    handoff = E10ProfessionalHandoffService(service.connection, _MemoryWriter())
+    _preview, _auth, package = _disclose(
+        handoff, (("report-lamp", "report-lamp-v1"),)
+    )
+    assert package.identity.report_id.startswith("e10-report-")
+
+
+def test_lineage_cycle_fails_closed() -> None:
+    """D: a lineage cycle fails closed (POLICY_BLOCKED)."""
+    service = _fixture()
+    _add_policies(service.connection)
+    _insert_policy(
+        service.connection,
+        policy_id="pol-other",
+        target_record_id="synthetic-other",
+        export_rule="redact",
+    )
+    _add_lineage_edge(service.connection, parent="pol-other", child="pol-report-lamp")
+    _add_lineage_edge(service.connection, parent="pol-report-lamp", child="pol-other")
+    handoff = E10ProfessionalHandoffService(service.connection, _MemoryWriter())
+    with pytest.raises(E10ReportError) as exc:
+        handoff.build_preview((("report-lamp", "report-lamp-v1"),))
+    assert exc.value.code == "POLICY_BLOCKED"
+
+
+def test_lineage_missing_ancestor_fails_closed() -> None:
+    """E: a dangling/missing ancestor reference fails closed (POLICY_BLOCKED)."""
+    service = _fixture()
+    _add_policies(service.connection)
+    _add_lineage_edge(
+        service.connection, parent="pol-missing-ancestor", child="pol-report-lamp"
+    )
+    handoff = E10ProfessionalHandoffService(service.connection, _MemoryWriter())
+    with pytest.raises(E10ReportError) as exc:
+        handoff.build_preview((("report-lamp", "report-lamp-v1"),))
+    assert exc.value.code == "POLICY_BLOCKED"
+
+
+def test_counterevidence_transitive_restriction_blocks() -> None:
+    """F: auto-added counterevidence with a restrictive transitive ancestor
+    is blocked (counterevidence uses the same transitive resolution)."""
+    service = _fixture()
+    _add_policies(service.connection, export_rule="allow")
+    _insert_policy(
+        service.connection,
+        policy_id="pol-grand",
+        target_record_id="synthetic-grand",
+        export_rule="block",
+    )
+    _insert_policy(
+        service.connection,
+        policy_id="pol-parent",
+        target_record_id="synthetic-parent",
+        export_rule="allow",
+    )
+    _add_lineage_edge(service.connection, parent="pol-grand", child="pol-parent")
+    _add_lineage_edge(
+        service.connection, parent="pol-parent", child="pol-assertion-counter"
+    )
+    handoff = E10ProfessionalHandoffService(service.connection, _MemoryWriter())
+    with pytest.raises(E10ReportError) as exc:
+        handoff.build_preview((("assertion-lamp", "assertion-lamp-v1"),))
     assert exc.value.code == "POLICY_BLOCKED"
