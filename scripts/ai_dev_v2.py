@@ -3,7 +3,7 @@
 
 Components (all deterministic, no LLM call, no network call):
   A  model/provider attestation          -> `attest`
-  B  versioned diagnostic ratchet        -> `ratchet compare|propose|promote`
+  B  versioned diagnostic ratchet        -> `ratchet compare|propose` (promotion is human-gated)
   D  authority / contract guard          -> `contract check`
   E  task / review packet compiler       -> `packet task|review`
 
@@ -564,6 +564,61 @@ def verify_baseline_git(baseline: dict, tool: str, repo: Path, current_commit: s
     return True, ""
 
 
+def resolve_baseline_ref(baseline_ref: str, repo: Path) -> str:
+    """Resolve a git ref/abbrev SHA to a full immutable commit SHA; raise on failure."""
+    proc = _run(["git", "rev-parse", "--verify", f"{baseline_ref}^{{commit}}"], repo)
+    if proc.returncode != 0 or not proc.stdout.strip():
+        raise ValueError(f"baseline-ref '{baseline_ref}' does not resolve to a commit")
+    return proc.stdout.strip()
+
+
+def load_baseline_from_git(tool: str, repo: Path, baseline_sha: str) -> dict:
+    """Load canonical baseline content from an immutable commit via `git show <sha>:<path>`.
+
+    Never reads the working-tree baseline file. Raises FileNotFoundError if the baseline
+    file is absent at that commit, ValueError if it is not a mapping.
+    """
+    rel = baseline_rel_path(tool)
+    spec = f"{baseline_sha}:{rel}"
+    proc = _run(["git", "show", spec], repo)
+    if proc.returncode != 0:
+        raise FileNotFoundError(f"baseline file '{rel}' absent at baseline {baseline_sha}")
+    if yaml is None:
+        raise ValueError("PyYAML is required to load baselines")
+    data = yaml.safe_load(proc.stdout)
+    if not isinstance(data, dict):
+        raise ValueError(f"baseline at '{spec}' is not a mapping")
+    return data
+
+
+def ratchet_compare_from_ref(
+    tool: str, repo: Path, baseline_ref: str, current_commit: str, current: dict
+) -> dict:
+    """Compare `current` against the immutable trusted baseline resolved from `baseline_ref`.
+
+    Baseline authority is an explicit git commit/ref: resolve ref -> full SHA ->
+    `git show <sha>:.ai-dev/verification/baselines/<tool>.baseline.yaml` -> integrity +
+    tool identity + ancestry checks -> identity-aware comparison. The working-tree baseline
+    file never controls the result. Any resolution/load/verify failure fails closed as FAIL.
+    """
+    meta: dict = {"baseline_ref": baseline_ref, "baseline_path": baseline_rel_path(tool)}
+    try:
+        baseline_sha = resolve_baseline_ref(baseline_ref, repo)
+    except ValueError as exc:
+        return {"status": "FAIL", "detail": str(exc), **meta}
+    meta["baseline_sha"] = baseline_sha
+    try:
+        baseline = load_baseline_from_git(tool, repo, baseline_sha)
+    except (FileNotFoundError, ValueError) as exc:
+        return {"status": "FAIL", "detail": str(exc), **meta}
+    ok, why = verify_baseline_git(baseline, tool, repo, current_commit)
+    if not ok:
+        return {"status": "FAIL", "detail": why, **meta}
+    result = ratchet_compare(baseline, current)
+    result.update(meta)
+    return result
+
+
 def ratchet_compare(baseline: dict, current: dict) -> dict:
     """Compare a current capture against a persisted baseline (fail-closed)."""
     ok, why = _verify_baseline(baseline)
@@ -930,9 +985,14 @@ def _as_list(value: Any) -> list[str]:
 # --------------------------------------------------------------------------- #
 # repository paths
 # --------------------------------------------------------------------------- #
+def baseline_rel_path(tool: str) -> str:
+    # Repo-relative path of the canonical baseline, used for `git show <sha>:<path>`.
+    return f".ai-dev/verification/baselines/{tool}.baseline.yaml"
+
+
 def canonical_baseline_path(tool: str, repo: Path) -> Path:
     # Canonical active baselines live under protected verification scope (T0).
-    return repo / ".ai-dev" / "verification" / "baselines" / f"{tool}.baseline.yaml"
+    return repo / baseline_rel_path(tool)
 
 
 def proposal_dir(repo: Path) -> Path:
@@ -943,25 +1003,21 @@ def proposal_path(tool: str, repo: Path) -> Path:
     return proposal_dir(repo) / f"{tool}.proposal.yaml"
 
 
-def baseline_history_path(repo: Path) -> Path:
-    return repo / ".ai-dev" / "evidence" / "diagnostics" / "history.jsonl"
+def write_proposal(
+    tool: str,
+    repo: Path,
+    baseline: dict,
+    reason: str,
+    baseline_ref: str | None = None,
+    baseline_sha: str | None = None,
+    canonical: dict | None = None,
+) -> Path:
+    """Write a proposed baseline to evidence ONLY; never touches the canonical baseline.
 
-
-def _append_history(repo: Path, record: dict) -> None:
-    path = baseline_history_path(repo)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as fh:
-        fh.write(json.dumps(record, sort_keys=True, default=str) + "\n")
-
-
-def _load_canonical(tool: str, repo: Path) -> dict:
-    path = canonical_baseline_path(tool, repo)
-    return _yaml_load(path) if path.is_file() else {}
-
-
-def write_proposal(tool: str, repo: Path, baseline: dict, reason: str) -> Path:
-    """Write a proposed baseline to evidence ONLY; never touches the canonical baseline."""
-    canonical = _load_canonical(tool, repo)
+    Records the trusted baseline source (requested ref + resolved SHA) and the current
+    canonical digest so reviewers can verify the delta against immutable authority.
+    """
+    canonical = canonical or {}
     proposal = {
         "tool": tool,
         "tool_version": baseline.get("tool_version"),
@@ -973,6 +1029,8 @@ def write_proposal(tool: str, repo: Path, baseline: dict, reason: str) -> Path:
         "captured_at": baseline.get("captured_at"),
         "reason": reason,
         "current_canonical_digest": canonical.get("finding_identity_digest"),
+        "baseline_ref": baseline_ref,
+        "baseline_sha": baseline_sha,
     }
     path = proposal_path(tool, repo)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -980,47 +1038,14 @@ def write_proposal(tool: str, repo: Path, baseline: dict, reason: str) -> Path:
     return path
 
 
-def promote_proposal(tool: str, repo: Path, reason: str, evidence: str) -> Path:
-    """Promote an existing proposal to the canonical (protected) baseline.
-
-    Requires an explicit approval/evidence reference; without one this is rejected.
-    This is a canonical-baseline mutation, separate from the ordinary compare/propose flow.
-    """
-    if not evidence:
-        raise ValueError("promotion requires an explicit approval/evidence reference")
-    proposal = _yaml_load(proposal_path(tool, repo))
-    if not isinstance(proposal, dict) or not proposal.get("finding_identity_digest"):
-        raise ValueError(f"no valid proposal for {tool}; run `ratchet propose` first")
-    canonical = {
-        "tool": proposal.get("tool", tool),
-        "tool_version": proposal.get("tool_version"),
-        "config_fingerprint": proposal.get("config_fingerprint"),
-        "baseline_commit": proposal.get("candidate_commit"),
-        "finding_count": proposal.get("finding_count"),
-        "finding_identities": proposal.get("finding_identities", []),
-        "finding_identity_digest": proposal.get("finding_identity_digest"),
-        "captured_at": proposal.get("captured_at"),
-    }
-    path = canonical_baseline_path(tool, repo)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_yaml_dump(canonical), encoding="utf-8")
-    _append_history(
-        repo,
-        {
-            "action": "promote",
-            "tool": tool,
-            "tool_version": canonical.get("tool_version"),
-            "config_fingerprint": canonical.get("config_fingerprint"),
-            "baseline_commit": canonical.get("baseline_commit"),
-            "finding_count": canonical.get("finding_count"),
-            "finding_identity_digest": canonical.get("finding_identity_digest"),
-            "captured_at": canonical.get("captured_at"),
-            "reason": reason,
-            "evidence": evidence,
-            "previous_canonical_digest": proposal.get("current_canonical_digest"),
-        },
+def promote_is_human_gated() -> str:
+    """Promotion is a separate human-gated repository transaction, never an agent action."""
+    return (
+        "HUMAN_GATE_REQUIRED — canonical baseline promotion is not a coding-agent action.\n"
+        "Promotion = proposal -> human/architect review -> separate approved PR -> "
+        "deterministic verification -> merge to canonical main -> the merged commit "
+        "becomes the new trusted baseline SHA."
     )
-    return path
 
 
 # --------------------------------------------------------------------------- #
@@ -1051,54 +1076,74 @@ def _cmd_attest(args: argparse.Namespace) -> int:
 def _cmd_ratchet(args: argparse.Namespace) -> int:
     repo = Path(args.repo)
     tools = [args.tool] if args.tool else list(RATCHET_TOOLS)
+
+    if args.action == "promote":
+        # No autonomous canonical mutation. Promotion is a separate human-gated
+        # repository transaction; the coding-agent CLI cannot perform it.
+        print(promote_is_human_gated())
+        for tool in tools:
+            print(
+                f"{tool}: propose first -> {proposal_path(tool, repo)} "
+                "(requires separate human acceptance)"
+            )
+        return 1
+
     commit = args.commit or _run(["git", "rev-parse", "HEAD"], repo).stdout.strip()
 
     if args.action == "propose":
         if not args.reason:
             print("propose requires --reason")
             return 2
-        for tool in tools:
-            baseline = capture_baseline(tool, repo, commit)
-            path = write_proposal(tool, repo, baseline, args.reason)
-            print(f"proposed {tool} baseline -> {path} ({baseline['finding_count']} findings)")
-        return 0
-
-    if args.action == "promote":
-        if not args.reason:
-            print("promote requires --reason")
+        if not args.baseline_ref:
+            print("propose requires --baseline-ref <git-ref-or-sha> (trusted baseline source)")
             return 2
-        if not args.evidence:
-            print(
-                "promote requires --evidence <approval/evidence reference> "
-                "(explicit control-plane action)"
-            )
-            return 2
-        for tool in tools:
-            path = promote_proposal(tool, repo, args.reason, args.evidence)
-            print(f"promoted {tool} canonical baseline -> {path}")
-        return 0
-
-    if args.action == "compare":
         code = 0
         for tool in tools:
-            path = canonical_baseline_path(tool, repo)
-            if not path.is_file():
-                print(f"{tool}: FAIL — canonical baseline missing at {path}")
+            try:
+                baseline_sha = resolve_baseline_ref(args.baseline_ref, repo)
+                canonical = load_baseline_from_git(tool, repo, baseline_sha)
+            except (ValueError, FileNotFoundError) as exc:
+                print(f"{tool}: FAIL — {exc}")
                 code = 1
                 continue
-            baseline = _yaml_load(path)
-            ok, why = verify_baseline_git(baseline, tool, repo, commit)
-            if not ok:
-                print(f"{tool}: FAIL — {why}")
-                code = 1
-                continue
+            baseline = capture_baseline(tool, repo, commit)
+            path = write_proposal(
+                tool,
+                repo,
+                baseline,
+                args.reason,
+                baseline_ref=args.baseline_ref,
+                baseline_sha=baseline_sha,
+                canonical=canonical,
+            )
+            print(
+                f"proposed {tool} baseline -> {path} ({baseline['finding_count']} findings; "
+                f"trusted {args.baseline_ref} -> {baseline_sha})"
+            )
+        return code
+
+    if args.action == "compare":
+        if not args.baseline_ref:
+            print(
+                "compare requires --baseline-ref <git-ref-or-sha> "
+                "(immutable baseline authority)"
+            )
+            return 2
+        code = 0
+        for tool in tools:
             current = capture_baseline(tool, repo, commit)
-            result = ratchet_compare(baseline, current)
-            print(f"{tool}: {result['status']} — {result.get('detail', '')}")
-            if result["status"] == "FAIL":
+            result = ratchet_compare_from_ref(tool, repo, args.baseline_ref, commit, current)
+            status = result["status"]
+            detail = result.get("detail", "")
+            print(
+                f"{tool}: {status} — {detail} "
+                f"(baseline-ref {result.get('baseline_ref')} -> "
+                f"{result.get('baseline_sha', 'UNRESOLVED')} @ {result.get('baseline_path')})"
+            )
+            if status == "FAIL":
                 for finding in result.get("new_findings", []):
                     print(f"  NEW: {finding}")
-            if result["status"] != "PASS":
+            if status != "PASS":
                 code = 1
         return code
     return 2
@@ -1150,8 +1195,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_ratchet.add_argument("action", choices=["compare", "propose", "promote"])
     p_ratchet.add_argument("--tool", choices=list(RATCHET_TOOLS))
     p_ratchet.add_argument("--commit", help="comparison commit (default: current HEAD)")
-    p_ratchet.add_argument("--reason", help="propose/promote reason")
-    p_ratchet.add_argument("--evidence", help="approval/evidence reference (promote only)")
+    p_ratchet.add_argument(
+        "--baseline-ref",
+        help="trusted baseline git ref/commit SHA (immutable baseline authority)",
+    )
+    p_ratchet.add_argument("--reason", help="propose reason")
     p_ratchet.set_defaults(func=_cmd_ratchet)
 
     p_contract = sub.add_parser("contract", help="authority/contract guard check")

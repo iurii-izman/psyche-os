@@ -41,9 +41,16 @@ Each baseline binds `tool`, `tool_version`, `config_fingerprint`, `baseline_comm
 Comparison is identity-aware. Version/config drift yields `BASELINE_INCOMPATIBLE`, never a
 false regression. Canonical baselines live under protected verification scope and are
 integrity-checked (required fields + tool identity + digest/count consistency + git ancestry);
-a tampered or malformed baseline fails closed. `compare` is read-only; `propose` writes an
-evidence proposal only; `promote` requires an explicit approval/evidence reference and
-appends to an append-only history ledger. Nothing rebaselines automatically after a failure.
+a tampered or malformed baseline fails closed.
+
+**Baseline authority is an immutable Git commit/ref.** `ratchet compare --baseline-ref <ref-or-sha>`
+resolves the ref to a full commit SHA and loads the baseline via
+`git show <sha>:.ai-dev/verification/baselines/<tool>.baseline.yaml`; the working-tree file
+never controls comparison. `compare` and `propose` are the agent path. `promote` is NOT an
+agent action — it returns `HUMAN_GATE_REQUIRED` and performs no write. Promotion is a separate
+human-gated repository transaction (proposal → human/architect review → approved PR → merge →
+the merged commit becomes the new trusted baseline SHA). Nothing rebaselines automatically
+after a failure.
 
 ### C. Cross-platform hook conformance
 

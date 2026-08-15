@@ -59,8 +59,11 @@ harness-reported Claude-style name was preserved separately.
 - **New V2 identity-aware baseline** (bootstrapped at the base SHA):
   - Ruff `0.15.10` — 215 findings, config fingerprint `e6e151a3…`, digest `41b5bcb7…`
   - mypy `2.3.0` — 40 findings, config fingerprint `cf866f84…`, digest `6495c4a1…`
-- Comparison is identity-aware; version/config drift → `BASELINE_INCOMPATIBLE`; rebaseline
-  is a separate explicit command with an append-only history ledger.
+- Comparison is identity-aware; version/config drift → `BASELINE_INCOMPATIBLE`.
+- **Baseline authority is an immutable Git commit/ref** (F4b): `ratchet compare --baseline-ref
+  <ref-or-sha>` loads the baseline via `git show <sha>:.ai-dev/verification/baselines/<tool>.baseline.yaml`,
+  never the working-tree file. Promotion is a separate human-gated repository transaction, not
+  an agent command.
 
 ---
 
@@ -117,6 +120,40 @@ Four verified boundary defects and two provenance inconsistencies were fixed:
   are declared in `.ai-dev/routing/provider-mapping.yaml` (`api.deepseek.com` only);
   `notdeepseek.com` / `deepseek.example.com` / arbitrary substring matches are rejected.
   cc-switch upstream is trusted only by its endpoint host, never its display name.
+
+> **Superseded by F4b (next section):** the F4 `ratchet promote --evidence <string>` path was a
+> reward-hacking boundary — a non-empty evidence string was not a real approval boundary. F4b
+> removes autonomous promotion and makes comparison read the immutable baseline via Git SHA.
+
+---
+
+## 4d. F4b — immutable baseline authority (final boundary fix)
+
+The F4 `propose`/`promote` split still left an autonomous canonical-write path: `ratchet
+promote --evidence <any-non-empty-string>` wrote the protected canonical baseline, so an
+arbitrary evidence string authorized a self-promotion. That recreated a reward-hacking path
+(diagnostic FAIL → propose → self-promote → canonical baseline absorbs the defect → PASS).
+F4b removes it.
+
+- **Immutable baseline source** — `ratchet compare --baseline-ref <ref-or-sha>` resolves the ref
+  to a full commit SHA and loads the canonical baseline via
+  `git show <sha>:.ai-dev/verification/baselines/<tool>.baseline.yaml`. The working-tree file
+  never controls comparison. The exact resolved SHA and baseline path are observable in output.
+- **Git commit/ref = baseline authority** — a missing or unresolvable ref, an absent baseline
+  file at the ref, tool mismatch, or digest/count/ancestry corruption all fail closed; there is
+  no silent fall-back to the working-tree baseline.
+- **No autonomous promotion** — the coding-agent CLI has no canonical-write path.
+  `ratchet promote` returns `HUMAN_GATE_REQUIRED` and performs no write; `--evidence` is removed
+  as an authorization argument.
+- **Promotion = separate human-gated transaction** — proposal → human/architect review →
+  separate approved PR → deterministic verification → merge to canonical main → the merged
+  commit becomes the new trusted baseline SHA. A future dedicated promotion utility may be
+  designed later only if real work requires it (no signing/tokens/ACLs/generic approval now).
+
+Regression proof (central anti-reward-hacking invariant): a trusted baseline SHA contains
+finding A; the working tree mutates the baseline file to A+B; current diagnostics produce A+B;
+comparison against the trusted SHA still detects B as NEW. Likewise `propose` after a failure
+does not change the trusted-ref comparison result.
 
 ---
 

@@ -1,7 +1,10 @@
 """Versioned diagnostic baseline ratchet tests (component B).
 
 Uses synthetic findings/baselines so no tool needs to run; the pure comparison
-logic is the behavior under test.
+logic is the behavior under test. F4b adds the immutable-baseline-source proof:
+comparison loads the canonical baseline from an explicit Git commit SHA (via
+`git show`), never the mutable working-tree file, and the coding-agent CLI has
+no canonical-baseline write path.
 """
 from __future__ import annotations
 
@@ -118,7 +121,6 @@ class TestNoAutomaticRebaseline:
             calls.append("write")
 
         monkeypatch.setattr(v2, "write_proposal", _noop)
-        monkeypatch.setattr(v2, "promote_proposal", _noop)
         v2.ratchet_compare(baseline(["a"]), current(["a", "b"]))
         assert calls == []
 
@@ -194,6 +196,36 @@ def git_repo(tmp_path: Path) -> dict:
     return {"repo": repo, "base": base, "side": side, "head": head}
 
 
+@pytest.fixture
+def ratchet_repo(tmp_path: Path) -> dict:
+    """A git repo with a canonical baseline file (findings A) committed at `trusted`."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def g(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args], cwd=str(repo), capture_output=True, text=True
+        ).stdout.strip()
+
+    g("init", "-q")
+    g("config", "user.email", "t@example.com")
+    g("config", "user.name", "t")
+    (repo / "seed.txt").write_text("seed", encoding="utf-8")
+    g("add", "seed.txt")
+    g("commit", "-q", "-m", "seed")
+    seed = g("rev-parse", "HEAD")
+
+    rel = v2.baseline_rel_path("ruff")
+    p = repo / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(v2._yaml_dump(baseline(["a"], baseline_commit=seed)), encoding="utf-8")
+    g("add", rel)
+    g("commit", "-q", "-m", "baseline A")
+    trusted = g("rev-parse", "HEAD")
+
+    return {"repo": repo, "seed": seed, "trusted": trusted, "g": g, "rel": rel}
+
+
 class TestGitAncestry:
     def test_nonexistent_commit_fails(self, git_repo: dict) -> None:
         ok, why = v2.verify_baseline_git(
@@ -215,55 +247,146 @@ class TestGitAncestry:
         )
         assert ok, why
 
+    def test_tool_mismatch_fails(self, git_repo: dict) -> None:
+        ok, why = v2.verify_baseline_git(
+            baseline(["a"], tool="mypy", baseline_commit=git_repo["base"]),
+            "ruff",
+            git_repo["repo"],
+            git_repo["head"],
+        )
+        assert not ok
+        assert "tool" in why
 
-class TestProposePromote:
-    def _write_canonical(self, repo: Path, tool: str, ids: list[str]) -> None:
-        p = v2.canonical_baseline_path(tool, repo)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(v2._yaml_dump(baseline(ids)), encoding="utf-8")
+    def test_corrupt_digest_fails(self, git_repo: dict) -> None:
+        base = baseline(["a"], baseline_commit=git_repo["base"])
+        base["finding_identity_digest"] = _digest(["forged"])
+        ok, why = v2.verify_baseline_git(base, "ruff", git_repo["repo"], git_repo["head"])
+        assert not ok
+        assert "digest" in why
 
-    def test_propose_does_not_alter_canonical(self, tmp_path: Path) -> None:
-        self._write_canonical(tmp_path, "ruff", ["a"])
-        before = v2.canonical_baseline_path("ruff", tmp_path).read_text(encoding="utf-8")
-        v2.write_proposal("ruff", tmp_path, baseline(["a", "b"]), "add b")
-        after = v2.canonical_baseline_path("ruff", tmp_path).read_text(encoding="utf-8")
-        assert before == after
-        assert v2.proposal_path("ruff", tmp_path).is_file()
 
-    def test_compare_after_proposal_still_fails(self, tmp_path: Path) -> None:
-        self._write_canonical(tmp_path, "ruff", ["a"])
-        v2.write_proposal("ruff", tmp_path, baseline(["a", "b"]), "add b")
-        canonical = v2._yaml_load(v2.canonical_baseline_path("ruff", tmp_path))
-        result = v2.ratchet_compare(canonical, baseline(["a", "b"]))
+class TestImmutableBaselineSource:
+    """A/B/C: comparison must read the trusted Git SHA, not the working-tree file."""
+
+    def test_compare_loads_baseline_from_git_sha_not_working_tree(self, ratchet_repo: dict) -> None:
+        repo, trusted, seed = ratchet_repo["repo"], ratchet_repo["trusted"], ratchet_repo["seed"]
+        # Overwrite the working-tree baseline with A+B; the trusted SHA still holds A.
+        (repo / ratchet_repo["rel"]).write_text(
+            v2._yaml_dump(baseline(["a", "b"], baseline_commit=seed)), encoding="utf-8"
+        )
+        result = v2.ratchet_compare_from_ref("ruff", repo, trusted, trusted, current(["a"]))
+        assert result["status"] == "PASS"
+        assert result["detail"] == "no new diagnostics"  # read A from SHA, ignored A+B
+        assert result["baseline_sha"] == trusted
+        assert result["baseline_path"] == v2.baseline_rel_path("ruff")
+
+    def test_working_tree_mutation_does_not_change_result(self, ratchet_repo: dict) -> None:
+        repo, trusted, seed = ratchet_repo["repo"], ratchet_repo["trusted"], ratchet_repo["seed"]
+        before = v2.ratchet_compare_from_ref("ruff", repo, trusted, trusted, current(["a", "b"]))
+        assert before["status"] == "FAIL"
+        assert before["new_findings"] == ["b"]
+        # Mutate the working-tree baseline after the trusted SHA; result must be unchanged.
+        (repo / ratchet_repo["rel"]).write_text(
+            v2._yaml_dump(baseline(["a", "b"], baseline_commit=seed)), encoding="utf-8"
+        )
+        after = v2.ratchet_compare_from_ref("ruff", repo, trusted, trusted, current(["a", "b"]))
+        assert after["status"] == "FAIL"
+        assert after["new_findings"] == ["b"]
+
+    def test_working_tree_absorbs_new_diagnostic_still_fails(self, ratchet_repo: dict) -> None:
+        """Central anti-reward-hacking invariant: absorbing a defect into the working-tree
+        baseline must not green a trusted-ref comparison."""
+        repo, trusted, seed = ratchet_repo["repo"], ratchet_repo["trusted"], ratchet_repo["seed"]
+        (repo / ratchet_repo["rel"]).write_text(
+            v2._yaml_dump(baseline(["a", "b"], baseline_commit=seed)), encoding="utf-8"
+        )
+        result = v2.ratchet_compare_from_ref("ruff", repo, trusted, trusted, current(["a", "b"]))
         assert result["status"] == "FAIL"
         assert result["new_findings"] == ["b"]
 
-    def test_promote_without_evidence_rejected(self, tmp_path: Path) -> None:
-        v2.write_proposal("ruff", tmp_path, baseline(["a", "b"]), "add b")
-        with pytest.raises(ValueError):
-            v2.promote_proposal("ruff", tmp_path, "add b", "")
 
-    def test_promote_with_evidence_changes_canonical(self, tmp_path: Path) -> None:
-        self._write_canonical(tmp_path, "ruff", ["a"])
-        v2.write_proposal("ruff", tmp_path, baseline(["a", "b"]), "add b")
-        v2.promote_proposal("ruff", tmp_path, "add b", "evidence:decision-X")
-        canonical = v2._yaml_load(v2.canonical_baseline_path("ruff", tmp_path))
-        assert canonical["finding_count"] == 2
-        assert canonical["finding_identities"] == ["a", "b"]
+class TestBaselineRefResolution:
+    def test_nonexistent_baseline_ref_fails(self, ratchet_repo: dict) -> None:
+        result = v2.ratchet_compare_from_ref(
+            "ruff", ratchet_repo["repo"], "deadbeef" * 10, ratchet_repo["trusted"], current(["a"])
+        )
+        assert result["status"] == "FAIL"
+        assert "resolve" in result["detail"]
 
-    def test_subsequent_compare_uses_promoted_baseline(self, tmp_path: Path) -> None:
-        self._write_canonical(tmp_path, "ruff", ["a"])
-        v2.write_proposal("ruff", tmp_path, baseline(["a", "b"]), "add b")
-        v2.promote_proposal("ruff", tmp_path, "add b", "evidence:decision-X")
-        canonical = v2._yaml_load(v2.canonical_baseline_path("ruff", tmp_path))
-        result = v2.ratchet_compare(canonical, baseline(["a", "b"]))
-        assert result["status"] == "PASS"
+    def test_baseline_file_absent_at_ref_fails(self, ratchet_repo: dict) -> None:
+        # `seed` predates the baseline file; the file is absent at that ref.
+        result = v2.ratchet_compare_from_ref(
+            "ruff", ratchet_repo["repo"], ratchet_repo["seed"], ratchet_repo["trusted"], current(["a"])
+        )
+        assert result["status"] == "FAIL"
+        assert "absent" in result["detail"]
 
-    def test_history_preserves_old_baseline_identity(self, tmp_path: Path) -> None:
-        self._write_canonical(tmp_path, "ruff", ["a"])
-        old_digest = _digest(["a"])
-        v2.write_proposal("ruff", tmp_path, baseline(["a", "b"]), "add b")
-        v2.promote_proposal("ruff", tmp_path, "add b", "evidence:decision-X")
-        history = v2.baseline_history_path(tmp_path).read_text(encoding="utf-8")
-        assert old_digest in history
-        assert "promote" in history
+    def test_compare_requires_baseline_ref(self, tmp_path: Path, capsys) -> None:
+        rc = v2.main(["--repo", str(tmp_path), "ratchet", "compare"])
+        assert rc == 2
+        assert "baseline-ref" in capsys.readouterr().out
+
+
+class TestProposeOnly:
+    def test_propose_does_not_alter_canonical(self, ratchet_repo: dict) -> None:
+        repo, trusted = ratchet_repo["repo"], ratchet_repo["trusted"]
+        before = (repo / ratchet_repo["rel"]).read_text(encoding="utf-8")
+        v2.write_proposal(
+            "ruff", repo, baseline(["a", "b"]), "add b",
+            baseline_ref=trusted, baseline_sha=trusted, canonical=baseline(["a"]),
+        )
+        after = (repo / ratchet_repo["rel"]).read_text(encoding="utf-8")
+        assert before == after
+        assert v2.proposal_path("ruff", repo).is_file()
+
+    def test_proposal_retains_canonical_digest_and_source_sha(self, ratchet_repo: dict) -> None:
+        repo, trusted = ratchet_repo["repo"], ratchet_repo["trusted"]
+        canonical = baseline(["a"])
+        v2.write_proposal(
+            "ruff", repo, baseline(["a", "b"]), "add b",
+            baseline_ref=trusted, baseline_sha=trusted, canonical=canonical,
+        )
+        prop = v2._yaml_load(v2.proposal_path("ruff", repo))
+        assert prop["current_canonical_digest"] == canonical["finding_identity_digest"]
+        assert prop["baseline_sha"] == trusted
+        assert prop["baseline_ref"] == trusted
+
+    def test_propose_after_failure_compare_still_fails(self, ratchet_repo: dict) -> None:
+        repo, trusted = ratchet_repo["repo"], ratchet_repo["trusted"]
+        v2.write_proposal(
+            "ruff", repo, baseline(["a", "b"]), "add b",
+            baseline_ref=trusted, baseline_sha=trusted, canonical=baseline(["a"]),
+        )
+        result = v2.ratchet_compare_from_ref("ruff", repo, trusted, trusted, current(["a", "b"]))
+        assert result["status"] == "FAIL"
+        assert result["new_findings"] == ["b"]
+
+
+class TestNoAutonomousPromotion:
+    def test_no_autonomous_promotion_function(self) -> None:
+        assert not hasattr(v2, "promote_proposal")
+        assert not hasattr(v2, "_load_canonical")
+
+    def test_promote_returns_human_gate_required(self, tmp_path: Path, capsys) -> None:
+        rc = v2.main(["--repo", str(tmp_path), "ratchet", "promote"])
+        assert rc == 1
+        assert "HUMAN_GATE_REQUIRED" in capsys.readouterr().out
+
+    def test_promote_performs_no_canonical_write(self, ratchet_repo: dict, capsys) -> None:
+        repo = ratchet_repo["repo"]
+        before = (repo / ratchet_repo["rel"]).read_text(encoding="utf-8")
+        v2.main(["--repo", str(repo), "ratchet", "promote", "--reason", "x"])
+        after = (repo / ratchet_repo["rel"]).read_text(encoding="utf-8")
+        assert before == after
+        assert "HUMAN_GATE_REQUIRED" in capsys.readouterr().out
+
+    def test_compare_and_propose_never_write_canonical(self, ratchet_repo: dict) -> None:
+        repo, trusted = ratchet_repo["repo"], ratchet_repo["trusted"]
+        before = (repo / ratchet_repo["rel"]).read_text(encoding="utf-8")
+        v2.ratchet_compare_from_ref("ruff", repo, trusted, trusted, current(["a", "b"]))
+        v2.write_proposal(
+            "ruff", repo, baseline(["a", "b"]), "add b",
+            baseline_ref=trusted, baseline_sha=trusted, canonical=baseline(["a"]),
+        )
+        after = (repo / ratchet_repo["rel"]).read_text(encoding="utf-8")
+        assert before == after
