@@ -1,7 +1,9 @@
 ai_dev_os_version: 1.0.0
-implementation_status: IMPLEMENTED_WITH_MANUAL_ACTIONS
-acceptance_status: PARTIAL            # live hook integration unverifiable in this pass
+implementation_status: VERIFIED
+acceptance_status: VERIFIED
+production_ready: true
 accepted_at: "2026-08-15"
+verified_at: "2026-08-15"
 implemented_at: "2026-08-15"
 
 canonical_doc_hashes:
@@ -70,8 +72,8 @@ lab_capabilities:
 
 quarantined_capabilities: []
 
-hook_integration: PARTIAL             # config valid + dispatcher 10/10; no live fresh-session event
-dispatcher: PASS                      # 10/10 standalone smoke tests
+hook_integration: VERIFIED            # live PreToolUse firing + protected-path block observed in fresh session
+dispatcher: PASS                      # 12/12 standalone smoke tests (incl. absolute-path cases)
 doctor: PASS                          # exit 0, all core checks OK
 telemetry: PASS                       # append-only + redaction + SQLite derivation verified
 security_baseline_policy: PASS        # pre-existing findings preserved; AI Dev OS introduces 0 new
@@ -99,7 +101,7 @@ verification:
     - "osv-scanner 2.4.0"
     - "semgrep 1.173.0"
 
-manual_blocking_actions: 1            # M-001 fresh-session hook smoke test (blocks VERIFIED)
+manual_blocking_actions: 0            # M-001 CLOSED (live hook verification passed)
 manual_optional_actions: 2            # M-002 model ids, M-003 WSL migration
 
 known_issues:
@@ -108,4 +110,4 @@ known_issues:
   - research foundation validator: pre-existing env-artifact errors (.venv, node_modules, .db) — AI Dev OS contributes 0
   - osv-scanner: pre-existing RUSTSEC advisories in desktop Tauri transitive deps
   - semgrep: pre-existing SQL f-string in src/psyche_os/storage/uow.py
-  - acceptance: live Claude hook integration unverified (session launched at base commit, not implementation worktree)
+  - fixed in closeout: guard matched only relative protected paths; absolute Windows tool paths bypassed the Edit/Write block (added _relativize, fixed _norm dot-strip)

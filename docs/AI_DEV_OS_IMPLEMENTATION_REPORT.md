@@ -6,8 +6,8 @@ The canonical AI Dev OS v1 control plane has been implemented in the `psyche-os`
 repository as a small, vendor-neutral, version-controlled deterministic layer around
 the existing Claude Code harness and the already-present DeepSeek provider path.
 
-- **Implementation readiness:** 95%
-- **Status:** `IMPLEMENTED_WITH_MANUAL_ACTIONS`
+- **Implementation readiness:** 100%
+- **Status:** `VERIFIED`
 
 Everything technically achievable without a user was done and verified: the `.ai-dev/`
 control plane (policy, profiles, contracts, verification, skills, hooks, telemetry,
@@ -15,9 +15,9 @@ capabilities, evidence, recovery, routing), the one missing core tool (`ast-grep
 three justified conditional security tools (`gitleaks`, `osv-scanner`, `semgrep`), a
 deterministic hook dispatcher (standalone-tested, wired into Claude Code), append-only
 JSONL telemetry with redaction, a doctor command, and this reporting set. The only
-residual item is a **fresh-session smoke test** of the Claude Code hook integration
-(which cannot be performed non-interactively) — see
-`docs/AI_DEV_OS_MANUAL_ACTIONS.md`.
+residual item at implementation time was a **fresh-session smoke test** of the Claude
+Code hook integration; that was subsequently verified live (2026-08-15) — see
+`docs/AI_DEV_OS_MANUAL_ACTIONS.md` M-001.
 
 No application code was changed. No secrets were persisted. No LAB component was
 installed. No push/merge occurred.
@@ -77,7 +77,7 @@ foundation validator (verified — the one false-positive it flagged in
 | AGENTS.md bootloader | §7 | existed (governance) | + control-plane section | — | edited | diff reviewed | revert section | CONFIGURED |
 | Verification registry | §31.1, §32 | absent | commands.yaml + gates.yaml | 1 | authored, real project commands | YAML valid; doctor OK | delete dir | VERIFIED |
 | Hook dispatcher | §36 | absent | dispatcher + guard + telemetry + test | — | authored Python (stdlib) | 10/10 smoke tests pass | create `DISABLED` | VERIFIED (standalone) |
-| Claude hook integration | §36 | absent | `.claude/settings.json` (PreToolUse + Stop) | — | authored | JSON valid; doctor OK | delete `.claude/settings.json` | CONFIGURED / PARTIAL (fresh-session test pending) |
+| Claude hook integration | §36 | absent | `.claude/settings.json` (PreToolUse + Stop) | — | authored | live PreToolUse firing observed; doctor OK | delete `.claude/settings.json` | VERIFIED |
 | Telemetry | §46–48 | absent | schema + redaction + retention + writer + sqlite | 1 | authored Python (stdlib) | self-test redaction OK; sqlite derives | delete `.ai-dev/telemetry/` | VERIFIED |
 | Capability registry | §39 | absent | registry.yaml | 1 | authored | YAML valid | delete file | VERIFIED |
 | Evidence ledger | §52 | absent | capabilities.yaml + decisions dir | 1 | authored | YAML valid | delete dir | VERIFIED |
@@ -185,13 +185,12 @@ new artifacts are on-disk config + two local CLI tools invoked on demand.
 
 ## Manual Actions
 
-One NORMAL (fresh-session hook smoke test) + two OPTIONAL (model-id confirmation,
-optional WSL migration). Full detail in `docs/AI_DEV_OS_MANUAL_ACTIONS.md`.
+The one NORMAL action (fresh-session hook smoke test) is now CLOSED (2026-08-15).
+Two OPTIONAL actions remain (model-id confirmation, optional WSL migration). Full
+detail in `docs/AI_DEV_OS_MANUAL_ACTIONS.md`.
 
 ## Remaining Risks
 
-- Hook live integration is unverified in a fresh session (mitigated by a fail-open
-  kill switch `.ai-dev/hooks/DISABLED` and a narrow, well-tested guard).
 - ruff/mypy remain red at baseline (pre-existing, unrelated to AI Dev OS).
 - DeepSeek model ids in `routing.yaml` are placeholders pending provider confirmation.
 
@@ -240,28 +239,45 @@ not a repository change.
 | Lean audit | 50 files reviewed, 50 retained, 0 removed |
 | Rollback | documented (DISABLED marker / delete `.ai-dev/` / uninstall tools) |
 
-### Live hook integration — PARTIAL
+### Live hook integration — VERIFIED
 
 The hook config (`.claude/settings.json`) is valid and the dispatcher is
-standalone-tested (10/10), but no live hook event was observed in a real Claude Code
-session: the acceptance session launched at base (no hooks) and the standalone CLI is
-not logged in, so a fresh session could not be spawned. Per the acceptance rules this
-caps the status at PARTIAL (see `docs/AI_DEV_OS_MANUAL_ACTIONS.md` M-001).
+standalone-tested. A fresh Claude Code session at acceptance commit `91fdad0`
+observed the `PreToolUse` hook firing automatically on real tool calls: genuine
+telemetry events (`event_type: tool_call`,
+`run_id: 3df8e5cc-57e0-4af2-92e2-2100268a9e5b`) were appended to
+`.ai-dev/telemetry/data/events.jsonl`, each timestamp-correlated to the exact moment
+of a real tool invocation (event 4 at `11:05:33.209064Z` matches a `date -u` output
+of `11:05:33Z`; file mtime tracks the hook write). No event was manually injected.
+
+The live pass surfaced one real defect: the guard matched only *relative* protected
+paths, while Claude Code passes *absolute* Windows tool paths
+(`C:\...\.ai-dev\state.yaml`), so a protected-path edit was initially allowed. The
+guard was fixed (corrected `_norm` dot-stripping; added `_relativize` to reduce
+absolute paths to repo-relative). After the fix, a live edit to a protected path
+(`.ai-dev/state.yaml`) was blocked by the dispatcher (exit 2). Dispatcher 12/12 PASS
+(incl. absolute-path cases); doctor PASS (exit 0).
 
 ### Fixes applied
 
 - 9 ruff findings in AI Dev OS Python (F401, SIM115, UP017, RUF059) — fixed.
 - 3 semgrep false positives in `derive_sqlite.py` (f-string SQL over a hardcoded
   schema) — fixed via module-level constants + narrow `# nosemgrep`.
+- Security guard absolute-path handling (`security_guard.py`) — the guard matched only
+  relative protected paths; Claude Code passes absolute Windows tool paths, so
+  protected-path edits were silently allowed. Fixed `_norm` (was stripping leading
+  dots via `.lstrip("./")`) and added `_relativize()`; added two absolute-path
+  regression cases (`test_dispatcher.py`), now 12/12.
 
 ## Final Verdict
 
-`PARTIAL`. The AI Dev OS v1 control plane is real, minimal, reversible,
+`VERIFIED`. The AI Dev OS v1 control plane is real, minimal, reversible,
 deterministic-first, cache-aware, secure, vendor-replaceable, auditable, and
 low-overhead. It does not duplicate existing solutions (Claude Code, DeepSeek,
 CC Switch, rg, pytest/ruff/mypy were already present and preserved). Every executable
 acceptance check passes with zero regression, zero new secret exposure, and zero
-application-source change. The single unresolved item is live Claude hook integration
-(M-001), which requires a fresh interactive session in this worktree and could not be
-performed because the acceptance session was launched at the base commit.
+application-source change. The final residual item — live Claude hook integration
+(M-001) — was verified on 2026-08-15: a fresh session observed the `PreToolUse` hook
+firing automatically on real tool calls, with genuine timestamp-correlated telemetry
+and a live protected-path block.
 

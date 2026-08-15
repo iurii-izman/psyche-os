@@ -36,3 +36,17 @@ Canonical inputs (`docs/AI_DEV_OS_V1.md`, `docs/AI_DEV_OS_RESEARCH_CATALOG_V1.do
 | `.ai-dev/telemetry/writer.py` | 2 ruff findings (SIM115, UP017) | context manager; `datetime.UTC` | ruff clean; self-test OK | none |
 | `scripts/ai_dev_doctor.py` | 3 ruff findings (SIM115) | context managers | ruff clean; doctor PASS | none |
 | `.ai-dev/telemetry/derive_sqlite.py` | 3 semgrep false positives (formatted-sql-query, sqlalchemy-execute-raw-query) | module-level SQL constants + narrow `# nosemgrep` | semgrep → pre-existing uow.py only; derivation 20 events | none (SQL still from fixed `COLS`, values `?`-bound) |
+
+## Live hook acceptance (2026-08-15)
+
+| File / check | Change | Evidence | Result |
+|---|---|---|---|
+| `.claude/settings.json` | PreToolUse + Stop hooks (unchanged) | fired live in a fresh session | VERIFIED |
+| `.ai-dev/hooks/dispatcher.py` | PreToolUse dispatch (unchanged) | genuine `tool_call` events with real session `run_id`; 1 live protected-path block | VERIFIED |
+| `.ai-dev/hooks/modules/security_guard.py` | FIXED: `_norm` dot-stripping + added `_relativize()` | absolute Windows tool paths now match protected entries; live Edit blocked | VERIFIED |
+| `.ai-dev/hooks/test_dispatcher.py` | +2 absolute-path cases | 12/12 PASS (was 10/10) | VERIFIED |
+| `.ai-dev/telemetry/data/events.jsonl` | append-only JSONL (unchanged) | real events timestamp-correlated to tool calls; test events clearly marked | VERIFIED |
+| `scripts/ai_dev_doctor.py` | doctor (unchanged) | PASS exit 0, reflects Windows/Git-Bash environment | VERIFIED |
+| docs (report/manual/changelog), `.ai-dev/state.yaml` | acceptance flipped PARTIAL → VERIFIED | M-001 closed; `manual_blocking_actions` 1 → 0 | VERIFIED |
+
+Application source: 0 files changed. No secrets persisted. No push/merge.

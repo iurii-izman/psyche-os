@@ -52,14 +52,34 @@ def _load_protected(repo: str) -> list:
 
 
 def _norm(p: str) -> str:
-    return p.replace("\\", "/").lstrip("./")
+    p = p.replace("\\", "/")
+    while p.startswith("./"):
+        p = p[2:]
+    return p
+
+
+def _relativize(target: str, repo: str) -> str:
+    """Reduce an absolute path under `repo` to a repo-relative path.
+
+    Claude Code passes absolute tool paths (e.g. C:\\...\\.ai-dev\\state.yaml)
+    while the protected list uses repo-relative entries. Without this, absolute
+    targets never match and the guard silently allows protected-path edits.
+    """
+    t = _norm(target)
+    r = _norm(os.path.abspath(repo)).rstrip("/")
+    if t.lower() == r.lower():
+        return ""
+    prefix = r.lower() + "/"
+    if t.lower().startswith(prefix):
+        return t[len(r) + 1:]
+    return t
 
 
 def _is_protected(target: str, repo: str, protected: list) -> bool:
-    t = _norm(target)
+    t = _relativize(target, repo)
     for p in protected:
         pn = _norm(p)
-        if t == pn or t.startswith(pn.rstrip("/") + "/"):
+        if t == pn or (pn and t.startswith(pn.rstrip("/") + "/")):
             return True
     return False
 

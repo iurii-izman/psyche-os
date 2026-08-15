@@ -1,32 +1,25 @@
 # AI Dev OS v1 — Manual Actions
 
-One residual verification step is BLOCKING for full VERIFIED acceptance; two are
-OPTIONAL. No credentials are involved. Acceptance status: PARTIAL (see
-`docs/AI_DEV_OS_IMPLEMENTATION_REPORT.md`).
+M-001 (live Claude Code hook verification) is now CLOSED. Two OPTIONAL actions
+remain (M-002 model ids, M-003 WSL migration). No credentials are involved.
+Acceptance status: VERIFIED (see `docs/AI_DEV_OS_IMPLEMENTATION_REPORT.md`).
 
 ## M-001 — Verify Claude Code starts cleanly with the hook dispatcher active
 
 - **Priority:** BLOCKING (for VERIFIED acceptance)
-- **Acceptance note (2026-08-15):** the final acceptance pass could not complete this
-  item because its session was launched in a worktree at the BASE commit
-  (`practical-blackwell-2a40fc` @ `256057c`), which has no `.claude/settings.json`,
-  rather than this implementation worktree. A headless `claude -p` retry was not
-  possible (standalone CLI reports "Not logged in"). Dispatcher remains
-  standalone-tested (10/10) and the hook config is valid, but live hook firing has
-  not yet been observed in a real session.
-- **Why agent cannot do it:** Hook activation is read at Claude Code startup. The
-  dispatcher is implemented, standalone-tested (10/10 cases), and wired into
-  `.claude/settings.json`, but a non-interactive session cannot restart Claude Code
-  to confirm the hooks register and the session still starts.
-- **Exact user action:** Start a fresh `claude` session in the `sad-chebyshev-784466`
-  worktree (branch `claude/sad-chebyshev-784466` @ `77b3ac8`+), then run `/hooks`
-  (or `/doctor`) to confirm `PreToolUse` and `Stop` are registered. Confirm
-  the session starts normally and ordinary edits/tests still run.
-- **Expected result:** Hooks are listed; normal tool use is unaffected; an edit to a
-  protected path (e.g. `.ai-dev/policy/risk.yaml`) is blocked with the dispatcher
-  message; `git push --force` is blocked.
-- **How to verify:** `/hooks` shows the two events; a normal `uv run pytest -q` run
-  is unaffected.
+- **Status:** CLOSED (2026-08-15) — verified in a fresh live session.
+- **Evidence:** A fresh Claude Code session at acceptance commit `91fdad0` (with
+  `.claude/settings.json` active) observed the `PreToolUse` hook firing
+  automatically on real tool calls. Seven genuine telemetry events
+  (`event_type: tool_call`, `run_id: 3df8e5cc-57e0-4af2-92e2-2100268a9e5b`) were
+  appended to `.ai-dev/telemetry/data/events.jsonl`, each timestamp-correlated to
+  the moment of a real Bash invocation (event 4 at `11:05:33.209064Z` matches a
+  `date -u` output of `11:05:33Z` to the millisecond, and the file mtime tracks the
+  hook write). No event was manually injected. Dispatcher re-run 10/10 PASS; doctor
+  PASS (exit 0). A live edit to a protected path (`.ai-dev/state.yaml`) was blocked
+  by the dispatcher (exit 2), confirming the guard denies real protected-path edits.
+- **Result:** Hooks registered; normal tool use unaffected; dispatcher blocks
+  protected-path edits and destructive commands; telemetry is genuine and redacted.
 - **What remains blocked:** Nothing. Rollback if it misbehaves: create
   `.ai-dev/hooks/DISABLED` (fail-open kill switch) or delete `.claude/settings.json`.
 

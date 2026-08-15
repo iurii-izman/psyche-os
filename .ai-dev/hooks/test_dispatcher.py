@@ -15,6 +15,7 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _DISPATCHER = os.path.join(_HERE, "dispatcher.py")
+_REPO = os.path.dirname(os.path.dirname(_HERE))
 
 
 def run_dispatcher(payload: dict) -> int:
@@ -43,6 +44,8 @@ def main() -> int:
     cases.append(("protected path edit blocked", pre_tool("Edit", file_path=".ai-dev/policy/risk.yaml"), 2))
     cases.append(("protected AGENTS.md edit blocked", pre_tool("Write", file_path="AGENTS.md"), 2))
     cases.append(("normal source edit allowed", pre_tool("Edit", file_path="src/psyche_os/__main__.py"), 0))
+    cases.append(("absolute protected path edit blocked", pre_tool("Edit", file_path=os.path.join(_REPO, ".ai-dev", "state.yaml")), 2))
+    cases.append(("absolute normal source edit allowed", pre_tool("Edit", file_path=os.path.join(_REPO, "src", "psyche_os", "__main__.py")), 0))
     cases.append(("git force push blocked", pre_tool("Bash", command="git push --force origin main"), 2))
     cases.append(("git reset --hard blocked", pre_tool("Bash", command="git reset --hard HEAD~1"), 2))
     cases.append(("rm -rf / blocked", pre_tool("Bash", command="rm -rf /"), 2))
