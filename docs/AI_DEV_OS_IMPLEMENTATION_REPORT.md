@@ -204,10 +204,64 @@ optional WSL migration). Full detail in `docs/AI_DEV_OS_MANUAL_ACTIONS.md`.
   `winget uninstall Google.OSVScanner`, `pipx uninstall semgrep`.
 - Revert `AGENTS.md`: remove the appended section.
 
+## Acceptance / Closeout (2026-08-15)
+
+Independent acceptance pass over implementation commit `77b3ac8` (branch
+`claude/sad-chebyshev-784466`), a clean direct child of base `256057c`.
+
+### Drift finding
+
+The acceptance session was launched in a worktree at the BASE commit
+(`practical-blackwell-2a40fc` @ `256057c`), not the implementation worktree. The
+implementation branch/worktree (`sad-chebyshev-784466` @ `77b3ac8`) was verified to
+exist and descend cleanly from base. Canonical doc SHA-256 is unchanged (matches
+recorded hashes). No user work was discarded; the drift is a harness/launch defect,
+not a repository change.
+
+### Acceptance matrix (evidence)
+
+| Check | Result |
+|---|---|
+| Canonical hashes | UNCHANGED (SHA-256 == recorded) |
+| Dispatcher | PASS 10/10 |
+| Doctor | PASS (exit 0) |
+| Telemetry (append-only + redaction + SQLite) | PASS |
+| Idempotency (doctor ×3, sqlite ×3, dispatcher repeat) | PASS |
+| pytest | 589 passed, 1 skipped (== baseline) |
+| orchestration validator | PASS (114/0 on main; 113/1 on feature branch = pre-existing branch-name gate) |
+| mypy | 40 errors (delta 0) |
+| ruff | 215 (delta 0 after fixing 9 AI Dev OS findings) |
+| research validator | 0 new AI Dev OS findings (remaining are .venv/.db runtime artifacts) |
+| gitleaks | works; 2 pre-existing false positives; no AI Dev OS leak; no broad ignore |
+| semgrep | works; 1 pre-existing `uow.py`; AI Dev OS 0 new (after fixing 3 false positives) |
+| osv-scanner | works; 17 pre-existing Tauri transitive; uv.lock 0 |
+| Application source changed | 0 files |
+| Secrets in diff | NONE (only detection patterns + synthetic canary) |
+| Lean audit | 50 files reviewed, 50 retained, 0 removed |
+| Rollback | documented (DISABLED marker / delete `.ai-dev/` / uninstall tools) |
+
+### Live hook integration — PARTIAL
+
+The hook config (`.claude/settings.json`) is valid and the dispatcher is
+standalone-tested (10/10), but no live hook event was observed in a real Claude Code
+session: the acceptance session launched at base (no hooks) and the standalone CLI is
+not logged in, so a fresh session could not be spawned. Per the acceptance rules this
+caps the status at PARTIAL (see `docs/AI_DEV_OS_MANUAL_ACTIONS.md` M-001).
+
+### Fixes applied
+
+- 9 ruff findings in AI Dev OS Python (F401, SIM115, UP017, RUF059) — fixed.
+- 3 semgrep false positives in `derive_sqlite.py` (f-string SQL over a hardcoded
+  schema) — fixed via module-level constants + narrow `# nosemgrep`.
+
 ## Final Verdict
 
-`IMPLEMENTED_WITH_MANUAL_ACTIONS`. The AI Dev OS v1 control plane is real, minimal,
-reversible, deterministic-first, cache-aware, secure, vendor-replaceable, auditable,
-and low-overhead. It does not duplicate existing solutions (Claude Code, DeepSeek,
-CC Switch, rg, pytest/ruff/mypy were already present and preserved). The only deferred
-work is user-only verification/confirmation, none of which blocks operation.
+`PARTIAL`. The AI Dev OS v1 control plane is real, minimal, reversible,
+deterministic-first, cache-aware, secure, vendor-replaceable, auditable, and
+low-overhead. It does not duplicate existing solutions (Claude Code, DeepSeek,
+CC Switch, rg, pytest/ruff/mypy were already present and preserved). Every executable
+acceptance check passes with zero regression, zero new secret exposure, and zero
+application-source change. The single unresolved item is live Claude hook integration
+(M-001), which requires a fresh interactive session in this worktree and could not be
+performed because the acceptance session was launched at the base commit.
+

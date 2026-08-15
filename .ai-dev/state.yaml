@@ -1,5 +1,7 @@
 ai_dev_os_version: 1.0.0
 implementation_status: IMPLEMENTED_WITH_MANUAL_ACTIONS
+acceptance_status: PARTIAL            # live hook integration unverifiable in this pass
+accepted_at: "2026-08-15"
 implemented_at: "2026-08-15"
 
 canonical_doc_hashes:
@@ -17,8 +19,10 @@ environment:
   uv: 0.9.30
 
 repository:
-  base_sha: "256057ca4a23efb1051631e29e54ade5d4536fc4"
+  original_base_sha: "256057ca4a23efb1051631e29e54ade5d4536fc4"
+  implementation_commit: "77b3ac8"
   implementation_branch: claude/sad-chebyshev-784466
+  acceptance_commit: "fe3c55ede8b14d5fa5db7593f653875d04df4a59"
   worktree: "C:\\Dev\\psyche-os\\.claude\\worktrees\\sad-chebyshev-784466"
 
 harness:
@@ -31,7 +35,7 @@ provider:
   anthropic_base_url_present: true
 
 model_roles:
-  cheap: deepseek-v4-flash   # verify actual model id before use
+  cheap: deepseek-v4-flash            # verify actual model id before use (M-002)
   strong: deepseek-v4-pro
 
 core_capabilities:
@@ -66,24 +70,42 @@ lab_capabilities:
 
 quarantined_capabilities: []
 
-manual_actions: 1   # hook live-verification (NORMAL) — see docs/AI_DEV_OS_MANUAL_ACTIONS.md
+hook_integration: PARTIAL             # config valid + dispatcher 10/10; no live fresh-session event
+dispatcher: PASS                      # 10/10 standalone smoke tests
+doctor: PASS                          # exit 0, all core checks OK
+telemetry: PASS                       # append-only + redaction + SQLite derivation verified
+security_baseline_policy: PASS        # pre-existing findings preserved; AI Dev OS introduces 0 new
+idempotency: PASS                     # doctor/sqlite/dispatcher repeat-safe, no duplicate init
 
 verification:
   baseline:
     pytest: "589 passed, 1 skipped"
-    orchestration_validator: PASS
-    research_foundation_validator: "FAIL (112 pre-existing errors: node_modules links, .db artifacts, .venv ssh.py)"
+    orchestration_validator: "PASS (114/0 on main)"
+    research_foundation_validator: "FAIL (pre-existing env artifacts; AI Dev OS contributes 0)"
     ruff: "FAIL (215 pre-existing lint errors)"
     mypy: "FAIL (40 pre-existing type errors)"
+  acceptance:
+    pytest: "589 passed, 1 skipped"
+    orchestration_validator: "PASS (114/0 on main; 113/1 on feature branch = pre-existing branch-name gate)"
+    ruff_delta: 0                     # fixed 9 findings introduced by AI Dev OS
+    mypy_delta: 0
+    research_delta: 0
+    gitleaks: "2 pre-existing false positives; no AI Dev OS secret leak; no broad ignore"
+    semgrep: "1 pre-existing (src/psyche_os/storage/uow.py); AI Dev OS 0 new"
+    osv_scanner: "17 pre-existing RUSTSEC in Tauri transitive deps; uv.lock 0"
   tools_installed_verified:
     - "ast-grep 0.45.1"
     - "gitleaks 8.30.1"
     - "osv-scanner 2.4.0"
     - "semgrep 1.173.0"
 
+manual_blocking_actions: 1            # M-001 fresh-session hook smoke test (blocks VERIFIED)
+manual_optional_actions: 2            # M-002 model ids, M-003 WSL migration
+
 known_issues:
   - ruff: 215 pre-existing lint errors (mostly import sorting) — not introduced by AI Dev OS
   - mypy: 40 pre-existing type errors (incl. sqlcipher3 untyped) — not introduced by AI Dev OS
-  - research foundation validator: 112 pre-existing errors (node_modules links, .db artifacts, .venv ssh.py) — AI Dev OS additions contribute 0
+  - research foundation validator: pre-existing env-artifact errors (.venv, node_modules, .db) — AI Dev OS contributes 0
   - osv-scanner: pre-existing RUSTSEC advisories in desktop Tauri transitive deps
   - semgrep: pre-existing SQL f-string in src/psyche_os/storage/uow.py
+  - acceptance: live Claude hook integration unverified (session launched at base commit, not implementation worktree)

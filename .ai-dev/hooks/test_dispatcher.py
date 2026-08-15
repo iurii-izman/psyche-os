@@ -52,7 +52,7 @@ def main() -> int:
 
     failed = 0
     for name, payload, expected in cases:
-        rc, out, err = run_dispatcher(payload)
+        rc, _out, err = run_dispatcher(payload)
         status = "PASS" if rc == expected else "FAIL"
         if rc != expected:
             failed += 1

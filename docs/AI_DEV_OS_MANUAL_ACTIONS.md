@@ -1,16 +1,26 @@
 # AI Dev OS v1 — Manual Actions
 
-One residual verification step; nothing is blocking. No credentials are involved.
+One residual verification step is BLOCKING for full VERIFIED acceptance; two are
+OPTIONAL. No credentials are involved. Acceptance status: PARTIAL (see
+`docs/AI_DEV_OS_IMPLEMENTATION_REPORT.md`).
 
 ## M-001 — Verify Claude Code starts cleanly with the hook dispatcher active
 
-- **Priority:** NORMAL
+- **Priority:** BLOCKING (for VERIFIED acceptance)
+- **Acceptance note (2026-08-15):** the final acceptance pass could not complete this
+  item because its session was launched in a worktree at the BASE commit
+  (`practical-blackwell-2a40fc` @ `256057c`), which has no `.claude/settings.json`,
+  rather than this implementation worktree. A headless `claude -p` retry was not
+  possible (standalone CLI reports "Not logged in"). Dispatcher remains
+  standalone-tested (10/10) and the hook config is valid, but live hook firing has
+  not yet been observed in a real session.
 - **Why agent cannot do it:** Hook activation is read at Claude Code startup. The
   dispatcher is implemented, standalone-tested (10/10 cases), and wired into
   `.claude/settings.json`, but a non-interactive session cannot restart Claude Code
   to confirm the hooks register and the session still starts.
-- **Exact user action:** Start a fresh `claude` session in this repository, then run
-  `/hooks` (or `/doctor`) to confirm `PreToolUse` and `Stop` are registered. Confirm
+- **Exact user action:** Start a fresh `claude` session in the `sad-chebyshev-784466`
+  worktree (branch `claude/sad-chebyshev-784466` @ `77b3ac8`+), then run `/hooks`
+  (or `/doctor`) to confirm `PreToolUse` and `Stop` are registered. Confirm
   the session starts normally and ordinary edits/tests still run.
 - **Expected result:** Hooks are listed; normal tool use is unaffected; an edit to a
   protected path (e.g. `.ai-dev/policy/risk.yaml`) is blocked with the dispatcher

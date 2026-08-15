@@ -48,6 +48,14 @@ COLS = [
     ("config_fingerprint", "TEXT"),
 ]
 
+# SQL is assembled from the fixed COLS literal above — never from event data — and
+# row values are always bound via `?` placeholders, so this is not injectable.
+_COLS_SQL = ", ".join(name + " " + typ for name, typ in COLS)
+_CREATE_SQL = "CREATE TABLE events (" + _COLS_SQL + ")"
+_PLACEHOLDERS_SQL = ", ".join("?" for _ in COLS)
+_INSERT_SQL = "INSERT INTO events VALUES (" + _PLACEHOLDERS_SQL + ")"
+_COL_NAMES = [name for name, _ in COLS]
+
 
 def derive(telemetry_dir: str) -> str:
     data_dir = os.path.join(telemetry_dir, "data")
@@ -57,11 +65,8 @@ def derive(telemetry_dir: str) -> str:
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
     cur.execute("DROP TABLE IF EXISTS events")
-    cols_sql = ", ".join(f"{n} {t}" for n, t in COLS)
-    cur.execute(f"CREATE TABLE events ({cols_sql})")
+    cur.execute(_CREATE_SQL)  # nosemgrep: sqlalchemy-execute-raw-query — fixed schema, not user input
 
-    placeholders = ", ".join("?" for _ in COLS)
-    col_names = [n for n, _ in COLS]
     n = 0
     if os.path.isfile(jl):
         with open(jl, encoding="utf-8") as fh:
@@ -73,8 +78,8 @@ def derive(telemetry_dir: str) -> str:
                     ev = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                row = [ev.get(name) for name in col_names]
-                cur.execute(f"INSERT INTO events VALUES ({placeholders})", row)
+                row = [ev.get(name) for name in _COL_NAMES]
+                cur.execute(_INSERT_SQL, row)  # nosemgrep: sqlalchemy-execute-raw-query — `?`-bound values
                 n += 1
     conn.commit()
     conn.close()

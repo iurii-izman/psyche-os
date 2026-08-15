@@ -25,3 +25,14 @@ Concise change ledger. No narrative filler.
 | `docs/AI_DEV_OS_*` (report/manual/changelog) | Added | Required reporting (V1 §45–48) | Documentation | delete files |
 
 Canonical inputs (`docs/AI_DEV_OS_V1.md`, `docs/AI_DEV_OS_RESEARCH_CATALOG_V1.docx`) were NOT modified.
+
+## Acceptance fixes (2026-08-15)
+
+| File | Problem found | Fix | Verification | Rollback impact |
+|---|---|---|---|---|
+| `.ai-dev/hooks/modules/security_guard.py` | 2 ruff findings (F401 unused `json`, SIM115) | remove unused import; context manager | ruff clean | none (behavior identical) |
+| `.ai-dev/hooks/modules/telemetry.py` | 1 ruff finding (UP017) | `datetime.UTC` alias | ruff clean; dispatcher 10/10 | none |
+| `.ai-dev/hooks/test_dispatcher.py` | 1 ruff finding (RUF059 unused `out`) | `_out` prefix | ruff clean; 10/10 | none |
+| `.ai-dev/telemetry/writer.py` | 2 ruff findings (SIM115, UP017) | context manager; `datetime.UTC` | ruff clean; self-test OK | none |
+| `scripts/ai_dev_doctor.py` | 3 ruff findings (SIM115) | context managers | ruff clean; doctor PASS | none |
+| `.ai-dev/telemetry/derive_sqlite.py` | 3 semgrep false positives (formatted-sql-query, sqlalchemy-execute-raw-query) | module-level SQL constants + narrow `# nosemgrep` | semgrep → pre-existing uow.py only; derivation 20 events | none (SQL still from fixed `COLS`, values `?`-bound) |

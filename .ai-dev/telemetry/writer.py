@@ -53,7 +53,8 @@ def load_config(telemetry_dir: str) -> dict:
         try:
             import yaml  # type: ignore  # optional
 
-            data = yaml.safe_load(open(path, encoding="utf-8")) or {}
+            with open(path, encoding="utf-8") as fh:
+                data = yaml.safe_load(fh) or {}
             cfg["redact_value_keys"].extend(data.get("redact_value_keys", []))
             cfg["drop_fields"].extend(data.get("drop_fields", []))
             cfg["redact_patterns"].extend(data.get("redact_patterns", []))
@@ -94,7 +95,7 @@ def redact(obj, cfg: dict):
 
 
 def _now_iso() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.UTC).isoformat()
 
 
 def _default_event(event: dict) -> dict:

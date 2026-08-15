@@ -26,7 +26,7 @@ def _append(event: dict) -> None:
 
 
 def _now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.UTC).isoformat()
 
 
 def emit_tool(data: dict, decision: str, reason: str = "") -> None:

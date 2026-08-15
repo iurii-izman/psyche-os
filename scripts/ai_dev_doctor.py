@@ -70,7 +70,8 @@ def yaml_ok(path: str) -> bool:
     try:
         import yaml  # type: ignore
 
-        yaml.safe_load(open(path, encoding="utf-8"))
+        with open(path, encoding="utf-8") as fh:
+            yaml.safe_load(fh)
         return True
     except Exception:
         return False
@@ -106,7 +107,8 @@ def main() -> int:
         if "data" in f.split(os.sep):
             continue
         try:
-            json.load(open(f, encoding="utf-8"))
+            with open(f, encoding="utf-8") as fh:
+                json.load(fh)
         except Exception:
             emit("FAIL", f"JSON parse: {os.path.relpath(f, REPO)}")
             bad += 1
@@ -178,7 +180,8 @@ def main() -> int:
         core_fail += 1
     if os.path.isfile(settings):
         try:
-            cfg = json.load(open(settings, encoding="utf-8"))
+            with open(settings, encoding="utf-8") as fh:
+                cfg = json.load(fh)
             hooks = cfg.get("hooks", {})
             emit("OK", "hook integration", f"{len(hooks)} event(s) configured")
         except Exception:

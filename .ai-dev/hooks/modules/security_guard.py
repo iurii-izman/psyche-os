@@ -5,7 +5,6 @@ No violation returns (False, ""). Non-blocking cases never raise.
 """
 from __future__ import annotations
 
-import json
 import os
 import re
 
@@ -42,7 +41,8 @@ def _load_protected(repo: str) -> list:
 
         path = os.path.join(repo, ".ai-dev", "policy", "protected-paths.yaml")
         if os.path.isfile(path):
-            data = yaml.safe_load(open(path, encoding="utf-8")) or {}
+            with open(path, encoding="utf-8") as fh:
+                data = yaml.safe_load(fh) or {}
             protected = data.get("protected", [])
             if protected:
                 return [str(p) for p in protected]
