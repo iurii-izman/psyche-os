@@ -72,7 +72,11 @@ def test_render_markdown_escapes_hostile_content() -> None:
 
 
 def _identity_preview_for_unit():
-    from psyche_os.reports.e10_professional import REPORT_SECTIONS, ReportPreview
+    from psyche_os.reports.e10_professional import (
+        EXPORT_RETENTION_NOTE,
+        REPORT_SECTIONS,
+        ReportPreview,
+    )
 
     return ReportPreview(
         audience="mental_health_professional",
@@ -85,6 +89,8 @@ def _identity_preview_for_unit():
         section_names=REPORT_SECTIONS,
         uncertainty_record_count=0,
         output_format="markdown+json",
+        destination="handoff.md",
+        retention_note=EXPORT_RETENTION_NOTE,
         external_copy_notice=EXTERNAL_COPY_NOTICE,
         builder_version="e10-professional-builder-v1",
         config_version="e10-professional-config-v1",

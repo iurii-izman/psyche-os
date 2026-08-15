@@ -12,12 +12,14 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 import re
 import secrets
 from typing import Any
 
-from psyche_os.adapters.e10_filesystem import ExportFileInfo
+from psyche_os.adapters.e10_filesystem import E10FileWriteError, ExportFileInfo
 from psyche_os.reports.e10_professional import (
+    EXPORT_RETENTION_NOTE,
     EXTERNAL_COPY_NOTICE,
     PENDING_REVIEW_ITEMS,
     REPORT_SECTIONS,
@@ -82,6 +84,20 @@ class DisclosureReceipt:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class DisclosureOutcome:
+    """Result of one complete authorized disclosure action."""
+
+    package: ReportPackage
+    receipt: DisclosureReceipt
+
+    def __repr__(self) -> str:
+        return (
+            f"DisclosureOutcome(report_id={self.package.identity.report_id!r}, "
+            f"disclosure_state={self.receipt.disclosure_state!r})"
+        )
+
+
 def _normalise_selection(
     selection: Iterable[tuple[str, str]],
 ) -> tuple[tuple[str, str], ...]:
@@ -132,16 +148,37 @@ def _validate_redactions(
     return tuple(sorted(result, key=lambda r: (r.record_id, r.version_id, r.field)))
 
 
-def _policy_allows_professional_handoff(connection: Any, audience: str) -> bool:
-    """Fail closed: any active policy outside the local/no-cloud profile blocks."""
-    row = connection.execute(
+def _policy_state(connection: Any, audience: str) -> str:
+    """Export-policy gate: ``"missing"``, ``"blocked"`` or ``"ok"``.
+
+    PS-01 / Master Spec §409: missing or ambiguous policy fails closed, so zero
+    active policies is ``"missing"`` (never silently permissive).  Any active
+    policy outside the local/no-cloud, audience-bounded export profile is
+    ``"blocked"``.
+    """
+    if (
+        connection.execute("SELECT 1 FROM data_policies WHERE is_active=1 LIMIT 1").fetchone()
+        is None
+    ):
+        return "missing"
+    violating = connection.execute(
         "SELECT 1 FROM data_policies WHERE is_active=1 AND "
         "(processing_location != 'local_only' OR cloud_policy != 'never_cloud' OR "
         "export_rule NOT IN ('allow','redact') OR "
         "(export_audience != '' AND export_audience != ?)) LIMIT 1",
         (audience,),
     ).fetchone()
-    return row is None
+    return "ok" if violating is None else "blocked"
+
+
+def _validate_destination(destination: str) -> None:
+    """Reject destinations that could escape the caller-owned base directory."""
+    if not isinstance(destination, str) or not destination or "\x00" in destination:
+        raise E10ReportError("INVALID_DESTINATION")
+    candidate = Path(destination)
+    # ``anchor`` covers absolute and drive/root-relative paths on any platform.
+    if candidate.anchor or ".." in candidate.parts:
+        raise E10ReportError("INVALID_DESTINATION")
 
 
 class E10ProfessionalHandoffService:
@@ -167,8 +204,14 @@ class E10ProfessionalHandoffService:
         selection: Sequence[tuple[str, str]],
         exclusions: Sequence[Exclusion] = (),
         redactions: Sequence[Redaction] = (),
+        destination: str = "handoff.md",
     ) -> ReportPreview:
-        """Build the exact local preview over current canonical state."""
+        """Build the exact local preview over current canonical state.
+
+        The destination is the exact authorized export target and is bound into
+        the preview digest; it never enters the report bytes.
+        """
+        _validate_destination(destination)
         selected = _normalise_selection(selection)
         exclusions_norm = _normalise_exclusions(exclusions)
         excluded_keys = {(e.record_id, e.version_id) for e in exclusions_norm}
@@ -180,7 +223,10 @@ class E10ProfessionalHandoffService:
         effective = tuple(pair for pair in selected if pair not in excluded_keys)
         if not effective:
             raise E10ReportError("EMPTY_SELECTION")
-        if not _policy_allows_professional_handoff(self.connection, self.config.audience):
+        state = _policy_state(self.connection, self.config.audience)
+        if state == "missing":
+            raise E10ReportError("POLICY_MISSING")
+        if state == "blocked":
             raise E10ReportError("POLICY_BLOCKED")
 
         known_fields: dict[tuple[str, str], frozenset[str]] = {}
@@ -220,6 +266,8 @@ class E10ProfessionalHandoffService:
                 1 for key in effective if selected_kinds[key] == "unknown"
             ),
             output_format=self.config.output_format,
+            destination=destination,
+            retention_note=EXPORT_RETENTION_NOTE,
             external_copy_notice=EXTERNAL_COPY_NOTICE,
             builder_version=self.config.builder_version,
             config_version=self.config.config_version,
@@ -253,26 +301,17 @@ class E10ProfessionalHandoffService:
         if state == "invalidated":
             raise E10ReportError("AUTHORIZATION_INVALIDATED")
 
-    def generate_report(
-        self, preview: ReportPreview, authorization: HandoffAuthorization
-    ) -> ReportPackage:
-        """TOCTOU-revalidate, then deterministically build the report."""
-        self._validate_authorization(authorization)
-        try:
-            current = self.build_preview(
-                selection=(*preview.selected_ids, *preview.excluded_ids),
-                exclusions=tuple(
-                    Exclusion(rid, vid) for rid, vid in preview.excluded_ids
-                ),
-                redactions=preview.redactions,
-            )
-        except E10ReportError:
-            self._authorization_states[authorization.authorization_id] = "invalidated"
-            raise E10ReportError("TOCTOU_INVALIDATION") from None
-        if current.digest != authorization.preview_digest:
-            self._authorization_states[authorization.authorization_id] = "invalidated"
-            raise E10ReportError("TOCTOU_INVALIDATION")
+    def _revalidate(self, preview: ReportPreview) -> ReportPreview:
+        """Recompute the exact preview from current canonical state."""
+        return self.build_preview(
+            selection=(*preview.selected_ids, *preview.excluded_ids),
+            exclusions=tuple(Exclusion(rid, vid) for rid, vid in preview.excluded_ids),
+            redactions=preview.redactions,
+            destination=preview.destination,
+        )
 
+    def _build_package(self, current: ReportPreview) -> ReportPackage:
+        """Deterministic report construction; destination never enters the bytes."""
         selected, counterevidence = build_report_records(self.connection, current)
         all_records = (*selected, *counterevidence)
         transformation = transformation_identity(
@@ -301,22 +340,42 @@ class E10ProfessionalHandoffService:
             markdown,
         )
         manifest = build_manifest(identity, current, all_records)
-        self._authorization_states[authorization.authorization_id] = "consumed"
         return ReportPackage(identity, current, markdown, manifest)
 
-    def export_report(
+    def disclose(
         self,
-        package: ReportPackage,
+        preview: ReportPreview,
+        authorization: HandoffAuthorization,
         writer: Any,
-        destination: str,
         *,
         overwrite: bool = False,
-    ) -> DisclosureReceipt:
-        """Write the report through the narrow outer adapter; content-free receipt."""
-        info: ExportFileInfo = writer.write(
-            package.markdown, destination, overwrite=overwrite
-        )
-        return DisclosureReceipt(
+    ) -> DisclosureOutcome:
+        """The complete authorized disclosure action.
+
+        The single-use capability covers revalidation, deterministic report
+        construction AND the write to the exact authorized destination.  The
+        write failure path invalidates the capability; it is never reusable.
+        """
+        self._validate_authorization(authorization)
+        try:
+            current = self._revalidate(preview)
+        except E10ReportError:
+            self._authorization_states[authorization.authorization_id] = "invalidated"
+            raise E10ReportError("TOCTOU_INVALIDATION") from None
+        if current.digest != authorization.preview_digest:
+            self._authorization_states[authorization.authorization_id] = "invalidated"
+            raise E10ReportError("TOCTOU_INVALIDATION")
+
+        package = self._build_package(current)
+        try:
+            info: ExportFileInfo = writer.write(
+                package.markdown, current.destination, overwrite=overwrite
+            )
+        except E10FileWriteError:
+            self._authorization_states[authorization.authorization_id] = "invalidated"
+            raise
+        self._authorization_states[authorization.authorization_id] = "consumed"
+        receipt = DisclosureReceipt(
             receipt_id="e10-receipt-" + secrets.token_hex(8),
             report_id=package.identity.report_id,
             report_version=package.identity.report_version,
@@ -329,6 +388,7 @@ class E10ProfessionalHandoffService:
             external_copy_limited=True,
             issued_at=datetime.now(UTC).isoformat(),
         )
+        return DisclosureOutcome(package, receipt)
 
     @staticmethod
     def manifest_bytes(package: ReportPackage) -> bytes:

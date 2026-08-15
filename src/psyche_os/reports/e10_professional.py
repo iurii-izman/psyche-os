@@ -58,6 +58,15 @@ EXTERNAL_COPY_NOTICE = (
     "invalidate copies already shared outside the vault."
 )
 
+# Truthful retention semantics for the local external-copy profile: the file is
+# written only to the destination chosen before authorization; the system keeps
+# no copy and makes no deletion/update guarantee about the external file.
+EXPORT_RETENTION_NOTE = (
+    "Export retention: the report file is written only to the destination "
+    "chosen before authorization. The system keeps no copy of the exported file "
+    "and cannot update, delete, or invalidate it after it is written."
+)
+
 # Unresolved qualified approvals for the frozen profile.  Recorded truthfully
 # as PENDING_QUALIFIED_REVIEW; never invented or waived.
 PENDING_REVIEW_ITEMS: tuple[tuple[str, str], ...] = (
@@ -321,6 +330,8 @@ class ReportPreview:
     section_names: tuple[str, ...]
     uncertainty_record_count: int
     output_format: str
+    destination: str
+    retention_note: str
     external_copy_notice: str
     builder_version: str
     config_version: str
@@ -345,6 +356,8 @@ class ReportPreview:
                 "section_names": self.section_names,
                 "uncertainty_record_count": self.uncertainty_record_count,
                 "output_format": self.output_format,
+                "destination": self.destination,
+                "retention_note": self.retention_note,
                 "external_copy_notice": self.external_copy_notice,
                 "builder_version": self.builder_version,
                 "config_version": self.config_version,

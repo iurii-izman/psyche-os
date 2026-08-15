@@ -8,7 +8,7 @@ import sqlite3
 
 import pytest
 
-from psyche_os.adapters.e10_filesystem import E10FileWriteError, ReportFileWriter
+from psyche_os.adapters.e10_filesystem import E10FileWriteError, ExportFileInfo, ReportFileWriter
 from psyche_os.application.e03_archive import E03ArchiveService
 from psyche_os.application.e10_professional_handoff import (
     E10ProfessionalHandoffService,
@@ -133,23 +133,41 @@ def _insert_claim_with_set_ref(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _generate(
+class _MemoryWriter:
+    """In-memory narrow writer: records the authorized destination."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, int]] = []
+
+    def write(
+        self, text: str, destination: str, *, overwrite: bool = False
+    ) -> ExportFileInfo:
+        self.calls.append((destination, len(text.encode("utf-8"))))
+        return ExportFileInfo("e10-export-test", len(text.encode("utf-8")))
+
+
+def _disclose(
     service: E10ProfessionalHandoffService,
     selection: tuple[tuple[str, str], ...],
     exclusions: tuple[Exclusion, ...] = (),
     redactions: tuple[Redaction, ...] = (),
+    destination: str = "handoff.md",
+    writer: _MemoryWriter | ReportFileWriter | None = None,
 ) -> tuple:
-    preview = service.build_preview(selection, exclusions, redactions)
+    writer = writer or _MemoryWriter()
+    preview = service.build_preview(
+        selection, exclusions, redactions, destination=destination
+    )
     authorization = service.issue_authorization(preview)
-    package = service.generate_report(preview, authorization)
-    return preview, authorization, package
+    outcome = service.disclose(preview, authorization, writer)
+    return preview, authorization, outcome.package
 
 
 def test_only_explicitly_selected_records_enter_report() -> None:
     service = _fixture()
     _add_policy(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
-    _preview, _auth, package = _generate(
+    _preview, _auth, package = _disclose(
         handoff,
         (("report-lamp", "report-lamp-v1"), ("assertion-lamp", "assertion-lamp-v1")),
     )
@@ -174,7 +192,7 @@ def test_audience_purpose_exact_and_visible() -> None:
     service = _fixture()
     _add_policy(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
-    preview, _auth, package = _generate(handoff, (("report-lamp", "report-lamp-v1"),))
+    preview, _auth, package = _disclose(handoff, (("report-lamp", "report-lamp-v1"),))
     assert preview.audience == AUDIENCE
     assert preview.purpose == PURPOSE
     assert f"**Audience:** {_escape_text(AUDIENCE)}" in package.markdown
@@ -189,7 +207,7 @@ def test_provenance_epistemic_status_preserved() -> None:
     service = _fixture()
     _add_policy(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
-    preview, _auth, package = _generate(
+    preview, _auth, package = _disclose(
         handoff,
         (
             ("report-lamp", "report-lamp-v1"),
@@ -225,7 +243,7 @@ def test_material_counterevidence_automatically_included() -> None:
     _add_policy(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
     # A selected contradiction-set member must bring its counterposition.
-    preview, _auth, package = _generate(
+    preview, _auth, package = _disclose(
         handoff, (("assertion-lamp", "assertion-lamp-v1"),)
     )
     assert ("assertion-counter", "assertion-counter-v1") in preview.counterevidence_ids
@@ -233,7 +251,7 @@ def test_material_counterevidence_automatically_included() -> None:
     heading = f"### {_escape_text('assertion-counter')} · {_escape_text('assertion-counter-v1')}"
     assert heading in package.markdown
     # A selected derived claim must not be presented without its contradictor.
-    preview2, _auth2, package2 = _generate(
+    preview2, _auth2, package2 = _disclose(
         handoff, (("claim-lamp", "claim-lamp-v1"),)
     )
     assert ("assertion-counter", "assertion-counter-v1") in preview2.counterevidence_ids
@@ -245,7 +263,7 @@ def test_no_counterevidence_when_none_linked() -> None:
     service = _fixture()
     _add_policy(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
-    preview, _auth, package = _generate(
+    preview, _auth, package = _disclose(
         handoff, (("observation-lamp", "observation-lamp-v1"),)
     )
     assert preview.counterevidence_ids == ()
@@ -257,7 +275,7 @@ def test_claim_naming_contradiction_set_includes_material() -> None:
     _add_policy(service.connection)
     _insert_claim_with_set_ref(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
-    preview, _auth, package = _generate(
+    preview, _auth, package = _disclose(
         handoff, (("claim-setref", "claim-setref-v1"),)
     )
     assert set(preview.counterevidence_ids) == {
@@ -272,7 +290,7 @@ def test_selected_counterevidence_not_duplicated() -> None:
     _add_policy(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
     # Select both sides of the canonical contradiction explicitly.
-    preview, _auth, package = _generate(
+    preview, _auth, package = _disclose(
         handoff,
         (
             ("assertion-lamp", "assertion-lamp-v1"),
@@ -301,7 +319,7 @@ def test_redaction_cannot_mutate_canonical() -> None:
     _add_policy(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
     redaction = Redaction("report-lamp", "report-lamp-v1", "content", "amber")
-    preview, _auth, package = _generate(
+    preview, _auth, package = _disclose(
         handoff, (("report-lamp", "report-lamp-v1"),), redactions=(redaction,)
     )
     assert redaction in preview.redactions
@@ -322,7 +340,7 @@ def test_exclusion_is_report_transformation_only() -> None:
     _add_policy(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
     exclusion = Exclusion("observation-lamp", "observation-lamp-v1")
-    preview, _auth, package = _generate(
+    preview, _auth, package = _disclose(
         handoff,
         (("report-lamp", "report-lamp-v1"), ("observation-lamp", "observation-lamp-v1")),
         exclusions=(exclusion,),
@@ -378,7 +396,7 @@ def test_hostile_imported_content_stays_inert() -> None:
     _add_policy(service.connection)
     _insert_hostile_report(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
-    _preview, _auth, package = _generate(
+    _preview, _auth, package = _disclose(
         handoff, (("report-hostile", "report-hostile-v1"),)
     )
     # Markup is escaped literal text, never live markup.
@@ -407,7 +425,7 @@ def test_authorization_fabricated_rejected() -> None:
         preview_digest=preview.digest,
     )
     with pytest.raises(E10ReportError) as exc:
-        handoff.generate_report(preview, forged)
+        handoff.disclose(preview, forged, _MemoryWriter())
     assert exc.value.code == "AUTHORIZATION_FABRICATED"
 
 
@@ -417,9 +435,9 @@ def test_authorization_replayed_rejected() -> None:
     handoff = E10ProfessionalHandoffService(service.connection)
     preview = handoff.build_preview((("report-lamp", "report-lamp-v1"),))
     authorization = handoff.issue_authorization(preview)
-    handoff.generate_report(preview, authorization)
+    handoff.disclose(preview, authorization, _MemoryWriter())
     with pytest.raises(E10ReportError) as exc:
-        handoff.generate_report(preview, authorization)
+        handoff.disclose(preview, authorization, _MemoryWriter())
     assert exc.value.code == "AUTHORIZATION_REPLAYED"
 
 
@@ -432,13 +450,13 @@ def test_authorization_non_transferable_across_instances() -> None:
     authorization = left.issue_authorization(preview)
     # The other instance has no record of the capability.
     with pytest.raises(E10ReportError) as exc:
-        right.generate_report(preview, authorization)
+        right.disclose(preview, authorization, _MemoryWriter())
     assert exc.value.code == "AUTHORIZATION_FABRICATED"
     # Test-only state injection (no callable production path): a capability
     # registered under a foreign instance id is still non-transferable.
     right._authorization_states[authorization.authorization_id] = "issued"
     with pytest.raises(E10ReportError) as exc:
-        right.generate_report(preview, authorization)
+        right.disclose(preview, authorization, _MemoryWriter())
     assert exc.value.code == "AUTHORIZATION_NON_TRANSFERABLE"
 
 
@@ -455,7 +473,7 @@ def test_no_production_authorization_registration_bypass() -> None:
         preview_digest=preview.digest,
     )
     with pytest.raises(E10ReportError) as exc:
-        handoff.generate_report(preview, arbitrary)
+        handoff.disclose(preview, arbitrary, _MemoryWriter())
     assert exc.value.code == "AUTHORIZATION_FABRICATED"
     # No callable production path can register an arbitrary authorization.
     assert not hasattr(E10ProfessionalHandoffService, "force_register_for_test")
@@ -472,10 +490,10 @@ def test_source_version_toctou_invalidates_authorization() -> None:
     authorization = handoff.issue_authorization(preview)
     service.correct_lamp_report_time("report-lamp-v1")
     with pytest.raises(E10ReportError) as exc:
-        handoff.generate_report(preview, authorization)
+        handoff.disclose(preview, authorization, _MemoryWriter())
     assert exc.value.code == "TOCTOU_INVALIDATION"
     with pytest.raises(E10ReportError) as exc:
-        handoff.generate_report(preview, authorization)
+        handoff.disclose(preview, authorization, _MemoryWriter())
     assert exc.value.code == "AUTHORIZATION_INVALIDATED"
 
 
@@ -487,7 +505,7 @@ def test_policy_toctou_invalidates_authorization() -> None:
     authorization = handoff.issue_authorization(preview)
     _update_policy_rule(service.connection, export_rule="block")
     with pytest.raises(E10ReportError) as exc:
-        handoff.generate_report(preview, authorization)
+        handoff.disclose(preview, authorization, _MemoryWriter())
     assert exc.value.code == "TOCTOU_INVALIDATION"
 
 
@@ -522,10 +540,10 @@ def test_deterministic_report_and_manifest() -> None:
     _add_policy(right_service.connection)
     left = E10ProfessionalHandoffService(left_service.connection)
     right = E10ProfessionalHandoffService(right_service.connection)
-    _preview_l, _auth_l, left_package = _generate(
+    _preview_l, _auth_l, left_package = _disclose(
         left, (("report-lamp", "report-lamp-v1"), ("assertion-lamp", "assertion-lamp-v1"))
     )
-    _preview_r, _auth_r, right_package = _generate(
+    _preview_r, _auth_r, right_package = _disclose(
         right, (("report-lamp", "report-lamp-v1"), ("assertion-lamp", "assertion-lamp-v1"))
     )
     assert left_package.markdown == right_package.markdown
@@ -540,32 +558,37 @@ def test_content_free_receipt_and_reprs(tmp_path) -> None:  # type: ignore[no-un
     _add_policy(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
     writer = ReportFileWriter(tmp_path)
-    _preview, _auth, package = _generate(
-        handoff, (("report-lamp", "report-lamp-v1"),)
+    preview = handoff.build_preview(
+        (("report-lamp", "report-lamp-v1"),), destination="handoff.md"
     )
-    receipt = handoff.export_report(package, writer, "handoff.md", overwrite=True)
+    authorization = handoff.issue_authorization(preview)
+    outcome = handoff.disclose(preview, authorization, writer)
+    package = outcome.package
+    receipt = outcome.receipt
     assert receipt.external_copy_limited is True
     assert receipt.selected_count == 1
     assert "amber" not in repr(receipt)
     assert "handoff.md" not in repr(receipt)
     assert "report_digest" not in receipt.__dataclass_fields__
-    # No content, digest or path on any bounded surface.
+    # No content, digest, destination or path on any bounded surface.
     for surface in (
         repr(receipt),
+        repr(outcome),
         repr(package.identity),
         repr(package.preview),
         repr(package),
-        repr(writer.write("x", "other.md", overwrite=True)),
+        repr(preview),
     ):
         assert "amber" not in surface
         assert "fictional" not in surface
+        assert "handoff.md" not in surface
 
 
 def test_external_copy_limitation_truthful() -> None:
     service = _fixture()
     _add_policy(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
-    preview, _auth, package = _generate(
+    preview, _auth, package = _disclose(
         handoff, (("report-lamp", "report-lamp-v1"),)
     )
     assert preview.external_copy_notice
@@ -573,6 +596,108 @@ def test_external_copy_limitation_truthful() -> None:
     assert "do not update" in package.markdown
     assert package.manifest["external_copy_notice"]
     assert package.identity.disclosure_state == "pending_user_delivery"
+
+
+def test_missing_policy_fails_closed() -> None:
+    service = _fixture()
+    # No data_policies rows at all: PS-01 / Master Spec §409 fail closed.
+    handoff = E10ProfessionalHandoffService(service.connection)
+    with pytest.raises(E10ReportError) as exc:
+        handoff.build_preview((("report-lamp", "report-lamp-v1"),))
+    assert exc.value.code == "POLICY_MISSING"
+
+
+def test_policy_removed_invalidates_authorization() -> None:
+    service = _fixture()
+    _add_policy(service.connection)
+    handoff = E10ProfessionalHandoffService(service.connection)
+    preview = handoff.build_preview((("report-lamp", "report-lamp-v1"),))
+    authorization = handoff.issue_authorization(preview)
+    service.connection.execute(
+        "UPDATE data_policies SET is_active=0 WHERE record_id='pol-e10'"
+    )
+    service.connection.commit()
+    with pytest.raises(E10ReportError) as exc:
+        handoff.disclose(preview, authorization, _MemoryWriter())
+    assert exc.value.code == "TOCTOU_INVALIDATION"
+
+
+def test_destination_visible_before_authorization() -> None:
+    service = _fixture()
+    _add_policy(service.connection)
+    handoff = E10ProfessionalHandoffService(service.connection)
+    preview = handoff.build_preview(
+        (("report-lamp", "report-lamp-v1"),), destination="consultation.md"
+    )
+    assert preview.destination == "consultation.md"
+    assert preview.retention_note
+    assert "destination" in preview.retention_note.lower()
+    assert "no copy" in preview.retention_note.lower()
+    # Retention and external-copy semantics are visible before authorization.
+    assert preview.external_copy_notice
+
+
+def test_invalid_destination_fails_before_authorization() -> None:
+    service = _fixture()
+    _add_policy(service.connection)
+    handoff = E10ProfessionalHandoffService(service.connection)
+    for bad in ("", "../escape.md", "C:\\absolute.md", "/rooted.md"):
+        with pytest.raises(E10ReportError) as exc:
+            handoff.build_preview((("report-lamp", "report-lamp-v1"),), destination=bad)
+        assert exc.value.code == "INVALID_DESTINATION"
+
+
+def test_destination_substitution_after_authorization_fails() -> None:
+    service = _fixture()
+    _add_policy(service.connection)
+    handoff = E10ProfessionalHandoffService(service.connection)
+    authorized = handoff.build_preview(
+        (("report-lamp", "report-lamp-v1"),), destination="a.md"
+    )
+    authorization = handoff.issue_authorization(authorized)
+    substituted = handoff.build_preview(
+        (("report-lamp", "report-lamp-v1"),), destination="b.md"
+    )
+    with pytest.raises(E10ReportError) as exc:
+        handoff.disclose(substituted, authorization, _MemoryWriter())
+    assert exc.value.code == "TOCTOU_INVALIDATION"
+
+
+def test_authorization_not_reusable_for_second_export() -> None:
+    service = _fixture()
+    _add_policy(service.connection)
+    handoff = E10ProfessionalHandoffService(service.connection)
+    writer = _MemoryWriter()
+    preview = handoff.build_preview(
+        (("report-lamp", "report-lamp-v1"),), destination="a.md"
+    )
+    authorization = handoff.issue_authorization(preview)
+    first = handoff.disclose(preview, authorization, writer)
+    assert first.receipt.byte_count > 0
+    assert writer.calls == [("a.md", first.receipt.byte_count)]
+    with pytest.raises(E10ReportError) as exc:
+        handoff.disclose(preview, authorization, writer)
+    assert exc.value.code == "AUTHORIZATION_REPLAYED"
+
+
+def test_report_bytes_deterministic_across_destinations() -> None:
+    left_service = _fixture()
+    right_service = _fixture()
+    _add_policy(left_service.connection)
+    _add_policy(right_service.connection)
+    left = E10ProfessionalHandoffService(left_service.connection)
+    right = E10ProfessionalHandoffService(right_service.connection)
+    _preview_l, _auth_l, left_package = _disclose(
+        left, (("report-lamp", "report-lamp-v1"),), destination="a.md"
+    )
+    _preview_r, _auth_r, right_package = _disclose(
+        right, (("report-lamp", "report-lamp-v1"),), destination="b.md"
+    )
+    # Destination never enters report bytes.
+    assert left_package.markdown == right_package.markdown
+    assert left_package.manifest == right_package.manifest
+    assert left_package.identity.report_id == right_package.identity.report_id
+    assert left_package.identity.report_digest == right_package.identity.report_digest
 
 
 def test_filesystem_path_and_overwrite_safety(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -627,11 +752,20 @@ def test_provider_and_network_absence(tmp_path) -> None:  # type: ignore[no-unty
     _add_policy(service.connection)
     handoff = E10ProfessionalHandoffService(service.connection)
     writer = ReportFileWriter(tmp_path)
-    _preview, _auth, package = _generate(
-        handoff, (("report-lamp", "report-lamp-v1"),)
+    preview = handoff.build_preview(
+        (("report-lamp", "report-lamp-v1"),), destination="handoff.md"
     )
-    handoff.export_report(package, writer, "handoff.md")
-    for surface in (repr(package), repr(package.identity), repr(package.preview), package.manifest):
+    authorization = handoff.issue_authorization(preview)
+    outcome = handoff.disclose(preview, authorization, writer)
+    package = outcome.package
+    for surface in (
+        repr(package),
+        repr(package.identity),
+        repr(package.preview),
+        repr(outcome),
+        repr(outcome.receipt),
+        package.manifest,
+    ):
         assert "provider" not in str(surface).lower()
         assert "network" not in str(surface).lower()
         assert "embedding" not in str(surface).lower()
