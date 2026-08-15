@@ -1,0 +1,29 @@
+# Task Snapshot template — state, not transcript.
+# Written before compaction / escalation / reviewer handoff / risky operation / session end.
+
+task_id: T-000
+base_sha: <HEAD_SHA>
+profile: balanced
+risk: medium
+
+completed:
+  - <what is done>
+
+changed_files:
+  - <paths>
+
+diff_hash: <sha256 of current diff if available>
+
+verification:
+  last_command: <command>
+  result: pass|fail|timeout
+  last_verified_diff_hash: <hash of last verified state>
+
+current_hypothesis: <current working hypothesis>
+unresolved:
+  - <open questions / blockers>
+next_action: <next concrete step>
+
+authority_refs:
+  - <ADR / spec section>
+config_fingerprint: <stable-prefix fingerprint if available>

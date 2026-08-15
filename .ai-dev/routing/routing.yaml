@@ -1,0 +1,44 @@
+# Model routing + circuit breakers.
+# Roles (CHEAP/STRONG) map to concrete models via provider config; roles are stable,
+# model names are version-sensitive and re-checked before major changes.
+
+version: 1
+
+roles:
+  cheap: deepseek-v4-flash      # verify actual model id before use
+  strong: deepseek-v4-pro
+
+routing:
+  low_medium:
+    - cheap
+    - verify
+    - one_grounded_cheap_retry
+    - strong
+  high:
+    - cheap_recon_if_useful
+    - strong_implementation
+    - full_deterministic_gate
+    - fresh_reviewer_on_policy
+  critical:
+    - architecture_confirmation
+    - strong_frontier_implementation
+    - full_deterministic_verification
+    - independent_reviewer
+    - human_acceptance
+
+max_grounded_retry: 1
+
+circuit_breakers:
+  cost:
+    same_deterministic_failure_twice: escalate_or_stop
+    max_grounded_retry: 1
+    repeated_patch_failures: change_strategy_or_escalate
+    unbounded_search_tool_loop: stop
+    budget_exceeded: explicit_continuation_required
+  provider:
+    on_rate_limit_timeout_5xx: limited_technical_retries_then_open
+    on_open: snapshot_task_then_explicit_fallback_or_pause
+    no_silent_fallback: true
+
+# Provider/model fallback MUST NOT be silent: close the phase trace, snapshot,
+# record the reason, and explicitly choose a fallback + new effective_model.

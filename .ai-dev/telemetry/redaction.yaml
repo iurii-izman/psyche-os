@@ -1,0 +1,48 @@
+# Redaction rules — applied before any event is persisted.
+# Rule: UNOBSERVABLE -> null/unknown. NEVER infer numeric metrics.
+# Rule: never persist secrets, tokens, credentials, private chain-of-thought.
+
+version: 1
+
+# Key names (case-insensitive substring match) whose VALUES are redacted.
+redact_value_keys:
+  - api_key
+  - apikey
+  - token
+  - secret
+  - password
+  - passwd
+  - authorization
+  - auth
+  - cookie
+  - credential
+  - private_key
+  - client_secret
+  - access_key
+  - session_key
+
+# Key names whose ENTIRE field is dropped before persistence.
+drop_fields:
+  - raw_prompt
+  - prompt
+  - messages
+  - tool_output
+  - tool_input
+  - transcript
+  - chain_of_thought
+  - reasoning
+  - cot
+  - source_code_dump
+  - full_diff
+
+# Regex patterns applied to string values; matches are replaced with [REDACTED].
+redact_patterns:
+  - "(?i)(sk|pk|rk)-[a-z0-9]{16,}"
+  - "(?i)ghp_[a-z0-9]{36,}"
+  - "(?i)github_pat_[a-z0-9_]{22,}"
+  - "AKIA[0-9A-Z]{16}"
+  - "-----BEGIN [A-Z ]*PRIVATE KEY-----"
+
+# If true, the writer refuses to persist events containing any field in drop_fields
+# unless it is explicitly allowlisted by the caller.
+reject_on_unredacted_secret: true

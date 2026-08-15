@@ -38,3 +38,25 @@
 - A material conflict with the Constitution, master specification, or accepted architecture requires `docs/development/ARCHITECTURE_DEVIATION_TEMPLATE.md` and focused review. Stop only the blocked portion.
 - Validate this delivery layer with `python scripts/dev/validate_orchestration.py`; validate the frozen research foundation with `python scripts/validate_research_foundation.py`.
 - Do not push automatically unless the active task explicitly authorizes publication. Record only accepted epic commits in `STATE.yaml`.
+
+## AI Dev OS v1 — control plane
+
+A deterministic, vendor-neutral control plane around the coding harness lives in
+`.ai-dev/` (see `docs/AI_DEV_OS_IMPLEMENTATION_REPORT.md`). Key routing:
+
+- **Risk / profile**: classify via `.ai-dev/policy/risk.yaml`; pick a profile from
+  `.ai-dev/profiles/` (`balanced` default; HIGH/CRITICAL MUST NOT use `economy`).
+- **Approvals**: explicit approval for the actions in `.ai-dev/policy/approvals.yaml`;
+  Task Contract pre-authorization counts as approval. Protected paths are in
+  `.ai-dev/policy/protected-paths.yaml` (control-plane-change flow only).
+- **Skills**: `.ai-dev/skills/psyche-*.md` — orient, impact, debug, test-select,
+  verify, security-change, recover, handoff (conditional: docs, tauri-runtime,
+  control-plane-change).
+- **Verification**: real commands in `.ai-dev/verification/commands.yaml`; gate ladder
+  in `gates.yaml`. Targeted inner loop; final risk gate once.
+- **Context**: `rg` → `ast-grep` → exact ranges (`.ai-dev/context-broker.md`).
+- **Routing / stop**: `.ai-dev/routing/routing.yaml`. Stop or escalate on repeated
+  deterministic failure, authority conflict, missing approval, environment breakage,
+  provider circuit open, verifier weakening, or out-of-scope diff.
+- **Telemetry**: append-only JSONL in `.ai-dev/telemetry/` (metadata-first, redacted).
+- **Doctor**: `uv run python scripts/ai_dev_doctor.py`.

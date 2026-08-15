@@ -1,0 +1,31 @@
+# Human approval matrix.
+# Source: docs/AI_DEV_OS_V1.md §10. Pre-authorization in a Task Contract counts as
+# approval — do not re-ask what the contract already explicitly authorized.
+
+version: 1
+
+require_explicit_approval:
+  - new production dependency
+  - removing a dependency or security control
+  - migration
+  - destructive filesystem operation
+  - force push or history rewrite
+  - permissions expansion
+  - new network exposure
+  - crypto or key-handling change
+  - change under .ai-dev/policy
+  - change to the benchmark verifier
+  - change to security scanner configuration
+  - change to acceptance criteria after a task has started
+  - permanent promotion of a LAB capability to CORE
+
+# These are also covered by anti-reward-hacking (must be explicit in Task Contract):
+anti_reward_hacking:
+  - deleting a failing test
+  - skipping or xfail-ing a test to gain green
+  - weakening an assertion
+  - adding noqa / type: ignore solely to silence a linter/type error
+  - disabling a scanner
+  - removing an invariant
+  - editing a verification command to avoid failure
+  - changing acceptance criteria after failure

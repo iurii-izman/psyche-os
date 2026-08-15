@@ -1,0 +1,29 @@
+# ECONOMY — cheap-only, no graph, no memory, no subagents, minimal capabilities.
+# Telemetry stays ON. HIGH/CRITICAL tasks MUST NOT use this profile.
+
+version: 1
+profile: economy
+
+harness: claude-code
+
+model:
+  initial: cheap
+  strategy: cheap -> verify -> one_grounded_retry -> stop_escalate
+  max_grounded_retry: 1
+
+context:
+  owner: rg + ast-grep
+  graph: false
+  memory: repository_only
+
+verification:
+  inner_loop: targeted
+  final_gate: risk_appropriate
+
+review: none
+mcp: none
+subagents: none
+security: standard_policy_worktree
+telemetry: full
+
+forbidden_for: [high, critical]

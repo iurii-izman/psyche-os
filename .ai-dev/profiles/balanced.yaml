@@ -1,0 +1,27 @@
+# BALANCED — default operating profile.
+# Source: docs/AI_DEV_OS_V1.md §55.
+
+version: 1
+profile: balanced
+
+harness: claude-code
+
+model:
+  initial: cheap            # DeepSeek V4 Flash (role)
+  strategy: cheap -> verify -> one_grounded_retry -> strong
+  max_grounded_retry: 1
+  escalation: strong        # DeepSeek V4 Pro (role)
+
+context:
+  owner: rg + ast-grep
+  graph: false
+  memory: repository_only
+
+verification:
+  inner_loop: targeted
+  final_gate: risk_appropriate
+
+review: risk_triggered
+mcp: minimal_or_temporary
+security: standard_policy_worktree
+telemetry: full

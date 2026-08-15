@@ -1,0 +1,89 @@
+ai_dev_os_version: 1.0.0
+implementation_status: IMPLEMENTED_WITH_MANUAL_ACTIONS
+implemented_at: "2026-08-15"
+
+canonical_doc_hashes:
+  docs/AI_DEV_OS_V1.md: "00b256760fe1a40b23691a4baa92443c1fb0a4d5aaf0c6f91b292a141c65cd7f"
+  docs/AI_DEV_OS_RESEARCH_CATALOG_V1.docx: "47b10df91b674a1b5904f1cd2e4c73811ece62d611288bf4da3abc96b065e2b4"
+
+environment:
+  os: Windows 11 Pro (10.0.26200)
+  shell: Git Bash (MINGW64), not WSL
+  wsl2_ubuntu: installed (Ubuntu-26.04, stopped)
+  filesystem: NTFS (repository on Windows filesystem)
+  python: 3.12.10
+  node: 24.18.0
+  rust: 1.94.1
+  uv: 0.9.30
+
+repository:
+  base_sha: "256057ca4a23efb1051631e29e54ade5d4536fc4"
+  implementation_branch: claude/sad-chebyshev-784466
+  worktree: "C:\\Dev\\psyche-os\\.claude\\worktrees\\sad-chebyshev-784466"
+
+harness:
+  name: claude-code
+  version: 2.1.92
+
+provider:
+  primary: deepseek (Anthropic-compatible endpoint)
+  config_manager: cc-switch (~/.cc-switch)
+  anthropic_base_url_present: true
+
+model_roles:
+  cheap: deepseek-v4-flash   # verify actual model id before use
+  strong: deepseek-v4-pro
+
+core_capabilities:
+  - ripgrep
+  - ast-grep
+  - claude-code
+  - cc-switch
+  - deepseek-provider
+
+conditional_capabilities:
+  - gitleaks
+  - osv-scanner
+  - semgrep
+  - tauri-runtime-bridge   # enabled: false
+
+lab_capabilities:
+  - pathfinder
+  - symlens
+  - codebase-memory
+  - code-review-graph
+  - codesearch
+  - pytest-testmon
+  - pytest-impacted
+  - projectmem
+  - reasonix
+  - opencode
+  - aider
+  - codex-cli
+  - rtk
+  - context-mode
+  - nono
+
+quarantined_capabilities: []
+
+manual_actions: 1   # hook live-verification (NORMAL) — see docs/AI_DEV_OS_MANUAL_ACTIONS.md
+
+verification:
+  baseline:
+    pytest: "589 passed, 1 skipped"
+    orchestration_validator: PASS
+    research_foundation_validator: "FAIL (112 pre-existing errors: node_modules links, .db artifacts, .venv ssh.py)"
+    ruff: "FAIL (215 pre-existing lint errors)"
+    mypy: "FAIL (40 pre-existing type errors)"
+  tools_installed_verified:
+    - "ast-grep 0.45.1"
+    - "gitleaks 8.30.1"
+    - "osv-scanner 2.4.0"
+    - "semgrep 1.173.0"
+
+known_issues:
+  - ruff: 215 pre-existing lint errors (mostly import sorting) — not introduced by AI Dev OS
+  - mypy: 40 pre-existing type errors (incl. sqlcipher3 untyped) — not introduced by AI Dev OS
+  - research foundation validator: 112 pre-existing errors (node_modules links, .db artifacts, .venv ssh.py) — AI Dev OS additions contribute 0
+  - osv-scanner: pre-existing RUSTSEC advisories in desktop Tauri transitive deps
+  - semgrep: pre-existing SQL f-string in src/psyche_os/storage/uow.py

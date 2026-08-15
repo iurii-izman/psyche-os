@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AI Dev OS telemetry event (minimal, metadata-first)",
+  "type": "object",
+  "required": ["schema_version", "run_id", "event_type", "timestamp"],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "run_id": { "type": "string" },
+    "task_id": { "type": ["string", "null"] },
+    "timestamp": { "type": "string" },
+    "event_type": {
+      "type": "string",
+      "enum": ["task_start", "task_stop", "model_call", "verification", "checkpoint", "escalation", "circuit_open", "human_correction", "session_meta"]
+    },
+    "risk": { "enum": ["low", "medium", "high", "critical", null] },
+    "profile": { "enum": ["balanced", "quality", "economy", "lab", null] },
+    "base_sha": { "type": ["string", "null"] },
+
+    "harness": { "type": ["string", "null"] },
+    "harness_version": { "type": ["string", "null"] },
+
+    "requested_model": { "type": ["string", "null"] },
+    "effective_model": { "type": ["string", "null"] },
+    "effective_model_observable": { "type": ["boolean", "null"] },
+    "provider": { "type": ["string", "null"] },
+    "endpoint_identifier_without_secret": { "type": ["string", "null"] },
+
+    "input_total": { "type": ["integer", "null"] },
+    "cache_read": { "type": ["integer", "null"] },
+    "cache_write": { "type": ["integer", "null"] },
+    "fresh_input": { "type": ["integer", "null"] },
+    "output": { "type": ["integer", "null"] },
+    "reasoning_output_if_reported": { "type": ["integer", "null"] },
+    "api_cost_actual": { "type": ["number", "null"] },
+    "api_cost_estimated": { "type": ["number", "null"] },
+    "pricing_snapshot_id": { "type": ["string", "null"] },
+
+    "tool_calls": { "type": ["integer", "null"] },
+    "files_read": { "type": ["integer", "null"] },
+    "rereads": { "type": ["integer", "null"] },
+    "files_changed": { "type": ["integer", "null"] },
+    "iterations": { "type": ["integer", "null"] },
+    "retries": { "type": ["integer", "null"] },
+    "failed_tools": { "type": ["integer", "null"] },
+    "failed_patches": { "type": ["integer", "null"] },
+    "compactions": { "type": ["integer", "null"] },
+
+    "verification_commands": { "type": ["array", "null"], "items": { "type": "string" } },
+    "verification_result": { "type": ["string", "null"] },
+    "accepted": { "type": ["boolean", "null"] },
+    "human_correction": { "type": ["boolean", "null"] },
+    "wall_time": { "type": ["number", "null"] },
+
+    "config_fingerprint": { "type": ["string", "null"] }
+  },
+  "additionalProperties": true
+}

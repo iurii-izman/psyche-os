@@ -1,0 +1,35 @@
+# Canonical verification commands — REAL project commands only.
+# These are discovered from pyproject.toml, package.json, AGENTS.md, and scripts/.
+# Do not invent generic commands. `uv run` resolves the project virtualenv.
+# NOTE: ruff and mypy currently report PRE-EXISTING issues (see implementation report);
+# they remain canonical commands, not newly-added failures.
+
+version: 1
+
+python:
+  lint: uv run ruff check {paths}
+  typecheck: uv run mypy src
+  test_targeted: uv run pytest {paths} -q
+  test_full: uv run pytest -q
+
+orchestration:
+  delivery: uv run python scripts/dev/validate_orchestration.py
+  research: uv run python scripts/validate_research_foundation.py
+
+typescript:          # run from desktop/
+  typecheck: npm run typecheck
+  lint: npm run lint
+  test_unit: npm run test:unit
+
+rust:                # run from desktop/src-tauri/
+  check: cargo check
+  clippy: cargo clippy -- -D warnings
+  test: cargo test
+
+# Final risk gate ≈ CI semantics: full pytest + orchestration validator + research
+# validator. ruff/mypy are inner-loop checks (V0/V1) and, given current pre-existing
+# debt, are recorded but not treated as a hard stop until that debt is triaged.
+final_gate:
+  - uv run pytest -q
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run python scripts/validate_research_foundation.py

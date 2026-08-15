@@ -1,0 +1,145 @@
+# Capability registry.
+# States: DISABLED, LAB, CONDITIONAL, CORE, QUARANTINED.
+# A capability is CORE only if justified by real work; being installed != CORE.
+# Supply-chain lifecycle: DISCOVERED → PINNED → REVIEWED → LAB → CONDITIONAL/CORE.
+
+version: 1
+
+capabilities:
+  # ---- Context primitives (CORE) ----
+  ripgrep:
+    state: core
+    type: lexical-retrieval
+    execution: local
+    network: false
+    filesystem: read
+    always_on: false
+    installed_as: user-local (winget)
+    source: https://github.com/BurntSushi/ripgrep
+
+  ast-grep:
+    state: core
+    type: structural-retrieval
+    execution: local
+    network: false
+    filesystem: read
+    always_on: false
+    installed_as: user-local npm
+    source: https://github.com/ast-grep/ast-grep
+
+  # ---- Security (CONDITIONAL) ----
+  gitleaks:
+    state: conditional
+    type: secret-scan
+    execution: local
+    network: false
+    filesystem: read
+    always_on: false
+
+  osv-scanner:
+    state: conditional
+    type: dependency-vuln-scan
+    execution: local
+    network: true          # fetches OSV advisory DB
+    filesystem: read
+    always_on: false
+
+  semgrep:
+    state: conditional
+    type: sast
+    execution: local
+    network: false
+    filesystem: read
+    always_on: false
+
+  # ---- Harness / provider ----
+  claude-code:
+    state: core
+    type: harness
+    execution: local
+    network: true          # provider calls
+    always_on: true
+
+  cc-switch:
+    state: core
+    type: config-profile-manager
+    execution: local
+    network: false
+    always_on: false
+
+  deepseek-provider:
+    state: core
+    type: provider
+    execution: remote
+    network: true
+    always_on: false       # per-call
+
+  # ---- Tauri runtime (CONDITIONAL, NOT enabled) ----
+  tauri-runtime-bridge:
+    state: conditional
+    type: runtime
+    debug_only: true
+    network: localhost
+    enabled: false
+
+  # ---- Intentionally deferred LAB candidates (NOT installed) ----
+  pathfinder:
+    state: lab
+    type: code-intelligence
+    installed: false
+  symlens:
+    state: lab
+    type: code-intelligence
+    installed: false
+  codebase-memory:
+    state: lab
+    type: code-intelligence
+    installed: false
+  code-review-graph:
+    state: lab
+    type: code-intelligence
+    installed: false
+  codesearch:
+    state: lab
+    type: code-intelligence
+    installed: false
+  pytest-testmon:
+    state: lab
+    type: test-selection
+    installed: false
+  pytest-impacted:
+    state: lab
+    type: test-selection
+    installed: false
+  projectmem:
+    state: lab
+    type: memory
+    installed: false
+  reasonix:
+    state: lab
+    type: harness
+    installed: false
+  opencode:
+    state: lab
+    type: harness
+    installed: false
+  aider:
+    state: lab
+    type: harness
+    installed: false
+  codex-cli:
+    state: lab
+    type: harness
+    installed: false
+  rtk:
+    state: lab
+    type: compression
+    installed: false
+  context-mode:
+    state: lab
+    type: context
+    installed: false
+  nono:
+    state: lab
+    type: sandbox
+    installed: false

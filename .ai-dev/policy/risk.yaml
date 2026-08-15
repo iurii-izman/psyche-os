@@ -1,0 +1,61 @@
+# Risk engine — deterministic classification.
+# Determines: profile, initial model, verifier depth, review, human approval.
+# Source: docs/AI_DEV_OS_V1.md §9. HIGH/CRITICAL MUST NOT use economy profile.
+
+version: 1
+
+levels:
+  low:
+    triggers:
+      - docs-only change
+      - comment change
+      - isolated new test (no production behavior change)
+      - small local fix in a single module
+      - safe local edit
+    default_profile: economy_or_balanced
+    initial_model: cheap
+    review: none
+    human_approval: none
+
+  medium:
+    triggers:
+      - multiple modules touched
+      - API or contract change
+      - dependency version change (non-production)
+      - frontend/backend interaction
+      - cross-module behavior change
+    default_profile: balanced
+    initial_model: cheap
+    review: risk_triggered
+    human_approval: by_approval_matrix
+
+  high:
+    triggers:
+      - persistence or storage behavior
+      - schema migration
+      - export or backup path
+      - filesystem behavior
+      - Tauri IPC
+      - permissions expansion
+      - security-sensitive source
+      - dependency trust boundary
+    default_profile: quality
+    initial_model: strong_after_recon
+    review: fresh_reviewer_on_policy
+    human_approval: required_for_listed_actions
+
+  critical:
+    triggers:
+      - crypto or key management
+      - privacy boundary
+      - recovery integrity
+      - irreversible migration
+      - trust-model change
+      - security architecture change
+    default_profile: quality
+    initial_model: strong_frontier
+    review: independent_reviewer_required
+    human_approval: required
+
+# Rule: a HIGH/CRITICAL task cannot be auto-downgraded to economy.
+# Rule: if classification is ambiguous, choose the higher level.

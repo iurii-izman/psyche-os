@@ -1,0 +1,45 @@
+# Verification ladder → gate mapping.
+# V0 edit-local, V1 module, V2 affected system, V3 final risk gate, V4 independent review.
+
+version: 1
+
+gates:
+  python_changed:
+    v0:
+      - uv run ruff format --check {paths}
+    v1:
+      - uv run ruff check {paths}
+      - uv run mypy src
+      - uv run pytest {targeted_test_paths} -q
+    v2:
+      - uv run pytest tests -q -m "not slow and not os_wrap"
+    v3:
+      - uv run pytest -q
+      - uv run python scripts/dev/validate_orchestration.py
+
+  typescript_changed:
+    v0:
+      - cd desktop && npm run typecheck
+    v1:
+      - cd desktop && npm run lint
+      - cd desktop && npm run test:unit
+
+  rust_changed:
+    v1:
+      - cd desktop/src-tauri && cargo check
+    v2:
+      - cd desktop/src-tauri && cargo clippy -- -D warnings
+      - cd desktop/src-tauri && cargo test
+
+  final:
+    v3:
+      - uv run pytest -q
+      - uv run python scripts/dev/validate_orchestration.py
+      - uv run python scripts/validate_research_foundation.py
+    v4:
+      # Independent fresh-context review — triggered only on HIGH/CRITICAL risk.
+      reviewer: fresh
+
+# pytest markers used for selection (from pyproject.toml):
+# unit, property, integration, security, faults, contracts, slow, e2e, sqlcipher,
+# os_wrap, recovery.

@@ -1,0 +1,24 @@
+# Dependency policy.
+# A new production dependency requires: necessity, exact version/lockfile diff,
+# license, known-vulnerability check, install/build script review, transitive impact,
+# and rollback. Approval required unless pre-authorized in the Task Contract.
+
+version: 1
+
+require_for_new_dependency:
+  - necessity statement
+  - exact version + lockfile diff
+  - license check
+  - known-vulnerability scan (OSV where a manifest exists)
+  - install/build script review
+  - transitive impact
+  - rollback plan
+
+require_for_dependency_update:
+  - exact version diff
+  - vulnerability delta
+  - behavior impact note
+
+# Standalone user-local tools used by AI Dev OS itself (not project runtime deps):
+# ast-grep, gitleaks, osv-scanner, semgrep. These are installed as user-local CLIs,
+# never added to pyproject.toml / package.json / Cargo.toml.

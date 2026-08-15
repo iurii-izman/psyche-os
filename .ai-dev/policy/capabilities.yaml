@@ -1,0 +1,21 @@
+# Capability policy — what an agent is permitted to do by default.
+# Network is a capability. Secrets are granted per-task only when required.
+
+version: 1
+
+defaults:
+  network: false                # provider/docs access granted per-task when justified
+  install_tools: false          # new tool install requires justification + record
+  add_dependency: false         # production dependency requires approval
+  migrations: false
+  destructive: false            # rm -rf / git reset --hard / etc.
+  push: false
+  force_push: false
+  secrets: none                 # never auto-grant; grant per-task if required
+
+# Capabilities granted by an explicit Task Contract (pre-authorization).
+contract_override_fields:
+  - network
+  - add_dependency
+  - migrations
+  - destructive

@@ -1,0 +1,46 @@
+# Task Contract — reusable minimal template.
+# One short contract per non-trivial task; used identically by harness, reviewer,
+# verifier, recovery, telemetry, and lab comparison.
+# Pre-authorization in `permissions` counts as approval (approvals.yaml).
+
+task_id: T-000
+base_sha: <HEAD_SHA>
+
+profile: balanced            # balanced | quality | economy | lab
+risk: medium                 # low | medium | high | critical
+
+goal:
+  - <what must change and why>
+
+non_goals:
+  - <explicitly out of scope; no unrelated refactoring>
+
+authority:
+  - CONSTITUTION.md
+  - <ADR / spec section / docs reference>
+
+expected_scope:
+  - <paths the task is allowed to change>
+
+protected_scope:
+  - .ai-dev/**
+
+acceptance:
+  - <observable criteria that prove the task is done>
+
+verification:
+  - <ruff / mypy / targeted pytest / final gate — from .ai-dev/verification/commands.yaml>
+
+permissions:
+  network: false
+  dependencies: false
+  migrations: false
+  destructive: false
+
+routing:
+  initial: cheap             # cheap | strong
+  max_grounded_retry: 1
+  escalation: strong
+
+# Optional, for HIGH/CRITICAL: assumptions must be explicit, not hidden.
+assumptions: []

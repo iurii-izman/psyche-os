@@ -1,0 +1,41 @@
+# Evidence ledger — why each capability is in a given state.
+# Goal: in six months it must be obvious why a component was installed.
+# New capability records use the shape from AI_DEV_OS_V1.md §52.
+
+version: 1
+
+entries:
+  - capability: ripgrep
+    decision: core
+    problem: exact lexical search with machine-readable output (rg --json)
+    observed_on: 2026-08-15
+    decision_reason: canonical first context layer per AI_DEV_OS_V1.md §25; already present.
+    rollback: not applicable (pre-existing)
+
+  - capability: ast-grep
+    decision: core
+    problem: deterministic cross-language structural search/rewrite
+    observed_on: 2026-08-15
+    decision_reason: canonical second context layer per AI_DEV_OS_V1.md §25; was missing.
+    rollback: uninstall user-local package
+
+  - capability: gitleaks
+    decision: conditional
+    problem: git history / working-tree secret leakage
+    observed_on: 2026-08-15
+    decision_reason: repository + secrets protection make it broadly useful (catalog status CONDITIONAL).
+    rollback: remove user-local binary
+
+  - capability: osv-scanner
+    decision: conditional
+    problem: known-vulnerability triage for dependencies
+    observed_on: 2026-08-15
+    decision_reason: uv.lock and Cargo.lock manifests exist (catalog status CONDITIONAL).
+    rollback: remove user-local binary
+
+  - capability: semgrep
+    decision: conditional
+    problem: targeted SAST over security-sensitive Python (crypto/storage/policy)
+    observed_on: 2026-08-15
+    decision_reason: security-sensitive portions of psyche-os justify targeted use (catalog status CONDITIONAL).
+    rollback: pipx uninstall semgrep

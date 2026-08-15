@@ -1,0 +1,24 @@
+# LAB — baseline + ONE experimental capability only.
+# Never production. A LAB run must name the single variable it isolates.
+
+version: 1
+profile: lab
+
+harness: claude-code
+
+model:
+  initial: cheap
+  strategy: baseline_plus_one_variable
+
+context:
+  owner: rg + ast-grep
+
+verification:
+  inner_loop: targeted
+  final_gate: risk_appropriate
+
+# The single experimental capability must be declared in the Task Contract and
+# registered in .ai-dev/capabilities/registry.yaml with state: lab.
+experimental_variable: null
+
+telemetry: full

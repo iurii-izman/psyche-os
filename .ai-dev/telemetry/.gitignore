@@ -1,0 +1,4 @@
+# Runtime telemetry artifacts are local and must never enter Git.
+data/
+*.db
+*.db-*

@@ -1,0 +1,34 @@
+# Protected paths — T0 operational control.
+# Any edit under these paths requires explicit approval via the control-plane-change
+# flow (see approvals.yaml). The agent MUST NOT silently modify its own verifier,
+# policy, or acceptance mechanism.
+
+version: 1
+
+# Exact directory prefixes (git-relative). A path matches if it equals the entry or
+# starts with it (for directory entries).
+protected:
+  - .ai-dev/policy
+  - .ai-dev/verification
+  - .ai-dev/hooks
+  - .ai-dev/telemetry/schema.json
+  - .ai-dev/telemetry/redaction.yaml
+  - .ai-dev/telemetry/retention.yaml
+  - .ai-dev/state.yaml
+  - AGENTS.md
+  - CONSTITUTION.md
+
+# Security-sensitive project source: high-risk, requires risk-aware review, not
+# necessarily full control-plane approval for an in-scope task.
+high_risk:
+  - src/psyche_os/crypto
+  - src/psyche_os/storage
+  - src/psyche_os/policy
+  - src/psyche_os/backup_export
+  - desktop/src-tauri/capabilities
+  - desktop/src-tauri/tauri.conf.json
+
+# Canonical inputs are READ-ONLY; never edit.
+read_only:
+  - docs/AI_DEV_OS_V1.md
+  - docs/AI_DEV_OS_RESEARCH_CATALOG_V1.docx
