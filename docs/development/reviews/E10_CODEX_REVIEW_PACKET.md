@@ -9,8 +9,10 @@ transcript; it exists to minimize future review cost.
 
 - **Base SHA:** `78ff17784474b89c9138bf4db39d9b479e836d70` (accepted `main`,
   E09 accepted `27c536fa8af784a7dc69a3ac99fc1cecd831d906`)
-- **Candidate HEAD:** `853e6a690bb93bd4ec82a01653f1f387bb61822d`
-  (implementation `9ccbfa1` + hardening `853e6a6`; a docs commit may follow)
+- **Implementation SHA:** `9ccbfa1b961399d9309f347fd27bae23125b72d4`
+- **Candidate HEAD:** `d67f05125f79e60527afb2bc546262362fb7d4d8`
+  (F1–F5 hardening `853e6a6`; F6–F7 disclosure boundary `d67f051`; docs commit
+  may follow)
 - **Implementation prompt:** `docs/prompts/deepseek/E10_USER_CONTROLLED_PROFESSIONAL_REPORT.md`
 - **Report:** `docs/development/reports/E10.md`
 
@@ -39,6 +41,23 @@ transcript; it exists to minimize future review cost.
   Real-symlink coverage runs only where the OS permits creation; deterministic
   path-validation coverage is provided on all platforms (documented limitation).
 
+## Disclosure-policy boundary (F6–F7)
+
+- **F6 — missing policy fails closed:** zero active `data_policies` rows now
+  returns `POLICY_MISSING` (never silently permissive). Authority: PS-01
+  "Missing or contradictory policy fails closed" and Master Spec §409
+  "Missing/ambiguous policy fails closed"; PS-03 requires disclosure only after
+  policy resolution. The weaker E09 local-retrieval allow-by-absence precedent
+  is explicitly not treated as authority for the disclosure gate.
+- **F7 — authorization binds the disclosure transaction:** the exact export
+  destination is chosen before authorization, is visible on the preview, and is
+  bound into the preview digest (never into report bytes); the preview carries
+  truthful export-retention semantics. The single-use `disclose()` capability
+  covers the complete action (revalidate → build → write to the authorized
+  destination → content-free receipt) and is consumed by it; destination
+  substitution after authorization and any replay fail closed; sensitive
+  destinations never appear in receipt/repr/log/error surfaces.
+
 ## Changed production files
 
 - `src/psyche_os/reports/e10_professional.py` (new) — report model, canonical
@@ -62,20 +81,25 @@ transcript; it exists to minimize future review cost.
   non-mutation, exclusion as report-only, hostile content inert, fabricated/
   replayed/cross-service authorization, no-production-bypass (F2), source-
   version + policy TOCTOU, deleted/superseded rejection, policy fail-closed,
-  determinism, content-free receipt/reprs, external-copy truthfulness,
+  missing-policy fail-closed + policy-removed TOCTOU (F6), determinism,
+  content-free receipt/reprs, external-copy truthfulness, destination visible
+  before authorization, invalid-destination rejection, destination substitution
+  after authorization, no second-export replay, report bytes deterministic
+  across destinations, destination absent from bounded surfaces (F7),
   filesystem path/overwrite safety, exclusion ⊆ selection + excluded-version
-  availability (F3), selected-counterevidence non-duplication with both
-  contradiction sides selected (F4), real + deterministic symlink rejection
-  (F5), provider/network absence.
+  availability (F3), selected-counterevidence non-duplication (F4), real +
+  deterministic symlink rejection (F5), provider/network absence.
 
 ## Policy semantics conclusion (authority-backed, no deviation)
 
-- **Empty `data_policies` is intentionally allow-by-absence.** The E09 accepted
-  contract's fail-closed rule is universal quantification over *active*
-  policies ("any active non-`local_only`/`never_cloud` policy blocks",
-  `docs/development/reports/E09.md` and
-  `docs/prompts/deepseek/E09_REBUILDABLE_LOCAL_RETRIEVAL.md`); an empty active
-  set satisfies it. E10 mirrors this exactly. **Preserved.**
+- **Missing policy fails closed (`POLICY_MISSING`).** Controlling authority:
+  PS-01 "Missing or contradictory policy fails closed"
+  (`docs/architecture/PRIVACY_SECURITY_MODEL.md`), Master Spec §409
+  "Missing/ambiguous policy fails closed", and Threat Model "fail closed on
+  unknown policy". PS-03 requires disclosure only after policy resolution.
+  The earlier E09-precedent allow-by-absence reading was explicitly set aside
+  in favour of this higher authority. Any active policy outside the local/
+  no-cloud, audience-bounded export profile is `POLICY_BLOCKED`.
 - **`data_policies.purpose` is not an export-gate input.** The accepted privacy
   model defines export as "allow / redact / block / ask, **by audience**"
   (`docs/architecture/PRIVACY_SECURITY_MODEL.md`); `purpose` belongs to the
@@ -122,6 +146,12 @@ No `E10_ARCHITECTURE_DEVIATION_REQUIRED`.
     workflows are independent of report files.
 13. `REAL_DATA_GATE` stays `CLOSED`; E11 stays `PLANNED`; E10 is not accepted
     or merged.
+14. Missing/ambiguous export policy fails closed (`POLICY_MISSING`); the exact
+    export destination and export-retention semantics are visible before
+    authorization and bound to the single-use capability, which covers the
+    complete authorized disclosure action; destination substitution/replay
+    fails closed; destination never enters report bytes, the receipt, reprs,
+    logs or error text.
 
 ## Trust-boundary summary
 
@@ -150,10 +180,10 @@ Recorded truthfully (not invented, not waived) in the report/preview/manifest:
 ## Verification results (exact)
 
 - Targeted E10: `uv run pytest tests/unit/test_e10_professional.py
-  tests/integration/test_e10_professional_handoff.py -q` → **34 passed,
+  tests/integration/test_e10_professional_handoff.py -q` → **41 passed,
   1 skipped** (real-symlink creation unavailable on Windows without privilege;
   deterministic link-rejection path-validation coverage is provided).
-- FULL: `uv run pytest -q` → **623 passed, 2 skipped** (both are Windows
+- FULL: `uv run pytest -q` → **630 passed, 2 skipped** (both are Windows
   symlink/admin skips: the E10 link test and the pre-existing
   `tests/regression/test_regression_proofs.py:263`).
 - F0: `uv run python scripts/validate_f0_scope.py` → **PASS**.
@@ -165,14 +195,14 @@ Recorded truthfully (not invented, not waived) in the report/preview/manifest:
 
 ## Known limitations
 
-- Empty `data_policies` is eligible by accepted E09 authority; `purpose` is not
-  an export-gate input by accepted privacy-model authority (see Policy
-  conclusion).
+- `data_policies.purpose` is not an export-gate input by accepted
+  privacy-model authority (export "by audience"); missing/ambiguous policy
+  fails closed. See Policy conclusion.
 - Extractor covers the six semantic text tables; E05 measurement and E06
   experiment-result tables are not separately indexed.
-- Revalidation is against the current connection; a concurrent writer between
-  revalidation and generation is out of scope for the local single-connection
-  synthetic profile.
+- Revalidation is against the current connection immediately before the
+  disclosure write; a concurrent writer between revalidation and the write is
+  out of scope for the local single-connection synthetic profile.
 - The file writer is an outer adapter, not an OS access-control policy
   boundary. Real symlink rejection is verified only where the OS permits
   symlink creation; the link-rejection path-validation logic has deterministic
@@ -204,5 +234,10 @@ Recorded truthfully (not invented, not waived) in the report/preview/manifest:
     misrepresented as approvals?
 11. Can the frozen profile be widened (arbitrary audience/purpose/output)? Can
     an exclusion name a fabricated or unselected ID?
-12. Is the allow-by-absence and audience-only export-gate reading of
-    `data_policies` consistent with the cited E09 and privacy-model authority?
+12. Does missing/ambiguous export policy fail closed, and is the 
+    audience-only export-gate reading of `data_policies` consistent with the
+    cited PS-01 / Master Spec §409 / PS-03 authority?
+13. Is the exact export destination visible before authorization and bound to
+    the single-use capability? Can the destination be substituted or the
+    capability replayed to a second destination? Does the destination leak
+    into report bytes, receipt, repr, logs, telemetry or error text?
