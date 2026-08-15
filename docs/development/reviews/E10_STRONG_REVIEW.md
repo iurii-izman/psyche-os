@@ -65,3 +65,15 @@ is claimed. It was not fixed in this pass.
   made.
 - **Reviewer observed model:** `claude-opus-5[1m]` was reported; DeepSeek V4
   Pro was not observably confirmed.
+
+## Acceptance disposition (2026-08-15)
+
+E10 was **ACCEPTED** at implementation candidate
+`6c2ccf75637ef85db42bc62caf206c1c0e736d21` and merged into canonical `main`.
+This strong review was the fresh strong independent review substituted for the
+unavailable Codex review by explicit architect/user decision. Recorded
+truthfully: the reviewer reported its observable runtime model as
+`claude-opus-5[1m]`; DeepSeek V4 Pro was requested/configured but was **not
+observably confirmed**; Codex did **not** review E10. The original
+Codex-review requirement remains a recorded historical contract fact. See
+`docs/implementation/E10_ACCEPTANCE_REPORT.md`.

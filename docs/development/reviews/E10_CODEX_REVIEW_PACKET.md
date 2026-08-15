@@ -330,3 +330,16 @@ Recorded truthfully (not invented, not waived) in the report/preview/manifest:
 19. **Content leakage:** can report text, excerpts, destinations, full paths,
     or content hashes appear in the receipt, `repr` surfaces, logs, telemetry
     or error text?
+
+## Acceptance disposition (2026-08-15)
+
+E10 was **ACCEPTED** at implementation candidate
+`6c2ccf75637ef85db42bc62caf206c1c0e736d21` and merged into canonical `main`.
+Because Codex was unavailable (credits exhausted), the architect/user
+explicitly authorised a temporary substitution of a fresh strong independent
+reviewer; the strong review is preserved in
+`docs/development/reviews/E10_STRONG_REVIEW.md`. Recorded truthfully: the
+reviewer reported its observable runtime model as `claude-opus-5[1m]`; DeepSeek
+V4 Pro was requested/configured but was **not observably confirmed**; Codex did
+**not** review E10. The original Codex-review requirement remains a recorded
+historical contract fact. See `docs/implementation/E10_ACCEPTANCE_REPORT.md`.
