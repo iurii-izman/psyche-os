@@ -48,3 +48,17 @@ documented fail-open kill switch was used exactly once:
 - **Guard state after:** `DISABLED` marker absent; `uv run python .ai-dev/hooks/test_dispatcher.py`
   passes (including the kill-switch case), confirming fail-closed behavior is restored.
 
+## Second kill-switch window — canonical baseline migration (recorded)
+
+To move the canonical diagnostic baselines into protected verification scope
+(`.ai-dev/verification/baselines/`), the hook kill switch was used a second time, narrowly:
+
+- **Marker:** `.ai-dev/hooks/DISABLED` created and removed within the same command; guard re-armed.
+- **Why:** `.ai-dev/verification/**` is a protected T0 path; the Task Contract pre-authorized
+  `.ai-dev/verification/**` in `control_plane_pre_authorization.exact_scope`.
+- **Action:** `git mv .ai-dev/evidence/diagnostics/{ruff,mypy}.baseline.yaml` →
+  `.ai-dev/verification/baselines/` (rename only; content unchanged). The old
+  `.ai-dev/evidence/diagnostics/*.baseline.yaml` location is no longer the canonical baseline;
+  only historical debt, history, proposals, and provenance remain under evidence/diagnostics.
+- **Guard state after:** `DISABLED` marker absent; fail-closed restored.
+

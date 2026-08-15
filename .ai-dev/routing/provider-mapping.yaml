@@ -11,12 +11,19 @@
 # explicitly-parsed active upstream provider config names it). A key merely being
 # present does NOT establish applicability.
 
-version: 2
+version: 3
 
 provider_mapping:
   deepseek:
     provider: deepseek
     compatibility_surface: anthropic-compatible
+    # Provider-owned trusted endpoints. A mapping is applicable only when the active
+    # endpoint/upstream host is in this list (or a trusted domain). `notdeepseek.com`
+    # and `deepseek.example.com` are NOT trusted; the provider display name is not
+    # trusted on its own.
+    trusted_endpoints:
+      - api.deepseek.com
+    trusted_domains: []   # exact host only; no additional subdomains officially supported
     source:
       official_source_identifier: DeepSeek Anthropic/Claude Code compatibility documentation
       official_source_url: https://api-docs.deepseek.com/guides/anthropic_api

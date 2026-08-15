@@ -6,11 +6,13 @@ import ai_dev_v2 as v2
 DEEPSEEK_MAPPING = {
     "provider_mapping": {
         "deepseek": {
+            "trusted_endpoints": ["api.deepseek.com"],
+            "trusted_domains": [],
             "aliases": [
                 {"pattern": "claude-opus", "maps_to": "deepseek-v4-pro"},
                 {"pattern": "claude-sonnet", "maps_to": "deepseek-v4-flash"},
                 {"pattern": "claude-haiku", "maps_to": "deepseek-v4-flash"},
-            ]
+            ],
         }
     }
 }
@@ -47,18 +49,18 @@ class TestMappingContext:
         assert result["attestation_status"] == "MAPPED_BY_PROVIDER_CONTRACT"
         assert result["effective_backend_model"] == "deepseek-v4-pro"
 
-    def test_active_upstream_provider_config_mapping_applies(self) -> None:
-        # Case B: localhost endpoint + active upstream provider config = deepseek.
+    def test_upstream_endpoint_host_mapping_applies(self) -> None:
+        # Case B: localhost endpoint + active cc-switch upstream endpoint = trusted DeepSeek host.
         result = v2.attest(
             configured_provider="deepseek",
             endpoint_identity="127.0.0.1",
-            active_upstream_provider="deepseek",
+            upstream_endpoint_host="api.deepseek.com",
             harness_reported_model="claude-opus-5[1m]",
             provider_mapping=DEEPSEEK_MAPPING,
         )
         assert result["attestation_status"] == "MAPPED_BY_PROVIDER_CONTRACT"
         assert result["effective_backend_model"] == "deepseek-v4-pro"
-        assert any("active upstream" in e for e in result["evidence_source"])
+        assert any("upstream endpoint" in e for e in result["evidence_source"])
 
     def test_localhost_plus_key_presence_does_not_apply_mapping(self) -> None:
         # Case C: localhost + key merely exists + cc-switch dir merely exists.
@@ -103,6 +105,68 @@ class TestMappingScoping:
     def test_resolve_mapping_returns_rule_for_deepseek(self) -> None:
         rule = v2.resolve_mapping("claude-opus-5[1m]", "deepseek", DEEPSEEK_MAPPING)
         assert rule == {"pattern": "claude-opus", "maps_to": "deepseek-v4-pro"}
+
+
+class TestF1bEndpointProof:
+    """Mapping requires provider-owned endpoint evidence; never a substring or display name."""
+
+    def test_fake_hostname_containing_deepseek_not_mapped(self) -> None:
+        result = v2.attest(
+            configured_provider="deepseek",
+            endpoint_identity="notdeepseek.com",
+            harness_reported_model="claude-opus-5[1m]",
+            provider_mapping=DEEPSEEK_MAPPING,
+        )
+        assert result["attestation_status"] == "HARNESS_ONLY"
+        assert result["effective_backend_model"] == "UNKNOWN"
+
+    def test_subdomain_of_unrelated_domain_not_mapped(self) -> None:
+        result = v2.attest(
+            configured_provider="deepseek",
+            endpoint_identity="deepseek.example.com",
+            harness_reported_model="claude-opus-5[1m]",
+            provider_mapping=DEEPSEEK_MAPPING,
+        )
+        assert result["attestation_status"] == "HARNESS_ONLY"
+
+    def test_unrelated_upstream_endpoint_not_mapped(self) -> None:
+        # cc-switch active provider named "DeepSeek" but endpoint elsewhere -> NOT mapped.
+        result = v2.attest(
+            configured_provider="deepseek",
+            endpoint_identity="127.0.0.1",
+            upstream_endpoint_host="unrelated.example",
+            harness_reported_model="claude-opus-5[1m]",
+            provider_mapping=DEEPSEEK_MAPPING,
+        )
+        assert result["attestation_status"] == "HARNESS_ONLY"
+        assert result["effective_backend_model"] == "UNKNOWN"
+
+    def test_trusted_domain_subdomain_mapped_if_declared(self) -> None:
+        mapping = {
+            "provider_mapping": {
+                "deepseek": {
+                    "trusted_endpoints": [],
+                    "trusted_domains": ["deepseek.com"],
+                    "aliases": [{"pattern": "claude-opus", "maps_to": "deepseek-v4-pro"}],
+                }
+            }
+        }
+        result = v2.attest(
+            configured_provider="deepseek",
+            endpoint_identity="api.deepseek.com",
+            harness_reported_model="claude-opus-5[1m]",
+            provider_mapping=mapping,
+        )
+        assert result["attestation_status"] == "MAPPED_BY_PROVIDER_CONTRACT"
+
+    def test_localhost_without_proven_upstream_is_harness_only(self) -> None:
+        result = v2.attest(
+            configured_provider="deepseek",
+            endpoint_identity="127.0.0.1",
+            harness_reported_model="claude-opus-5[1m]",
+            provider_mapping=DEEPSEEK_MAPPING,
+        )
+        assert result["attestation_status"] == "HARNESS_ONLY"
 
 
 class TestDirectBackend:

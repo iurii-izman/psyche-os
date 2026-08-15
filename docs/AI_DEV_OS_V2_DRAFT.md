@@ -39,10 +39,11 @@ is required.
 Each baseline binds `tool`, `tool_version`, `config_fingerprint`, `baseline_commit`,
 `finding_identity_digest`, `finding_count`, `finding_identities`, `captured_at`.
 Comparison is identity-aware. Version/config drift yields `BASELINE_INCOMPATIBLE`, never a
-false regression. Baselines are integrity-checked (required fields + digest/count/identity
-consistency); a tampered or malformed baseline fails closed. Rebaseline is a separate
-explicit command (requires a stated reason) and appends to an append-only history ledger;
-it never runs automatically after a failure.
+false regression. Canonical baselines live under protected verification scope and are
+integrity-checked (required fields + tool identity + digest/count consistency + git ancestry);
+a tampered or malformed baseline fails closed. `compare` is read-only; `propose` writes an
+evidence proposal only; `promote` requires an explicit approval/evidence reference and
+appends to an append-only history ledger. Nothing rebaselines automatically after a failure.
 
 ### C. Cross-platform hook conformance
 

@@ -5,7 +5,11 @@ logic is the behavior under test.
 """
 from __future__ import annotations
 
+from pathlib import Path
+import subprocess
+
 import ai_dev_v2 as v2
+import pytest
 
 VERSION = "0.0.0"
 FINGERPRINT = "abc123"
@@ -113,9 +117,23 @@ class TestNoAutomaticRebaseline:
         def _noop(*args, **kwargs) -> None:
             calls.append("write")
 
-        monkeypatch.setattr(v2, "_write_baseline", _noop)
+        monkeypatch.setattr(v2, "write_proposal", _noop)
+        monkeypatch.setattr(v2, "promote_proposal", _noop)
         v2.ratchet_compare(baseline(["a"]), current(["a", "b"]))
         assert calls == []
+
+
+class TestToolIdentity:
+    def test_wrong_baseline_tool_fails(self) -> None:
+        result = v2.ratchet_compare(baseline(["a"], tool="mypy"), current(["a"], tool="ruff"))
+        assert result["status"] == "FAIL"
+        assert "tool mismatch" in result["detail"]
+
+    def test_missing_baseline_commit_fails(self) -> None:
+        base = baseline(["a"])
+        del base["baseline_commit"]
+        result = v2.ratchet_compare(base, current(["a"]))
+        assert result["status"] == "FAIL"
 
 
 class TestBaselineIntegrity:
@@ -144,3 +162,108 @@ class TestBaselineIntegrity:
         del base["finding_identity_digest"]
         result = v2.ratchet_compare(base, current(["a"]))
         assert result["status"] == "FAIL"
+
+
+@pytest.fixture
+def git_repo(tmp_path: Path) -> dict:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def g(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args], cwd=str(repo), capture_output=True, text=True
+        ).stdout.strip()
+
+    g("init", "-q")
+    g("config", "user.email", "t@example.com")
+    g("config", "user.name", "t")
+    (repo / "f.txt").write_text("a", encoding="utf-8")
+    g("add", "f.txt")
+    g("commit", "-q", "-m", "base")
+    base = g("rev-parse", "HEAD")
+    g("checkout", "-q", "-b", "side")
+    (repo / "s.txt").write_text("s", encoding="utf-8")
+    g("add", "s.txt")
+    g("commit", "-q", "-m", "side")
+    side = g("rev-parse", "HEAD")
+    g("checkout", "-q", "-")
+    (repo / "g.txt").write_text("g", encoding="utf-8")
+    g("add", "g.txt")
+    g("commit", "-q", "-m", "child")
+    head = g("rev-parse", "HEAD")
+    return {"repo": repo, "base": base, "side": side, "head": head}
+
+
+class TestGitAncestry:
+    def test_nonexistent_commit_fails(self, git_repo: dict) -> None:
+        ok, why = v2.verify_baseline_git(
+            baseline(["a"], baseline_commit="deadbeef" * 10), "ruff", git_repo["repo"], git_repo["head"]
+        )
+        assert not ok
+        assert "not a valid git commit" in why
+
+    def test_non_ancestor_commit_fails(self, git_repo: dict) -> None:
+        ok, why = v2.verify_baseline_git(
+            baseline(["a"], baseline_commit=git_repo["side"]), "ruff", git_repo["repo"], git_repo["head"]
+        )
+        assert not ok
+        assert "ancestor" in why
+
+    def test_valid_older_ancestor_allowed(self, git_repo: dict) -> None:
+        ok, why = v2.verify_baseline_git(
+            baseline(["a"], baseline_commit=git_repo["base"]), "ruff", git_repo["repo"], git_repo["head"]
+        )
+        assert ok, why
+
+
+class TestProposePromote:
+    def _write_canonical(self, repo: Path, tool: str, ids: list[str]) -> None:
+        p = v2.canonical_baseline_path(tool, repo)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(v2._yaml_dump(baseline(ids)), encoding="utf-8")
+
+    def test_propose_does_not_alter_canonical(self, tmp_path: Path) -> None:
+        self._write_canonical(tmp_path, "ruff", ["a"])
+        before = v2.canonical_baseline_path("ruff", tmp_path).read_text(encoding="utf-8")
+        v2.write_proposal("ruff", tmp_path, baseline(["a", "b"]), "add b")
+        after = v2.canonical_baseline_path("ruff", tmp_path).read_text(encoding="utf-8")
+        assert before == after
+        assert v2.proposal_path("ruff", tmp_path).is_file()
+
+    def test_compare_after_proposal_still_fails(self, tmp_path: Path) -> None:
+        self._write_canonical(tmp_path, "ruff", ["a"])
+        v2.write_proposal("ruff", tmp_path, baseline(["a", "b"]), "add b")
+        canonical = v2._yaml_load(v2.canonical_baseline_path("ruff", tmp_path))
+        result = v2.ratchet_compare(canonical, baseline(["a", "b"]))
+        assert result["status"] == "FAIL"
+        assert result["new_findings"] == ["b"]
+
+    def test_promote_without_evidence_rejected(self, tmp_path: Path) -> None:
+        v2.write_proposal("ruff", tmp_path, baseline(["a", "b"]), "add b")
+        with pytest.raises(ValueError):
+            v2.promote_proposal("ruff", tmp_path, "add b", "")
+
+    def test_promote_with_evidence_changes_canonical(self, tmp_path: Path) -> None:
+        self._write_canonical(tmp_path, "ruff", ["a"])
+        v2.write_proposal("ruff", tmp_path, baseline(["a", "b"]), "add b")
+        v2.promote_proposal("ruff", tmp_path, "add b", "evidence:decision-X")
+        canonical = v2._yaml_load(v2.canonical_baseline_path("ruff", tmp_path))
+        assert canonical["finding_count"] == 2
+        assert canonical["finding_identities"] == ["a", "b"]
+
+    def test_subsequent_compare_uses_promoted_baseline(self, tmp_path: Path) -> None:
+        self._write_canonical(tmp_path, "ruff", ["a"])
+        v2.write_proposal("ruff", tmp_path, baseline(["a", "b"]), "add b")
+        v2.promote_proposal("ruff", tmp_path, "add b", "evidence:decision-X")
+        canonical = v2._yaml_load(v2.canonical_baseline_path("ruff", tmp_path))
+        result = v2.ratchet_compare(canonical, baseline(["a", "b"]))
+        assert result["status"] == "PASS"
+
+    def test_history_preserves_old_baseline_identity(self, tmp_path: Path) -> None:
+        self._write_canonical(tmp_path, "ruff", ["a"])
+        old_digest = _digest(["a"])
+        v2.write_proposal("ruff", tmp_path, baseline(["a", "b"]), "add b")
+        v2.promote_proposal("ruff", tmp_path, "add b", "evidence:decision-X")
+        history = v2.baseline_history_path(tmp_path).read_text(encoding="utf-8")
+        assert old_digest in history
+        assert "promote" in history

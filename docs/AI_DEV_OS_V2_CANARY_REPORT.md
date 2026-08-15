@@ -104,11 +104,27 @@ Four verified boundary defects and two provenance inconsistencies were fixed:
 
 ---
 
+## 4c. Pre-review hardening (F4 canonical baseline + F1b endpoint proof)
+
+- **F4 (re-scoped)** — canonical diagnostic baselines now live under protected verification
+  scope (`.ai-dev/verification/baselines/`). `ratchet rebaseline` was replaced by a two-phase
+  transaction: `ratchet propose` (writes an evidence proposal only) and `ratchet promote`
+  (requires an explicit approval/evidence reference and writes the protected canonical
+  baseline). `compare` is read-only and fail-closed against git ancestry (baseline commit
+  must exist and be an ancestor of the comparison HEAD) plus structural integrity (tool
+  identity, count/digest consistency).
+- **F1b** — the provider mapping now requires provider-owned endpoint evidence. Trusted hosts
+  are declared in `.ai-dev/routing/provider-mapping.yaml` (`api.deepseek.com` only);
+  `notdeepseek.com` / `deepseek.example.com` / arbitrary substring matches are rejected.
+  cc-switch upstream is trusted only by its endpoint host, never its display name.
+
+---
+
 ## 5. Verification (exact commands and results)
 
 | Check | Command | Result |
 |---|---|---|
-| Focused V2 suite | `uv run pytest tests/control_plane/ -q` | `89 passed` |
+| Focused V2 suite | `uv run pytest tests/control_plane/ -q` | `105 passed` |
 | Dispatcher smoke | `uv run python .ai-dev/hooks/test_dispatcher.py` | `ALL PASS` |
 | Hook conformance | (part of focused suite) | `passed` |
 | Telemetry self-test | `uv run python .ai-dev/telemetry/writer.py --self-test` | `SELF-TEST OK` |

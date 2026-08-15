@@ -3,7 +3,7 @@
 
 Components (all deterministic, no LLM call, no network call):
   A  model/provider attestation          -> `attest`
-  B  versioned diagnostic ratchet        -> `ratchet capture|compare|rebaseline`
+  B  versioned diagnostic ratchet        -> `ratchet compare|propose|promote`
   D  authority / contract guard          -> `contract check`
   E  task / review packet compiler       -> `packet task|review`
 
@@ -155,34 +155,53 @@ def resolve_mapping(harness_model: str | None, provider: str | None, mapping: di
     return None
 
 
-def _endpoint_matches_provider(host: str | None, provider: str | None) -> bool:
-    """True only when the endpoint host directly identifies the provider's own domain."""
+def _host_trusted(host: str | None, provider: str | None, mapping: dict) -> bool:
+    """True only when `host` is a provider-owned trusted endpoint/domain.
+
+    Uses the bounded trusted endpoint/domain lists from the provider mapping metadata,
+    never a loose substring match. `notdeepseek.com` and `deepseek.example.com` are
+    rejected because they are not owned by the provider.
+    """
     if not host or not provider:
         return False
+    pdata = (mapping.get("provider_mapping") or {}).get(provider)
+    if not isinstance(pdata, dict):
+        return False
     h = host.lower()
-    if provider.lower() == "deepseek":
-        return "deepseek" in h and "127.0.0.1" not in h and "localhost" not in h
+    endpoints = [str(x).lower() for x in pdata.get("trusted_endpoints", [])]
+    if h in endpoints:
+        return True
+    for domain in pdata.get("trusted_domains", []):
+        d = str(domain).lower()
+        if h == d or h.endswith("." + d):
+            return True
     return False
 
 
 def _mapping_context(
     configured_provider: str | None,
     endpoint_identity: str | None,
-    active_upstream_provider: str | None,
+    upstream_endpoint_host: str | None,
+    provider_mapping: dict | None,
 ) -> tuple[bool, list[str]]:
-    """A provider mapping contract applies only if its applicability to the active
-    endpoint/upstream is itself supported by observable evidence.
+    """A provider mapping contract applies only if the active endpoint/upstream is
+    itself a provider-owned trusted endpoint.
 
-    Proven when (a) the configured endpoint host directly identifies the provider's
-    domain, or (b) an explicitly-parsed active upstream provider config names that
-    provider. A localhost/proxy endpoint plus a merely-present key does NOT prove it.
+    Proven when (a) the configured endpoint host is a trusted provider endpoint, or
+    (b) the active cc-switch upstream endpoint host is a trusted provider endpoint.
+    A localhost/proxy endpoint, a merely-present key, or a provider display name are
+    NOT sufficient. A provider display name is never trusted on its own.
     """
     if not configured_provider:
         return False, []
-    if _endpoint_matches_provider(endpoint_identity, configured_provider):
-        return True, [f"endpoint host '{endpoint_identity}' identifies {configured_provider}"]
-    if active_upstream_provider and active_upstream_provider.lower() == configured_provider.lower():
-        return True, [f"active upstream provider config = {configured_provider}"]
+    provider_mapping = provider_mapping or {}
+    if _host_trusted(endpoint_identity, configured_provider, provider_mapping):
+        return True, [f"endpoint host '{endpoint_identity}' is a trusted {configured_provider} endpoint"]
+    if _host_trusted(upstream_endpoint_host, configured_provider, provider_mapping):
+        return True, [
+            f"active upstream endpoint host '{upstream_endpoint_host}' is a trusted "
+            f"{configured_provider} endpoint (cc-switch)"
+        ]
     return False, []
 
 
@@ -192,7 +211,7 @@ def attest(
     configured_provider: str | None = None,
     configured_model: str | None = None,
     endpoint_identity: str | None = None,
-    active_upstream_provider: str | None = None,
+    upstream_endpoint_host: str | None = None,
     direct_backend_provider: str | None = None,
     direct_backend_model: str | None = None,
     provider_mapping: dict | None = None,
@@ -217,7 +236,7 @@ def attest(
     mapping_summary: str | None = None
 
     mapping_proven, mapping_reasons = _mapping_context(
-        configured_provider, endpoint_identity, active_upstream_provider
+        configured_provider, endpoint_identity, upstream_endpoint_host, provider_mapping
     )
     evidence.extend(mapping_reasons)
 
@@ -317,8 +336,6 @@ def gather_config_evidence(environ: dict | None = None) -> tuple[str | None, lis
     if "ANTHROPIC_BASE_URL" in env:
         host = _endpoint_host(env["ANTHROPIC_BASE_URL"])
         evidence.append(f"env:ANTHROPIC_BASE_URL present (host={host})")
-        if "deepseek" in host.lower():
-            provider = provider or "deepseek"
     if os.path.isdir(os.path.join(os.path.expanduser("~"), ".cc-switch")):
         evidence.append("config:cc-switch present")
     return provider, evidence
@@ -387,7 +404,11 @@ def inspect_cc_switch(home: str | None = None) -> dict:
 def gather_endpoint_context(
     environ: dict | None = None, home: str | None = None
 ) -> tuple[str | None, str | None, list[str]]:
-    """Return (endpoint_identity, active_upstream_provider, evidence) — bounded, secret-safe."""
+    """Return (endpoint_identity, upstream_endpoint_host, evidence) — bounded, secret-safe.
+
+    `upstream_endpoint_host` is the cc-switch active provider's endpoint host (NOT its
+    display name); the display name is never trusted for mapping.
+    """
     env = environ if environ is not None else os.environ
     evidence: list[str] = []
     endpoint_identity: str | None = None
@@ -395,7 +416,7 @@ def gather_endpoint_context(
         endpoint_identity = _endpoint_host(env["ANTHROPIC_BASE_URL"])
     cc = inspect_cc_switch(home=home)
     evidence.extend(cc["evidence"])
-    return endpoint_identity, cc["active_provider"], evidence
+    return endpoint_identity, cc["endpoint_host"], evidence
 
 
 # --------------------------------------------------------------------------- #
@@ -512,11 +533,47 @@ def _verify_baseline(baseline: dict) -> tuple[bool, str]:
     return True, ""
 
 
+def _git_commit_exists(commit: str, repo: Path) -> bool:
+    proc = _run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], repo)
+    return proc.returncode == 0
+
+
+def _git_is_ancestor(commit: str, current: str, repo: Path) -> bool:
+    proc = _run(["git", "merge-base", "--is-ancestor", commit, current], repo)
+    return proc.returncode == 0
+
+
+def verify_baseline_git(baseline: dict, tool: str, repo: Path, current_commit: str) -> tuple[bool, str]:
+    """Fail-closed: structural integrity + tool identity + git commit/ancestry checks.
+
+    Rejects a nonexistent or unrelated (non-ancestor) baseline commit; accepts a valid
+    older ancestor without requiring it to equal HEAD.
+    """
+    ok, why = _verify_baseline(baseline)
+    if not ok:
+        return False, why
+    if baseline.get("tool") != tool:
+        return False, f"baseline tool '{baseline.get('tool')}' != requested tool '{tool}'"
+    commit = str(baseline.get("baseline_commit", ""))
+    if not commit:
+        return False, "missing baseline_commit"
+    if not _git_commit_exists(commit, repo):
+        return False, f"baseline_commit {commit} is not a valid git commit"
+    if not _git_is_ancestor(commit, current_commit, repo):
+        return False, f"baseline_commit {commit} is not an ancestor of {current_commit}"
+    return True, ""
+
+
 def ratchet_compare(baseline: dict, current: dict) -> dict:
     """Compare a current capture against a persisted baseline (fail-closed)."""
     ok, why = _verify_baseline(baseline)
     if not ok:
         return {"status": "FAIL", "detail": f"malformed baseline: {why}"}
+    if baseline.get("tool") != current.get("tool"):
+        return {
+            "status": "FAIL",
+            "detail": f"tool mismatch: baseline '{baseline.get('tool')}' vs current '{current.get('tool')}'",
+        }
     same_version = baseline.get("tool_version") == current.get("tool_version")
     same_config = baseline.get("config_fingerprint") == current.get("config_fingerprint")
     if not (same_version and same_config):
@@ -873,16 +930,21 @@ def _as_list(value: Any) -> list[str]:
 # --------------------------------------------------------------------------- #
 # repository paths
 # --------------------------------------------------------------------------- #
-def baseline_dir(repo: Path) -> Path:
-    return repo / ".ai-dev" / "evidence" / "diagnostics"
+def canonical_baseline_path(tool: str, repo: Path) -> Path:
+    # Canonical active baselines live under protected verification scope (T0).
+    return repo / ".ai-dev" / "verification" / "baselines" / f"{tool}.baseline.yaml"
 
 
-def baseline_path(tool: str, repo: Path) -> Path:
-    return baseline_dir(repo) / f"{tool}.baseline.yaml"
+def proposal_dir(repo: Path) -> Path:
+    return repo / ".ai-dev" / "evidence" / "diagnostics" / "proposals"
+
+
+def proposal_path(tool: str, repo: Path) -> Path:
+    return proposal_dir(repo) / f"{tool}.proposal.yaml"
 
 
 def baseline_history_path(repo: Path) -> Path:
-    return baseline_dir(repo) / "history.jsonl"
+    return repo / ".ai-dev" / "evidence" / "diagnostics" / "history.jsonl"
 
 
 def _append_history(repo: Path, record: dict) -> None:
@@ -892,30 +954,72 @@ def _append_history(repo: Path, record: dict) -> None:
         fh.write(json.dumps(record, sort_keys=True, default=str) + "\n")
 
 
-def _write_baseline(tool: str, repo: Path, baseline: dict, reason: str, previous: dict | None = None) -> Path:
-    path = baseline_path(tool, repo)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_yaml_dump(baseline), encoding="utf-8")
-    record = {
-        "action": "capture" if reason == "initial" else "rebaseline",
+def _load_canonical(tool: str, repo: Path) -> dict:
+    path = canonical_baseline_path(tool, repo)
+    return _yaml_load(path) if path.is_file() else {}
+
+
+def write_proposal(tool: str, repo: Path, baseline: dict, reason: str) -> Path:
+    """Write a proposed baseline to evidence ONLY; never touches the canonical baseline."""
+    canonical = _load_canonical(tool, repo)
+    proposal = {
         "tool": tool,
         "tool_version": baseline.get("tool_version"),
         "config_fingerprint": baseline.get("config_fingerprint"),
-        "baseline_commit": baseline.get("baseline_commit"),
+        "candidate_commit": baseline.get("baseline_commit"),
         "finding_count": baseline.get("finding_count"),
+        "finding_identities": baseline.get("finding_identities", []),
         "finding_identity_digest": baseline.get("finding_identity_digest"),
         "captured_at": baseline.get("captured_at"),
         "reason": reason,
+        "current_canonical_digest": canonical.get("finding_identity_digest"),
     }
-    if previous is not None:
-        record["previous"] = {
-            "tool_version": previous.get("tool_version"),
-            "config_fingerprint": previous.get("config_fingerprint"),
-            "baseline_commit": previous.get("baseline_commit"),
-            "finding_count": previous.get("finding_count"),
-            "finding_identity_digest": previous.get("finding_identity_digest"),
-        }
-    _append_history(repo, record)
+    path = proposal_path(tool, repo)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_yaml_dump(proposal), encoding="utf-8")
+    return path
+
+
+def promote_proposal(tool: str, repo: Path, reason: str, evidence: str) -> Path:
+    """Promote an existing proposal to the canonical (protected) baseline.
+
+    Requires an explicit approval/evidence reference; without one this is rejected.
+    This is a canonical-baseline mutation, separate from the ordinary compare/propose flow.
+    """
+    if not evidence:
+        raise ValueError("promotion requires an explicit approval/evidence reference")
+    proposal = _yaml_load(proposal_path(tool, repo))
+    if not isinstance(proposal, dict) or not proposal.get("finding_identity_digest"):
+        raise ValueError(f"no valid proposal for {tool}; run `ratchet propose` first")
+    canonical = {
+        "tool": proposal.get("tool", tool),
+        "tool_version": proposal.get("tool_version"),
+        "config_fingerprint": proposal.get("config_fingerprint"),
+        "baseline_commit": proposal.get("candidate_commit"),
+        "finding_count": proposal.get("finding_count"),
+        "finding_identities": proposal.get("finding_identities", []),
+        "finding_identity_digest": proposal.get("finding_identity_digest"),
+        "captured_at": proposal.get("captured_at"),
+    }
+    path = canonical_baseline_path(tool, repo)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_yaml_dump(canonical), encoding="utf-8")
+    _append_history(
+        repo,
+        {
+            "action": "promote",
+            "tool": tool,
+            "tool_version": canonical.get("tool_version"),
+            "config_fingerprint": canonical.get("config_fingerprint"),
+            "baseline_commit": canonical.get("baseline_commit"),
+            "finding_count": canonical.get("finding_count"),
+            "finding_identity_digest": canonical.get("finding_identity_digest"),
+            "captured_at": canonical.get("captured_at"),
+            "reason": reason,
+            "evidence": evidence,
+            "previous_canonical_digest": proposal.get("current_canonical_digest"),
+        },
+    )
     return path
 
 
@@ -925,7 +1029,7 @@ def _write_baseline(tool: str, repo: Path, baseline: dict, reason: str, previous
 def _cmd_attest(args: argparse.Namespace) -> int:
     repo = Path(args.repo)
     provider, evidence = gather_config_evidence()
-    endpoint_identity, active_upstream, ctx_evidence = gather_endpoint_context()
+    endpoint_identity, upstream_host, ctx_evidence = gather_endpoint_context()
     evidence.extend(ctx_evidence)
     mapping = _read_provider_mapping(repo)
     result = attest(
@@ -934,7 +1038,7 @@ def _cmd_attest(args: argparse.Namespace) -> int:
         configured_provider=args.configured_provider or provider,
         configured_model=args.configured_model,
         endpoint_identity=args.endpoint_identity or endpoint_identity,
-        active_upstream_provider=args.active_upstream_provider or active_upstream,
+        upstream_endpoint_host=args.upstream_endpoint_host or upstream_host,
         direct_backend_provider=args.direct_backend_provider,
         direct_backend_model=args.direct_backend_model,
         provider_mapping=mapping,
@@ -948,21 +1052,46 @@ def _cmd_ratchet(args: argparse.Namespace) -> int:
     repo = Path(args.repo)
     tools = [args.tool] if args.tool else list(RATCHET_TOOLS)
     commit = args.commit or _run(["git", "rev-parse", "HEAD"], repo).stdout.strip()
-    if args.action == "capture":
+
+    if args.action == "propose":
+        if not args.reason:
+            print("propose requires --reason")
+            return 2
         for tool in tools:
             baseline = capture_baseline(tool, repo, commit)
-            path = _write_baseline(tool, repo, baseline, reason="initial")
-            print(f"captured {tool} baseline -> {path} ({baseline['finding_count']} findings)")
+            path = write_proposal(tool, repo, baseline, args.reason)
+            print(f"proposed {tool} baseline -> {path} ({baseline['finding_count']} findings)")
         return 0
+
+    if args.action == "promote":
+        if not args.reason:
+            print("promote requires --reason")
+            return 2
+        if not args.evidence:
+            print(
+                "promote requires --evidence <approval/evidence reference> "
+                "(explicit control-plane action)"
+            )
+            return 2
+        for tool in tools:
+            path = promote_proposal(tool, repo, args.reason, args.evidence)
+            print(f"promoted {tool} canonical baseline -> {path}")
+        return 0
+
     if args.action == "compare":
         code = 0
         for tool in tools:
-            path = baseline_path(tool, repo)
+            path = canonical_baseline_path(tool, repo)
             if not path.is_file():
-                print(f"{tool}: FAIL — baseline missing at {path}")
+                print(f"{tool}: FAIL — canonical baseline missing at {path}")
                 code = 1
                 continue
             baseline = _yaml_load(path)
+            ok, why = verify_baseline_git(baseline, tool, repo, commit)
+            if not ok:
+                print(f"{tool}: FAIL — {why}")
+                code = 1
+                continue
             current = capture_baseline(tool, repo, commit)
             result = ratchet_compare(baseline, current)
             print(f"{tool}: {result['status']} — {result.get('detail', '')}")
@@ -972,17 +1101,6 @@ def _cmd_ratchet(args: argparse.Namespace) -> int:
             if result["status"] != "PASS":
                 code = 1
         return code
-    if args.action == "rebaseline":
-        if not args.reason:
-            print("rebaseline requires --reason (fail-closed: no silent rebaseline)")
-            return 2
-        for tool in tools:
-            path = baseline_path(tool, repo)
-            previous = _yaml_load(path) if path.is_file() else None
-            baseline = capture_baseline(tool, repo, commit)
-            _write_baseline(tool, repo, baseline, reason=args.reason, previous=previous)
-            print(f"rebaselined {tool} -> {path} ({baseline['finding_count']} findings)")
-        return 0
     return 2
 
 
@@ -1023,16 +1141,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_attest.add_argument("--configured-provider")
     p_attest.add_argument("--configured-model")
     p_attest.add_argument("--endpoint-identity", help="bounded endpoint host identity")
-    p_attest.add_argument("--active-upstream-provider", help="proven active upstream provider")
+    p_attest.add_argument("--upstream-endpoint-host", help="active upstream endpoint host")
     p_attest.add_argument("--direct-backend-provider")
     p_attest.add_argument("--direct-backend-model")
     p_attest.set_defaults(func=_cmd_attest)
 
     p_ratchet = sub.add_parser("ratchet", help="versioned diagnostic baseline ratchet")
-    p_ratchet.add_argument("action", choices=["capture", "compare", "rebaseline"])
+    p_ratchet.add_argument("action", choices=["compare", "propose", "promote"])
     p_ratchet.add_argument("--tool", choices=list(RATCHET_TOOLS))
-    p_ratchet.add_argument("--commit", help="baseline commit (default: current HEAD)")
-    p_ratchet.add_argument("--reason", help="rebaseline reason (rebaseline only)")
+    p_ratchet.add_argument("--commit", help="comparison commit (default: current HEAD)")
+    p_ratchet.add_argument("--reason", help="propose/promote reason")
+    p_ratchet.add_argument("--evidence", help="approval/evidence reference (promote only)")
     p_ratchet.set_defaults(func=_cmd_ratchet)
 
     p_contract = sub.add_parser("contract", help="authority/contract guard check")
