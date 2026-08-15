@@ -9,18 +9,19 @@ real_data_gate:
   authority: "docs/architecture/REAL_DATA_GATE.yaml"
 
 current_epic:
-  id: "E09"
-  name: "Rebuildable Projections and Local Retrieval"
+  id: "E10"
+  name: "User-Controlled Professional Report and Interchange"
   status: "ACCEPTED"
   implementation_status: "IMPLEMENTED"
   review_verdict: "ACCEPTED"
-  risk: "RISK-M"
-  expected_final_gate: "EPIC"
-  prompt: "docs/prompts/deepseek/E09_REBUILDABLE_LOCAL_RETRIEVAL.md"
-  report: "docs/development/reports/E09.md"
-  depends_on_epic: "E08"
-  depends_on_commit: "1e6dcd86dd226bc84ef728d643fd21db4ecc1fb9"
-  codex_review_required: false
+  risk: "RISK-H"
+  expected_final_gate: "FULL"
+  prompt: "docs/prompts/deepseek/E10_USER_CONTROLLED_PROFESSIONAL_REPORT.md"
+  report: "docs/development/reports/E10.md"
+  depends_on_epic: "E09"
+  depends_on_commit: "27c536fa8af784a7dc69a3ac99fc1cecd831d906"
+  codex_review_required: true
+  review_substitution: "fresh strong independent review substituted for unavailable Codex by explicit architect/user decision; observed model claude-opus-5[1m]; DeepSeek V4 Pro not observably confirmed"
 
 accepted_epics:
   - id: "E00"
@@ -63,10 +64,14 @@ accepted_epics:
     status: "ACCEPTED"
     report: "docs/implementation/E09_ACCEPTANCE_REPORT.md"
     commit: "27c536fa8af784a7dc69a3ac99fc1cecd831d906"
+  - id: "E10"
+    status: "ACCEPTED"
+    report: "docs/implementation/E10_ACCEPTANCE_REPORT.md"
+    commit: "6c2ccf75637ef85db42bc62caf206c1c0e736d21"
 
 next_epic:
-  id: "E10"
-  name: "User-Controlled Professional Report and Interchange"
+  id: "E11"
+  name: "Lifetime Operations, Release Evidence, and Gate Decision"
   status: "PLANNED"
   prompt: null
   preparation_prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
@@ -81,8 +86,8 @@ architecture:
 git:
   branch: "main"
   prepared_from_commit: "24a882c88002ec88d8f79277a5868fb114d32d14"
-  accepted_commit: "27c536fa8af784a7dc69a3ac99fc1cecd831d906"
+  accepted_commit: "6c2ccf75637ef85db42bc62caf206c1c0e736d21"
 
 next_action:
   prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
-  instruction: "E09 is accepted. E10 remains PLANNED and unprepared; keep REAL_DATA_GATE CLOSED."
+  instruction: "E10 is ACCEPTED and merged; E11 remains PLANNED; keep REAL_DATA_GATE CLOSED."
