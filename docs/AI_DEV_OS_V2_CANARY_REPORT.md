@@ -3,6 +3,7 @@
 **Status:** `IMPLEMENTED / PENDING_REVIEW` (CANARY, not production-ready)
 **Base:** `ceb3031dd5d7d75564691f59ddf6e23dd71a812f`
 **Branch:** `ai-dev/v2-control-canary`
+**Implementation SHA:** `b81c53b4275a1fc6b3dc9bbd4a62f43b1fc8857c`
 **V1:** unchanged — `VERIFIED / PRODUCTION_READY`
 
 This report distinguishes **CLAIM** (what the implementation states), **EVIDENCE**
