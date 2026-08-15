@@ -9,18 +9,18 @@ real_data_gate:
   authority: "docs/architecture/REAL_DATA_GATE.yaml"
 
 current_epic:
-  id: "E09"
-  name: "Rebuildable Projections and Local Retrieval"
-  status: "ACCEPTED"
+  id: "E10"
+  name: "User-Controlled Professional Report and Interchange"
+  status: "IMPLEMENTED"
   implementation_status: "IMPLEMENTED"
-  review_verdict: "ACCEPTED"
-  risk: "RISK-M"
-  expected_final_gate: "EPIC"
-  prompt: "docs/prompts/deepseek/E09_REBUILDABLE_LOCAL_RETRIEVAL.md"
-  report: "docs/development/reports/E09.md"
-  depends_on_epic: "E08"
-  depends_on_commit: "1e6dcd86dd226bc84ef728d643fd21db4ecc1fb9"
-  codex_review_required: false
+  review_verdict: "PENDING_REVIEW"
+  risk: "RISK-H"
+  expected_final_gate: "FULL"
+  prompt: "docs/prompts/deepseek/E10_USER_CONTROLLED_PROFESSIONAL_REPORT.md"
+  report: "docs/development/reports/E10.md"
+  depends_on_epic: "E09"
+  depends_on_commit: "27c536fa8af784a7dc69a3ac99fc1cecd831d906"
+  codex_review_required: true
 
 accepted_epics:
   - id: "E00"
@@ -65,8 +65,8 @@ accepted_epics:
     commit: "27c536fa8af784a7dc69a3ac99fc1cecd831d906"
 
 next_epic:
-  id: "E10"
-  name: "User-Controlled Professional Report and Interchange"
+  id: "E11"
+  name: "Lifetime Operations, Release Evidence, and Gate Decision"
   status: "PLANNED"
   prompt: null
   preparation_prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
@@ -85,4 +85,4 @@ git:
 
 next_action:
   prompt: "docs/prompts/codex/PREPARE_NEXT_EPIC.md"
-  instruction: "E09 is accepted. E10 remains PLANNED and unprepared; keep REAL_DATA_GATE CLOSED."
+  instruction: "E10 is IMPLEMENTED and pending the required fresh Codex review; E11 remains PLANNED; keep REAL_DATA_GATE CLOSED."
