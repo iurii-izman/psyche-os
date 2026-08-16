@@ -152,26 +152,122 @@ capabilities:
     enabled: false
 
   # ---- Intentionally deferred LAB candidates (NOT installed) ----
+  # ---- Wave 2: Code intelligence tournament controls (existing PR11 infrastructure) ----
+  v1:
+    state: core
+    type: code-intelligence-control
+    version: null
+    source: repository V1 workflow (rg + ast-grep; scripts/ai_dev_perf.py)
+    license: MIT
+    execution: local
+    network: false
+    filesystem: read
+    always_on: false
+    installed: true
+    installed_as: repository V1 context broker
+    command: null
+    notes: rg + ast-grep lexical retrieval; tournament control baseline
+  v2:
+    state: core
+    type: code-intelligence-control
+    version: null
+    source: repository PR11 lightweight local index (scripts/ai_dev_perf.py)
+    license: MIT
+    execution: local
+    network: false
+    filesystem: read
+    always_on: false
+    installed: true
+    installed_as: repository code map / index (Wave 1 retained)
+    command: null
+    notes: deterministic symbol/module/test index; tournament control
+
+  # ---- Wave 2: Code intelligence tournament (LAB; user-local installs) ----
   pathfinder:
     state: lab
     type: code-intelligence
-    installed: false
+    version: 0.23.2
+    source: https://github.com/irahardianto/pathfinder
+    license: MIT
+    execution: local
+    network: false
+    filesystem: read
+    persistence: index-on-disk (.pathfinder/ cache)
+    always_on: false
+    installed: true
+    installed_as: user-local cargo (cargo install pathfinder-mcp; source build on Windows — no official Windows binary)
+    command: pathfinder-mcp
+    check: pathfinder-mcp --version
+    notes: MCP server over stdio (driven via the tournament adapter's mini MCP client); tree-sitter fallback active without LSP
   symlens:
     state: lab
     type: code-intelligence
-    installed: false
+    version: 0.12.15
+    source: https://github.com/TtTRz/symlens
+    license: MIT
+    execution: local-wsl
+    network: false
+    filesystem: read
+    persistence: index-on-disk (~/.symlens/indexes in WSL)
+    always_on: false
+    installed: true
+    installed_as: WSL2-local LAB tooling (rustup + cargo install symlens in Ubuntu-26.04)
+    command: null
+    check: wsl -d Ubuntu-26.04 -- bash -lc '. "$HOME/.cargo/env" && symlens --version'
+    notes: Windows-incompatible crate (Unix daemon); runs via the symlens adapter copying the tree into WSL
   codebase-memory:
     state: lab
     type: code-intelligence
-    installed: false
+    version: 0.10.5
+    source: https://github.com/DeusData/codebase-memory-mcp
+    license: MIT
+    execution: local
+    network: false
+    filesystem: read-write    # writes index cache under ~/.cache/codebase-memory-mcp/
+    persistence: index-on-disk (SQLite graph cache)
+    always_on: false
+    installed: true
+    installed_as: user-local uv tool (codebase-memory-mcp; native windows/amd64 binary, checksum verified)
+    command: codebase-memory-mcp
+    check: codebase-memory-mcp --version
+    notes: CLI one-shot mode only (cli index_repository + search_graph); no daemon left running
   code-review-graph:
     state: lab
     type: code-intelligence
-    installed: false
+    version: 2.3.7
+    source: https://github.com/tirth8205/code-review-graph
+    license: MIT
+    execution: local
+    network: false
+    filesystem: read-write    # writes local SQLite graph + .code-review-graph/ cache
+    persistence: index-on-disk (SQLite graph)
+    always_on: false
+    installed: true
+    installed_as: user-local uv tool (code-review-graph)
+    command: code-review-graph
+    check: code-review-graph --version
+  aider-repo-map:
+    state: lab
+    type: code-intelligence
+    version: 0.86.2
+    source: https://github.com/Aider-AI/aider
+    license: Apache-2.0
+    execution: local
+    network: false
+    filesystem: read
+    persistence: none (repo-map cache only)
+    always_on: false
+    installed: true
+    installed_as: user-local uv tool (aider-chat)
+    command: aider
+    check: aider --version
+    notes: Wave 2 uses ONLY the offline repo-map capability (--show-repo-map); no model requests through aider
   codesearch:
     state: lab
     type: code-intelligence
     installed: false
+
+  # ---- Wave 2: Test selection tournament (dev-only pytest plugins) ----
   pytest-testmon:
     state: lab
     type: test-selection

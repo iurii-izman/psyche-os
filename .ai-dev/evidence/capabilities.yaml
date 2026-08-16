@@ -93,3 +93,107 @@ entries:
       exit codes propagate; evidence captured per run. Core because the launcher itself
       is the mechanism other tools run through, not because any new tool is CORE.
     rollback: remove the script and its registry entry
+
+  # ---- Wave 2: Code intelligence tournament (LAB) ----
+  - capability: code-review-graph
+    decision: lab
+    problem: >-
+      local-first impact/review graph challenger — build a SQLite code graph and
+      answer search/impact/architecture queries without sending source anywhere
+    observed_on: 2026-08-17
+    decision_reason: >-
+      Wave 2A candidate (tirth8205/code-review-graph 2.3.7, MIT, verified from
+      primary sources). Windows-supported, tree-sitter Python+TS, CLI one-shot.
+      Installed as LAB via uv tool; NOT promoted — search quality is term-sensitive
+      (FTS misses underscore-joined identifiers, adapter falls back to split parts).
+    rollback: uv tool uninstall code-review-graph
+
+  - capability: codebase-memory
+    decision: lab
+    problem: >-
+      structural/architecture/impact specialist — persistent tree-sitter knowledge
+      graph with CLI one-shot queries (search_graph, get_architecture, trace_path)
+    observed_on: 2026-08-17
+    decision_reason: >-
+      Wave 2A candidate (DeusData/codebase-memory-mcp 0.10.5, MIT, verified).
+      Windows native binary, CLI mode avoids the daemon. Installed as LAB via uv
+      tool. NOT a persistent authority: source/git/ADR/spec/STATE stay canonical.
+    rollback: uv tool uninstall codebase-memory-mcp
+
+  - capability: pathfinder
+    decision: lab
+    problem: >-
+      code-intelligence challenger — symbol lookup/refs/defs/structural search via
+      LSP + tree-sitter, exposed as an MCP server
+    observed_on: 2026-08-17
+    decision_reason: >-
+      Wave 2A candidate (irahardianto/pathfinder pathfinder-mcp 0.23.2, MIT,
+      verified). No official Windows binary; source-built successfully on this
+      Windows 11 machine (real evidence, contradicts "unsupported"). Runs as an
+      MCP-over-stdio server driven by the tournament adapter; tree-sitter fallback
+      without LSP. LAB, not promoted.
+    rollback: cargo uninstall pathfinder-mcp
+
+  - capability: symlens
+    decision: lab
+    problem: >-
+      lean structural/symbol challenger — tree-sitter symbol index with search,
+      refs, callers/callees, graph/impact, tiny footprint
+    observed_on: 2026-08-17
+    decision_reason: >-
+      Wave 2A candidate (TtTRz/symlens 0.12.15, MIT, verified). Crate does not
+      compile on native Windows (Unix-only daemon); installed as WSL2-local LAB
+      tooling (Ubuntu-26.04, cargo install) per Wave 2 authorization. Competes
+      with Pathfinder; outputs never merged.
+    rollback: remove rustup + cargo in WSL2
+
+  - capability: aider-repo-map
+    decision: lab
+    problem: >-
+      lean repo-map comparator — tree-sitter-based file+symbol map for agent
+      context, used ONLY as an offline map (--show-repo-map), never as a harness
+    observed_on: 2026-08-17
+    decision_reason: >-
+      Wave 2A candidate (Aider-AI/aider 0.86.2, Apache-2.0, verified). Adopted in
+      Wave 2 solely for repo-map generation (zero model/network calls). Harness
+      competition belongs to Wave 3; aider agent mode is NOT used.
+    rollback: uv tool uninstall aider-chat
+
+  # ---- Wave 2: Test selection tournament (LAB, dev-only) ----
+  - capability: pytest-testmon
+    decision: lab
+    problem: >-
+      dependency-based test selection challenger — selects tests affected by a
+      change from a learned .testmondata dependency map
+    observed_on: 2026-08-17
+    decision_reason: >-
+      Wave 2B candidate (pytest-testmon 2.2.0, dev-only). Installed for the
+      mutation-detection tournament. NEVER redefines acceptance: FULL pytest
+      remains truth; a tool with a false negative on our mutation set is not
+      eligible to become the default selector.
+    rollback: remove from [dependency-groups].dev and re-lock
+
+  - capability: pytest-impacted
+    decision: lab
+    problem: >-
+      static impacted-test selection challenger — selects tests from the git
+      diff / changed files without a learned dependency map
+    observed_on: 2026-08-17
+    decision_reason: >-
+      Wave 2B candidate (pytest-impacted 0.28.0, dev-only). Cold-state challenger.
+      Same acceptance rule as pytest-testmon.
+    rollback: remove from [dependency-groups].dev and re-lock
+
+  # ---- Wave 2: tournament infrastructure ----
+  - capability: intelligence-tournament
+    decision: lab
+    problem: >-
+      orchestrate code-intelligence and test-selection tournaments over the
+      existing JIT launcher + frozen benchmark tasks; produce normalized evidence
+    observed_on: 2026-08-17
+    decision_reason: >-
+      Wave 2 scripts (ai_dev_tournament.py + ai_dev_adapters.py +
+      ai_dev_testselect.py). Small orchestration; adapter normalization + evidence
+      are the bulk of the complexity. Shadow mode is telemetry-only and cannot
+      affect context or acceptance.
+    rollback: remove the three scripts and tournament config/evidence

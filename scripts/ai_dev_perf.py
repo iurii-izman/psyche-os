@@ -1359,6 +1359,7 @@ def retrieve_v1(task: dict[str, Any], base_repo: Path, config: dict[str, Any], t
         "full_file_inclusions": 0,
         "files_selected": sorted({i["path"] for i in selected}),
         "tests_selected": sorted(tests),
+        "items": items,
         "wall_ms": round(wall_ms, 1),
         "index_build_ms": None,
     }
@@ -1498,6 +1499,7 @@ def retrieve_v2(
         "full_file_inclusions": 0,
         "files_selected": sorted({i["path"] for i in selected}),
         "tests_selected": sorted(tests),
+        "items": items,
         "wall_ms": round(wall_ms, 1),
         "index_build_ms": None,
     }

@@ -1,0 +1,53 @@
+# AI Dev OS v2 — Acceleration Wave 2B: test-selection mutation scenarios.
+#
+# Each scenario is a small deterministic behavior-breaking mutation applied to a
+# DISPOSABLE git worktree. The mutation must be caught by at least one real
+# test in the FULL suite (that test is the scenario's detector). Mutated
+# application code is NEVER committed.
+#
+# Ground truth per scenario: FULL pytest -> failing nodeids == detectors.
+# old/new are EXACT source strings (quoted; \n explicit) so application is a
+# deterministic verbatim replace that must match exactly once.
+
+version: 1
+
+scenarios:
+  - scenario_id: leaf-temporal-validity
+    class: leaf
+    module: src/psyche_os/temporal/temporal.py
+    mutation:
+      desc: flip lower>upper interval-validity comparison so valid intervals become invalid
+      old: "            if self.lower_value > self.upper_value:"
+      new: "            if self.lower_value < self.upper_value:"
+
+  - scenario_id: mid-crypto-vmk-length
+    class: mid
+    module: src/psyche_os/crypto/envelope.py
+    mutation:
+      desc: generate_vmk now returns a 128-bit key instead of 256-bit (security regression)
+      old: "    return SensitiveBytes(secrets.token_bytes(32))"
+      new: "    return SensitiveBytes(secrets.token_bytes(16))"
+
+  - scenario_id: cross-domain-version-isactive
+    class: cross-module
+    module: src/psyche_os/domain/versions.py
+    mutation:
+      desc: VersionRow.is_active returns the inverse (is not None)
+      old: "        return self.transaction_to is None"
+      new: "        return self.transaction_to is not None"
+
+  - scenario_id: storage-filesystem-regular
+    class: storage
+    module: src/psyche_os/adapters/e08_filesystem.py
+    mutation:
+      desc: _validate_regular now rejects every regular file (accepts non-regular)
+      old: "        if not stat.S_ISREG(info.st_mode):\n            raise FilesystemBoundaryError(\"non_regular_file_rejected\")"
+      new: "        if stat.S_ISREG(info.st_mode):\n            raise FilesystemBoundaryError(\"non_regular_file_rejected\")"
+
+  - scenario_id: hub-schema-primary-key
+    class: hub
+    module: src/psyche_os/storage/schema.py
+    mutation:
+      desc: ACTORS_DDL composite primary key drops version_id (schema regression)
+      old: "-- F05: Separate stable record identity from row version_id\n    version_id      TEXT NOT NULL DEFAULT '',\n    previous_version_id TEXT NOT NULL DEFAULT '',\n    -- Subtype closure: a deleted actor must cascade-invalidate\n    -- provenance references that transitively depend on it\n    closure_marker  TEXT NOT NULL DEFAULT ''\n        CHECK (closure_marker IN ('', 'pending_invalidation', 'invalidated')),\n    PRIMARY KEY (record_id, version_id)"
+      new: "-- F05: Separate stable record identity from row version_id\n    version_id      TEXT NOT NULL DEFAULT '',\n    previous_version_id TEXT NOT NULL DEFAULT '',\n    -- Subtype closure: a deleted actor must cascade-invalidate\n    -- provenance references that transitively depend on it\n    closure_marker  TEXT NOT NULL DEFAULT ''\n        CHECK (closure_marker IN ('', 'pending_invalidation', 'invalidated')),\n    PRIMARY KEY (record_id)"
