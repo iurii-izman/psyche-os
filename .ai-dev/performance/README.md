@@ -32,12 +32,42 @@ uv run python scripts/ai_dev_perf.py map                                  # buil
 uv run python scripts/ai_dev_perf.py context <term>...                    # exact-range context
 uv run python scripts/ai_dev_perf.py impact --paths <file>...             # affected surface
 uv run python scripts/ai_dev_perf.py verify --paths <file>...             # targeted pytest (fail-closed)
+uv run python scripts/ai_dev_perf.py verify --paths <file>... --reportlog # deterministic failure packet
 uv run python scripts/ai_dev_perf.py prompt --task "..." --symbols <s>... # self-contained packet
 uv run python scripts/ai_dev_perf.py benchmark                            # micro cost measurements
 uv run python scripts/ai_dev_perf.py benchmark-v1v2                       # fair V1 vs V2 over frozen tasks
 uv run python scripts/ai_dev_perf.py prepare-e11                          # read-only PREPARE E11 dry run
 uv run python scripts/ai_dev_perf.py report                               # regenerate measured report sections
 ```
+
+## Wave 1 Acceleration (JIT capability launcher)
+
+External LAB/CONDITIONAL tools are invoked just-in-time through the existing
+Capability Registry — never wired into prompts/hooks directly:
+
+```bash
+uv run python scripts/ai_dev_capability.py list                         # registry table
+uv run python scripts/ai_dev_capability.py info difftastic              # one record
+uv run python scripts/ai_dev_capability.py doctor difftastic            # availability + version
+uv run python scripts/ai_dev_capability.py run difftastic -- --version  # invoke JIT, capture evidence
+uv run python scripts/ai_dev_capability.py run difftastic -- --git <sha1> <sha2> [paths...]
+uv run python scripts/ai_dev_capability.py run reportlog-parser -- <artifact.jsonl>
+```
+
+States are honored: `DISABLED`/`QUARANTINED` refuse to run; `LAB` runs only by
+explicit invocation; subprocess exit codes propagate; bounded evidence is written
+under `.ai-dev/evidence/performance/runs/capability-runs/` (local, gitignored).
+
+## pytest-reportlog verify
+
+`verify --reportlog` (or config `verify_reportlog: true`) runs the targeted pytest
+with `--report-log`, parses the JSONL artifact with
+`scripts/ai_dev_reportlog.py`, and prints a small deterministic failure packet
+(failing nodeid, phase, error type, message, traceback excerpt, exit code, raw
+artifact path) instead of the console stream. Fail-closed semantics are unchanged:
+`PASS` requires pytest rc 0 **and** a clean SessionFinish; truncated/malformed logs
+are `UNKNOWN`, never green. If the plugin/artifact is unavailable, `verify` degrades
+to the plain stdout parse automatically.
 
 ## Fair V1 vs V2 benchmark
 

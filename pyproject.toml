@@ -32,16 +32,9 @@ dependencies = [
 psyche-os = "psyche_os.__main__:main"
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=8.3",
-    "pytest-cov>=6.0",
-    "pytest-timeout>=2.3",
-    "pytest-xdist>=3.6",
-    "ruff>=0.11",
-    "mypy>=1.15",
-    "coverage>=7.6",
-    "hypothesis>=6.130",
-]
+# Legacy `dev` extra retained for backward compatibility. The canonical dev
+# toolchain lives in [dependency-groups].dev (installed by `uv sync`/`uv run`).
+dev = []
 
 [tool.ruff]
 target-version = "py312"
@@ -138,10 +131,19 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "coverage>=7.6",
+    "hypothesis>=6.130",
+    "mypy>=1.15",
     "psutil==7.2.2",
     "pyinstaller==6.22.0",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "pytest-reportlog==1.0.0",
+    "pytest-timeout>=2.3",
+    "pytest-xdist>=3.6",
     "pywinauto==0.6.9",
     "pyyaml>=6.0.3",
+    "ruff>=0.11",
 ]
 
 [tool.hatch.build.targets.wheel]

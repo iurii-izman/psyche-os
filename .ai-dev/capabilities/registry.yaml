@@ -74,6 +74,75 @@ capabilities:
     network: true
     always_on: false       # per-call
 
+  # ---- Wave 1: Acceleration (syntax-aware diff) ----
+  difftastic:
+    state: conditional
+    type: syntax-diff
+    version: 0.70.0
+    source: https://github.com/Wilfred/difftastic
+    license: MIT
+    execution: local
+    network: false
+    filesystem: read
+    persistence: none
+    always_on: false
+    installed: true
+    installed_as: user-local winget (Wilfred.difftastic)
+    command: difft
+    check: difft --version
+
+  # ---- Wave 1: Acceleration (machine-readable pytest log + deterministic parser) ----
+  # Plugin, not a standalone binary: used via `ai_dev_perf.py verify --reportlog`
+  # (and `--report-log <path>` on any pytest run). Not directly invocable.
+  pytest-reportlog:
+    state: conditional
+    type: test-reporting
+    version: 1.0.0
+    source: https://github.com/pytest-dev/pytest-reportlog
+    license: MIT
+    execution: local
+    network: false
+    filesystem: write       # writes the report-log JSONL artifact
+    persistence: artifact-only
+    always_on: false
+    installed: true
+    installed_as: dev dependency (uv, pinned ==1.0.0)
+    command: null
+    check: uv run python -c "import importlib.metadata as m; print(m.version('pytest-reportlog'))"
+
+  reportlog-parser:
+    state: conditional
+    type: test-report-parser
+    version: 0.1.0
+    source: repository scripts/ai_dev_reportlog.py
+    license: MIT
+    execution: local
+    network: false
+    filesystem: read
+    persistence: none
+    always_on: false
+    installed: true
+    installed_as: repository script
+    command: uv run python scripts/ai_dev_reportlog.py
+    check: uv run python scripts/ai_dev_reportlog.py --version
+
+  # ---- Wave 1: Acceleration (JIT launcher itself) ----
+  capability-launcher:
+    state: core
+    type: jit-launcher
+    version: 0.1.0
+    source: repository scripts/ai_dev_capability.py
+    license: MIT
+    execution: local
+    network: false
+    filesystem: read-write  # writes bounded evidence under .ai-dev/evidence
+    persistence: evidence-only
+    always_on: false
+    installed: true
+    installed_as: repository script
+    command: uv run python scripts/ai_dev_capability.py
+    check: uv run python scripts/ai_dev_capability.py --version
+
   # ---- Tauri runtime (CONDITIONAL, NOT enabled) ----
   tauri-runtime-bridge:
     state: conditional

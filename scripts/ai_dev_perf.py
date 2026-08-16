@@ -39,6 +39,16 @@ import tempfile
 import time
 from typing import Any
 
+# Wave 1: pytest-reportlog deterministic parser (sibling script). Optional — the
+# plain stdout-parsing verify path remains the fallback when it is unavailable.
+try:
+    import ai_dev_reportlog  # type: ignore
+
+    _HAS_REPORTLOG = True
+except Exception:  # pragma: no cover - env without the sibling script
+    ai_dev_reportlog = None  # type: ignore[assignment]
+    _HAS_REPORTLOG = False
+
 # --------------------------------------------------------------------------- paths
 
 REPO = Path(__file__).resolve().parent.parent
@@ -194,6 +204,14 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
         "lexical_merge_gap": LEXICAL_MERGE_GAP,
         "index_cache": ".ai-dev/evidence/performance/index.json",
         "runs_dir": ".ai-dev/evidence/performance/runs",
+        # Wave 1: emit a deterministic reportlog packet instead of raw console.
+        # Default OFF so the plain verify path stays the baseline; flip in config
+        # when promoted. The parser keeps the fail-closed semantics unchanged.
+        "verify_reportlog": False,
+        # Component D consolidation: the only implemented context model on the
+        # default context/prompt path is exact-range. `module-surface` (the ~8x
+        # larger benchmark-only V2 model) must never silently become default.
+        "context_model": "exact-range",
     }
     path = path or DEFAULT_CONFIG
     if path.is_file():
@@ -202,7 +220,15 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
 
             with path.open(encoding="utf-8") as fh:
                 data = yaml.safe_load(fh) or {}
-            for k in ("src_roots", "test_root", "context_token_target", "chars_per_token", "lexical_merge_gap"):
+            for k in (
+                "src_roots",
+                "test_root",
+                "context_token_target",
+                "chars_per_token",
+                "lexical_merge_gap",
+                "verify_reportlog",
+                "context_model",
+            ):
                 if k in data:
                     cfg[k] = data[k]
         except Exception:
@@ -900,6 +926,7 @@ def run_pytest(
     raw_dir: Path,
     timeout: int = 600,
     source_changed: bool | None = None,
+    reportlog: bool = False,
 ) -> dict[str, Any]:
     plan = verify_plan(index, test_paths, full=full, source_changed=source_changed)
     if plan["command"] is None:
@@ -919,7 +946,11 @@ def run_pytest(
             "raw": None,
         }
     t0 = time.perf_counter()
-    proc = run_cmd(plan["command"], timeout=timeout)
+    rl_path = raw_dir / "report-log.jsonl"
+    cmd = list(plan["command"])
+    if reportlog:
+        cmd += ["--report-log", str(rl_path)]
+    proc = run_cmd(cmd, timeout=timeout)
     duration_ms = (time.perf_counter() - t0) * 1000.0
     raw_dir.mkdir(parents=True, exist_ok=True)
     raw_path = raw_dir / "pytest-raw.txt"
@@ -927,6 +958,46 @@ def run_pytest(
     if proc.stderr:
         (raw_dir / "pytest-stderr.txt").write_text(proc.stderr, encoding="utf-8", errors="replace")
     summary = _parse_pytest(proc.stdout)
+    # Wave 1: prefer the deterministic reportlog packet when an artifact exists.
+    # Missing/parse-failed artifact degrades to the existing stdout path so the
+    # plain pytest verification always remains available.
+    packet: dict[str, Any] | None = None
+    if reportlog and _HAS_REPORTLOG and rl_path.is_file():
+        try:
+            packet = ai_dev_reportlog.parse_reportlog(rl_path, command=" ".join(plan["command"]))
+            packet["duration"] = round(duration_ms, 1)
+        except ai_dev_reportlog.ReportLogError:
+            packet = None
+    if packet is not None:
+        # F3 (reportlog variant): a clean SessionFinish with rc 0 is the only
+        # route to PASS. Truncated/malformed logs or non-zero rc are never green.
+        coll = packet["collection"]
+        if proc.returncode == 0 and not packet["truncated"]:
+            status = "PASS"
+        elif coll["failed"] or coll["errors"]:
+            status = "FAIL"
+        else:
+            status = "UNKNOWN"
+        return {
+            "state": plan["state"],
+            "status": status,
+            "command": cmd,
+            "collected": coll["collected"],
+            "passed": coll["passed"],
+            "failed": coll["failed"],
+            "errors": coll["errors"],
+            "skipped": coll["skipped"],
+            "duration_ms": round(duration_ms, 1),
+            "rc": proc.returncode,
+            "reportlog": {
+                "available": True,
+                "packet": packet,
+                "summary": ai_dev_reportlog.render_summary(packet),
+            },
+            "stdout_summary": _bounded_summary(proc.stdout),
+            "stderr_summary": _bounded_summary(proc.stderr),
+            "raw": str(raw_path),
+        }
     # F3: exit code 0 is required for PASS. A non-zero rc must never become
     # PASS even when parsed counters show failed==0 and errors==0 — that can be
     # a collection error, crash, timeout, or config/infrastructure failure.
@@ -939,7 +1010,7 @@ def run_pytest(
     return {
         "state": plan["state"],
         "status": status,
-        "command": plan["command"],
+        "command": cmd,
         "collected": summary[0],
         "passed": summary[1],
         "failed": summary[2],
@@ -947,6 +1018,7 @@ def run_pytest(
         "skipped": summary[4],
         "duration_ms": round(duration_ms, 1),
         "rc": proc.returncode,
+        "reportlog": {"available": False} if reportlog else None,
         "stdout_summary": _bounded_summary(proc.stdout),
         "stderr_summary": _bounded_summary(proc.stderr),
         "raw": str(raw_path),
@@ -1931,6 +2003,10 @@ def _make_parser() -> argparse.ArgumentParser:
     p_ver.add_argument("--full", action="store_true", help="run the full suite instead")
     p_ver.add_argument("--dry-run", action="store_true", help="print the command without running it")
     p_ver.add_argument("--no-cache", action="store_true")
+    rl_group = p_ver.add_mutually_exclusive_group()
+    rl_group.add_argument("--reportlog", action="store_true", default=None, help="emit a deterministic reportlog packet (default from config verify_reportlog)")
+    rl_group.add_argument("--no-reportlog", dest="reportlog", action="store_false", help="use the plain stdout parse even if enabled in config")
+    p_ver.add_argument("--json-verbose", action="store_true", help="include the full packet in --json output")
     p_ver.add_argument("--json", action="store_true")
     p_ver.set_defaults(fn=cmd_verify)
 
@@ -1997,7 +2073,23 @@ def cmd_map(args: argparse.Namespace, config: dict[str, Any]) -> int:
     return 0
 
 
+def _check_context_model(config: dict[str, Any]) -> None:
+    """Component D: the unproven module-surface context model must never
+    silently become the default on the context/prompt path. Only the exact-range
+    model is implemented there; the ~8x-larger module-surface model remains
+    benchmark-only evidence (benchmark-v1v2)."""
+    model = config.get("context_model", "exact-range")
+    if model != "exact-range":
+        raise PerfError(
+            f"context_model {model!r} is EXPERIMENTAL / OFF-BY-DEFAULT: the default "
+            "context/prompt path only implements 'exact-range'. The module-surface "
+            "model is benchmark-only (ai_dev_perf.py benchmark-v1v2) and is not "
+            "selectable here."
+        )
+
+
 def cmd_context(args: argparse.Namespace, config: dict[str, Any]) -> int:
+    _check_context_model(config)
     index, _ = get_index(config, use_cache=True)
     result = assemble_context(
         index,
@@ -2051,32 +2143,57 @@ def cmd_verify(args: argparse.Namespace, config: dict[str, Any]) -> int:
     surface = affected_surface(index, paths)
     source_changed = bool(surface["changed"])
     test_paths = [] if args.full else select_test_paths(index, surface["affected_modules"])
+    use_reportlog = args.reportlog if args.reportlog is not None else bool(config.get("verify_reportlog", False))
     if args.dry_run:
         plan = verify_plan(index, test_paths, full=args.full, source_changed=source_changed)
         if plan["command"]:
             print(" ".join(plan["command"]))
+            if use_reportlog:
+                print("--report-log <artifact>")
         else:
             print("(no mapped tests; nothing to run)")
         print(f"gate: {plan['gate']}  state: {plan['state']}  mapped_test_files: {plan['test_count']}")
         return 0 if plan["state"] in ("PASS", "NO_CODE_CHANGE") else 1
-    result = run_pytest(index, test_paths, full=args.full, raw_dir=RUNS_DIR / f"verify-{_run_id()}", source_changed=source_changed)
+    result = run_pytest(
+        index,
+        test_paths,
+        full=args.full,
+        raw_dir=RUNS_DIR / f"verify-{_run_id()}",
+        source_changed=source_changed,
+        reportlog=use_reportlog,
+    )
     if args.json:
-        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
-    else:
-        gate = "V3 final gate" if args.full else "V1/V2 targeted"
-        status = result["status"]
-        print(f"gate: {gate}  state: {result['state']}  status: {status}  files: {len(test_paths)}")
-        if result["command"]:
+        # The packet is large; keep it out of the JSON by default and point at
+        # the raw artifact instead. --json-verbose adds the packet back.
+        out = dict(result)
+        if "reportlog" in out and isinstance(out["reportlog"], dict) and not getattr(args, "json_verbose", False):
+            rl = dict(out["reportlog"])
+            rl.pop("packet", None)
+            rl.pop("summary", None)
+            out["reportlog"] = rl
+        print(json.dumps(out, ensure_ascii=False, sort_keys=True))
+        return 0
+    gate = "V3 final gate" if args.full else "V1/V2 targeted"
+    status = result["status"]
+    print(f"gate: {gate}  state: {result['state']}  status: {status}  files: {len(test_paths)}")
+    if result["command"]:
+        rl = result.get("reportlog")
+        if isinstance(rl, dict) and rl.get("available"):
+            print(rl["summary"])
+        else:
             print(f"pytest: {result['collected']} collected, {result['passed']} passed, {result['failed']} failed, {result['errors']} errors, {result['skipped']} skipped  ({result['duration_ms'] / 1000:.1f}s) rc={result['rc']}")
+            if isinstance(rl, dict) and not rl.get("available"):
+                print("reportlog: unavailable — using stdout parse (plain pytest verification)")
             if result.get("stderr_summary"):
                 print(f"stderr: {result['stderr_summary'][:300]}")
-            print(f"raw: {result['raw']}")
-        else:
-            print(f"note: {result['state']} — no tests ran; {'run the FULL suite before merge' if status == 'FULL_REQUIRED' else ('targeted verification not required' if status == 'NO_CODE_CHANGE' else 'broader verification required')}")
+        print(f"raw: {result['raw']}")
+    else:
+        print(f"note: {result['state']} — no tests ran; {'run the FULL suite before merge' if status == 'FULL_REQUIRED' else ('targeted verification not required' if status == 'NO_CODE_CHANGE' else 'broader verification required')}")
     return 0 if result["status"] in ("PASS", "NO_CODE_CHANGE") else 1
 
 
 def cmd_prompt(args: argparse.Namespace, config: dict[str, Any]) -> int:
+    _check_context_model(config)
     index, _ = get_index(config, use_cache=not args.no_cache)
     paths = _collect_input_paths(args, index)
     surface = affected_surface(index, paths)

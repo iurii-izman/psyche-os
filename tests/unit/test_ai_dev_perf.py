@@ -512,3 +512,18 @@ class TestV1V2Accounting:
         assert med["docs_tasks"] == 1
         assert med["v1_context_tokens_estimate"] == 150
         assert med["v2_context_tokens_estimate"] == 100
+
+
+# --------------------------------------------------------------------------- Wave 1 Component D: context-model guard
+
+
+class TestContextModelGuard:
+    def test_module_surface_is_experimental_and_rejected(self) -> None:
+        """The ~8x-larger V2 module-surface context model must never silently
+        become the default on the context/prompt path."""
+        with pytest.raises(ai_dev_perf.PerfError):
+            ai_dev_perf._check_context_model({"context_model": "module-surface"})
+
+    def test_exact_range_is_the_only_default(self) -> None:
+        ai_dev_perf._check_context_model({"context_model": "exact-range"})
+        ai_dev_perf._check_context_model({})  # baked-in default

@@ -39,3 +39,57 @@ entries:
     observed_on: 2026-08-15
     decision_reason: security-sensitive portions of psyche-os justify targeted use (catalog status CONDITIONAL).
     rollback: pipx uninstall semgrep
+
+  # ---- Acceleration Wave 1 (2026-08-17) ----
+  - capability: difftastic
+    decision: conditional
+    problem: >-
+      syntax-aware diff review for structural/refactor-heavy changes where
+      unified diff is noisy
+    observed_on: 2026-08-17
+    decision_reason: >-
+      Wave 1 component A. Structural side-by-side output made moved/renamed/refactored
+      code obvious vs unified diff; whole-tree diffs are large (160KB) so the target
+      use is bounded per-file/per-change review. Promoted CONDITIONAL: review
+      capability, never a default git diff.
+    rollback: winget uninstall --id Wilfred.difftastic --exact
+
+  - capability: pytest-reportlog
+    decision: conditional
+    problem: >-
+      giant/truncated pytest console streams are lossy for the LLM; a deterministic
+      machine-readable failure packet preserves failing node, phase, error, traceback,
+      exit code
+    observed_on: 2026-08-17
+    decision_reason: >-
+      Wave 1 component B. Dev-only dependency (pinned 1.0.0); deterministic parser
+      is fail-closed (no SessionFinish/truncated log => UNKNOWN, never PASS); overhead
+      ~0ms; AI-facing packet reduction vs full console grows with failure count
+      (77% at 30 failures). Kept CONDITIONAL (opt-in flag on verify) so the plain
+      stdout path remains the baseline.
+    rollback: remove pytest-reportlog from [dependency-groups].dev and re-lock
+
+  - capability: reportlog-parser
+    decision: conditional
+    problem: >-
+      turn the JSONL report-log artifact into a small bounded deterministic failure
+      packet
+    observed_on: 2026-08-17
+    decision_reason: >-
+      Wave 1 component B parser (scripts/ai_dev_reportlog.py). Deterministic, no LLM
+      in the loop, preserves raw artifact linkage; malformed/truncated logs are
+      flagged, never green.
+    rollback: remove the script and its registry entry
+
+  - capability: capability-launcher
+    decision: core
+    problem: >-
+      JIT invocation of external LAB/CONDITIONAL tools without wiring each into
+      hooks/prompts
+    observed_on: 2026-08-17
+    decision_reason: >-
+      Wave 1 component C. Tiny generic launcher over the existing capability registry;
+      honors DISABLED/QUARANTINED refusal and LAB explicit-only invocation; subprocess
+      exit codes propagate; evidence captured per run. Core because the launcher itself
+      is the mechanism other tools run through, not because any new tool is CORE.
+    rollback: remove the script and its registry entry
