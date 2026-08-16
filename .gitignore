@@ -34,3 +34,8 @@ build/
 # Local research scratch space; durable evidence belongs in docs/research/.
 scratch/
 tmp/
+
+# AI Dev OS v2 performance canary — generated evidence and index cache.
+# (READMEs and the canary report in docs/ are committed; raw runs are local.)
+.ai-dev/evidence/performance/runs/
+.ai-dev/evidence/performance/index.json
