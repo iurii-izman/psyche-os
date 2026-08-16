@@ -374,3 +374,215 @@ through it.
 already registered LAB candidates (`installed: false`); the JIT launcher + registry +
 reportlog verify path give both a drop-in A/B mechanism: install → register → `run` /
 `verify` → measure against the frozen tasks. Reasonix remains Wave 3.
+
+---
+
+# Acceleration Wave 2 — Intelligence Tournament (2026-08-17)
+
+A LARGE experimental LAB wave. Installed a local arsenal for two expensive AI
+activities — **code intelligence** and **test selection** — and ran every external
+challenger against the SAME frozen historical tasks (PR #11 control set). The
+goal is not to prove a permanent winner; it is to keep healthy challengers
+installed for future real epics while making the honest initial ranking visible.
+Wave 1 foundation is untouched; application source is untouched.
+
+Status: **`WAVE_2_COMPLETE`** · base `ceb3031` · branch `ai-dev/v2-performance-canary`
+
+## 1. Installed arsenal
+
+| candidate | category | version | source | license | environment | state |
+|---|---|---|---|---|---|---|
+| v1 | code-intel control | — | repo V1 (rg + ast-grep) | MIT | repo | core |
+| v2 | code-intel control | — | repo PR11 index | MIT | repo | core |
+| code-review-graph | code-intel | 2.3.7 | tirth8205/code-review-graph | MIT | uv tool | lab |
+| codebase-memory | code-intel | 0.10.5 | DeusData/codebase-memory-mcp | MIT | uv tool | lab |
+| pathfinder | code-intel | 0.23.2 | irahardianto/pathfinder (pathfinder-mcp) | MIT | cargo (source build, Windows) | lab |
+| symlens | code-intel | 0.12.15 | TtTRz/symlens | MIT | WSL2 (cargo) | lab |
+| aider-repo-map | code-intel | 0.86.2 | Aider-AI/aider | Apache-2.0 | uv tool | lab |
+| pytest-testmon | test-selection | 2.2.0 | pytest-testmon | MIT | dev dep | lab |
+| pytest-impacted | test-selection | 0.28.0 | pytest-impacted | MIT | dev dep | lab |
+
+Every install was primary-source-verified before installation (identity, version,
+license, OS support, languages, install path, maintenance). No candidate was
+substituted on a name match alone.
+
+## 2. Code-intelligence tournament
+
+All candidates ran on the **5 frozen historical tasks** with the **same terms and
+the same token target (20 000)**, scoring against git-diff ground truth. Objective:
+**HIGH RECALL with SMALL USEFUL CONTEXT** — a candidate that returns almost nothing
+can never win.
+
+| candidate | src recall (mean) | ctx tok (median) | ctx tok (total) | raw output B (median) | dur ms (mean) |
+|---|---|---|---|---|---|
+| v1 (control) | 0.806 | 1 269 | 10 509 | 29 190 | 414 |
+| v2 (control) | 0.917 | 8 403 | 35 211 | 13 331 | 155 |
+| **code-review-graph** | **0.945** | **459** | 1 836 | 1 432 | 20 856 |
+| codebase-memory | 0.833 | **77** | 380 | 2 840 | 35 761 |
+| pathfinder | 0.444 | 158 | 774 | 40 363 | 1 907 |
+| aider-repo-map | 0.972 | 19 165 | 95 630 | 81 558 | 13 518 |
+| symlens | 0.555 | 45 | 218 | 1 572 | 366 |
+
+**Reading.** The recall/context frontier is the story:
+
+- **code-review-graph** leads on the primary objective: **0.945 recall at 459 median
+  context tokens** — the best recall with still-tiny context. Its graph search also
+  surfaces the *tests* for each task (test recall 0.6–1.0), which no control does.
+- **codebase-memory** is the most economical: 77 median tokens at 0.833 recall. It
+  misses ~17% of relevant files — the fewest false negatives of the cheap tools.
+- **aider-repo-map** has the highest recall (0.972) but at **41× the context of
+  code-review-graph** (19 165 median tokens) — the "giant high-recall dump is not
+  automatically useful" case, made explicit. Precision is correspondingly low.
+- **pathfinder** (0.444) and **symlens** (0.555) trail on retrieval: their text/symbol
+  search misses module-name terms that live only in file paths (not content).
+- **v1/v2 controls** confirm the Wave 1 crux: v2 has high recall but an 8×-larger
+  context; v1 stays small but thin.
+
+(Full per-task tables: `.ai-dev/evidence/performance/tournament/code-intel/comparison.json`.)
+
+## 3. Per-task results (source-recall / context-tokens)
+
+| task | v1 | v2 | crg | cbm | pathfinder | aider | symlens |
+|---|---|---|---|---|---|---|---|
+| e10-hardening-f1f5 (localized) | 0.667 / 1269 | 1.0 / 11002 | 1.0 / 371 | 1.0 / 77 | 0.333 / 158 | 1.0 / 19259 | 0.333 / 72 |
+| e08-durable-storage (cross-module) | 0.556 / 5187 | 0.667 / 8403 | 0.778 / 519 | 0.333 / 50 | 0.111 / 158 | 0.889 / 19391 | 0.222 / 70 |
+| e07-disclosure (verification-heavy) | 1.0 / 679 | 1.0 / 5724 | 1.0 / 459 | 1.0 / 127 | 1.0 / 168 | 1.0 / 19165 | 1.0 / 45 |
+| e06-bounded-review (cross-module) | 1.0 / 3373 | 1.0 / 10081 | 1.0 / 486 | 1.0 / 125 | 0.333 / 289 | 1.0 / 18945 | 0.667 / 30 |
+| repo-consolidation (docs) | — | — | — | — | — | 78 files | — |
+
+The docs task has no source ground truth; all candidates correctly return nothing
+except aider, whose whole-repo map has no docs-only path.
+
+## 4. PREPARE E11 results
+
+Read-only tournament on the current tree; **`E11 NOT IMPLEMENTED`**, **`REAL_DATA_GATE
+CLOSED`**. TWO outputs, per the no-context-soup rule: comparison evidence for every
+candidate plus ONE agent-facing context pack from a single chosen candidate.
+
+| candidate | files | ctx tok (est) | raw B | duration ms |
+|---|---|---|---|---|
+| v1 | 13 | 1 543 | 21 570 | 557 |
+| v2 | 5 | 13 189 | 0 | 30 |
+| **code-review-graph (chosen)** | 23 | 245 | 35 660 | 25 120 |
+| codebase-memory | 17 | 171 | 22 576 | 46 888 |
+| pathfinder | 33 | 358 | 403 627 | 4 673 |
+| aider-repo-map | 83 | 19 060 | 81 558 | 15 322 |
+| symlens | 5 | 59 | 15 722 | 487 |
+
+Provisional selection rule (recorded): term-coverage first (all 5 E11 terms matched),
+then matched test-file verification value, then context economy. **code-review-graph**
+was chosen — it covers all 5 E11 modules plus their tests at 245 tokens, and it won
+the historical tournament. The agent-facing pack renders to ~551 tokens est.
+(`.ai-dev/evidence/performance/tournament/prepare-e11/agent-context-pack.md`)
+
+Confirmed: **`E11 NOT IMPLEMENTED`**, **`REAL_DATA_GATE CLOSED`**.
+
+## 7. Resource / operational cost
+
+| candidate | index build | index/cache | runtime (mean/task) | service/daemon |
+|---|---|---|---|---|
+| v1 | none | none | 0.4 s | none |
+| v2 | ~1 s cached | on-disk JSON | 0.15 s (warm) | none |
+| code-review-graph | ~8 s (full build) | local SQLite graph | 20.9 s | none (CLI; no daemon started) |
+| codebase-memory | ~7-15 s (fast mode) | ~/.cache SQLite | 35.8 s | temp daemon per CLI call (auto-shutdown verified) |
+| pathfinder | at server start | .pathfinder cache | 1.9 s | none (MCP over stdio, JIT) |
+| aider-repo-map | at map build | .aider cache | 13.5 s | none |
+| symlens | 0.2-0.5 s | WSL ~/.symlens | 0.4 s | none |
+| pytest-testmon | first run (full) | .testmondata | ~2 s selection | none |
+| pytest-impacted | at selection | none | ~14 s | none |
+
+No Docker containers were started. No experimental service/daemon is left running
+after the wave (verified by process inspection). External-tool indexes on disk are
+retained; run-local artifacts (`.code-review-graph/`, `.aider*`, `.pathfinder/`) are
+removed after runs on the current tree and are gitignored.
+
+## 8. Provisional winners
+
+- **Code intelligence — `PROVISIONAL_WINNER`: code-review-graph.** Best recall
+  (0.945) at affordable tiny context (459 median tokens) on the frozen benchmark;
+  also surfaces tests (verification value). It becomes the preferred challenger for
+  E11. **Existing V1 remains the safe fallback.**
+- **Test selection — `PROVISIONAL_WINNER` (pending mutation results): see §5.**
+
+Provisional means provisional: the real decision comes from future E11/E12… real
+epics. No candidate is promoted to CORE; nothing that had a false negative on our
+mutation set is eligible to become the default selector.
+
+## 9. LABs retained for real-work observation
+
+| candidate | retained because |
+|---|---|
+| codebase-memory | most economical (77 median tokens); shadow-run during E11 to measure real-world recall |
+| aider-repo-map | highest recall when context budget is not a constraint; map-only comparator |
+| symlens | cheapest symbol search (45 tokens); WSL path; healthy challenger |
+| pathfinder | real source-built Windows binary (contradicts "unsupported"); MCP tools for symbol navigation |
+| pytest-testmon | strongest selection reduction so far (see §5-6) |
+| pytest-impacted | installed and measured; note the src-layout degradation (§6) |
+
+## 10. Candidates removed / blocked
+
+None removed. Two classification notes:
+
+- **Pathfinder** was expected to be `INSTALL_BLOCKED` (no official Windows binaries;
+  Windows "unsupported"). It was instead **source-built successfully** on this
+  Windows 11 machine (`cargo install pathfinder-mcp` 0.23.2) — real evidence that
+  overrides the documented platform claim. Installed as LAB.
+- **SymLens** does not compile on native Windows (Unix-only daemon referenced
+  unconditionally). Installed as **WSL2-local LAB tooling** (authorized) instead of
+  being marked `INSTALL_BLOCKED`.
+- **code-review-graph** was the "attempt additionally" candidate; its canonical
+  identity, MIT license, and Windows install path verified cleanly, so it entered
+  the tournament and won the initial ranking.
+
+## 11. Wave 3 recommendation
+
+**`READY_FOR_WAVE_3_HARNESS_TOURNAMENT`.**
+
+Wave 3 should test harnesses (Reasonix, Codex CLI, OpenCode, Aider agent mode) —
+but the winning code-intelligence context (code-review-graph) and the test-selection
+evidence should be wired as the *proposed context/verification providers* behind a
+harness-agnostic Task Contract. Recommended initial contestants (do NOT install/run
+in this wave): Reasonix, Codex CLI, OpenCode, Aider agent mode. No model calls were
+made through any harness in Wave 2; aider was used for repo-map only.
+
+## 5. Test-selection tournament
+
+FIVE synthetic mutation probes in disposable git worktrees (never committed),
+one per dependency tier: leaf (temporal), mid (crypto VMK length), cross-module
+(versions.is_active), storage/filesystem (e08 regular-file guard), hub (schema
+primary key). Ground truth per scenario = FULL pytest's failing nodeids; a
+selector's **MUTATION DETECTION RECALL** = did its selected suite fail on a
+detector nodeid.
+
+| selector | leaf | mid | cross | storage | hub | recall | selection ratio (median) |
+|---|---|---|---|---|---|---|---|
+| full (truth) | 2/2 | 3/3 | 4/4 | 10/10 | 10/10 | 1.0 | 1.0 |
+| **current (PR11)** | ✅ | ✅ | ✅ | ✅ | ✅ | **1.0** | 0.23 |
+| pytest-testmon | ✅ | ✅ | ✅ | ✅ | ❌ | **0.8** | 0.041 |
+| pytest-impacted | ✅ | ✅ | ✅ | ✅ | ✅ | 1.0 | 1.0 (no reduction) |
+
+Selection counts (selected / 708 full): current 122-482 tests (17-68%); testmon
+4-81 tests (0.6-11%); impacted 708 (100%, full-equivalent).
+
+## 6. Mutation detection
+
+- **current (PR11 index selector) caught all five mutations** at 17-68% of the
+  suite — the only reducing selector with a perfect record.
+- **pytest-testmon is NOT eligible to become the default selector yet**: it had a
+  **false negative on the hub-schema scenario** — it selected 29 tests and missed
+  the DDL-primary-key regression. Root cause: testmon's coverage-based dependency
+  map does not track *string-constant* dependencies (the schema DDL text), so the
+  regression-proof test reading that constant was never linked. It remains LAB.
+  Its aggressive selection (0.6-11% of the suite) makes it a strong **inner-loop
+  complement** once a string-dependency guard is added.
+- **pytest-impacted** caught everything but **degrades to the full suite in our
+  `src/` layout**: its `--impacted-module` maps names to package directories under
+  cwd (no `src/` root), so it marks the whole tree impacted. Real compatibility
+  limitation, measured honestly; selection ratio 1.0 = no test reduction.
+- Full pytest remains truth/control; a selected-test system never redefines
+  acceptance (`MUTATION DETECTION RECALL` is the primary correctness metric).
+
+## Final status
+
+**`WAVE_2_COMPLETE`** · `E11 NOT IMPLEMENTED` · `REAL_DATA_GATE CLOSED` ·
+`READY_FOR_WAVE_3_HARNESS_TOURNAMENT`
