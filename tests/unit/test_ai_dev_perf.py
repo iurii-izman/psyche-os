@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import subprocess
 import sys
 
 import pytest
@@ -17,6 +18,8 @@ SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import ai_dev_perf  # noqa: E402
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _write(root: Path, rel: str, text: str) -> None:
@@ -334,3 +337,178 @@ def argparse_namespace(**kwargs) -> object:
     from types import SimpleNamespace
 
     return SimpleNamespace(**kwargs)
+
+
+# --------------------------------------------------------------------------- F4 cache invalidation (test files + config)
+
+
+class TestCacheInvalidationTestFiles:
+    def test_cache_invalidated_on_test_import_change(self, fake_repo: Path) -> None:
+        config = make_config(fake_repo)
+        ai_dev_perf.get_index(config, use_cache=True)
+        index1, _ = ai_dev_perf.get_index(config, use_cache=True)
+        assert "app/service.py" in index1.test_map["tests/test_service.py"]
+        assert "app/leaf.py" not in index1.test_map["tests/test_service.py"]
+        # A changed test import changes the test map; the cache must invalidate.
+        _write(
+            fake_repo,
+            "tests/test_service.py",
+            "from psyche_os.app.leaf import helper\n\ndef test_helper() -> None:\n    assert helper(1) == 2\n",
+        )
+        index2, hit = ai_dev_perf.get_index(config, use_cache=True)
+        assert hit is False
+        assert "app/leaf.py" in index2.test_map["tests/test_service.py"]
+
+    def test_cache_invalidated_on_test_root_config_change(self, fake_repo: Path) -> None:
+        config = make_config(fake_repo)
+        ai_dev_perf.get_index(config, use_cache=True)
+        config2 = {**config, "test_root": "other_tests"}
+        _write(
+            fake_repo,
+            "other_tests/test_leaf.py",
+            "from psyche_os.app.leaf import helper\n\ndef test_helper() -> None:\n    assert helper(1) == 2\n",
+        )
+        index, hit = ai_dev_perf.get_index(config2, use_cache=True)
+        assert hit is False
+        assert "other_tests/test_leaf.py" in index.test_map
+        assert "app/leaf.py" in index.test_map["other_tests/test_leaf.py"]
+
+    def test_index_shaping_config_keys_invalidate(self, fake_repo: Path) -> None:
+        config = make_config(fake_repo)
+        ai_dev_perf.get_index(config, use_cache=True)
+        # src_roots is an index-shaping key: changing it must miss.
+        config2 = {**config, "src_roots": ["src/psyche_os"]}
+        _write(fake_repo, "src/psyche_os/extra.py", "def extra() -> None:\n    pass\n")
+        _, hit = ai_dev_perf.get_index(config2, use_cache=True)
+        assert hit is False
+
+
+# --------------------------------------------------------------------------- F3 verification fail-closed
+
+
+class TestVerifyFailClosed:
+    def test_pytest_nonzero_rc_is_fail(self, fake_repo: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        config = make_config(fake_repo)
+        index = ai_dev_perf.build_index(config)
+        fake = subprocess.CompletedProcess(
+            ["uv", "run", "pytest", "x", "-q"], returncode=1, stdout="1 failed, 9 passed", stderr=""
+        )
+        monkeypatch.setattr(ai_dev_perf, "run_cmd", lambda *a, **k: fake)
+        result = ai_dev_perf.run_pytest(index, ["tests/test_ids.py"], raw_dir=tmp_path, source_changed=True)
+        assert result["rc"] == 1
+        assert result["status"] == "FAIL"
+        assert result["status"] != "PASS"
+
+    def test_pytest_nonzero_rc_with_zero_parsed_failures_is_unknown(self, fake_repo: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        """Collection/config/infra errors must never be inferred as PASS from counters."""
+        config = make_config(fake_repo)
+        index = ai_dev_perf.build_index(config)
+        fake = subprocess.CompletedProcess(
+            ["uv", "run", "pytest", "x", "-q"], returncode=2, stdout="error: pytest: error: unrecognized arguments", stderr=""
+        )
+        monkeypatch.setattr(ai_dev_perf, "run_cmd", lambda *a, **k: fake)
+        result = ai_dev_perf.run_pytest(index, ["tests/test_ids.py"], raw_dir=tmp_path, source_changed=True)
+        assert result["rc"] == 2
+        assert result["status"] == "UNKNOWN"
+        assert result["status"] != "PASS"
+
+    def test_source_change_with_no_mapped_tests_is_full_required(self, fake_repo: Path, tmp_path: Path) -> None:
+        config = make_config(fake_repo)
+        index = ai_dev_perf.build_index(config)
+        surface = ai_dev_perf.affected_surface(index, ["src/psyche_os/app/leaf.py"])
+        assert surface["affected_tests"] == []
+        plan = ai_dev_perf.verify_plan(index, [], full=False, source_changed=bool(surface["changed"]))
+        assert plan["state"] == "FULL_REQUIRED"
+        result = ai_dev_perf.run_pytest(index, [], raw_dir=tmp_path, source_changed=True)
+        assert result["status"] == "FULL_REQUIRED"
+        assert result["rc"] is None
+        assert result["status"] != "PASS"
+
+    def test_no_code_change_is_not_full_required(self, fake_repo: Path) -> None:
+        config = make_config(fake_repo)
+        index = ai_dev_perf.build_index(config)
+        plan = ai_dev_perf.verify_plan(index, [], full=False, source_changed=False)
+        assert plan["state"] == "NO_CODE_CHANGE"
+
+
+# --------------------------------------------------------------------------- F5 prompt accounting
+
+
+class TestPromptAccounting:
+    def test_prompt_does_not_double_count_context(self, fake_repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+        config = make_config(fake_repo)
+        ai_dev_perf.build_index(config)
+        monkeypatch.setattr(ai_dev_perf, "check_tools", lambda need: {"rg": "rg", "ast-grep": "sg"})
+        monkeypatch.setattr(ai_dev_perf, "_lexical_items", lambda *a, **k: [])
+        monkeypatch.setattr(ai_dev_perf, "RUNS_DIR", tmp_path / "runs")
+        args = argparse_namespace(
+            task="Fix OpaqueId",
+            paths=["src/psyche_os/domain/ids.py"],
+            symbols=[],
+            terms=["OpaqueId"],
+            target=10000,
+            out=str(tmp_path / "packet.md"),
+            json=True,
+            no_cache=False,
+        )
+        rc = ai_dev_perf.cmd_prompt(args, config)
+        assert rc == 0
+        parsed = json.loads(capsys.readouterr().out)
+        # The total is the estimate of the final rendered prompt ONLY.
+        markdown = (tmp_path / "packet.md").read_text(encoding="utf-8")
+        assert parsed["prompt_total_estimate"] == ai_dev_perf.estimate_tokens(markdown)
+        # Context is embedded in the prompt, never added on top.
+        assert parsed["reconciles"] is True
+        assert parsed["prompt_total_estimate"] == parsed["context_embedded_estimate"] + parsed["instructions_overhead_estimate"]
+        assert parsed["context_embedded_estimate"] == 0 or parsed["prompt_total_estimate"] >= parsed["context_embedded_estimate"]
+
+
+# --------------------------------------------------------------------------- frozen benchmark tasks + V1/V2 accounting
+
+
+class TestBenchmarkFrozen:
+    def test_frozen_tasks_file_is_valid(self, fake_repo: Path) -> None:
+        tasks = ai_dev_perf.load_bench_tasks()
+        assert len(tasks) >= 3
+        for t in tasks:
+            assert t["class"] in ("localized", "cross-module", "verification-heavy", "docs")
+            assert t["base_sha"] and t["result_sha"]
+            assert all(isinstance(x, list) for x in (t["terms"], t["changed_sources"], t["changed_tests"]))
+            assert isinstance(t["description"], str) and t["description"]
+
+    def test_frozen_ground_truth_matches_git_diff(self, fake_repo: Path) -> None:
+        """The freeze proof: changed_sources/tests in tasks.yaml must equal git diff."""
+        tasks = ai_dev_perf.load_bench_tasks()
+        for t in tasks:
+            proc = ai_dev_perf.run_cmd(["git", "diff", "--name-only", t["base_sha"], t["result_sha"]], cwd=REPO_ROOT)
+            changed = [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
+            srcs = sorted(p for p in changed if p.startswith("src/psyche_os/"))
+            tests = sorted(p for p in changed if p.startswith("tests/"))
+            assert srcs == sorted(t["changed_sources"]), t["task_id"]
+            assert tests == sorted(t["changed_tests"]), t["task_id"]
+
+
+class TestV1V2Accounting:
+    def test_score_recall_precision(self) -> None:
+        recall, precision, hits = ai_dev_perf._score_recall({"a.py", "b.py"}, ["a.py", "c.py"])
+        assert (recall, precision, hits) == (0.5, 0.5, 1)
+        # No ground truth -> not computable, not zero.
+        assert ai_dev_perf._score_recall(set(), []) == (None, None, 0)
+
+    def test_merge_line_ranges_is_deterministic(self) -> None:
+        ranges = ai_dev_perf._merge_line_ranges([10, 11, 40, 41], 4)
+        assert ranges == [[10, 11], [40, 41]]
+        assert ai_dev_perf._merge_line_ranges([1, 5], 4) == [[1, 5]]
+        assert ai_dev_perf._merge_line_ranges([5, 1], 4) == [[1, 5]]
+
+    def test_medians_exclude_docs_tasks(self) -> None:
+        rows = [
+            {"docs_only": False, "v1": {"context_tokens_estimate": 100, "docs_only": False}, "v2": {"context_tokens_estimate": 80, "docs_only": False}},
+            {"docs_only": False, "v1": {"context_tokens_estimate": 200, "docs_only": False}, "v2": {"context_tokens_estimate": 120, "docs_only": False}},
+            {"docs_only": True, "v1": {"context_tokens_estimate": 0, "docs_only": True}, "v2": {"context_tokens_estimate": 0, "docs_only": True}},
+        ]
+        med = ai_dev_perf._compute_medians(rows)
+        assert med["code_tasks"] == 2
+        assert med["docs_tasks"] == 1
+        assert med["v1_context_tokens_estimate"] == 150
+        assert med["v2_context_tokens_estimate"] == 100

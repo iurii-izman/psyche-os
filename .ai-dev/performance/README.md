@@ -31,11 +31,31 @@ and reusable.
 uv run python scripts/ai_dev_perf.py map                                  # build/read the index
 uv run python scripts/ai_dev_perf.py context <term>...                    # exact-range context
 uv run python scripts/ai_dev_perf.py impact --paths <file>...             # affected surface
-uv run python scripts/ai_dev_perf.py verify --paths <file>...             # targeted pytest
+uv run python scripts/ai_dev_perf.py verify --paths <file>...             # targeted pytest (fail-closed)
 uv run python scripts/ai_dev_perf.py prompt --task "..." --symbols <s>... # self-contained packet
-uv run python scripts/ai_dev_perf.py benchmark                            # measured evidence
-uv run python scripts/ai_dev_perf.py report                               # regenerate the report
+uv run python scripts/ai_dev_perf.py benchmark                            # micro cost measurements
+uv run python scripts/ai_dev_perf.py benchmark-v1v2                       # fair V1 vs V2 over frozen tasks
+uv run python scripts/ai_dev_perf.py prepare-e11                          # read-only PREPARE E11 dry run
+uv run python scripts/ai_dev_perf.py report                               # regenerate measured report sections
 ```
+
+## Fair V1 vs V2 benchmark
+
+`benchmark-v1v2` runs the frozen real historical tasks in
+`benchmarks/tasks.yaml` against their base trees through two faithful workflows:
+
+- **V1**: rg over src + tests, exact match-line ranges, V1-style lexical test discovery
+  (no persistent index).
+- **V2**: local cached index → symbol/module resolution → exact definition ranges,
+  index test map; rg only as fallback.
+
+Both use the same terms and token target; ground truth is the git diff of each accepted
+commit (recall/precision). Evidence: `.ai-dev/evidence/performance/v1v2-benchmark.json`
+(committed), raw runs local under `../evidence/performance/runs/`.
+
+`prepare-e11` is a read-only next-epic preparation that emits the bounded
+`PREPARE_E11_PERF_CONTEXT_PACK` plus a V1-vs-V2 metrics artifact. It never implements
+E11 and never opens `REAL_DATA_GATE`.
 
 ## Scope discipline
 

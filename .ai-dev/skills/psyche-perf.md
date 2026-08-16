@@ -17,11 +17,18 @@ STEPS:
    tests and a LOW/MEDIUM/HIGH classification (high-risk boundaries from
    `.ai-dev/policy/protected-paths.yaml`).
 4. `uv run python scripts/ai_dev_perf.py verify --paths <files>` — run the targeted
-   pytest subset (bounded output, raw evidence preserved). The full suite runs once at
-   the final risk gate only.
+   pytest subset (bounded output, raw evidence preserved). Fail-closed: `PASS` requires
+   pytest exit code 0; a source change with no mapped tests reports `FULL_REQUIRED`
+   (run the full suite) and never becomes a silent green.
 5. `uv run python scripts/ai_dev_perf.py prompt --task "..." --symbols <s>...` — emit a
    self-contained prompt packet (instructions + exact ranges + impact + verification
-   plan) for a fresh session.
+   plan) for a fresh session. The token total is the rendered prompt only (no double count).
+
+BENCHMARK / PREPARE:
+- `uv run python scripts/ai_dev_perf.py benchmark-v1v2` — fair V1 vs V2 over the frozen
+  real historical tasks in `.ai-dev/performance/benchmarks/tasks.yaml`.
+- `uv run python scripts/ai_dev_perf.py prepare-e11` — read-only PREPARE E11 dry run
+  that emits `PREPARE_E11_PERF_CONTEXT_PACK` + V1-vs-V2 metrics; never implements E11.
 
 OUTPUT: exact ranges + affected surface + targeted verify command (or the prompt packet)
 with token estimates attached.
