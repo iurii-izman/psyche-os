@@ -201,3 +201,176 @@ Keep the pieces that independently measured value; withhold the unproven context
   It must become ranked and relevance-limited before it can claim context reduction.
 - **`prepare-e11` dry run** — retain as a read-only PREPARE helper; it is the intended
   real use of the proven components.
+
+---
+
+# Acceleration Wave 1 (2026-08-17)
+
+One implementation wave for the PR #11 performance branch. Installed and evaluated
+three high-ROI local tools, integrated them with the proven subset, and kept the
+module-surface context model off the default path. Wave 1 is **removable**: no
+component is required for the V1 workflow or for the plain `ai_dev_perf.py` path.
+
+Status: **`WAVE_1_COMPLETE`** · base `ceb3031` · branch `ai-dev/v2-performance-canary`
+
+## A. Difftastic — syntax-aware diff review
+
+| item | value |
+|---|---|
+| version | 0.70.0 (2026-08-07 release; verified from GitHub releases, not memory) |
+| install | user-local via winget `Wilfred.difftastic` (no daemon, no service) |
+| executable | `…\WinGet\Packages\Wilfred.difftastic_…\difft.exe` (winget user-package dir; PATH link not created — the launcher resolves it via glob) |
+| license | MIT (`github.com/Wilfred/difftastic`) |
+| rollback | `winget uninstall --id Wilfred.difftastic --exact` |
+
+Repository-native invocation (JIT, via the Wave 1 launcher):
+
+```bash
+uv run python scripts/ai_dev_capability.py run difftastic -- --git <base> <head> [paths...]
+# one ref = diff vs working tree; trailing paths bound the comparison
+```
+
+Measurement on real historical diffs (frozen benchmark tasks):
+
+| case | output bytes | wall ms | notes |
+|---|---|---|---|
+| whole-tree, `e08` cross-module (9 files) | 160 308 | 7 008 | "No changes." fast-path per unchanged file; full side-by-side for changed files |
+| single file, `e10` small change | 3 203 | 1 040 | git-archive + tar dominate; pure `difft` ~15 ms |
+| unchanged file | 52 | 958 | structural fast-path |
+
+Observations: startup/runtime is negligible for the binary; the git-tree adapter's
+materialization dominates. Output volume is bounded by scope — whole-tree diffs are
+large, per-file diffs are small. Structural changes (moved blocks, re-indented code,
+whitespace-insensitive edits) are materially easier to spot in side-by-side mode than
+in unified diff. Output is suitable for bounded human/AI review when scoped to the
+changed paths.
+
+**Decision: `PROMOTE_CONDITIONAL`** — a review capability for structural/refactor-heavy
+changes and targeted diffs. It is **not** a replacement for git diff and is **not**
+configured as an always-on external diff.
+
+## B. pytest-reportlog + deterministic parser
+
+| item | value |
+|---|---|
+| version | pytest-reportlog 1.0.0 (pinned, dev-only), parser `scripts/ai_dev_reportlog.py` 0.1.0 |
+| install | dev dependency `[dependency-groups].dev` (verified MIT, pytest-dev org, active) |
+| rollback | remove the pin and re-lock; plain stdout parsing is the untouched fallback |
+
+Integration: `ai_dev_perf.py verify --reportlog` (or config `verify_reportlog: true`)
+runs the targeted pytest with `--report-log <artifact>`, parses the JSONL with the
+deterministic local parser, and prints a bounded failure packet. The raw artifact and
+raw pytest console are always preserved under `.ai-dev/evidence/performance/runs/`.
+
+Output-reduction benchmark (measured, not modeled):
+
+| case | raw console B | artifact B | parsed summary B | reduction vs console |
+|---|---|---|---|---|
+| successful targeted (16 tests, PASS) | 101 | 29 677 | 288 | −185% (pass console is already minimal; packet adds structure) |
+| deliberate failure (4 tests, 2 fail) | 1 095 | 10 068 | 895 | 18% |
+| many failures (30 tests) | 10 720 | 89 958 | 2 432 | **77%** |
+| collection errors (2) | — | 2 359 | 1 478 | — |
+
+Runtime overhead: **~0 ms** (median 994 ms with vs without `--report-log`, 3 runs each).
+
+Failure evidence quality: the packet deterministically carries failing nodeid, phase
+(setup/call/teardown/collection), error type, message, and a bounded traceback excerpt
+plus explicit exit code and raw-artifact path — evidence the old bounded-stderr path
+did not provide in-band at all.
+
+Fail-closed semantics (unchanged, unit-proven): `PASS` requires pytest rc 0 **and** a
+clean SessionFinish; a truncated/malformed log is `UNKNOWN`; non-zero rc with parsed
+failures is `FAIL`; collection/config errors are `UNKNOWN`; no mapped tests is
+`FULL_REQUIRED`. If the plugin/artifact is unavailable, `verify` degrades to the plain
+stdout parse automatically.
+
+**Decision: `PROMOTE_CONDITIONAL`.** Deterministic, no false-green, ~0 ms overhead,
+trivial fallback — all promotion criteria met. The honest caveat: the pass-case packet
+is larger than the already-minimal `-q` console, and the current verify path already
+bounds its in-band output, so the >50% reduction is real for failure-heavy runs (77%)
+but not for passes. Promoting to CORE is a one-line config flip (`verify_reportlog:
+true`) justified once the failure-evidence benefit is observed on real failing runs.
+Kept opt-in rather than silently defaulted.
+
+## C. JIT Capability Launcher
+
+```bash
+uv run python scripts/ai_dev_capability.py list | info <name> | doctor <name> | run <name> [-- args]
+```
+
+- Reuses `.ai-dev/capabilities/registry.yaml` (no second registry). Four Wave 1 records
+  added: `difftastic`, `pytest-reportlog`, `reportlog-parser`, `capability-launcher`.
+- States honored: `DISABLED`/`QUARANTINED` refuse (exit 2); `LAB` runs only by explicit
+  invocation; there is no automatic LAB→CORE transition.
+- JIT: invoke → capture bounded evidence → exit. No daemon, no always-on process, no
+  new telemetry system (evidence JSONL under `…/runs/capability-runs/`, gitignored).
+- Startup overhead: single-digit ms of launcher overhead over the subprocess itself
+  (a `difft --version` invocation completed in ~14 ms end-to-end).
+- Failure propagation: subprocess exit codes propagate (verified rc=2, rc=3); unknown
+  capability → 1; refused state → 2; not-invocable/not-installed → 1 with a clear message.
+- difftastic `--git <base> <head> [paths...]` adapter materializes trees and diff
+  directories (difftastic takes paths, not refs); one-ref form diffs vs the working tree.
+
+**Decision: `PROMOTE_CONDITIONAL`.** Retained as the standard JIT path for external
+tools; its registry state is `core` (the mechanism itself), but the wave's *tools* are
+conditional, so the wave-level class is CONDITIONAL until a CORE workflow routes
+through it.
+
+## D. PR #11 consolidation
+
+- **RETAIN (proven):** code map/index, exact-range symbol retrieval, impact analysis,
+  import-based test mapping, selective verification, benchmark harness + frozen tasks,
+  prompt assembler, PREPARE E11 dry-run helper. All exercised unchanged.
+- **EXPERIMENTAL / OFF-BY-DEFAULT:** the module-definition-surface V2 context model
+  (the ~8×-larger context). It now has an explicit guard: `config.yaml` declares
+  `context_model: exact-range` (the only implemented default), and `context`/`prompt`
+  reject any other model with a clear error. The model survives only as
+  `benchmark-v1v2` evidence. It cannot silently become default.
+- Dev-toolchain normalization: the test toolchain (pytest, pytest-cov, pytest-timeout,
+  pytest-xdist, ruff, mypy, coverage, hypothesis) moved from the legacy optional
+  `dev` extra into `[dependency-groups].dev` so a plain `uv sync`/`uv run` reproduces
+  the full dev environment (previously relied on a stale `--extra dev` venv). The only
+  **new** dependency is `pytest-reportlog==1.0.0`. No production/runtime dependency
+  changed; `src/psyche_os/**` and `desktop/**` untouched.
+
+## Verification (Wave 1)
+
+| check | result |
+|---|---|
+| focused tests (reportlog parser, fail-closed integration, launcher, context guard) | 62 passed (reportlog 13, launcher 13, perf 36; incl. 2 real difftastic smokes) |
+| ruff on changed Python | pass |
+| reportlog PASS smoke | pass (146-test targeted run → bounded packet) |
+| reportlog FAIL/ERROR smoke | pass (synthetic fixture: 2 failed + collection errors parsed correctly) |
+| capability launcher smoke | pass (list/info/doctor/run, refusal, exit-code propagation) |
+| difftastic smoke | pass (doctor version, run, `--git` two-ref + working-tree) |
+| AI Dev OS doctor | **PASS** |
+| orchestration validator | 113/114 pass; the branch-match check fails — **pre-existing** on the canary branch (branch is neither `main` nor the current E10 epic candidate; reproduced identically at base `b35db65`) |
+| FULL pytest | **706 passed, 2 skipped** (54 s; skips are pre-existing Windows symlink/platform limits) |
+| application-source diff | **0** (`src/psyche_os/**`, `desktop/**` untouched) |
+| dependency diff | reviewed; dev-only; `pytest-reportlog==1.0.0` is the only new package |
+
+## Complexity (Wave 1)
+
+| item | value |
+|---|---|
+| new files | `scripts/ai_dev_capability.py` (454 LOC), `scripts/ai_dev_reportlog.py` (264 LOC), 2 test files (420 LOC) |
+| changed files | `ai_dev_perf.py` (+130/−13 reportlog integration + context-model guard), registry, evidence ledger, perf config, README, skill, pyproject, uv.lock |
+| new dev dependencies | 1 (`pytest-reportlog==1.0.0`; dev group consolidated) |
+| installed external binaries | 1 (`difft` 0.70.0, winget user-local) |
+| new framework | none (one launcher + one parser; no daemon, no telemetry system) |
+
+## Wave 1 decisions
+
+| component | decision |
+|---|---|
+| Difftastic | **PROMOTE_CONDITIONAL** |
+| pytest-reportlog + parser | **PROMOTE_CONDITIONAL** (CORE = one config flip once failure-evidence win is observed) |
+| JIT Capability Launcher | **PROMOTE_CONDITIONAL** |
+| PR #11 performance subset | **RETAIN_PROVEN_SUBSET** (module-surface context explicit OFF-BY-DEFAULT) |
+
+## Next
+
+**`READY_FOR_WAVE_2_PATHFINDER_AND_TESTMON`.** Pathfinder and pytest-testmon are
+already registered LAB candidates (`installed: false`); the JIT launcher + registry +
+reportlog verify path give both a drop-in A/B mechanism: install → register → `run` /
+`verify` → measure against the frozen tasks. Reasonix remains Wave 3.
