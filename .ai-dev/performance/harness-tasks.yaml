@@ -1,0 +1,217 @@
+# AI Dev OS v2 — Wave 3 frozen harness-tournament tasks.
+#
+# FREEZE RULE (written BEFORE any tournament run; never tuned after seeing results):
+#   - Exactly two real implementation tasks from accepted main-branch history.
+#   - Task A = small/local (2 expected implementation files).
+#   - Task B = medium cross-module (3 expected implementation files).
+#   - base_sha = the parent commit of the accepted result; contestants start there.
+#   - result_sha = the accepted implementation; used ONLY for post-run evaluation
+#     (ground-truth diff) and to source the deterministic verification tests.
+#   - Contestants receive ONLY the `contract` text (same for every harness).
+#   - Verification is deterministic: overlay the result-SHA test files, run the
+#     `verification_tests`, PASS iff every collected test passes (rc 0).
+
+schema_version: 1
+freeze_date: "2026-08-20"
+
+# Contestants configured for the SAME CHEAP DeepSeek model class.
+contestants:
+  claude-code:
+    version: "2.1.233"
+    provider: "deepseek-direct (ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic)"
+    model: "deepseek-v4-flash"
+    run_mode: "claude -p --model deepseek-v4-flash (non-interactive print)"
+    accounting: "session transcript JSONL per-message usage (real tokens)"
+  reasonix:
+    version: "1.31.0"
+    provider: "deepseek (api.deepseek.com, kind=anthropic)"
+    model: "deepseek-v4-flash"
+    run_mode: "reasonix run --metrics <json> --events-jsonl (one-shot)"
+    accounting: "--metrics JSON token/cache/cost summary (real)"
+  opencode:
+    version: "1.18.19"
+    provider: "deepseek (built-in provider)"
+    model: "deepseek/deepseek-v4-flash"
+    run_mode: "opencode run --format json --auto (one-shot)"
+    accounting: "step_finish tokens + cost fields (real)"
+
+tasks:
+  - task_id: "e07-disclosure-enforcement"
+    task_class: "A"
+    size_estimate: "small/local — 2 implementation files"
+    base_sha: "976d3830927da1319b717c63dc09430a57105466"
+    result_sha: "7d6c040eb22e15ab214f904bdf97d22d38014599"
+    expected_implementation_files:
+      - "src/psyche_os/application/e07_bounded_ai.py"
+      - "src/psyche_os/domain/ai_proposal.py"
+    verification_tests:
+      - "tests/unit/test_e07_bounded_ai_proposal.py"
+      - "tests/integration/test_e07_bounded_ai_proposal.py"
+    ground_truth:
+      result_tests_at_result_sha: "66 passed"
+      result_tests_at_base_sha: "19 failed / 47 passed"
+    contract: |-
+      Enforce the E07 bounded-disclosure lifecycle in `BoundedAIProposalService`
+      (`src/psyche_os/application/e07_bounded_ai.py`) and tighten two prohibited
+      phrases in `src/psyche_os/domain/ai_proposal.py`.
+
+      Context: the service exposes prepare() -> PreparedDisclosure (a manifest plus
+      a disclosure preview for selected records), authorize() -> DisclosureAuthorization
+      (user opt-in for a prepared disclosure), and execute() -> BoundedAIResult. Today it
+      trusts caller-supplied objects: nothing proves an authorization was actually issued
+      for the prepared disclosure being executed, and policy/lineage is not revalidated at
+      execution time.
+
+      Required behavior:
+      1. Add two error codes to `E07ErrorCode`: `INTERACTION_REUSED` and `POLICY_STALE`.
+      2. prepare() must reject a repeated interaction id with `INTERACTION_REUSED`, and must
+         track the returned PreparedDisclosure as pending for its interaction id.
+      3. authorize() must succeed only when the passed `prepared` object is exactly the one
+         previously returned by prepare() for the same interaction; otherwise raise
+         `AUTHORIZATION_MISMATCH`. After issuing, the pending entry is removed and the
+         issued authorization is tracked by its authorization id.
+      4. execute() must, in order:
+         - reject an already-consumed authorization id (`AUTHORIZATION_CONSUMED`);
+         - require that the authorization is one actually issued for this exact prepared
+           disclosure (`AUTHORIZATION_MISMATCH` otherwise);
+         - require `now` to be timezone-aware and inside [authorized_at, expires_at]
+           (`AUTHORIZATION_EXPIRED`);
+         - for each pinned manifest record, require the record to still exist with the SAME
+           version id and category (`STALE_VERSION`);
+         - re-resolve the effective policy of each record at execution time; if any record's
+           policy is now blocked or expired, raise `POLICY_STALE`; recompute the policy
+           decision id from the current policy material and raise `POLICY_STALE` if it no
+           longer equals the manifest's `policy_decision_id`;
+         - consume the authorization exactly once (subsequent executions of the same id fail).
+      5. Factor the per-record effective-policy resolution (own policy composed with parent
+         policies; the approved_cloud / ASK_EACH_TIME | NAMED_PURPOSE_AND_PROVIDER /
+         purpose-match checks; and the purpose-expiry check) into one shared helper used by
+         BOTH prepare() and execute(), so the exact same checks run at both times. The
+         helper returns the per-record policy-material dictionary that feeds the policy
+         decision digest.
+      6. In `src/psyche_os/domain/ai_proposal.py`, extend the `_PROHIBITED` phrase table:
+         the `medical_direction` group must additionally match the phrase `" mg of "` and the
+         `recommendation` group must additionally match `"start journaling"`.
+
+      Scope: change only the two files listed. Do not modify tests, configuration, or any
+      other source file.
+
+      Verification: `uv run pytest tests/unit/test_e07_bounded_ai_proposal.py tests/integration/test_e07_bounded_ai_proposal.py -q`
+
+  - task_id: "e06-bounded-review-semantics"
+    task_class: "B"
+    size_estimate: "medium cross-module — 3 implementation files"
+    base_sha: "0534d26fde840c70889f118a1587f5e4f2276d40"
+    result_sha: "e6225c537ff94390abd1953d70d3caaf5b452712"
+    expected_implementation_files:
+      - "src/psyche_os/domain/experiments.py"
+      - "src/psyche_os/application/e06_experiments.py"
+      - "src/psyche_os/storage/e06_schema.py"
+    verification_tests:
+      - "tests/unit/test_e06_n_of_1_protocols.py"
+      - "tests/integration/test_e06_n_of_1_protocols.py"
+      - "tests/integration/test_e06_migration.py"
+    ground_truth:
+      result_tests_at_result_sha: "38 passed"
+      result_tests_at_base_sha: "collection error (evaluate_evidence missing)"
+      checksum_note: "test_e06_migration.py pins V4_MIGRATION_CHECKSUM; the migration SQL
+        text is checksummed, so the two schema constraint lines below must match byte-for-byte
+        and no other part of V4_MIGRATION_SQL may be reformatted or reordered."
+    contract: |-
+      Enforce bounded, fully-specified review semantics for the E06 fictional
+      n-of-1 experiment across the domain, application, and schema layers.
+
+      Context: `src/psyche_os/domain/experiments.py` and `src/psyche_os/application/e06_experiments.py`
+      implement a fictional single-case experiment ("fictional prism"). Several parts rely on
+      runtime randomness or hard-coded assumptions that must be replaced by deterministic,
+      explicitly-reviewed fixture semantics.
+
+      Required behavior:
+      1. `src/psyche_os/domain/experiments.py`:
+         a. `resolve_intervention`: an R0_OBSERVATIONAL intervention is allowed ONLY when its
+            id equals `FIXED_R0_ID` AND every fixture attribute matches the canonical fixture
+            definition exactly: version "1.0.0", label "Fictional prism observation",
+            components == ("observe the fictional prism marker without changing it",),
+            delivery "fixture_observation_only", reversible True, evidence_certainty
+            "mechanics_fixture_only", harms_boundary "stop_on_any_unwanted_or_adverse_signal",
+            contraindication_boundary "any_contraindication_blocks", accessibility_equity
+            "neutral_nonclinical_fixture", rights_state "repository_owned_fictional",
+            guideline_context "none_fixture_only", review_state "fixture_observational_allowlisted",
+            review_trigger "identity_component_or_risk_change". Otherwise the R0 decision is
+            not allowed.
+         b. `seeded_assignments`: remove the runtime-RNG shuffle. The protocol must declare
+            assignment_algorithm == "psyche_sha256_balanced_rank" and assignment_version ==
+            "sha256-rank-v1" (any other pair raises the existing assignment drift validation
+            error). Assignments are fully determined by ranking period numbers 1..duration_periods
+            by the unsigned SHA-256 digest of the exact ASCII payload
+            `psyche-os-e06-assignment-v1:{seed}:{period}`; the first half of the ranked order is
+            condition A and the second half condition B; return Assignment records in period
+            order. No runtime RNG may participate.
+         c. Replace `ClaimDecision`: it must carry `supported_ceiling`, `requested_level`,
+            `allowed` (bool), `denial_reasons` (tuple), `emitted_level` (nullable), and
+            `wording` (nullable). `resolve_claim(...)` must return allowed=True with
+            emitted_level=requested and its wording when requested <= supported ceiling; when
+            requested exceeds the supported ceiling it returns allowed=False, denial_reasons =
+            limiting reasons plus a `requested_<LEVEL>_denied` entry, and None emitted level
+            and wording.
+         d. Add an `EvidenceEvaluation` dataclass (evidence, coverage, sensitivity_results) and
+            an `evaluate_evidence(protocol, records, *, assignment_integrity)` function that
+            derives the seven claim axes from the protocol and the OBSERVED period records:
+            - coverage = observed / duration_periods (Decimal);
+            - measurement high iff measurement_version == "fictional-scale-v1";
+            - missingness high iff at most one missing record and every missing record is a
+              TECHNICAL_FAILURE;
+            - serial_dependence high iff autocorrelation_plan == "report lag-one contrast and
+              leave-one-period-out sensitivity";
+            - carryover high iff washout_carryover == "each period is independent by
+              construction; lag-one sensitivity is required";
+            - replication high iff assignment_integrity and both condition counts >= 3;
+            - sensitivity high iff a base A-vs-B mean contrast is non-zero and every
+              leave-one-period-out contrast keeps the same sign, plus the result string
+              "no missing outcome imputation".
+            With the canonical fixture protocol and the full observed record set every axis
+            must resolve to C5_RANDOMIZED_SINGLE_CASE; each weakened input (wrong
+            measurement_version, absent autocorrelation_plan, unchecked washout_carryover,
+            declined/technical missing outcomes, assignment_integrity=False, or a flat
+            outcome pattern that zeroes the contrast) must lower exactly that axis strictly
+            below C5.
+         e. `analyze_known_answer(protocol, intervention, records, expected_assignment_digest,
+            requested_level=C5_RANDOMIZED_SINGLE_CASE)`: compute `evaluate_evidence(protocol,
+            records, assignment_integrity=True)` and use its evidence for claim resolution, its
+            coverage for the coverage fraction, and its sensitivity_results for the analysis
+            results (no longer assume full evidence).
+      2. `src/psyche_os/application/e06_experiments.py`:
+         a. `fictional_protocol()` uses the new assignment algorithm/version.
+         b. Loading the fixture no longer pre-inserts the eight period records; the run is
+            registered with 8 scheduled and 0 executed periods.
+         c. Add an `ADVANCE_FICTIONAL_PRISM` operation taking `period_N` (N = 1..8): it must
+            read the canonical protocol from the database, require an active run whose stored
+            preregistration digest equals the canonical protocol digest (otherwise stop the run
+            with STALE_PROTOCOL) and whose stored assignment digest equals the current seeded
+            assignment digest (otherwise stop with ASSIGNMENT_DRIFT), require N to equal the
+            number of already-executed periods + 1 (otherwise PERIOD_TRANSITION_OUT_OF_ORDER),
+            and insert that period's record. An already-frozen run raises EXECUTION_FROZEN.
+         d. `_analyze` must rehydrate the protocol, the fixed R1 intervention (validating it is
+            still allowed by resolve_intervention), and the executed period records FROM THE
+            DATABASE (no in-memory fixtures), and analyze with evaluated evidence.
+      3. `src/psyche_os/storage/e06_schema.py`: the `experiment_protocols` table CHECK
+         constraints must accept the new assignment algorithm/version. Change ONLY these two
+         lines and nothing else in V4_MIGRATION_SQL:
+           `assignment_algorithm TEXT NOT NULL CHECK(assignment_algorithm='psyche_sha256_balanced_rank'),`
+           `assignment_version TEXT NOT NULL CHECK(assignment_version='sha256-rank-v1'),`
+         The migration SQL text is checksummed (V4_MIGRATION_CHECKSUM); reformatting or
+         reordering any other part of the script will change the checksum and fail the
+         migration test, so do not touch anything else in that file.
+
+      Scope: change only the three files listed. Do not modify tests, configuration, or any
+      other source file.
+
+      Verification: `uv run pytest tests/unit/test_e06_n_of_1_protocols.py tests/integration/test_e06_n_of_1_protocols.py tests/integration/test_e06_migration.py -q`
+
+# Common rules applied to every run (not part of the per-task contract text):
+run_rules:
+  same_contract: "one concise Task Contract per task, identical for all three harnesses"
+  model_class: "deepseek-v4-flash (CHEAP class) for all three"
+  per_contestant: "one autonomous session per task; no second full retry; no manual coaching"
+  verification: "deterministic test overlay; PASS iff all collected tests pass"
+  raw_evidence: "local gitignored runs; only compact aggregates are committed"
