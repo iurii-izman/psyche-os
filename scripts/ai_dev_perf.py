@@ -28,6 +28,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 import datetime
 import glob
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -487,27 +488,41 @@ def build_index(config: dict[str, Any], repo: Path | None = None) -> Index:
 # --------------------------------------------------------------------------- index cache
 
 
+def _file_sha256(path: Path) -> str:
+    """Deterministic content fingerprint (path identity + bytes) for cache keys."""
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def _current_digest(config: dict[str, Any], repo: Path | None = None) -> dict[str, Any]:
     """Digest of every input that affects index semantics.
 
     Indexed source files, indexed test files, and the config keys that shape the
-    index (src_roots / test_root / schema version). mtime_ns + size is enough
-    for this personal local tool. A changed test file therefore invalidates the
-    cached test_map, not just a changed source file.
+    index (src_roots / test_root / schema version). Each entry is the repo-relative
+    path identity plus a sha256 content fingerprint, so a same-size edit with a
+    restored mtime still invalidates the cache (A4). A changed test file therefore
+    invalidates the cached test_map, not just a changed source file.
     """
     repo = repo or REPO
-    rows: list[tuple[str, int, int]] = []
+    rows: list[tuple[str, str]] = []
     for r in config["src_roots"]:
         root = repo.joinpath(r)
         for path in sorted(root.rglob("*.py")):
-            rel = path.resolve().relative_to(root.resolve())
-            st = path.stat()
-            rows.append((_module_key_for_rel(rel.parts), st.st_mtime_ns, st.st_size))
+            try:
+                rel = _module_key_for_rel(path.resolve().relative_to(root.resolve()).parts)
+                rows.append((rel, _file_sha256(path)))
+            except OSError:
+                continue
     test_root = repo.joinpath(config["test_root"])
     for path in sorted(test_root.rglob("test_*.py")):
-        rel = path.resolve().relative_to(repo.resolve())
-        st = path.stat()
-        rows.append(("tests/" + rel.as_posix(), st.st_mtime_ns, st.st_size))
+        try:
+            rel = "tests/" + path.resolve().relative_to(repo.resolve()).as_posix()
+            rows.append((rel, _file_sha256(path)))
+        except OSError:
+            continue
     return {
         "schema_version": SCHEMA_VERSION,
         "config": {"src_roots": list(config["src_roots"]), "test_root": config["test_root"]},

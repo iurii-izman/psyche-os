@@ -132,6 +132,40 @@ class TestLauncher:
         assert "[OK]" in out
 
 
+class TestStateEnforcement:
+    """A5: ONE normalized, fail-closed capability-state decision primitive used
+    by the launcher; DISABLED/QUARANTINED refuse regardless of capitalization."""
+
+    @pytest.mark.parametrize("state", ["disabled", "DISABLED", "Disabled", " DISABLED "])
+    def test_disabled_refused_case_insensitively(self, fake_registry, capsys, state) -> None:
+        fake_registry["turned-off"]["state"] = state
+        rc = ai_dev_capability.cmd_run(_args("turned-off"))
+        assert rc == 2
+        assert "refused" in capsys.readouterr().err
+
+    @pytest.mark.parametrize("state", ["quarantined", "QUARANTINED", "Quarantined"])
+    def test_quarantined_refused_case_insensitively(self, fake_registry, capsys, state) -> None:
+        fake_registry["quarantined-tool"]["state"] = state
+        rc = ai_dev_capability.cmd_run(_args("quarantined-tool"))
+        assert rc == 2
+        assert "refused" in capsys.readouterr().err
+
+    def test_malformed_state_fails_closed(self, fake_registry, capsys) -> None:
+        fake_registry["fake-tool"]["state"] = "not-a-state"
+        rc = ai_dev_capability.cmd_run(_args("fake-tool"))
+        assert rc == 2
+        assert "refused" in capsys.readouterr().err
+
+    def test_normalize_and_execution_allowed(self) -> None:
+        for st in ("core", "CORE", "Core"):
+            assert ai_dev_capability.execution_allowed(st, explicit=True)[0] is True
+        assert ai_dev_capability.execution_allowed("lab", explicit=True)[0] is True
+        assert ai_dev_capability.execution_allowed("LAB", explicit=False)[0] is False
+        assert ai_dev_capability.execution_allowed(None, explicit=True)[0] is False
+        assert ai_dev_capability.execution_allowed("bogus", explicit=True)[0] is False
+        assert ai_dev_capability.normalize_state("disabled") == "DISABLED"
+
+
 # Real-tool smoke tests (guarded — installed user-local via winget).
 @pytest.mark.skipif(
     ai_dev_capability.find_exe("difft") is None,

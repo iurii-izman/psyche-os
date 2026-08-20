@@ -249,6 +249,96 @@ class TestRunPytestReportLogFailClosed:
         assert result["reportlog"]["packet"]["raw_evidence"] == str(artifact.resolve())
 
 
+# --------------------------------------------------------------------------- A1 machine truth + A6 schema/redaction
+
+
+class TestMachineTruthUncapped:
+    """A1: complete deterministic machine accounting independent of the bounded
+    AI-facing presentation."""
+
+    def test_machine_failure_ids_complete_while_presentation_bounded(self, tmp_path: Path) -> None:
+        p = tmp_path / "many.jsonl"
+        n = 25
+        lines = [_session_start()]
+        for i in range(n):
+            lines.append(_test_report(f"tests/t.py::test_{i}", "call", "failed", _fail_longrepr("AssertionError", f"failure {i}")))
+        lines.append(_session_finish(1))
+        p.write_text("\n".join(lines), encoding="utf-8")
+
+        result = ai_dev_reportlog.parse_reportlog(p)
+        expected = {f"tests/t.py::test_{i}" for i in range(n)}
+        assert set(result["failure_nodeids"]) == expected
+        assert result["failure_records_count"] == n
+        assert result["collection"]["failed"] == n
+        # Presentation stays bounded; machine truth does not.
+        assert len(result["failures"]) <= ai_dev_reportlog.MAX_FAILURES
+        assert result["failures_truncated"] is True
+        assert len(result["failures"]) < n
+
+
+class TestNonObjectJsonEvents:
+    """A6: valid JSON that is not an object must not crash the parser."""
+
+    @pytest.mark.parametrize("bad", ["null", "[]", '"string"', "123"])
+    def test_non_object_event_is_malformed_not_crash(self, tmp_path: Path, bad: str) -> None:
+        p = tmp_path / "bad.jsonl"
+        p.write_text("\n".join([_session_start(), bad, _session_finish(0)]), encoding="utf-8")
+        result = ai_dev_reportlog.parse_reportlog(p)
+        assert result["malformed_lines"] == 1
+        assert result["truncated"] is True
+        assert result["exit_code"] == 0  # SessionFinish parsed; damage is still flagged
+        # Callers see truncated -> UNKNOWN, never a green from the malformed line.
+        assert result["collection"]["passed"] == 0
+
+    def test_incomplete_stream_stays_non_green(self, tmp_path: Path) -> None:
+        p = tmp_path / "cut.jsonl"
+        p.write_text("\n".join([_session_start(), "null", _test_report("t::x", "call", "passed")]), encoding="utf-8")
+        result = ai_dev_reportlog.parse_reportlog(p)
+        assert result["truncated"] is True
+        assert result["exit_code"] is None
+
+
+class TestSecretRedaction:
+    """A6: deterministic redaction before any AI-facing rendering."""
+
+    def test_redaction_in_message_traceback_and_command(self, tmp_path: Path) -> None:
+        secret = "sk-proj-synthetictestsecret123456"
+        longrepr = {
+            "reprcrash": {"path": "x.py", "lineno": 1, "message": f"AssertionError: token {secret} leaked"},
+            "reprtraceback": {
+                "reprentries": [{"data": {"lines": [f"E   AssertionError: token {secret} leaked", "E   assert x"]}, "type": "ReprEntry"}]
+            },
+        }
+        p = tmp_path / "sec.jsonl"
+        p.write_text(
+            "\n".join(
+                [
+                    _session_start(),
+                    _test_report("tests/t.py::t", "call", "failed", longrepr),
+                    _session_finish(1),
+                ]
+            ),
+            encoding="utf-8",
+        )
+        result = ai_dev_reportlog.parse_reportlog(p, command=f"uv run pytest --token {secret}")
+        f = result["failures"][0]
+        assert secret not in f["message"]
+        assert secret not in f["traceback_excerpt"]
+        assert "[REDACTED]" in f["message"]
+        assert "[REDACTED]" in f["traceback_excerpt"]
+        assert secret not in result["command"]
+        assert secret not in result["failure_nodeids"]
+        summary = ai_dev_reportlog.render_summary(result)
+        assert secret not in summary
+
+    def test_redaction_handles_bearer_and_api_key_assignments(self) -> None:
+        text = "Authorization: Bearer abcdefghijklmnopqrstuvwxyz012345\napi_key=sk-secretvalue1234567890\n"
+        redacted = ai_dev_reportlog.redact_secret(text)
+        assert "abcdefghijklmnopqrstuvwxyz012345" not in redacted
+        assert "sk-secretvalue1234567890" not in redacted
+        assert "[REDACTED]" in redacted
+
+
 # --------------------------------------------------------------------------- helpers
 
 

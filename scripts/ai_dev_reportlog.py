@@ -38,6 +38,30 @@ MESSAGE_CHARS = 240
 
 VERSION = "0.1.0"
 
+# Deterministic secret redaction for every AI-facing rendering. This is a
+# bounded local redactor (never claims perfect secret detection): it covers the
+# classes already tested in the repo (OpenAI-style sk-/pk-/rk- keys, bearer
+# tokens, common API-key assignments, GitHub/AWS tokens, PEM private keys).
+REDACTED = "[REDACTED]"
+_SECRET_PATTERNS = (
+    re.compile(r"(?i)\b(sk|pk|rk)-[a-z0-9_-]{12,}\b"),
+    re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{12,}\b"),
+    re.compile(r"(?i)\b(ghp|gho|ghu)_[a-z0-9]{20,}\b"),
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+    re.compile(
+        r"(?i)\b(x-api-key|api[_-]?key|authorization|access[_-]?token|auth[_-]?token"
+        r"|client[_-]?secret|password|secret|token)\b\s*[:=]\s*[\"']?[A-Za-z0-9._~+/=-]{8,}"
+    ),
+    re.compile(r"(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+)
+
+
+def redact_secret(text: str) -> str:
+    """Redact secret-looking substrings from an AI-facing string."""
+    for pattern in _SECRET_PATTERNS:
+        text = pattern.sub(REDACTED, text)
+    return text
+
 
 class ReportLogError(Exception):
     """Unreadable/malformed report log — must never become a green."""
@@ -113,6 +137,12 @@ def parse_reportlog(path: Path | str, *, command: str | None = None) -> dict[str
             except ValueError:
                 malformed_lines += 1
                 continue
+            # A parsed JSONL event MUST be a mapping before any event handling.
+            # Valid JSON with the wrong shape (null/[]/"str"/123) is a malformed
+            # event, not an uncaught exception and never a green.
+            if not isinstance(ev, dict):
+                malformed_lines += 1
+                continue
             rtype = ev.get("$report_type")
             if rtype == "SessionStart":
                 pytest_version = ev.get("pytest_version")
@@ -148,11 +178,16 @@ def parse_reportlog(path: Path | str, *, command: str | None = None) -> dict[str
     # A run that never reached SessionFinish is incomplete. It must be treated
     # as UNKNOWN by the caller, never PASS. rc is then the subprocess rc.
     truncated = not saw_session_finish or malformed_lines > 0
+    # MACHINE ACCOUNTING (complete, NEVER truncated): every failing detector
+    # identity and the full failure-record count. Presentation (failures) is
+    # bounded; machine truth is not. Callers that need detector ground truth
+    # MUST read failure_nodeids, never the bounded failures list.
+    failure_nodeids = [f["nodeid"] for f in failures]
     failures_capped = failures[:MAX_FAILURES]
 
     return {
         "schema_version": SCHEMA_VERSION,
-        "command": command,
+        "command": redact_secret(command) if command else None,
         "exit_code": exit_code,
         "truncated": truncated,
         "malformed_lines": malformed_lines,
@@ -165,6 +200,8 @@ def parse_reportlog(path: Path | str, *, command: str | None = None) -> dict[str
             "skipped": skipped,
             "errors": errors,
         },
+        "failure_nodeids": failure_nodeids,
+        "failure_records_count": len(failures),
         "failures": failures_capped,
         "failures_truncated": failed + errors > len(failures_capped),
         "warnings_count": 0,  # pytest-reportlog does not emit warning events
@@ -181,18 +218,20 @@ def json_loads(line: str) -> dict[str, Any]:
 
 def _failure(nodeid: str, phase: str, longrepr: Any, index: int) -> dict[str, Any]:
     compact = index >= DETAIL_FAILURES
-    message = _crash_message(longrepr)
+    raw_message = _crash_message(longrepr)
+    error_type = redact_secret(_error_type(raw_message))
+    message = redact_secret(raw_message)
     if compact:
         # First line only; the AI-facing packet stays small for many-failure runs.
         message = message.splitlines()[0] if message else ""
         tb: list[str] = []
     else:
-        tb = _traceback_lines(longrepr)
+        tb = [redact_secret(ln) for ln in _traceback_lines(longrepr)]
     message = _bounded(message)
     return {
         "nodeid": nodeid,
         "phase": phase,
-        "error_type": _error_type(message),
+        "error_type": error_type,
         "message": message,
         "traceback_excerpt": "\n".join(tb) if tb else "",
     }

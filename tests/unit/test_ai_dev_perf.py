@@ -383,6 +383,49 @@ class TestCacheInvalidationTestFiles:
         assert hit is False
 
 
+# --------------------------------------------------------------------------- A4 content-fingerprint cache invalidation
+
+
+class TestContentFingerprintCache:
+    def test_same_size_restored_mtime_edit_invalidates_cache(self, fake_repo: Path) -> None:
+        import os
+
+        config = make_config(fake_repo)
+        _, hit1 = ai_dev_perf.get_index(config, use_cache=True)
+        assert hit1 is False
+        _, hit2 = ai_dev_perf.get_index(config, use_cache=True)
+        assert hit2 is True  # unchanged content hits
+
+        path = fake_repo / "src/psyche_os/domain/ids.py"
+        original = path.read_text(encoding="utf-8")
+        # Same byte-length content edit: rename the class, keep every other byte.
+        edited = original.replace("class OpaqueId:", "class OpaqueIo:")
+        assert len(edited) == len(original) and edited != original
+        st = path.stat()
+        path.write_text(edited, encoding="utf-8")
+        os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns))  # restore the prior mtime
+
+        index, hit = ai_dev_perf.get_index(config, use_cache=True)
+        assert hit is False  # content changed -> cache MISS / rebuild
+        symbols = {s.name for s in index.modules["domain/ids.py"].symbols}
+        assert "OpaqueIo" in symbols and "OpaqueId" not in symbols  # updated mapping
+
+        # Unchanged content still benefits from the cache.
+        _, hit_again = ai_dev_perf.get_index(config, use_cache=True)
+        assert hit_again is True
+
+    def test_digest_is_deterministic_and_content_dependent(self, fake_repo: Path) -> None:
+        d1 = ai_dev_perf._current_digest(make_config(fake_repo))
+        d2 = ai_dev_perf._current_digest(make_config(fake_repo))
+        assert d1["files"] == d2["files"]
+        # A same-size edit changes the digest even when mtime is restored.
+        path = fake_repo / "src/psyche_os/domain/ids.py"
+        original = path.read_text(encoding="utf-8")
+        path.write_text(original.replace("class OpaqueId:", "class OpaqueIo:"), encoding="utf-8")
+        d3 = ai_dev_perf._current_digest(make_config(fake_repo))
+        assert d1["files"] != d3["files"]
+
+
 # --------------------------------------------------------------------------- F3 verification fail-closed
 
 

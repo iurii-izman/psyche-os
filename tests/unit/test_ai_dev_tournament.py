@@ -15,8 +15,11 @@ import pytest
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
+import ai_dev_capability  # noqa: E402
+import ai_dev_perf  # noqa: E402
 import ai_dev_tournament  # noqa: E402
 from ai_dev_tournament import (  # noqa: E402
+    _candidate_allowed,
     _code_intel_summary,
     _select_provisional,
     _write_evidence,
@@ -109,3 +112,43 @@ class TestShadowNonInterference:
         # can verify they are not reading shadow telemetry.
         assert {"shadow": True}["shadow"] is True
         assert {"shadow": False}["shadow"] is False
+
+
+class TestCapabilityStateEnforcement:
+    """A5: the tournament cannot bypass DISABLED/QUARANTINED registry state; it
+    shares the launcher's ONE decision primitive."""
+
+    @pytest.mark.parametrize("state", ["disabled", "DISABLED", "Disabled", "quarantined", "QUARANTINED"])
+    def test_candidate_allowed_refuses_by_state(self, monkeypatch: pytest.MonkeyPatch, state: str) -> None:
+        reg = {"evil-tool": {"state": state, "command": "python -c 'print(1)'", "installed": True}}
+        monkeypatch.setattr(ai_dev_capability, "load_registry", lambda *a, **k: reg)
+        allowed, reason = _candidate_allowed("evil-tool")
+        assert allowed is False
+        assert reason in ("DISABLED", "QUARANTINED")
+
+    def test_lab_candidate_allowed_on_explicit_tournament(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        reg = {"lab-tool": {"state": "lab", "command": "x", "installed": True}}
+        monkeypatch.setattr(ai_dev_capability, "load_registry", lambda *a, **k: reg)
+        allowed, _ = _candidate_allowed("lab-tool")
+        assert allowed is True
+
+    def test_tournament_does_not_invoke_refused_adapter(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A DISABLED candidate is recorded as refused; its adapter is never called."""
+        invoked: list[str] = []
+        monkeypatch.setattr(ai_dev_tournament, "_candidate_allowed", lambda name: (False, "DISABLED"))
+        monkeypatch.setattr(ai_dev_tournament, "materialize_base_tree", lambda *a, **k: tmp_path / "base")
+        monkeypatch.setattr(ai_dev_perf, "check_tools", lambda need: {"rg": "rg"})
+        monkeypatch.setattr(ai_dev_tournament.ai_dev_adapters, "get_adapter", lambda name: invoked.append(name) or None)
+        monkeypatch.setattr(ai_dev_tournament, "_persist_task_result", lambda *a, **k: None)
+        task = {
+            "task_id": "t1",
+            "class": "localized",
+            "base_sha": "abc",
+            "result_sha": "def",
+            "terms": [],
+            "changed_sources": [],
+            "changed_tests": [],
+        }
+        out = ai_dev_tournament.run_code_intel_task(task, {}, ["v1"], target=100)
+        assert invoked == []
+        assert any(r["status"] == "error" for r in out["results"])

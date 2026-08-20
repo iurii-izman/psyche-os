@@ -104,6 +104,22 @@ def build_index_for(base_repo: Path, config: dict[str, Any]) -> Any:
     return index
 
 
+def _candidate_allowed(name: str) -> tuple[bool, str]:
+    """Capability-state gate for tournament candidates, sharing the launcher's
+    ONE decision primitive (ai_dev_capability.execution_allowed). DISABLED /
+    QUARANTINED cannot be bypassed by the tournament; LAB runs here because a
+    tournament invocation is explicit."""
+    if not _HAS_CAP:
+        return False, "capability_module_unavailable"
+    try:
+        rec = ai_dev_capability.load_registry().get(name)
+    except Exception:
+        return False, "registry_unreadable"
+    if not rec:
+        return False, "not_registered"
+    return ai_dev_capability.execution_allowed(rec.get("state"), explicit=True)
+
+
 # --------------------------------------------------------------------------- code-intel tournament
 
 
@@ -128,6 +144,13 @@ def run_code_intel_task(
     workdirs: list[Path] = []
     try:
         for name in candidates:
+            allowed, reason = _candidate_allowed(name)
+            if not allowed:
+                refused = ai_dev_adapters.failure_result(name, task["task_id"], f"refused by capability state: {reason}")
+                score = ai_dev_adapters.score_task_result(refused, task)
+                _persist_task_result(task["task_id"], name, refused, score)
+                results.append(score)
+                continue
             adapter = ai_dev_adapters.get_adapter(name)
             if adapter is None:
                 continue
@@ -273,6 +296,13 @@ def run_prepare_e11(config: dict[str, Any], candidates: list[str], *, target: in
 
     results: list[dict[str, Any]] = []
     for name in candidates:
+        allowed, reason = _candidate_allowed(name)
+        if not allowed:
+            refused = ai_dev_adapters.failure_result(name, "prepare-e11", f"refused by capability state: {reason}")
+            score = ai_dev_adapters.score_task_result(refused, {"task_id": "prepare-e11"})
+            results.append(score)
+            _persist_task_result("prepare-e11", name, refused, score)
+            continue
         adapter = ai_dev_adapters.get_adapter(name)
         if adapter is None:
             continue
@@ -537,6 +567,7 @@ def _make_parser() -> argparse.ArgumentParser:
     p_ts.add_argument("--scenario", default=None, help="one scenario_id")
     p_ts.add_argument("--all", action="store_true", help="run all scenarios")
     p_ts.add_argument("--list-scenarios", action="store_true", help="list scenario definitions")
+    p_ts.add_argument("--revalidate", action="store_true", help="A1/A2-repaired revalidation: FULL + retained current selector only")
     p_ts.add_argument("--json", action="store_true")
     p_ts.set_defaults(fn=cmd_test_select)
 
@@ -546,6 +577,7 @@ def _make_parser() -> argparse.ArgumentParser:
 def cmd_test_select(args: argparse.Namespace) -> int:
     from ai_dev_testselect import (  # type: ignore
         list_scenarios,
+        revalidate_retained_selector,
         run_test_select_all,
         run_test_select_scenario,
     )
@@ -555,7 +587,9 @@ def cmd_test_select(args: argparse.Namespace) -> int:
         for s in scenarios:
             print(f"{s['scenario_id']:<28}{s['class']:<22}{s['module']}")
         return 0
-    if args.scenario:
+    if args.revalidate:
+        result = revalidate_retained_selector()
+    elif args.scenario:
         if not any(s["scenario_id"] == args.scenario for s in scenarios):
             print(f"unknown scenario: {args.scenario}", file=sys.stderr)
             return 1

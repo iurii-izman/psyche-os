@@ -10,6 +10,8 @@ import json
 from pathlib import Path
 import sys
 
+import pytest
+
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
@@ -18,10 +20,14 @@ from ai_dev_harness import (  # noqa: E402
     _bounded,
     _codex_metrics,
     _deepseek_cost_estimate,
+    _env_for,
     _first_int,
     _opencode_metrics,
     _reasonix_metrics,
+    _run_exit_code,
+    overall_status,
     render_prompt,
+    run_harness,
 )
 
 
@@ -120,3 +126,133 @@ def test_harness_bin_resolves_real_entries() -> None:
     for name in ("claude-code", "reasonix", "opencode", "codex"):
         cmd = ai_dev_harness._harness_bin(name)
         assert isinstance(cmd, list) and cmd
+
+
+# --------------------------------------------------------------------------- A7 minimal harness environment
+
+
+class TestMinimalHarnessEnv:
+    def test_unrelated_parent_secret_not_inherited(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("UNRELATED_CLOUD_SECRET", "must-not-leak")
+        monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "synthetic-aws-secret")
+        monkeypatch.setenv("OPENAI_API_KEY", "synthetic-openai-key")
+        for harness in ("claude-code", "reasonix", "opencode", "codex"):
+            env = _env_for(harness)
+            assert "UNRELATED_CLOUD_SECRET" not in env
+            assert "AWS_SECRET_ACCESS_KEY" not in env
+            assert "OPENAI_API_KEY" not in env
+
+    def test_claude_code_provider_auth_wired_without_printing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-synthetic-not-real-1234567890")
+        env = _env_for("claude-code")
+        assert env.get("ANTHROPIC_BASE_URL") == "https://api.deepseek.com/anthropic"
+        assert env.get("ANTHROPIC_AUTH_TOKEN") == "sk-synthetic-not-real-1234567890"
+        assert env.get("ANTHROPIC_MODEL") == "deepseek-v4-flash"
+
+    def test_opencode_receives_only_deepseek_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-synthetic-not-real-1234567890")
+        env = _env_for("opencode")
+        assert env.get("DEEPSEEK_API_KEY") == "sk-synthetic-not-real-1234567890"
+        assert "ANTHROPIC_AUTH_TOKEN" not in env
+
+    def test_codex_gets_no_cloud_keys(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-synthetic-not-real-1234567890")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-synthetic-anthropic-not-real")
+        env = _env_for("codex")
+        assert "OPENAI_API_KEY" not in env
+        assert "ANTHROPIC_API_KEY" not in env
+
+    def test_reasonix_passes_no_credential_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-synthetic-not-real-1234567890")
+        env = _env_for("reasonix")
+        assert "DEEPSEEK_API_KEY" not in env
+
+
+# --------------------------------------------------------------------------- A3 fail-closed overall status
+
+
+class TestOverallStatusFailClosed:
+    def test_timeout_can_never_be_pass(self) -> None:
+        rec = {
+            "session": {"timed_out": True, "rc": None},
+            "setup": {"ok": True},
+            "evaluation": {"acceptance": "PASS"},
+            "errors": [],
+        }
+        assert overall_status(rec) == "TIMEOUT"
+
+    def test_nonzero_harness_rc_can_never_be_pass(self) -> None:
+        rec = {
+            "session": {"timed_out": False, "rc": 2},
+            "setup": {"ok": True},
+            "evaluation": {"acceptance": "PASS"},
+            "errors": ["harness exit code 2"],
+        }
+        assert overall_status(rec) == "HARNESS_FAILURE"
+
+    def test_setup_failure_is_infra_failure(self) -> None:
+        rec = {
+            "session": {"timed_out": False, "rc": 0},
+            "setup": {"ok": False, "rc": 1},
+            "evaluation": {"acceptance": "PASS"},
+            "errors": [],
+        }
+        assert overall_status(rec) == "INFRA_FAILURE"
+
+    def test_recorded_error_is_infra_failure(self) -> None:
+        rec = {
+            "session": {"timed_out": False, "rc": 0},
+            "setup": {"ok": True},
+            "evaluation": {"acceptance": "PASS"},
+            "errors": ["unexpected: boom"],
+        }
+        assert overall_status(rec) == "INFRA_FAILURE"
+
+    def test_clean_pass_is_pass_and_clean_fail_is_fail(self) -> None:
+        ok = {"session": {"timed_out": False, "rc": 0}, "setup": {"ok": True}, "evaluation": {"acceptance": "PASS"}, "errors": []}
+        assert overall_status(ok) == "PASS"
+        bad = {**ok, "evaluation": {"acceptance": "FAIL"}}
+        assert overall_status(bad) == "FAIL"
+
+    def test_single_run_cli_exit_only_zero_on_pass(self) -> None:
+        assert _run_exit_code({"status": "PASS"}) == 0
+        assert _run_exit_code({"status": "TIMEOUT"}) == 1
+        assert _run_exit_code({"status": "HARNESS_FAILURE"}) == 1
+        assert _run_exit_code({"status": "FAIL"}) == 1
+        assert _run_exit_code({"status": "INFRA_FAILURE"}) == 1
+
+
+class TestTimeoutProcessTreeCleanup:
+    def test_timeout_kills_descendants_and_survivors(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A synthetic sleeper parent + child prove bounded tree termination:
+        timed out -> TIMEOUT session, cleanup outcome recorded, no survivor."""
+        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+        parent_script = (
+            "import subprocess, sys, time\n"
+            "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n"
+            "time.sleep(60)\n"
+        )
+        marker = "import time; time.sleep(30)"
+        monkeypatch.setattr(ai_dev_harness, "_harness_bin", lambda harness: [sys.executable, "-c", parent_script])
+
+        tree = tmp_path / "tree"
+        tree.mkdir()
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+
+        session = run_harness("claude-code", tree, "prompt", run_dir, timeout=2)
+        assert session["timed_out"] is True
+        assert session["rc"] is None
+        assert session["cleanup"]["remaining"] == 0
+
+        import psutil
+
+        survivors = []
+        for p in psutil.process_iter(["pid", "cmdline"]):
+            try:
+                cmdline = p.info.get("cmdline") or []
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                continue
+            if marker in " ".join(cmdline):
+                survivors.append(p.info)
+        assert survivors == [], f"leaked processes: {survivors}"

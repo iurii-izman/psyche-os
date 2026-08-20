@@ -41,11 +41,42 @@ REPO = Path(__file__).resolve().parent.parent
 REGISTRY = REPO / ".ai-dev" / "capabilities" / "registry.yaml"
 RUNS_DIR = REPO / ".ai-dev" / "evidence" / "performance" / "runs" / "capability-runs"
 
-REFUSED_STATES = {"disabled", "quarantined"}
+# Repository-native capability states (documented in registry.yaml).
+RECOGNIZED_STATES = {"CORE", "CONDITIONAL", "LAB", "DISABLED", "QUARANTINED"}
 
 
 class CapabilityError(Exception):
     """A deterministic launcher failure (unknown capability, refused, missing tool)."""
+
+
+def normalize_state(state: Any) -> str | None:
+    """Case-insensitive, whitespace-trimmed capability state. Returns the
+    normalized canonical state or None when the value is malformed/unknown."""
+    if not isinstance(state, str):
+        return None
+    s = state.strip().upper()
+    return s if s in RECOGNIZED_STATES else None
+
+
+def execution_allowed(state: Any, *, explicit: bool) -> tuple[bool, str]:
+    """THE ONE capability-state decision primitive, shared by the JIT launcher
+    and the tournament runner so they cannot diverge (A5).
+
+      DISABLED / QUARANTINED  -> refused regardless of caller or capitalization
+      LAB                     -> runs only on explicit invocation
+      CORE / CONDITIONAL      -> allowed
+      malformed / unknown     -> fail closed (refused)
+
+    Returns (allowed, reason).
+    """
+    norm = normalize_state(state)
+    if norm is None:
+        return False, "MALFORMED_OR_UNKNOWN_STATE"
+    if norm in ("DISABLED", "QUARANTINED"):
+        return False, norm
+    if norm == "LAB" and not explicit:
+        return False, "LAB_REQUIRES_EXPLICIT_INVOCATION"
+    return True, norm
 
 
 def _now() -> str:
@@ -315,10 +346,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 1
     rec = caps[name]
     state = rec.get("state", "?")
-    if state in REFUSED_STATES:
-        print(f"refused: capability {name!r} is {state.upper()} and may not run", file=sys.stderr)
+    allowed, reason = execution_allowed(state, explicit=True)
+    if not allowed:
+        print(f"refused: capability {name!r} is {state} ({reason}) and may not run", file=sys.stderr)
         return 2
-    if state == "lab":
+    if normalize_state(state) == "LAB":
         print(f"notice: {name!r} is LAB — running by explicit invocation only", file=sys.stderr)
 
     # difftastic repo-native git-tree adapter: `--git <sha1> [<sha2>] [paths...]`.

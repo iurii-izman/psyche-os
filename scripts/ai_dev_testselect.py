@@ -110,33 +110,74 @@ def run_pytest_in(worktree: Path, args: list[str], *, label: str, timeout: int =
     }
 
 
-def parse_reportlog_counts(rl_path: Path) -> dict[str, Any]:
-    """Parse the deterministic reportlog artifact into counts + failing nodeids."""
-    collected = passed = failed = errors = skipped = 0
-    failing: list[str] = []
+def parse_reportlog_counts(rl_path: Path, rc: int | None = None) -> dict[str, Any]:
+    """Parse a reportlog artifact into counts, COMPLETE failing nodeids, and a
+    deterministic pytest status.
+
+    A2: missing, malformed, or incomplete reportlogs are INCOMPLETE — never a
+    green and never detection. The failing nodeids come from the parser's
+    complete machine-accounting list (``failure_nodeids``), NOT the bounded
+    AI-facing presentation, so presentation truncation can never truncate
+    detector ground truth (A1).
+    """
+    base = {"collected": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0, "failing": [], "status": "INCOMPLETE"}
     if not rl_path.is_file():
-        return {"collected": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0, "failing": []}
+        return base
     try:
         import ai_dev_reportlog  # type: ignore
 
         packet = ai_dev_reportlog.parse_reportlog(rl_path, command="pytest")
-        coll = packet["collection"]
-        collected, passed, failed, errors, skipped = (
-            coll["collected"], coll["passed"], coll["failed"], coll["errors"], coll["skipped"],
-        )
-        for f in packet.get("failures", []) or []:
-            failing.append(f.get("nodeid", "?"))
     except Exception:
-        return {"collected": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0, "failing": []}
-    return {"collected": collected, "passed": passed, "failed": failed, "errors": errors, "skipped": skipped, "failing": failing}
+        return base
+    coll = packet["collection"]
+    return {
+        "collected": coll["collected"],
+        "passed": coll["passed"],
+        "failed": coll["failed"],
+        "errors": coll["errors"],
+        "skipped": coll["skipped"],
+        "failing": list(packet.get("failure_nodeids") or []),
+        "status": classify_run(packet, rc if rc is not None else packet.get("exit_code")),
+    }
+
+
+def classify_run(packet: dict[str, Any] | None, rc: int | None) -> str:
+    """Deterministic pytest-result status semantics (A2).
+
+    Only a trustworthy test failure — a clean SessionFinish, parsed failing node
+    identities, pytest rc == 1 — may establish mutation detection. Everything
+    else is PASS / INFRA_ERROR / INCOMPLETE / NO_TESTS and must never be treated
+    as detection.
+
+      PASS          rc 0, clean session
+      TEST_FAILURE  rc 1 with parsed failing nodeids, clean session
+      INFRA_ERROR   rc 2/3/4 (interrupted / internal error / usage error) or
+                    non-zero rc without trustworthy parsed failures
+      NO_TESTS      rc 5 (pytest: no tests collected)
+      INCOMPLETE    missing/truncated/malformed reportlog (no trustworthy evidence)
+    """
+    if packet is None:
+        return "INCOMPLETE"
+    if packet.get("truncated"):
+        return "INCOMPLETE"
+    if rc == 0:
+        return "PASS"
+    if rc == 5:
+        return "NO_TESTS"
+    if rc in (2, 3, 4):
+        return "INFRA_ERROR"
+    if rc == 1 and (packet.get("failure_nodeids") or []):
+        return "TEST_FAILURE"
+    return "INFRA_ERROR"
 
 
 def _summary(run: dict[str, Any]) -> dict[str, Any]:
-    counts = parse_reportlog_counts(Path(run["reportlog"]))
+    counts = parse_reportlog_counts(Path(run["reportlog"]), rc=run["rc"])
     return {
         "label": run["label"],
         "rc": run["rc"],
         "duration_ms": run["duration_ms"],
+        "status": counts["status"],
         "selected": counts["collected"],
         "failed": counts["failed"],
         "errors": counts["errors"],
@@ -211,8 +252,9 @@ def run_test_select_scenario(scenario_id: str) -> dict[str, Any]:
     _git_worktree_add(worktree)
     print(f"[test-select] scenario {scenario_id} ({scenario['class']}) — probe worktree ready", flush=True)
     try:
-        # 1. Warm testmon collection on the UNMUTATED tree (also proves green baseline).
-        if "pytest-testmon" in _selectors_enabled():
+        # 1. Warm testmon collection on the UNMUTATED tree (also proves green
+        #    baseline) — only when the external selector is actually available.
+        if _selector_available("pytest-testmon"):
             baseline = run_pytest_in(worktree, ["--testmon"], label="testmon-warm")
             if baseline["rc"] != 0:
                 raise TestSelectError(f"scenario {scenario_id}: warm testmon baseline is not green (rc={baseline['rc']})")
@@ -220,28 +262,46 @@ def run_test_select_scenario(scenario_id: str) -> dict[str, Any]:
         # 2. Apply the mutation.
         apply_mutation(scenario, worktree)
 
-        # 3. FULL truth run identifies the detecting tests.
+        # 3. FULL truth run identifies the detecting tests. FULL is valid for
+        #    detection ONLY when it is a trustworthy test failure with complete
+        #    parsed detector identities; anything else invalidates the scenario.
         full = selector_full(worktree)
-        detectors = set(full["failing_nodeids"])
-
-        # 4. Each selector.
-        results: dict[str, Any] = {}
-        if full["rc"] == 0:
-            results["full"] = {**full, "detected": False, "detection_note": "mutation not caught by any test (scenario invalid)"}
+        full_status = full["status"]
+        if full_status != "TEST_FAILURE":
+            detectors: set[str] = set()
+            results: dict[str, Any] = {}
+            results["full"] = {
+                **full,
+                "detected": False,
+                "detection_note": (
+                    f"FULL status {full_status!r} — not a trustworthy test failure; "
+                    "scenario cannot establish detection"
+                ),
+            }
         else:
-            results["full"] = {**full, "detected": True, "detectors": sorted(detectors)}
+            detectors = set(full["failing_nodeids"])
+            results = {
+                "full": {**full, "detected": True, "detectors": sorted(detectors)},
+            }
 
+        # 4. Retained normal selector (always run in a clean canonical env).
         cur = selector_current(worktree, scenario, config)
-        cur["detected"] = _detects(cur, detectors)
+        cur["detected"] = _detects(cur, detectors) if full_status == "TEST_FAILURE" else None
         results["current"] = cur
 
-        imp = selector_impacted(worktree, scenario)
-        imp["detected"] = _detects(imp, detectors)
-        results["pytest-impacted"] = imp
-
-        tm = selector_testmon(worktree, scenario, warm=True)
-        tm["detected"] = _detects(tm, detectors)
-        results["pytest-testmon"] = tm
+        # 5. External LAB selectors — run ONLY when configuration, capability
+        #    state, and actual availability agree. Otherwise SKIPPED_UNAVAILABLE
+        #    (not ERROR, not PASS, not a false negative).
+        for name, kind in (("pytest-testmon", "testmon"), ("pytest-impacted", "impacted")):
+            if _selector_available(name):
+                if kind == "testmon":
+                    sel = selector_testmon(worktree, scenario, warm=True)
+                else:
+                    sel = selector_impacted(worktree, scenario)
+                sel["detected"] = _detects(sel, detectors) if full_status == "TEST_FAILURE" else None
+            else:
+                sel = _skipped_unavailable(name)
+            results[name] = sel
     finally:
         _git_worktree_remove(worktree)
 
@@ -252,13 +312,13 @@ def run_test_select_scenario(scenario_id: str) -> dict[str, Any]:
         "class": scenario["class"],
         "module": scenario["module"],
         "mutation_desc": scenario["mutation"]["desc"],
-        "detectors": sorted(detectors),
+        "detectors": sorted(detectors) if full_status == "TEST_FAILURE" else [],
         "selector_results": results,
         "detection_recall": {
-            "full": True,
-            "current": results["current"]["detected"],
-            "pytest-testmon": results["pytest-testmon"]["detected"],
-            "pytest-impacted": results["pytest-impacted"]["detected"],
+            "full": full_status == "TEST_FAILURE",
+            "current": results["current"].get("detected"),
+            "pytest-testmon": results["pytest-testmon"].get("detected"),
+            "pytest-impacted": results["pytest-impacted"].get("detected"),
         },
     }
     _write_evidence(scenario_id, "result", out)
@@ -266,12 +326,15 @@ def run_test_select_scenario(scenario_id: str) -> dict[str, Any]:
 
 
 def _detects(selector_summary: dict[str, Any], detectors: set[str]) -> bool:
-    """A selector detected the mutation if its run failed on a detector nodeid."""
+    """A selector detects the mutation only when:
+      1. its execution is valid and trustworthy (TEST_FAILURE), and
+      2. its complete failing node set intersects the complete FULL detector set.
+    Count-based inference and infra/parser failures never count as detection."""
     if not detectors:
         return False
-    if selector_summary.get("rc") != 0:
-        return bool(set(selector_summary.get("failing_nodeids", [])) & detectors)
-    return False
+    if selector_summary.get("status") != "TEST_FAILURE":
+        return False
+    return bool(set(selector_summary.get("failing_nodeids", [])) & detectors)
 
 
 def run_test_select_all() -> dict[str, Any]:
@@ -299,6 +362,51 @@ def run_test_select_all() -> dict[str, Any]:
     return out
 
 
+# --------------------------------------------------------------------------- A1/A2-repaired selector revalidation
+
+
+def revalidate_retained_selector() -> dict[str, Any]:
+    """Repaired revalidation (A1/A2): the five frozen mutation scenarios, FULL
+    truth + the retained current selector ONLY. External selectors are never
+    invoked here. This is the bounded evidence that decides whether the retained
+    selector is trustworthy — NOT a universal proof, just the five probes."""
+    rows = []
+    for s in list_scenarios():
+        print(f"[revalidate] === scenario {s['scenario_id']} ===", flush=True)
+        rows.append(run_test_select_scenario(s["scenario_id"]))
+    valid = [r for r in rows if r["detection_recall"]["full"] is True]
+    detected = [r for r in valid if r["selector_results"]["current"].get("detected") is True]
+    if len(valid) != 5:
+        result = f"INCONCLUSIVE ({len(valid)}/5 scenarios had a trustworthy FULL test failure)"
+    elif len(detected) == 5:
+        result = "PASS (5/5 repaired bounded mutation probes detected by the retained current selector)"
+    else:
+        result = f"FAIL ({len(detected)}/5 detected)"
+    out = {
+        "schema_version": 1,
+        "ran_at": _now(),
+        "purpose": "A1/A2-repaired selector revalidation — FULL + retained current selector only (five frozen scenarios)",
+        "scenarios": [
+            {
+                "scenario_id": r["scenario_id"],
+                "class": r["class"],
+                "module": r["module"],
+                "full_status": r["selector_results"]["full"].get("status"),
+                "full_valid": r["detection_recall"]["full"] is True,
+                "detector_count": len(r["detectors"]),
+                "current_status": r["selector_results"]["current"].get("status"),
+                "current_selected_tests": r["selector_results"]["current"].get("selected"),
+                "current_selected_files": r["selector_results"]["current"].get("selected_files"),
+                "current_detected": r["selector_results"]["current"].get("detected"),
+            }
+            for r in rows
+        ],
+        "retained_selector_result": result,
+    }
+    (EVIDENCE_ROOT / "revalidation.json").write_text(json.dumps(out, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+    return out
+
+
 # --------------------------------------------------------------------------- helpers
 
 
@@ -308,14 +416,67 @@ def _load_perf_config() -> dict[str, Any]:
     return ai_dev_perf.load_config()
 
 
-def _selectors_enabled() -> list[str]:
+def _skipped_unavailable(name: str) -> dict[str, Any]:
+    return {
+        "label": name,
+        "rc": None,
+        "duration_ms": 0.0,
+        "status": "SKIPPED_UNAVAILABLE",
+        "selected": 0,
+        "failed": 0,
+        "errors": 0,
+        "failing_nodeids": [],
+        "detected": None,
+    }
+
+
+_PLUGIN_MODULES = {"pytest-testmon": "testmon", "pytest-impacted": "pytest_impacted"}
+
+
+def _plugin_importable(name: str) -> bool:
+    import importlib.util
+
+    mod = _PLUGIN_MODULES.get(name)
+    if not mod:
+        return False
+    return importlib.util.find_spec(mod) is not None
+
+
+def _selector_available(name: str) -> bool:
+    """A candidate selector is invocable only when configuration, capability
+    state, and actual availability all agree. Unavailable LAB candidates are
+    SKIPPED_UNAVAILABLE — never invoked, never ERROR, never a false negative."""
     try:
         import ai_dev_adapters  # type: ignore
 
         cfg = ai_dev_adapters.load_tournament_config()
-        return [c for c in cfg["test_selection"]["candidates"] if c != "full"] + ["full"]
+        if name not in list(cfg["test_selection"]["candidates"]):
+            return False
     except Exception:
-        return ["full", "current", "pytest-testmon", "pytest-impacted"]
+        return False
+    try:
+        import ai_dev_capability  # type: ignore
+
+        rec = ai_dev_capability.load_registry().get(name)
+    except Exception:
+        return False
+    if not rec:
+        return False
+    allowed, _ = ai_dev_capability.execution_allowed(rec.get("state"), explicit=True)
+    if not allowed:
+        return False
+    if not (rec.get("installed") or rec.get("command")):
+        return False
+    return _plugin_importable(name)
+
+
+def _selectors_enabled() -> list[str]:
+    """Selectors that may actually run (availability-gated)."""
+    out = ["full", "current"]
+    for name in ("pytest-testmon", "pytest-impacted"):
+        if _selector_available(name):
+            out.append(name)
+    return out
 
 
 def _git_worktree_add(worktree: Path) -> None:

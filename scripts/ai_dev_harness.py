@@ -20,6 +20,7 @@ Run:  uv run python scripts/ai_dev_harness.py <command> [options]
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as _dt
 import json
 import os
@@ -36,6 +37,14 @@ REPO = Path(__file__).resolve().parent.parent
 TASKS_FILE = REPO / ".ai-dev" / "performance" / "harness-tasks.yaml"
 RUNS_ROOT = REPO / ".ai-dev" / "evidence" / "performance" / "runs" / "harness"
 EVIDENCE_FILE = REPO / ".ai-dev" / "evidence" / "performance" / "harness-comparison.json"
+
+try:
+    import psutil  # type: ignore
+
+    _HAS_PSUTIL = True
+except Exception:  # pragma: no cover
+    psutil = None  # type: ignore[assignment]
+    _HAS_PSUTIL = False
 
 
 def _main_repo_root() -> Path:
@@ -207,16 +216,90 @@ def _harness_bin(harness: str) -> list[str]:
     raise HarnessError(f"unknown harness {harness}")
 
 
+# Explicit environment allowlist for networked permission-bypassed harness
+# sessions (A7). Only OS/process execution essentials plus the exact provider
+# credential each harness requires; the host environment is never copied whole,
+# so unrelated credentials cannot leak into a session.
+ENV_ALLOWLIST = (
+    "PATH",
+    "PATHEXT",
+    "SYSTEMROOT",
+    "WINDIR",
+    "COMSPEC",
+    "TEMP",
+    "TMP",
+    "HOME",
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+)
+
+
+def _base_env() -> dict[str, str]:
+    return {k: v for k, v in os.environ.items() if k in ENV_ALLOWLIST}
+
+
 def _env_for(harness: str) -> dict[str, str]:
-    env = dict(os.environ)
+    env = _base_env()
     if harness == "claude-code":
+        # Claude+DeepSeek: derive only the required Anthropic-compatible
+        # variables from DEEPSEEK_API_KEY.
         env["ANTHROPIC_BASE_URL"] = "https://api.deepseek.com/anthropic"
-        env["ANTHROPIC_AUTH_TOKEN"] = os.environ.get("DEEPSEEK_API_KEY", "")
         env["ANTHROPIC_MODEL"] = "deepseek-v4-flash"
-        env["ANTHROPIC_API_KEY"] = ""
-        env["CLAUDE_CODE_HOST_AUTH_ENV_VAR"] = "ANTHROPIC_AUTH_TOKEN"
         env["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"] = "1"
+        key = os.environ.get("DEEPSEEK_API_KEY", "")
+        if key:
+            env["ANTHROPIC_AUTH_TOKEN"] = key
+            env["ANTHROPIC_API_KEY"] = ""
+            env["CLAUDE_CODE_HOST_AUTH_ENV_VAR"] = "ANTHROPIC_AUTH_TOKEN"
+    elif harness == "opencode":
+        # opencode reads the DeepSeek key from its environment.
+        key = os.environ.get("DEEPSEEK_API_KEY", "")
+        if key:
+            env["DEEPSEEK_API_KEY"] = key
+    elif harness == "reasonix":
+        # reasonix reads DeepSeek auth only from its own AppData .env; nothing
+        # is passed through the environment.
+        pass
+    elif harness == "codex":
+        # codex uses ChatGPT authentication from its own config; unrelated
+        # cloud API keys are NOT passed even when present in the parent env.
+        pass
     return env
+
+
+def _terminate_tree(pid: int, wait_s: float = 5.0) -> dict[str, Any]:
+    """Bounded process-tree termination for a timed-out harness (A3).
+
+    Descendants -> parent -> bounded wait -> force-kill any survivors. Uses
+    psutil (already a dev dependency); never relies on a parent-only kill.
+    Returns a cleanup outcome record; never raises.
+    """
+    if not _HAS_PSUTIL:
+        return {"method": "none", "killed": 0, "force_killed": 0, "remaining": 0, "note": "psutil unavailable"}
+    try:
+        parent = psutil.Process(pid)
+    except psutil.Error:
+        return {"method": "none", "killed": 0, "force_killed": 0, "remaining": 0, "note": "process already gone"}
+    try:
+        children = parent.children(recursive=True)
+    except psutil.Error:
+        children = []
+    targets = [*children, parent]
+    for p in reversed(targets):
+        with contextlib.suppress(psutil.Error):
+            p.terminate()
+    gone, alive = psutil.wait_procs(targets, timeout=wait_s)
+    for p in alive:
+        with contextlib.suppress(psutil.Error):
+            p.kill()
+    _, still = psutil.wait_procs(alive, timeout=2.0)
+    return {
+        "method": "psutil-tree",
+        "killed": len(gone),
+        "force_killed": len(alive),
+        "remaining": len(still),
+    }
 
 
 def run_harness(
@@ -253,22 +336,30 @@ def run_harness(
         raise HarnessError(f"unknown harness {harness}")
 
     t0 = time.perf_counter()
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(tree),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    cleanup: dict[str, Any] = {}
     try:
-        proc = subprocess.run(
-            cmd,
-            cwd=str(tree),
-            env=env,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-        )
+        stdout, stderr = proc.communicate(timeout=timeout)
         timed_out = False
-    except subprocess.TimeoutExpired as exc:  # pragma: no cover - timeout path
-        proc = exc
+    except subprocess.TimeoutExpired:
         timed_out = True
-        # TimeoutExpired carries partial output only if we used communicate; capture nothing extra.
+        # Kill the whole process tree (descendants -> parent -> force), never
+        # a parent-only kill. No experimental process may remain after timeout.
+        cleanup = _terminate_tree(proc.pid)
+        with contextlib.suppress(Exception):
+            proc.wait(timeout=5)
+        with contextlib.suppress(Exception):
+            proc.kill()
+        stdout = stderr = ""
     wall_ms = round((time.perf_counter() - t0) * 1000.0, 1)
 
     if timed_out:
@@ -277,19 +368,20 @@ def run_harness(
             "timed_out": True,
             "rc": None,
             "wall_ms": wall_ms,
+            "cleanup": cleanup,
             "stdout_path": str(stdout_path),
             "stderr_path": str(stderr_path),
         }
 
-    stdout_path.write_text(proc.stdout or "", encoding="utf-8", errors="replace")
-    stderr_path.write_text(proc.stderr or "", encoding="utf-8", errors="replace")
+    stdout_path.write_text(stdout or "", encoding="utf-8", errors="replace")
+    stderr_path.write_text(stderr or "", encoding="utf-8", errors="replace")
     return {
         "started": True,
         "timed_out": False,
         "rc": proc.returncode,
         "wall_ms": wall_ms,
-        "stdout_bytes": len((proc.stdout or "").encode("utf-8", errors="replace")),
-        "stderr_bytes": len((proc.stderr or "").encode("utf-8", errors="replace")),
+        "stdout_bytes": len((stdout or "").encode("utf-8", errors="replace")),
+        "stderr_bytes": len((stderr or "").encode("utf-8", errors="replace")),
         "stdout_path": str(stdout_path),
         "stderr_path": str(stderr_path),
     }
@@ -724,10 +816,42 @@ def run_one(task_id: str, harness: str) -> dict[str, Any]:
     except Exception as exc:  # never lose a session record to an unexpected error
         record["errors"].append(f"{type(exc).__name__}: {exc}")
     record["finished_at"] = now_iso()
+    record["status"] = overall_status(record)
 
     out_path = run_dir / "run.json"
     out_path.write_text(json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2), encoding="utf-8")
     return record
+
+
+def overall_status(record: dict[str, Any]) -> str:
+    """The run's TRUE overall status (A3). Overall acceptance can NEVER be PASS
+    when the session timed out, the harness process exited non-zero, setup
+    failed, or the session record carries an execution error. Result-test
+    evaluation may still run for diagnostics; a diagnostic PASS does not make
+    the run green."""
+    session = record.get("session") or {}
+    if session.get("timed_out"):
+        return "TIMEOUT"
+    rc = session.get("rc")
+    if rc is None or rc != 0:
+        return "HARNESS_FAILURE"
+    setup = record.get("setup") or {}
+    if setup.get("ok") is not True:
+        return "INFRA_FAILURE"
+    if record.get("errors"):
+        return "INFRA_FAILURE"
+    acceptance = (record.get("evaluation") or {}).get("acceptance")
+    return acceptance if acceptance in ("PASS", "FAIL", "UNKNOWN") else "INCOMPLETE"
+
+
+_EXECUTION_PROBLEM_STATUSES = ("TIMEOUT", "HARNESS_FAILURE", "INFRA_FAILURE", "INCOMPLETE")
+
+
+def _run_exit_code(record: dict[str, Any]) -> int:
+    """Single-run CLI exit: 0 only when the run's overall status is actually
+    successful (PASS). Timeouts, infrastructure failures, harness non-zero exits,
+    and deterministic acceptance failures all exit non-zero."""
+    return 0 if record.get("status") == "PASS" else 1
 
 
 def _evaluate(task: dict[str, Any], tree: Path, run_dir: Path) -> dict[str, Any]:
@@ -786,6 +910,7 @@ def build_comparison() -> dict[str, Any]:
                 "requested_model": metrics.get("requested_model"),
                 "configured_model": metrics.get("configured_model"),
                 "effective_model": metrics.get("effective_model"),
+                "status": r.get("status"),
                 "acceptance": eval_.get("acceptance"),
                 "verification": {
                     k: verify.get(k)
@@ -850,16 +975,18 @@ def cmd_list(_args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     record = run_one(args.task, args.harness)
     print(json.dumps(_compact(record), ensure_ascii=False, sort_keys=True, indent=2))
-    return 0
+    return _run_exit_code(record)
 
 
 def _compact(record: dict[str, Any]) -> dict[str, Any]:
     return {
         "task_id": record["task_id"],
         "harness": record["harness"],
+        "status": record.get("status"),
         "acceptance": (record.get("evaluation") or {}).get("acceptance"),
         "wall_ms": (record.get("session") or {}).get("wall_ms"),
         "rc": (record.get("session") or {}).get("rc"),
+        "timed_out": (record.get("session") or {}).get("timed_out"),
         "errors": record.get("errors"),
     }
 
@@ -871,13 +998,23 @@ def cmd_run_all(_args: argparse.Namespace) -> int:
         for h in ("claude-code", "reasonix", "opencode")
         for tid in tasks
     ]
+    problem_statuses: list[str] = []
     for i, (tid, h) in enumerate(order, 1):
         print(f"[{i}/{len(order)}] running {h} on {tid} ...", flush=True)
         record = run_one(tid, h)
         c = _compact(record)
-        print(f"  -> acceptance={c['acceptance']} wall={c['wall_ms']}ms rc={c['rc']} errors={c['errors']}", flush=True)
+        print(
+            f"  -> status={c['status']} acceptance={c['acceptance']} wall={c['wall_ms']}ms "
+            f"rc={c['rc']} timed_out={c['timed_out']} errors={c['errors']}",
+            flush=True,
+        )
+        if c["status"] in _EXECUTION_PROBLEM_STATUSES:
+            problem_statuses.append(f"{tid}/{h}:{c['status']}")
     comp = write_comparison()
     print(f"wrote {EVIDENCE_FILE} ({len(comp['rows'])} rows)")
+    if problem_statuses:
+        print(f"execution problems: {', '.join(problem_statuses)}", file=sys.stderr)
+        return 1
     return 0
 
 
