@@ -586,3 +586,139 @@ Selection counts (selected / 708 full): current 122-482 tests (17-68%); testmon
 
 **`WAVE_2_COMPLETE`** · `E11 NOT IMPLEMENTED` · `REAL_DATA_GATE CLOSED` ·
 `READY_FOR_WAVE_3_HARNESS_TOURNAMENT`
+
+# Acceleration Wave 3 — Harness Tournament & Final V2 Decision (2026-08-20)
+
+The FINAL experimental wave. Small, evidence-driven harness tournament answering one
+practical question: *which harness should be used for normal AI Dev OS work after V2?*
+Claude Code (control) vs Reasonix vs OpenCode on the SAME CHEAP DeepSeek model class
+(`deepseek-v4-flash`), each on TWO frozen real tasks. No new framework, no new
+subsystem; the retained stack is intentionally SMALLER after this wave.
+
+Status: **`WAVE_3_COMPLETE`** · start `9376adc` → final `HEAD` · branch `ai-dev/v2-performance-canary`
+
+## 1. Frozen tasks (written before any run, never tuned)
+
+Derived from accepted main-branch history; contestants start at the base SHA and are
+never shown the accepted diff. Deterministic verification = overlay the result-SHA
+test files and run them; PASS iff every collected test passes.
+
+| task | class | base → result | expected files | verification (result-SHA tests) | ground truth |
+|---|---|---|---|---|---|
+| `e07-disclosure-enforcement` | A (small/local) | `976d383` → `7d6c040` | `application/e07_bounded_ai.py`, `domain/ai_proposal.py` | unit + integration `test_e07_bounded_ai_proposal.py` | result 66 ✅ / base 19 ❌ |
+| `e06-bounded-review-semantics` | B (medium/cross-module) | `0534d26` → `e6225c5` | `domain/experiments.py`, `application/e06_experiments.py`, `storage/e06_schema.py` | unit + integration `test_e06_n_of_1_protocols.py`, `test_e06_migration.py` | result 38 ✅ / base collection ❌ |
+
+## 2. Contestants (same model class)
+
+| contestant | version | provider | model | effective model | accounting |
+|---|---|---|---|---|---|
+| Claude Code (control) | 2.1.233 | DeepSeek direct (`api.deepseek.com/anthropic`) | `deepseek-v4-flash` | confirmed `deepseek-v4-flash` | transcript usage (real) |
+| Reasonix | 1.31.0 | DeepSeek preset (anthropic kind) | `deepseek-v4-flash` | confirmed `deepseek-flash/deepseek-v4-flash` | `--metrics` (real, DeepSeek table) |
+| OpenCode | 1.18.19 | DeepSeek built-in provider | `deepseek/deepseek-v4-flash` | **UNKNOWN** (stream emits no model; cost basis consistent with DeepSeek) | `step_finish` tokens + cost (real) |
+
+## 3. Core tournament — 6 runs
+
+| task | harness | accept | pass/collected | wall | turns | in tok | out tok | cache read | cost (see note) |
+|---|---|---|---|---|---|---|---|---|---|
+| A | Claude Code | FAIL | 65/66 | 406 s | 45 | 64 500 | 48 751 | 2 934 272 | ~$0.051 |
+| A | Reasonix | FAIL | 65/66 | 284 s | 40 | 1 603 701 | 26 188 | 1 536 896 | $0.0427 |
+| A | OpenCode | FAIL | 64/66 | 239 s | 23 | 42 113 | 9 104 | 1 091 456 | $0.0162 |
+| B | Claude Code | FAIL | 30/38 | 689 s | 64 | 73 613 | 81 876 | 5 515 264 | ~$0.091 |
+| B | **Reasonix** | **PASS** | **38/38** | 415 s | 54 | 3 014 050 | 45 986 | 2 914 560 | $0.0726 |
+| B | OpenCode | FAIL | 29/38 | 710 s | 66 | 49 634 | 25 678 | 5 895 424 | $0.0452 |
+
+Cost note: Reasonix/OpenCode report their own cost from DeepSeek pricing (off-peak).
+Claude Code's reported `total_cost_usd` uses Anthropic default pricing (mispriced for
+DeepSeek), so the column shows a **DeepSeek off-peak ESTIMATE** computed from real token
+counts. All token counts are real.
+
+## 4. Quality result
+
+- **Task A — all three FAILED on the same single test**
+  (`test_one_interaction_id_can_reach_provider_at_most_once`): `prepare()` must
+  permanently reserve an interaction id and reject reuse with `INTERACTION_REUSED`.
+  OpenCode additionally missed the lookalike-capability rejection (64/66). All three
+  harnesses on the same CHEAP model missed the identical subtle lifecycle rule — a
+  model-capability signal, not a harness difference.
+- **Task B — only Reasonix PASSED (38/38).** Claude Code (30/38) and OpenCode (29/38)
+  both failed the same integration cluster: canonical DB-persisted execution,
+  stale-digest/assignment-drift fail-closed, arbitrary-payload authority, deletion
+  cascades. Reasonix implemented the full cross-module semantics correctly.
+- No harness passed BOTH tasks → **no eligible winner**.
+
+## 5. Optional Codex strong reference (separate; NOT same-model)
+
+Codex CLI 0.130.0 (ChatGPT auth) on Task B with `gpt-5.5` (the configured
+`gpt-5.6-sol` requires a newer CLI; `gpt-5` is not allowed with ChatGPT auth).
+Reference result: **29/38 FAIL** — the same integration cluster Claude Code and
+OpenCode missed. input 648 837 (553 301 uncached), output 12 783, wall 274 s;
+cost UNKNOWN (codex emits no cost; different provider economics). Excluded from the
+same-model winner calculation.
+
+## 6. Winner decision
+
+**`HARNESS_NO_WINNER`** → **retain Claude Code as the harness.**
+
+No contestant passed both frozen tasks, so none is eligible to replace the control.
+Reasonix showed a genuine quality advantage on Task B (full pass at the lowest cost of
+the passers) but failed Task A on the same guard as everyone else. There is no material
+efficiency advantage **without quality loss**, so the existing working control stands.
+
+## 7. Final retained V2 stack (intentionally small)
+
+- **Code intelligence:** `code-review-graph` preferred (Wave 2 evidence stands) ·
+  `codebase-memory` shadow · V1 fallback retained.
+- **Test intelligence:** PR11 impact/test selector preferred · FULL final verification
+  fallback · `pytest-testmon` / `pytest-impacted` **NOT_SELECTED** (removed from project
+  dev dependencies and the lockfile — they were tournament-only).
+- **Harness:** Claude Code (control retained) · Reasonix/OpenCode LAB/shadow-eligible.
+- **Routing:** unchanged simple principle (local deterministic tooling → bounded context
+  → CHEAP harness → targeted verification → STRONG only when evidence requires it). No
+  router built.
+
+## 8. PREPARE E11 final field check (read-only, retained V2 path)
+
+Confirmed **`E11 NOT IMPLEMENTED`** · **`REAL_DATA_GATE CLOSED`**. Selected context
+V2 = 18 669 tokens est (0 tool calls, 38 ms warm) over 7 authority ranges; impact 18
+affected modules / 32 mapped tests (HIGH); agent-facing pack ≈ 3 616 tokens est. No
+code-intelligence tournament re-run.
+
+## 9. Complexity delta & cleanup
+
+- **+1** focused runner `scripts/ai_dev_harness.py` (~560 LOC) reusing the existing
+  Wave 1/2 evidence layout.
+- **+1** frozen task spec `.ai-dev/performance/harness-tasks.yaml`.
+- **+1** compact aggregate `.ai-dev/evidence/performance/harness-comparison.json`.
+- **+1** focused test file `tests/unit/test_ai_dev_harness.py` (8 tests).
+- **−2** project dev dependencies (pytest-testmon, pytest-impacted) + lockfile update.
+- Raw transcripts/logs remain under the gitignored runs path; only aggregates committed.
+
+## 10. Verification
+
+Focused tests 8/8 ✅ · ruff clean ✅ · AI Dev OS doctor PASS ✅ · orchestration validator
+113 passed (1 pre-existing failure: the canary branch is not the branch recorded in
+STATE.yaml — expected on this branch) · deterministic replay/evidence check for both
+frozen tasks ✅ · PREPARE E11 read-only ✅ · app-source diff: **no `src/psyche_os/` or
+`desktop/` changes** ✅ · production dependency diff: none ✅ · full pytest final gate
+**743 passed, 2 skipped** (skips = Windows symlink-admin, pre-existing) ✅ · PR #11
+remains DRAFT / NOT MERGED.
+
+## 11. Remaining limitations
+
+- CHEAP-model-class results only; a stronger model may pass both tasks. Task A's
+  interaction-reuse rule was missed by all three harnesses on `deepseek-v4-flash`.
+- OpenCode effective model UNKNOWN from its stream (configured `deepseek-v4-flash`,
+  cost consistent with DeepSeek).
+- Claude Code cost is a DeepSeek off-peak ESTIMATE; its own `total_cost_usd` is
+  Anthropic-basis.
+- Single-shot sessions, no retries; a harness invocation/setup error was corrected
+  once where clearly infrastructure (reboot interruption; codex model requires newer
+  CLI).
+- Reasonix large total input volume (1.6–3.0 M tokens) comes from its caching-heavy
+  context strategy; cache-hit economics kept real cost lowest-of-the-passers.
+
+## Final status
+
+**`WAVE_3_COMPLETE`** · **`HARNESS_NO_WINNER`** · **`V2_PERFORMANCE_READY_FOR_E11_CANARY`**
+· `E11 NOT IMPLEMENTED` · `REAL_DATA_GATE CLOSED` · harness retained = Claude Code ·
+PR #11 DRAFT / NOT MERGED

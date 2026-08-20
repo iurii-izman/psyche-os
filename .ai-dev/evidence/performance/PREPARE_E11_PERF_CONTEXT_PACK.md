@@ -215,11 +215,11 @@ class _StoredObject:
 - changed/resolved modules: adapters/e08_filesystem.py, application/e09_retrieval.py, application/e10_professional_handoff.py, storage/migrations.py, storage/schema.py
 - affected modules (reverse-dep closure): 18 — __main__.py, adapters/e08_filesystem.py, application/desktop_service.py, application/e03_archive.py, application/e05_longitudinal.py, application/e06_experiments.py, application/e08_imports.py, application/e09_retrieval.py …
 - classification: HIGH — storage/migrations.py is in a high-risk boundary; storage/schema.py is in a high-risk boundary
-- affected tests: 30 mapped
+- affected tests: 32 mapped
 
 ## Likely verification surface
 
-- targeted: `uv run pytest tests/contracts/test_cli_contracts.py tests/integration/test_e00_portability_smoke.py tests/integration/test_e00_rebaseline_gate.py tests/integration/test_e01_backup_faults.py tests/integration/test_e01_backup_restore.py tests/integration/test_e01_recovery_drill.py tests/integration/test_e01_windows_boundary.py tests/integration/test_e02_sidecar_protocol.py tests/integration/test_e03_canonical_archive.py tests/integration/test_e03_migration.py tests/integration/test_e05_longitudinal_analysis.py tests/integration/test_e05_migration.py tests/integration/test_e06_migration.py tests/integration/test_e06_n_of_1_protocols.py tests/integration/test_e07_bounded_ai_proposal.py tests/integration/test_e08_import_lifecycle.py tests/integration/test_e08_migration.py tests/integration/test_e09_retrieval.py tests/integration/test_e10_professional_handoff.py tests/integration/test_storage_integration.py tests/regression/test_regression_proofs.py tests/security/test_e08_review_repairs.py tests/security/test_e08_untrusted_import.py tests/unit/test_ai_dev_perf.py tests/unit/test_e02_desktop_service.py tests/unit/test_e03_archive_service.py tests/unit/test_e05_longitudinal_analysis.py tests/unit/test_e06_n_of_1_protocols.py tests/unit/test_e08_import_core.py tests/unit/test_e08_plain_text_parser.py -q --tb=short --no-header`  (gate: V1/V2 targeted, 30 test file(s))
+- targeted: `uv run pytest tests/contracts/test_cli_contracts.py tests/integration/test_e00_portability_smoke.py tests/integration/test_e00_rebaseline_gate.py tests/integration/test_e01_backup_faults.py tests/integration/test_e01_backup_restore.py tests/integration/test_e01_recovery_drill.py tests/integration/test_e01_windows_boundary.py tests/integration/test_e02_sidecar_protocol.py tests/integration/test_e03_canonical_archive.py tests/integration/test_e03_migration.py tests/integration/test_e05_longitudinal_analysis.py tests/integration/test_e05_migration.py tests/integration/test_e06_migration.py tests/integration/test_e06_n_of_1_protocols.py tests/integration/test_e07_bounded_ai_proposal.py tests/integration/test_e08_import_lifecycle.py tests/integration/test_e08_migration.py tests/integration/test_e09_retrieval.py tests/integration/test_e10_professional_handoff.py tests/integration/test_storage_integration.py tests/regression/test_regression_proofs.py tests/security/test_e08_review_repairs.py tests/security/test_e08_untrusted_import.py tests/unit/test_ai_dev_adapters.py tests/unit/test_ai_dev_perf.py tests/unit/test_ai_dev_reportlog.py tests/unit/test_e02_desktop_service.py tests/unit/test_e03_archive_service.py tests/unit/test_e05_longitudinal_analysis.py tests/unit/test_e06_n_of_1_protocols.py tests/unit/test_e08_import_core.py tests/unit/test_e08_plain_text_parser.py -q --tb=short --no-header`  (gate: V1/V2 targeted, 32 test file(s))
 - final gate (once): `uv run pytest -q` + `scripts/dev/validate_orchestration.py` + `scripts/validate_research_foundation.py`
 
 ## Unknowns
@@ -236,26 +236,26 @@ class _StoredObject:
 | selected context bytes | 3,169 | 74,676 |
 | estimated context tokens | 792 | 18,669 |
 | targeted context tokens (target untruncated) | 792 | 18,669 |
-| raw tool-output bytes | 21,534 | 0 |
+| raw tool-output bytes | 21,575 | 0 |
 | bytes searched (rg scan volume) | 4,164,755 | 0 |
 | local tool calls | 10 | 0 |
 | exact ranges selected | 41 | 71 |
 | files selected | 13 | 5 |
 | full-file inclusions | 0 | 0 |
-| retrieval wall ms (warm) | 413.2 | 29.5 |
+| retrieval wall ms (warm) | 761.1 | 38.0 |
 - V2 index: one-time local build cached on disk (amortized across repeated prep work).
 
 ## V1 retrieval equivalent
 
 - files selected (13): `src/psyche_os/application/desktop_service.py`, `src/psyche_os/application/e03_archive.py`, `src/psyche_os/application/e05_longitudinal.py`, `src/psyche_os/application/e06_experiments.py`, `src/psyche_os/application/e08_imports.py`, `src/psyche_os/backup_export/operations.py`, `src/psyche_os/backup_export/versioned.py`, `src/psyche_os/interfaces/cli.py`, `src/psyche_os/projections/e09_lexical.py`, `src/psyche_os/storage/__init__.py`, `src/psyche_os/storage/e03_schema.py`, `src/psyche_os/storage/migrations.py`, `src/psyche_os/storage/schema.py`
-- tests discovered (18): `tests/integration/test_e00_portability_smoke.py`, `tests/integration/test_e00_rebaseline_gate.py`, `tests/integration/test_e01_backup_faults.py`, `tests/integration/test_e01_backup_restore.py`, `tests/integration/test_e01_recovery_drill.py`, `tests/integration/test_e01_windows_boundary.py`, `tests/integration/test_e03_migration.py`, `tests/integration/test_e05_migration.py`, `tests/integration/test_e06_migration.py`, `tests/integration/test_e08_import_lifecycle.py`, `tests/integration/test_e08_migration.py`, `tests/integration/test_e09_retrieval.py`, `tests/integration/test_e10_professional_handoff.py`, `tests/integration/test_storage_integration.py`, `tests/regression/test_regression_proofs.py`, `tests/security/test_e08_review_repairs.py`, `tests/security/test_e08_untrusted_import.py`, `tests/unit/test_e08_import_core.py`
+- tests discovered (19): `tests/integration/test_e00_portability_smoke.py`, `tests/integration/test_e00_rebaseline_gate.py`, `tests/integration/test_e01_backup_faults.py`, `tests/integration/test_e01_backup_restore.py`, `tests/integration/test_e01_recovery_drill.py`, `tests/integration/test_e01_windows_boundary.py`, `tests/integration/test_e03_migration.py`, `tests/integration/test_e05_migration.py`, `tests/integration/test_e06_migration.py`, `tests/integration/test_e08_import_lifecycle.py`, `tests/integration/test_e08_migration.py`, `tests/integration/test_e09_retrieval.py`, `tests/integration/test_e10_professional_handoff.py`, `tests/integration/test_storage_integration.py`, `tests/regression/test_regression_proofs.py`, `tests/security/test_e08_review_repairs.py`, `tests/security/test_e08_untrusted_import.py`, `tests/unit/test_ai_dev_adapters.py`, `tests/unit/test_e08_import_core.py`
 
 ## V2 retrieval equivalent
 
 - files selected (5): `src/psyche_os/adapters/e08_filesystem.py`, `src/psyche_os/application/e09_retrieval.py`, `src/psyche_os/application/e10_professional_handoff.py`, `src/psyche_os/storage/migrations.py`, `src/psyche_os/storage/schema.py`
-- tests mapped (18): `tests/integration/test_e00_portability_smoke.py`, `tests/integration/test_e00_rebaseline_gate.py`, `tests/integration/test_e01_backup_faults.py`, `tests/integration/test_e01_backup_restore.py`, `tests/integration/test_e01_recovery_drill.py`, `tests/integration/test_e01_windows_boundary.py`, `tests/integration/test_e03_migration.py`, `tests/integration/test_e05_migration.py`, `tests/integration/test_e06_migration.py`, `tests/integration/test_e08_import_lifecycle.py`, `tests/integration/test_e08_migration.py`, `tests/integration/test_e09_retrieval.py`, `tests/integration/test_e10_professional_handoff.py`, `tests/integration/test_storage_integration.py`, `tests/regression/test_regression_proofs.py`, `tests/security/test_e08_review_repairs.py`, `tests/security/test_e08_untrusted_import.py`, `tests/unit/test_e08_import_core.py`
+- tests mapped (19): `tests/integration/test_e00_portability_smoke.py`, `tests/integration/test_e00_rebaseline_gate.py`, `tests/integration/test_e01_backup_faults.py`, `tests/integration/test_e01_backup_restore.py`, `tests/integration/test_e01_recovery_drill.py`, `tests/integration/test_e01_windows_boundary.py`, `tests/integration/test_e03_migration.py`, `tests/integration/test_e05_migration.py`, `tests/integration/test_e06_migration.py`, `tests/integration/test_e08_import_lifecycle.py`, `tests/integration/test_e08_migration.py`, `tests/integration/test_e09_retrieval.py`, `tests/integration/test_e10_professional_handoff.py`, `tests/integration/test_storage_integration.py`, `tests/regression/test_regression_proofs.py`, `tests/security/test_e08_review_repairs.py`, `tests/security/test_e08_untrusted_import.py`, `tests/unit/test_ai_dev_adapters.py`, `tests/unit/test_e08_import_core.py`
 - term resolutions: e09_retrieval=module, e08_filesystem=module, e10_professional_handoff=module, storage/schema=module, migrations=module
 
 ---
 
-_`E11 NOT IMPLEMENTED`. `REAL_DATA_GATE CLOSED`. Read-only pack generated by `scripts/ai_dev_perf.py prepare-e11` (2026-08-16T20:33:52.047581+00:00)._
+_`E11 NOT IMPLEMENTED`. `REAL_DATA_GATE CLOSED`. Read-only pack generated by `scripts/ai_dev_perf.py prepare-e11` (2026-08-20T19:40:49.557575+00:00)._

@@ -59,6 +59,10 @@ capabilities:
     execution: local
     network: true          # provider calls
     always_on: true
+    installed_as: user-local npm
+    version: "2.1.233"
+    wave3: retained
+    wave3_note: Wave 3 harness tournament — no challenger passed BOTH frozen tasks; control retained (HARNESS_NO_WINNER).
 
   cc-switch:
     state: core
@@ -272,10 +276,14 @@ capabilities:
     state: lab
     type: test-selection
     installed: false
+    wave3: not-selected
+    wave3_note: Wave 2 FALSE NEGATIVE on hub-schema DDL; removed from [dependency-groups].dev in Wave 3 (no longer required by the retained selector).
   pytest-impacted:
     state: lab
     type: test-selection
     installed: false
+    wave3: not-selected
+    wave3_note: effectively FULL on this repo; removed from [dependency-groups].dev in Wave 3 (no longer required by the retained selector).
   projectmem:
     state: lab
     type: memory
@@ -283,11 +291,19 @@ capabilities:
   reasonix:
     state: lab
     type: harness
-    installed: false
+    installed: true
+    installed_as: user-local npm (prebuilt binary)
+    version: "1.31.0"
+    wave3: not-selected
+    wave3_note: Wave 3 challenger (deepseek-v4-flash). PASSED Task B (E06, 38/38) but FAILED Task A (E07, 65/66) on the same interaction-reuse guard as the control; not eligible (needs both). Shadow-eligible.
   opencode:
     state: lab
     type: harness
-    installed: false
+    installed: true
+    installed_as: user-local npm (native binary)
+    version: "1.18.19"
+    wave3: not-selected
+    wave3_note: Wave 3 challenger (deepseek-v4-flash). FAILED both tasks (A 64/66, B 29/38). Not eligible.
   aider:
     state: lab
     type: harness
@@ -295,7 +311,11 @@ capabilities:
   codex-cli:
     state: lab
     type: harness
-    installed: false
+    installed: true
+    installed_as: user-local npm
+    version: "0.130.0"
+    wave3: reference-only
+    wave3_note: Wave 3 optional STRONG reference on Task B (gpt-5.5, ChatGPT auth). FAILED B (29/38); not part of the same-model winner calculation.
   rtk:
     state: lab
     type: compression
