@@ -44,6 +44,73 @@ This iteration (canary fix pass) closed five failures and added the real-work dr
 
 No application source changed; no new dependency; V1 remains usable independently.
 
+## Final Targeted Fix R1 (2026-08-21)
+
+An independent Codex acceptance review found eight defects (A1–A8) in the retained V2
+tooling and in this report's claims. This pass repairs them with minimal local changes to
+the six AI Dev OS scripts, focused tests, and this report. **No application source changed;
+no production dependency added; V1 remains independently operable; `E11 NOT IMPLEMENTED`;
+`REAL_DATA_GATE CLOSED`; PR #11 remains DRAFT / NOT MERGED.**
+
+| finding | status | change | evidence |
+|---|---|---|---|
+| A1 machine truth not truncated | FIXED | `parse_reportlog` adds complete `failure_nodeids` + `failure_records_count` (uncapped); test-select reads `failure_nodeids`, never the bounded `failures` list | unit tests with 20–25 failing identities: machine IDs complete, presentation ≤ 10 |
+| A2 test selection fail-closed | FIXED | explicit status semantics `PASS/TEST_FAILURE/INFRA_ERROR/NO_TESTS/INCOMPLETE`; infra rc (2/3/4) and missing/malformed reportlog can never establish detection; unavailable selectors → `SKIPPED_UNAVAILABLE`; detection requires complete-detector intersection | focused tests; revalidation below |
+| A3 harness fail-closed | FIXED | `overall_status` — timeout / non-zero harness rc / setup failure / recorded errors can never be PASS; single-run CLI exit 0 only on PASS; bounded psutil process-tree termination on timeout | focused tests incl. synthetic sleeper, no survivor |
+| A4 content-based cache invalidation | FIXED | index cache digest now uses a sha256 content fingerprint (path + bytes), not mtime/size | same-size + restored-mtime edit → cache MISS + updated mapping; unchanged → HIT |
+| A5 one capability state enforcement | FIXED | shared `execution_allowed` primitive (case-insensitive, fail-closed) used by launcher AND tournament; DISABLED/QUARANTINED refuse regardless of caller | launcher + tournament tests incl. case variants |
+| A6 reportlog schema + redaction | FIXED | non-object JSON events are malformed (never a crash/green); deterministic secret redaction before any AI-facing render (message/traceback/command) | non-object JSON tests; synthetic `sk-proj-…`/bearer/api-key redaction tests |
+| A7 minimal harness environment | FIXED | harness env built from an explicit allowlist + only the exact provider credential (DeepSeek-derived for Claude/opencode; none extra for reasonix/codex) | unrelated parent secret absent from every harness env |
+| A8 claims match executable reality | FIXED | this report corrected: `code-review-graph` is LAB/conditional (not the default); selector claim gated on revalidation; testmon claim invalidated; Task-A causation downgraded; freeze/reboot caveat added; PREPARE figures explained (not double counting) | see "Invalidated claims" and "Selector revalidation" below |
+
+### Invalidated historical claims
+
+- **Wave 2 test-selection recall** (PR11 1.0, testmon 0.8, testmon hub-schema false negative,
+  impacted 1.0): invalidated by A1/A2 — the detector ground truth was the bounded (≤10)
+  presentation list. §5/§6 above mark them superseded. The revalidation below is the fresh,
+  repaired evidence.
+- **`code-review-graph` as the preferred/default code-intelligence path**: corrected. It is a
+  LAB / conditional field challenger; the executable default is the deterministic local index
+  (`ai_dev_perf context|prompt`). The architecture was NOT changed to make it the default.
+- **Wave 3 Task-A "model-capability signal, not a harness difference"**: downgraded to
+  "model causation is plausible but not established" (all three CHEAP harness runs shared the
+  same failure under the same requested model class).
+- **Pre-run task-freeze chronology and the discarded reboot attempt**: asserted, not
+  independently retained; no retry evidence was kept. `HARNESS_NO_WINNER` remains accepted
+  without over-claiming those chronology details.
+
+### Selector revalidation (A1/A2-repaired)
+
+`ai_dev_tournament.py test-select --revalidate` reruns the **five frozen mutation scenarios**
+with **FULL truth + the retained current selector only** (no external selectors; testmon /
+impacted are `SKIPPED_UNAVAILABLE`). Compact aggregate:
+`.ai-dev/evidence/performance/tournament/test-select/revalidation.json`.
+
+| scenario | class | FULL status | detector count | current status | selected tests | current detected |
+|---|---|---|---|---|---|---|
+| leaf-temporal-validity | leaf | TEST_FAILURE | 2 | TEST_FAILURE | 130 | ✅ |
+| mid-crypto-vmk-length | mid | TEST_FAILURE | 3 | TEST_FAILURE | 277 | ✅ |
+| cross-domain-version-isactive | cross-module | TEST_FAILURE | 4 | TEST_FAILURE | 161 | ✅ |
+| storage-filesystem-regular | storage | TEST_FAILURE | 77 | TEST_FAILURE | 122 | ✅ |
+| hub-schema-primary-key | hub | TEST_FAILURE | 239 | TEST_FAILURE | 482 | ✅ |
+
+**Retained selector result: PASS (5/5 repaired bounded mutation probes detected).** The hub
+scenario's detector count (239) is the same 239-failure scenario the review flagged: with A1's
+complete machine accounting, all 239 detector identities are used — the old capped-to-10
+presentation can no longer corrupt detection. Five probes are bounded, not universal proof;
+FULL pytest remains the final truth gate.
+
+### Remaining UNKNOWNs / residuals
+
+- **pytest-testmon previous false-negative claim: INVALIDATED / UNRESOLVED.** Not re-proven;
+  not reinstalled; selection remains unresolved / not selected.
+- **Selector status:** five probes are bounded, not universal proof. FULL pytest remains the
+  final truth gate.
+- **A9 (non-blocking, unchanged):** the non-blocking context defect (module-like query such as
+  `e09_retrieval` returning zero candidates with success; exact-symbol context can include a
+  contained duplicate `rg` line) was **left alone** unless a trivial fix fell out of an already
+  required change — it did not, so A9 remains OPTIONAL / NON-BLOCKING.
+
 ## Historical benchmark tasks
 
 Frozen at `.ai-dev/performance/benchmarks/tasks.yaml` (ground truth = git diff).
@@ -148,7 +215,9 @@ Confirmed: **`E11 NOT IMPLEMENTED`** and **`REAL_DATA_GATE CLOSED`**.
   (broader verification required) — it can no longer become a successful no-op. Only
   docs/non-code changes take the light `NO_CODE_CHANGE` path.
 - **Cache correctness**: the digest covers source + test files + index-shaping config
-  (mtime_ns + size). A changed test import invalidates the cached test map (unit-proven).
+  using a **sha256 content fingerprint** (not mtime/size), so a same-size edit with a
+  restored mtime still invalidates the cached index/test map (R1/A4). A changed test
+  import invalidates the cached test map (unit-proven).
 - **Token accounting**: `prompt_total = estimate(rendered prompt)`; embedded context
   reported separately; `total = context + overhead` reconciles; tokens are labeled
   ESTIMATES unless observable from provider telemetry (`UNKNOWN` here).
@@ -498,10 +567,12 @@ removed after runs on the current tree and are gitignored.
 
 ## 8. Provisional winners
 
-- **Code intelligence — `PROVISIONAL_WINNER`: code-review-graph.** Best recall
-  (0.945) at affordable tiny context (459 median tokens) on the frozen benchmark;
-  also surfaces tests (verification value). It becomes the preferred challenger for
-  E11. **Existing V1 remains the safe fallback.**
+- **Code intelligence — `PROVISIONAL_WINNER` (historical, Wave 2 ranking): code-review-graph.**
+  Best recall (0.945) at affordable tiny context (459 median tokens) on the frozen benchmark;
+  also surfaces tests (verification value). **Its status is LAB / conditional field challenger —
+  it is NOT the executable default.** The normal default path is the deterministic local index
+  (`ai_dev_perf context|prompt`). R1/A8 corrected the prose to match that executable reality;
+  the architecture was not changed to make the challenger the default.
 - **Test selection — `PROVISIONAL_WINNER` (pending mutation results): see §5.**
 
 Provisional means provisional: the real decision comes from future E11/E12… real
@@ -564,23 +635,28 @@ detector nodeid.
 Selection counts (selected / 708 full): current 122-482 tests (17-68%); testmon
 4-81 tests (0.6-11%); impacted 708 (100%, full-equivalent).
 
+> **⚠️ INVALIDATED (R1/A1-A2):** this table's detector ground truth was the bounded
+> presentation list (capped at 10), so these recall numbers are unsupported. See
+> §6 and "Final Targeted Fix R1 → Selector revalidation" for the repaired evidence.
+
 ## 6. Mutation detection
 
-- **current (PR11 index selector) caught all five mutations** at 17-68% of the
-  suite — the only reducing selector with a perfect record.
-- **pytest-testmon is NOT eligible to become the default selector yet**: it had a
-  **false negative on the hub-schema scenario** — it selected 29 tests and missed
-  the DDL-primary-key regression. Root cause: testmon's coverage-based dependency
-  map does not track *string-constant* dependencies (the schema DDL text), so the
-  regression-proof test reading that constant was never linked. It remains LAB.
-  Its aggressive selection (0.6-11% of the suite) makes it a strong **inner-loop
-  complement** once a string-dependency guard is added.
-- **pytest-impacted** caught everything but **degrades to the full suite in our
-  `src/` layout**: its `--impacted-module` maps names to package directories under
-  cwd (no `src/` root), so it marks the whole tree impacted. Real compatibility
-  limitation, measured honestly; selection ratio 1.0 = no test reduction.
-- Full pytest remains truth/control; a selected-test system never redefines
-  acceptance (`MUTATION DETECTION RECALL` is the primary correctness metric).
+> **⚠️ Historical evidence invalidated (R1/A1-A2).** The Wave 2 detector ground truth was
+> the parser's bounded `failures` list (capped at 10), so the per-selector recall numbers in
+> §5/§6 — including the **pytest-testmon hub-schema false negative** and the **PR11 recall 1.0**
+> — were order-dependent and unsupported. They are superseded by the repaired revalidation
+> below (§ "Final Targeted Fix R1 → Selector revalidation"). The fresh numbers use complete
+> machine-accounting detector identities and deterministic pytest status semantics.
+
+- **current (PR11 index selector)** — see the repaired five-scenario revalidation below; the
+  historical "caught all five at 17-68%" claim is invalidated until re-proven.
+- **pytest-testmon** — the previous **false-negative claim is INVALIDATED / UNRESOLVED**: it was
+  based on truncated detector identities. The claim is not re-established unless fresh valid
+  evidence proves it again; pytest-testmon is not reinstalled and remains unselected.
+- **pytest-impacted** — caught everything in the old (invalidated) accounting but **degrades to
+  the full suite in our `src/` layout**; selection ratio 1.0 = no test reduction (that
+  compatibility limitation is unaffected by A1/A2).
+- Full pytest remains truth/control; a selected-test system never redefines acceptance.
 
 ## Final status
 
@@ -638,8 +714,9 @@ counts. All token counts are real.
   (`test_one_interaction_id_can_reach_provider_at_most_once`): `prepare()` must
   permanently reserve an interaction id and reject reuse with `INTERACTION_REUSED`.
   OpenCode additionally missed the lookalike-capability rejection (64/66). All three
-  harnesses on the same CHEAP model missed the identical subtle lifecycle rule — a
-  model-capability signal, not a harness difference.
+  harness runs shared the same failure under the same requested CHEAP model class;
+  **model causation is plausible but not established** (R1/A8) — the shared miss is a
+  harness-independent observation, not a proven model-capability signal.
 - **Task B — only Reasonix PASSED (38/38).** Claude Code (30/38) and OpenCode (29/38)
   both failed the same integration cluster: canonical DB-persisted execution,
   stale-digest/assignment-drift fail-closed, arbitrary-payload authority, deletion
@@ -666,11 +743,16 @@ efficiency advantage **without quality loss**, so the existing working control s
 
 ## 7. Final retained V2 stack (intentionally small)
 
-- **Code intelligence:** `code-review-graph` preferred (Wave 2 evidence stands) ·
-  `codebase-memory` shadow · V1 fallback retained.
-- **Test intelligence:** PR11 impact/test selector preferred · FULL final verification
-  fallback · `pytest-testmon` / `pytest-impacted` **NOT_SELECTED** (removed from project
-  dev dependencies and the lockfile — they were tournament-only).
+- **Code intelligence:** deterministic local index + exact-range retrieval remains the
+  **executable default** (`task/psyche-perf → ai_dev_perf context|prompt → local index/cache
+  → rg exact ranges → affected-surface → test selection → pytest`). `code-review-graph` is a
+  **LAB / conditional field challenger**, NOT the executable default (R1/A8); `codebase-memory`
+  SHADOW-only; V1 fallback retained.
+- **Test intelligence:** PR11 impact/test selector **inner-loop field canary** — "preferred"
+  only if the repaired five-scenario revalidation passes (see "Final Targeted Fix R1 → Selector
+  revalidation"); FULL final verification gate retained · `pytest-testmon` / `pytest-impacted`
+  **NOT_SELECTED** (removed from project dev dependencies and the lockfile — they were
+  tournament-only; the old testmon false-negative claim was invalidated by A1/A2).
 - **Harness:** Claude Code (control retained) · Reasonix/OpenCode LAB/shadow-eligible.
 - **Routing:** unchanged simple principle (local deterministic tooling → bounded context
   → CHEAP harness → targeted verification → STRONG only when evidence requires it). No
@@ -682,6 +764,13 @@ Confirmed **`E11 NOT IMPLEMENTED`** · **`REAL_DATA_GATE CLOSED`**. Selected con
 V2 = 18 669 tokens est (0 tool calls, 38 ms warm) over 7 authority ranges; impact 18
 affected modules / 32 mapped tests (HIGH); agent-facing pack ≈ 3 616 tokens est. No
 code-intelligence tournament re-run.
+
+> **Reading the two figures (R1/A8):** ~18.7K tokens is the **broad retrieval candidate
+> set / metrics payload**; ~3.6K tokens is the **clamped rendered agent pack** the agent
+> actually receives. This is **not** arithmetic double counting. PREPARE uses a **broader
+> internal module-surface candidate resolver** than normal context generation; the
+> module-surface context model remains **EXPERIMENTAL / OFF-BY-DEFAULT** for the normal
+> `context`/`prompt` path.
 
 ## 9. Complexity delta & cleanup
 
@@ -713,7 +802,10 @@ remains DRAFT / NOT MERGED.
   Anthropic-basis.
 - Single-shot sessions, no retries; a harness invocation/setup error was corrected
   once where clearly infrastructure (reboot interruption; codex model requires newer
-  CLI).
+  CLI). **Caveat (R1/A8):** the pre-run task-freeze chronology and the discarded reboot
+  attempt are **asserted, not independently retained** — no retry evidence for the replaced
+  attempt was kept. `HARNESS_NO_WINNER` remains accepted; it is not over-claimed as
+  machine-verifiable for those chronology details.
 - Reasonix large total input volume (1.6–3.0 M tokens) comes from its caching-heavy
   context strategy; cache-hit economics kept real cost lowest-of-the-passers.
 
