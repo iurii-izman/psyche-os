@@ -172,6 +172,7 @@ def test_deletion_cascades_e06_dependencies_and_prior_epic_gates_stay_closed() -
         e05.operate("ANALYZE_FICTIONAL_LANTERN", "full_window", "e05-analysis").c3_enabled is False
     )
     assert not AssessmentRegistry().list_statuses()[0].scientific_claims_enabled
-    assert 'status: "CLOSED"' in Path("docs/architecture/REAL_DATA_GATE.yaml").read_text(
-        encoding="utf-8"
-    )
+    assert 'fail_closed_default: "CLOSED"' in Path(
+        "docs/architecture/REAL_DATA_GATE.yaml"
+    ).read_text(encoding="utf-8")
+    assert 'state: "CLOSED"' in Path("docs/development/STATE.yaml").read_text(encoding="utf-8")

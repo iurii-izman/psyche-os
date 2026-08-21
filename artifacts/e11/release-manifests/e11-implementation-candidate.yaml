@@ -1,0 +1,29 @@
+schema_version: "1.0"
+manifest_id: "e11-implementation-candidate-draft"
+candidate_source_commit: "0ec9160795ff4490c1071d8271cd8a063b550ff0"
+profile_id: "local_personal_evidence_reflection_windows_v1"
+profile_version: "1.0"
+release_status: "NOT_RELEASED"
+reproducibility_status: "NOT_PROVED"
+platform:
+  operating_system: "Windows"
+  architecture: "x86_64"
+  runtime: "python-3.12"
+  packaging: "source-tree"
+provenance:
+  lock_path: "uv.lock"
+  lock_sha256: "b077ee9fe69e8945613c3dc5eb0dc782db1d3b7d66a4eaaa6a1fd410c2836120"
+  sbom_path: "artifacts/f0/sbom.cdx.json"
+  sbom_sha256: "5fa16e8662dce850f2f814e30d57dd4a4bda66e341e6914e455d50123cadd43d"
+currentness:
+  dependency_license_security_review: "UNKNOWN_OR_INCOMPLETE"
+  preservation_migration_recovery_drill: "UNKNOWN_OR_INCOMPLETE"
+  incident_disable_rollback_evidence: "UNKNOWN_OR_INCOMPLETE"
+residual_risks:
+  - id: "release-evidence-not-yet-proved"
+    status: "OPEN"
+    expires_at: "2026-08-28T00:00:00Z"
+statement: >-
+  Synthetic repository-owned DRAFT manifest for the exact pre-E11 canonical
+  source candidate. It names identities but proves neither release readiness
+  nor a real-data decision.

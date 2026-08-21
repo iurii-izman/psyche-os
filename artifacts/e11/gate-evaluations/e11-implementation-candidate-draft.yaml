@@ -1,0 +1,70 @@
+schema_version: "1.0"
+evaluation_id: "e11-implementation-candidate-draft"
+lifecycle: "DRAFT"
+candidate:
+  source_commit: "0ec9160795ff4490c1071d8271cd8a063b550ff0"
+  build_id: "e11-draft-source-tree"
+  platform:
+    operating_system: "Windows"
+    architecture: "x86_64"
+    runtime: "python-3.12"
+    packaging: "source-tree"
+  requested_data_class: "SYNTHETIC_ONLY"
+  reproducibility:
+    status: "NOT_REPRODUCED"
+    evidence_ids: []
+profile_binding:
+  profile_path: "docs/architecture/REAL_DATA_GATE_PROFILE.yaml"
+  profile_id: "local_personal_evidence_reflection_windows_v1"
+  profile_version: "1.0"
+  profile_definition_sha256: "04889ef104aad8d87e276a9a30d2f84f652b1602ca5c1da4d1cadb6223645c90"
+  profile_source_commit: "0ec9160795ff4490c1071d8271cd8a063b550ff0"
+identities:
+  lock:
+    path: "uv.lock"
+    sha256: "b077ee9fe69e8945613c3dc5eb0dc782db1d3b7d66a4eaaa6a1fd410c2836120"
+  sbom:
+    path: "artifacts/f0/sbom.cdx.json"
+    sha256: "5fa16e8662dce850f2f814e30d57dd4a4bda66e341e6914e455d50123cadd43d"
+  artifacts:
+    - id: "draft-release-manifest"
+      path: "artifacts/e11/release-manifests/e11-implementation-candidate.yaml"
+      sha256: "8ad379519caa958239b8ea1c2fd9a1440a673b0407babea29f498dbe1677cf6f"
+evidence: []
+reviews: []
+boundary_assessments:
+  - {boundary_id: "canonical_encrypted_store_and_key_recovery", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "backup_restore_and_scoped_filesystem", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "desktop_renderer_and_typed_ipc", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "local_archive_and_disposable_retrieval_projection", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "general_blob_or_attachment_writes", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "importer_parser_or_untrusted_rendering", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "provider_model_or_network", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "assessment_scoring", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "longitudinal_or_n_of_1", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "professional_report_or_external_handoff", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: []}
+rdg_controls:
+  - {id: "RDG-01", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["canonical_encrypted_store_and_key_recovery", "general_blob_or_attachment_writes"], evidence_ids: [], excluded_boundary_ids: []}
+  - {id: "RDG-02", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery"], evidence_ids: [], excluded_boundary_ids: []}
+  - {id: "RDG-03", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["backup_restore_and_scoped_filesystem"], evidence_ids: [], excluded_boundary_ids: []}
+  - {id: "RDG-04", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "general_blob_or_attachment_writes", "local_archive_and_disposable_retrieval_projection", "professional_report_or_external_handoff"], evidence_ids: [], excluded_boundary_ids: []}
+  - {id: "RDG-05", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "local_archive_and_disposable_retrieval_projection", "professional_report_or_external_handoff"], evidence_ids: [], excluded_boundary_ids: []}
+  - {id: "RDG-06", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "desktop_renderer_and_typed_ipc", "general_blob_or_attachment_writes", "local_archive_and_disposable_retrieval_projection", "professional_report_or_external_handoff"], evidence_ids: [], excluded_boundary_ids: []}
+  - {id: "RDG-07", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["canonical_encrypted_store_and_key_recovery", "local_archive_and_disposable_retrieval_projection", "provider_model_or_network"], evidence_ids: [], excluded_boundary_ids: []}
+  - {id: "RDG-08", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["desktop_renderer_and_typed_ipc", "importer_parser_or_untrusted_rendering"], evidence_ids: [], excluded_boundary_ids: []}
+  - {id: "RDG-09", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["assessment_scoring", "desktop_renderer_and_typed_ipc", "importer_parser_or_untrusted_rendering", "longitudinal_or_n_of_1", "professional_report_or_external_handoff", "provider_model_or_network"], evidence_ids: [], excluded_boundary_ids: []}
+  - {id: "RDG-10", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "desktop_renderer_and_typed_ipc", "general_blob_or_attachment_writes", "importer_parser_or_untrusted_rendering", "local_archive_and_disposable_retrieval_projection", "provider_model_or_network"], evidence_ids: [], excluded_boundary_ids: []}
+  - {id: "RDG-11", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["assessment_scoring", "longitudinal_or_n_of_1", "professional_report_or_external_handoff", "provider_model_or_network"], evidence_ids: [], excluded_boundary_ids: []}
+  - {id: "RDG-12", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "desktop_renderer_and_typed_ipc", "general_blob_or_attachment_writes", "importer_parser_or_untrusted_rendering", "local_archive_and_disposable_retrieval_projection", "longitudinal_or_n_of_1", "professional_report_or_external_handoff", "provider_model_or_network"], evidence_ids: [], excluded_boundary_ids: []}
+residual_risks:
+  - id: "all-rdg-controls-unproved-for-draft"
+    severity: "HIGH"
+    status: "OPEN"
+    expires_at: "2026-08-28T00:00:00Z"
+gate_decision:
+  requested_state: "CLOSED"
+  authority: "NONE"
+successor:
+  supersedes: null
+  invalidation_reasons: []
+seal: null
