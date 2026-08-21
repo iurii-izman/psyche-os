@@ -1,0 +1,145 @@
+# AI Dev OS v2 — Acceleration Wave 2: machine-readable LAB inventory.
+#
+# This inventory drives the Tracking Edition update. States:
+# PROVISIONAL_WINNER | SHADOW_READY | LAB_KEEP | DORMANT | REMOVE
+# INSTALL_BLOCKED | UNVERIFIED_ENTITY
+# initial_result is populated from the Wave 2 tournament evidence (see
+# tournament/code-intel/comparison.json and tournament/test-select/comparison.json).
+
+version: 1
+
+arsenal:
+  - candidate: v1
+    category: code-intelligence-control
+    version: null
+    source: repository V1 workflow (rg + ast-grep)
+    license: MIT
+    installed: true
+    environment: repository
+    state: core
+    initial_result: RETAINED_CONTROL
+    strengths: exact lexical ranges; tiny context; zero index
+    weaknesses: thin recall on module-name terms (0.667-1.0)
+    resource_notes: no index, no service
+    next_real_work_trigger: default fallback for any epic
+    rollback: not applicable (pre-existing)
+
+  - candidate: v2
+    category: code-intelligence-control
+    version: null
+    source: repository PR11 lightweight local index
+    license: MIT
+    installed: true
+    environment: repository
+    state: core
+    initial_result: RETAINED_CONTROL
+    strengths: symbol/module/test index; full recall; 1 tool call
+    weaknesses: large module-surface context (the Wave 1 crux)
+    resource_notes: cached on-disk index, sub-second build
+    next_real_work_trigger: default context for any epic
+    rollback: not applicable (Wave 1 retained)
+
+  - candidate: codebase-memory
+    category: code-intelligence
+    version: 0.10.5
+    source: https://github.com/DeusData/codebase-memory-mcp
+    license: MIT
+    installed: true
+    environment: windows-native (uv tool)
+    state: shadow-ready
+    initial_result: most economical code-intel (median 77 context tokens; recall 0.833)
+    strengths: persistent tree-sitter graph; ranked search_graph; exact line ranges
+    weaknesses: misses ~17% of relevant files; temp daemon per CLI call
+    resource_notes: ~/.cache/codebase-memory-mcp index; no standing daemon left running
+    next_real_work_trigger: E11 shadow run to measure real-world recall vs crg
+    rollback: uv tool uninstall codebase-memory-mcp
+
+  - candidate: code-review-graph
+    category: code-intelligence
+    version: 2.3.7
+    source: https://github.com/tirth8205/code-review-graph
+    license: MIT
+    installed: true
+    environment: windows-native (uv tool)
+    state: provisional-winner
+    initial_result: best recall/context balance on frozen benchmark (recall 0.945, median 459 ctx tokens); PREPARE E11 chosen candidate
+    strengths: build-time graph (impact/search/architecture); small output; surfaces tests
+    weaknesses: FTS misses underscore-joined terms (adapter falls back to split parts)
+    resource_notes: local SQLite graph; full build ~8s on this repo
+    next_real_work_trigger: preferred E11 code-intel challenger
+    rollback: uv tool uninstall code-review-graph
+
+  - candidate: pathfinder
+    category: code-intelligence
+    version: 0.23.2
+    source: https://github.com/irahardianto/pathfinder
+    license: MIT
+    installed: true
+    environment: windows-native (cargo source build; no official Windows binary)
+    state: lab-keep
+    initial_result: recall 0.444 (text/symbol search misses filename-only terms)
+    strengths: MCP server; locate/trace/inspect; LSP + tree-sitter fallback
+    weaknesses: content search misses filename-only terms; needs LSP for full semantics
+    resource_notes: MCP-over-stdio; no daemon; tree-sitter fallback without LSP
+    next_real_work_trigger: E11 symbol-navigation experiments
+    rollback: cargo uninstall pathfinder-mcp
+
+  - candidate: symlens
+    category: code-intelligence
+    version: 0.12.15
+    source: https://github.com/TtTRz/symlens
+    license: MIT
+    installed: true
+    environment: WSL2 (Ubuntu-26.04, cargo install; Windows-incompatible crate)
+    state: lab-keep
+    initial_result: recall 0.555; cheapest symbol search (median 45 ctx tokens)
+    strengths: tiny footprint; fast index; rich symbol search (JSON, line ranges)
+    weaknesses: syntax-level (~90% precision, no type inference); WSL indirection
+    resource_notes: ~/.symlens/indexes in WSL; 174ms index for 132 files
+    next_real_work_trigger: lean symbol-lookup challenger on future epics
+    rollback: remove rustup + cargo in WSL2
+
+  - candidate: aider-repo-map
+    category: code-intelligence
+    version: 0.86.2
+    source: https://github.com/Aider-AI/aider
+    license: Apache-2.0
+    installed: true
+    environment: windows-native (uv tool)
+    state: lab-keep
+    initial_result: highest recall (0.972) but 41x the context of crg (median 19 165 ctx tokens)
+    strengths: offline repo map; zero model/network calls; tree-sitter page-rank ranking
+    weaknesses: whole-repo map is a large context dump (the giant-map tradeoff)
+    resource_notes: map generation local; ~12s on this repo; no service
+    next_real_work_trigger: repo-map comparator only (harness competition is Wave 3)
+    rollback: uv tool uninstall aider-chat
+
+  - candidate: pytest-testmon
+    category: test-selection
+    version: 2.2.0
+    source: https://pypi.org/project/pytest-testmon/
+    license: MIT
+    installed: true
+    environment: dev-only (uv dependency group)
+    state: lab-keep
+    initial_result: mutation detection recall 0.8 — FALSE NEGATIVE on hub-schema DDL scenario
+    strengths: aggressive selection (0.6-11% of suite); strong inner-loop complement
+    weaknesses: coverage-based dep map misses string-constant dependencies (DDL text)
+    resource_notes: .testmondata on disk; no service
+    next_real_work_trigger: E11 inner loop after a string-dependency guard
+    rollback: remove from [dependency-groups].dev and re-lock
+
+  - candidate: pytest-impacted
+    category: test-selection
+    version: 0.28.0
+    source: https://pypi.org/project/pytest-impacted/
+    license: MIT
+    installed: true
+    environment: dev-only (uv dependency group)
+    state: lab-keep
+    initial_result: recall 1.0 but selection ratio 1.0 (full-equivalent in src/ layout)
+    strengths: static impacted selection in a src-less layout
+    weaknesses: --impacted-module maps to package dirs under cwd; no src/ root handling
+    resource_notes: no service; analysis on selection
+    next_real_work_trigger: re-evaluate if layout config improves; low priority
+    rollback: remove from [dependency-groups].dev and re-lock

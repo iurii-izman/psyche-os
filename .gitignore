@@ -34,3 +34,17 @@ build/
 # Local research scratch space; durable evidence belongs in docs/research/.
 scratch/
 tmp/
+
+# AI Dev OS v2 performance canary — generated evidence and index cache.
+# (READMEs and the canary report in docs/ are committed; raw runs are local.)
+.ai-dev/evidence/performance/runs/
+.ai-dev/evidence/performance/index.json
+
+# Wave 2 tournament — external tool run-local artifacts (safety net; adapters
+# clean these up, but they must never be committed if one leaks).
+.code-review-graph/
+.pathfinder/
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache.v4/
+.aider*

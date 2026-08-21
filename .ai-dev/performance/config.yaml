@@ -1,0 +1,30 @@
+# AI Dev OS v2 — performance canary configuration.
+# Optional overrides; every key has a baked-in default in scripts/ai_dev_perf.py.
+# Keep additions minimal — low maintenance is a goal.
+
+version: 1
+
+# Roots to index (repo-relative). Tests are mapped from test_root.
+src_roots:
+  - src/psyche_os
+test_root: tests
+
+# Context Broker soft target (~5-20K tokens). The CLI default is the top of the band.
+context_token_target: 20000
+
+# Token heuristic: ~4 chars/token. Used for RELATIVE comparison only.
+chars_per_token: 4.0
+
+# Merge rg matches closer than this many lines into one exact range.
+lexical_merge_gap: 4
+
+# Wave 1 — reportlog verify: emit a deterministic pytest-reportlog packet
+# (machine-readable artifact + bounded summary) instead of raw console output.
+# Fail-closed semantics are unchanged; set true to make it the default verify path.
+verify_reportlog: false
+
+# Component D consolidation — the only implemented context model on the default
+# context/prompt path is 'exact-range'. The benchmark-only 'module-surface' model
+# (the ~8x-larger V2 context) is EXPERIMENTAL / OFF-BY-DEFAULT and can never be
+# selected here; it survives only as `benchmark-v1v2` evidence.
+context_model: exact-range

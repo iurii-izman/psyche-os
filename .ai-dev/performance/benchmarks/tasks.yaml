@@ -1,0 +1,132 @@
+# AI Dev OS v2 — frozen historical benchmark tasks.
+#
+# These are REAL Psyche OS tasks taken from accepted Git history. Ground truth
+# (changed_sources / changed_tests / changed_other) comes verbatim from
+# `git diff --name-only <base_sha> <result_sha>`.
+#
+# Freeze rule: this file is written BEFORE any benchmark tuning and is not
+# adjusted after observing V1/V2 retrieval results. Search `terms` are the
+# natural keys an implementer would use from the task description and are fixed
+# here at definition time.
+#
+# Task classes: localized | cross-module | verification-heavy | docs
+
+schema_version: 1
+
+tasks:
+  - task_id: e10-hardening-f1f5
+    class: localized
+    base_sha: "331ea4f63564054146ae3c47643f0b1855b3f30c"
+    result_sha: "853e6a6"
+    description: >-
+      Harden the E10 user-controlled professional handoff for pre-review
+      findings F1-F5: tighten disclosure enforcement in the professional-handoff
+      application flow, adjust the filesystem adapter boundary, and fix the
+      professional report generation for the review findings.
+    terms:
+      - e10_professional_handoff
+      - e10_filesystem
+      - e10_professional
+      - disclosure
+    changed_sources:
+      - src/psyche_os/adapters/e10_filesystem.py
+      - src/psyche_os/application/e10_professional_handoff.py
+      - src/psyche_os/reports/e10_professional.py
+    changed_tests:
+      - tests/integration/test_e10_professional_handoff.py
+      - tests/unit/test_e10_professional.py
+    changed_other:
+      - docs/development/reports/E10.md
+
+  - task_id: e08-durable-storage-integration
+    class: cross-module
+    base_sha: "eef04e18bfdff6f0f0e5cae8adb076827ca6a7b8"
+    result_sha: "1e6dcd8"
+    description: >-
+      Integrate the E08 untrusted-import core with durable canonical storage:
+      persist imported canonical nodes under a new E08 storage schema, wire the
+      migration chain, store canonical relationship rows, and make the
+      filesystem adapter and the import application flow durable.
+    terms:
+      - e08_imports
+      - e08_filesystem
+      - e08_schema
+      - CanonicalStore
+      - migration
+    changed_sources:
+      - src/psyche_os/adapters/e08_filesystem.py
+      - src/psyche_os/application/e08_imports.py
+      - src/psyche_os/backup_export/versioned.py
+      - src/psyche_os/imports/model.py
+      - src/psyche_os/imports/plain_text.py
+      - src/psyche_os/storage/e03_schema.py
+      - src/psyche_os/storage/e08_schema.py
+      - src/psyche_os/storage/migrations.py
+      - src/psyche_os/storage/schema.py
+    changed_tests:
+      - tests/integration/test_e08_import_lifecycle.py
+      - tests/integration/test_e08_migration.py
+      - tests/security/test_e08_review_repairs.py
+      - tests/security/test_e08_untrusted_import.py
+      - tests/unit/test_e08_import_core.py
+    changed_other: []
+
+  - task_id: e07-disclosure-enforcement
+    class: verification-heavy
+    base_sha: "976d3830927da1319b717c63dc09430a57105466"
+    result_sha: "7d6c040"
+    description: >-
+      Enforce E07 disclosure capabilities: block provider reflection until the
+      user has authorized a disclosure preview, track disclosure authorization
+      in the AI-proposal domain, and add unit coverage for the disclosure
+      enforcement path.
+    terms:
+      - e07_bounded_ai
+      - ai_proposal
+      - DisclosurePreview
+      - disclosure
+    changed_sources:
+      - src/psyche_os/application/e07_bounded_ai.py
+      - src/psyche_os/domain/ai_proposal.py
+    changed_tests:
+      - tests/integration/test_e07_bounded_ai_proposal.py
+      - tests/unit/test_e07_bounded_ai_proposal.py
+    changed_other: []
+
+  - task_id: e06-bounded-review-semantics
+    class: cross-module
+    base_sha: "0534d26fde840c70889f118a1587f5e4f2276d40"
+    result_sha: "e6225c5"
+    description: >-
+      Enforce bounded review semantics for E06 n-of-1 protocols: bound the
+      review window and review actions in the experiments application, mirror
+      the constraint in the domain model, and extend the E06 schema for bounded
+      review state.
+    terms:
+      - e06_experiments
+      - experiments
+      - e06_schema
+      - review
+    changed_sources:
+      - src/psyche_os/application/e06_experiments.py
+      - src/psyche_os/domain/experiments.py
+      - src/psyche_os/storage/e06_schema.py
+    changed_tests:
+      - tests/integration/test_e06_migration.py
+      - tests/integration/test_e06_n_of_1_protocols.py
+      - tests/unit/test_e06_n_of_1_protocols.py
+    changed_other: []
+
+  - task_id: repo-consolidation-report
+    class: docs
+    base_sha: "129b34b4dcd44a44e86309241135be6dc78c7482"
+    result_sha: "24c9bae"
+    description: >-
+      Record the repository consolidation pass: write the consolidation report
+      describing how the repository was consolidated after the AI Dev OS v1
+      control-plane implementation. No application code or tests change.
+    terms: []
+    changed_sources: []
+    changed_tests: []
+    changed_other:
+      - docs/REPOSITORY_CONSOLIDATION_REPORT.md

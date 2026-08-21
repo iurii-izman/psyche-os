@@ -1,0 +1,34 @@
+# AI Dev OS v2 — Acceleration Wave 2: intelligence tournament configuration.
+#
+# Shadow mode is OFF by default. It is enabled per Task Contract / explicit
+# command (`--shadow`) and its outputs are telemetry/evidence ONLY: they never
+# expand LLM context and never change task acceptance.
+
+version: 1
+
+code_intelligence:
+  baseline: v1
+  control:
+    - v1            # rg + ast-grep (existing V1)
+    - v2            # existing PR11 lightweight local index
+  candidates:
+    - code-review-graph
+    - codebase-memory
+    - pathfinder
+    - symlens
+    - aider-repo-map
+
+test_selection:
+  baseline: current
+  control:
+    - full          # FULL pytest = truth/control, never redefined
+  candidates:
+    - pytest-testmon
+    - pytest-impacted
+
+shadow:
+  enabled: false
+
+evidence:
+  root: .ai-dev/evidence/performance/tournament
+  runs_root: .ai-dev/evidence/performance/runs/tournament

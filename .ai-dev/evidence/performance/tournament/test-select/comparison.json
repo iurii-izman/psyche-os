@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "superseded_by": "revalidation.json",
+  "superseded_at": "2026-08-21",
+  "supersede_reason": "Wave 2 test-selection recall claims (PR11 1.0, pytest-testmon 0.8 + hub false negative, pytest-impacted 1.0) were invalidated by findings A1/A2: detector ground truth was the bounded (<=10) AI-facing presentation list, so per-selector recall was order-dependent and unsupported. Replaced by the A1/A2-repaired revalidation (FULL + retained current selector only). See docs/AI_DEV_OS_V2_PERFORMANCE_CANARY_REPORT.md, Final Targeted Fix R1."
+}
