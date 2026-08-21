@@ -13,7 +13,7 @@ import psutil
 from pywinauto import Desktop
 
 
-WINDOW_TITLE = "PSYCHE OS — Local vault controls"
+WINDOW_TITLE = "PSYCHE OS — Управление локальным хранилищем"
 SECRET_CANARY = "E02-SECRET-CANARY-8ca4c3"
 MARKUP_CANARY = '<img src=x onerror="alert(1)"><script>bad()</script>'
 
@@ -34,7 +34,8 @@ def edit(window: Any, title: str, value: str) -> None:
 
 
 def click(window: Any, title: str) -> None:
-    window.child_window(title=title, control_type="Button").wait("enabled", 8).invoke()
+    control = window.child_window(title=title, control_type="Button").wait("exists", 8)
+    control.invoke()
 
 
 def process_evidence(root_pid: int) -> dict[str, Any]:
@@ -110,45 +111,45 @@ def run(executable: Path) -> dict[str, Any]:
         stderr=subprocess.DEVNULL,
     )
     try:
-        window = Desktop(backend="uia").window(title=WINDOW_TITLE)
+        window = Desktop(backend="uia").window(process=process.pid, title=WINDOW_TITLE)
         window.wait("visible", timeout=20)
 
-        edit(window, "Local session secret", SECRET_CANARY)
-        click(window, "Unlock locally")
-        wait_for_text(window, "Your local control center")
+        edit(window, "Локальный секрет сессии", SECRET_CANARY)
+        click(window, "Разблокировать локально")
+        wait_for_text(window, "Ваш локальный центр управления")
         visible_text = "\n".join(control.window_text() for control in window.descendants())
         if SECRET_CANARY in visible_text:
             raise AssertionError("Unlock secret leaked into the native accessibility surface")
-        for required in ("SYNTHETIC_ONLY", "CLOSED", "OFFLINE_NO_LISTENER", "DISABLED"):
+        for required in ("Только синтетические данные", "Закрыт", "Без сети и слушателей", "Отключено"):
             if required not in visible_text:
                 raise AssertionError(f"Missing privacy/runtime status: {required}")
 
-        edit(window, "Corrected synthetic observation", MARKUP_CANARY)
-        edit(window, "Reason for correction", "Synthetic UIA safety check")
-        click(window, "Preserve history and correct")
-        wait_for_text(window, "Correction applied to this synthetic session; earlier session version preserved.")
-        if len(Desktop(backend="uia").windows(title=WINDOW_TITLE)) != 1:
+        edit(window, "Исправленное синтетическое наблюдение", MARKUP_CANARY)
+        edit(window, "Причина исправления", "Проверка безопасности синтетического UIA")
+        click(window, "Сохранить историю и исправить")
+        wait_for_text(window, "Исправление применено к этой синтетической сессии; предыдущая версия сессии сохранена.")
+        if len(Desktop(backend="uia").windows(process=process.pid, title=WINDOW_TITLE)) != 1:
             raise AssertionError("Untrusted markup changed the native window surface")
 
-        click(window, "Preview deletion scope")
-        wait_for_text(window, "Deletion dry-run only; nothing deleted.")
-        click(window, "Confirm deletion")
-        wait_for_text(window, "Synthetic-session deletion applied with stated limitations; no canonical record was changed.")
+        click(window, "Предпросмотр области удаления")
+        wait_for_text(window, "Это только пробный запуск удаления; ничего не удалено.")
+        click(window, "Подтвердить удаление")
+        wait_for_text(window, "Удаление в синтетической сессии применено с указанными ограничениями; каноническая запись не изменена.")
 
-        click(window, "Verify backup")
-        wait_for_text(window, "Backup verified without content disclosure.")
-        click(window, "Validate isolated recovery")
-        wait_for_text(window, "Candidate validated; active vault unchanged.")
-        click(window, "Activate validated candidate")
-        wait_for_text(window, "Validated candidate activated separately.")
+        click(window, "Проверить резервную копию")
+        wait_for_text(window, "Резервная копия проверена без раскрытия содержимого.")
+        click(window, "Проверить изолированное восстановление")
+        wait_for_text(window, "Кандидат проверен; активное хранилище не изменено.")
+        click(window, "Активировать проверенного кандидата")
+        wait_for_text(window, "Проверенный кандидат активирован отдельно.")
 
-        edit(window, "Purpose", "portability")
-        edit(window, "Audience", "owner")
-        edit(window, "Scope", "synthetic minimum")
-        click(window, "Preview export")
-        wait_for_text(window, "Export preview; nothing written yet.")
-        click(window, "Confirm synthetic export")
-        wait_for_text(window, "Export completed. This is not a backup.")
+        edit(window, "Цель", "portability")
+        edit(window, "Получатель", "owner")
+        edit(window, "Область", "synthetic minimum")
+        click(window, "Предпросмотр экспорта")
+        wait_for_text(window, "Предпросмотр экспорта: пока ничего не записано.")
+        click(window, "Подтвердить синтетический экспорт")
+        wait_for_text(window, "Экспорт завершён. Это не резервная копия.")
 
         # E03-T1..T7: only fixed fictional operations are available.  Exercise
         # the canonical sequence through the packaged Rust/Python boundary.
@@ -156,26 +157,26 @@ def run(executable: Path) -> dict[str, Any]:
         window.type_keys("{END}")
         time.sleep(0.5)
         for label in (
-            "Capture lamp report",
-            "Capture lamp observation",
-            "Capture counterreport",
-            "Assemble epistemic set",
-            "Create baseline snapshot",
-            "Create revised snapshot",
-            "Correct report time canonically",
+            "Зафиксировать отчёт о лампе",
+            "Зафиксировать наблюдение лампы",
+            "Зафиксировать контротчёт",
+            "Собрать эпистемический набор",
+            "Создать исходный снимок",
+            "Создать обновлённый снимок",
+            "Исправить время отчёта канонически",
         ):
             click(window, label)
-            wait_for_text(window, f"{label} completed from the bundled fictional fixture.")
-        click(window, "Load selected timeline")
-        wait_for_text(window, "Timeline uses the occurred clock")
-        click(window, "Open evidence explorer")
-        wait_for_text(window, "A proposal is not a fact or evidence.")
-        click(window, "Compare model snapshots")
-        wait_for_text(window, "unresolved state remains visible")
-        click(window, "Preview canonical deletion")
-        wait_for_text(window, "Canonical deletion dry-run only; no state changed.")
-        click(window, "Confirm canonical deletion")
-        wait_for_text(window, "receipt contains no deleted content or stable content hash")
+            wait_for_text(window, f"{label}. Операция выполнена для встроенного вымышленного набора.")
+        click(window, "Загрузить выбранную шкалу")
+        wait_for_text(window, "Шкала использует «Событие произошло»")
+        click(window, "Открыть обозреватель доказательств")
+        wait_for_text(window, "Предложение не является фактом или доказательством.")
+        click(window, "Сравнить снимки модели")
+        wait_for_text(window, "неразрешённое состояние остаётся видимым")
+        click(window, "Предпросмотр канонического удаления")
+        wait_for_text(window, "Это только пробный запуск канонического удаления; состояние не изменено.")
+        click(window, "Подтвердить каноническое удаление")
+        wait_for_text(window, "квитанция не содержит удалённых данных или стабильного хеша содержимого")
 
         evidence = process_evidence(process.pid)
         evidence.update(

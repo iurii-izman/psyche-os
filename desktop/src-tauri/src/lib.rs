@@ -544,7 +544,7 @@ pub fn run() {
         ])
         .setup(|app| {
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title("PSYCHE OS — Local vault controls")
+                .title("PSYCHE OS — Управление локальным хранилищем")
                 .inner_size(1180.0, 820.0)
                 .min_inner_size(760.0, 640.0)
                 .devtools(false)

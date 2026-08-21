@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { DesktopApi, StatusView } from "../src/api";
 import { mount } from "../src/main";
+import { t } from "../src/i18n";
 
 function syntheticStatus(locked = false): StatusView {
   return {
@@ -70,24 +71,24 @@ describe("E02 bounded desktop UI", () => {
   it("T4 requires a dry-run before deletion and returns focus", async () => {
     const api = mockApi(false);
     await mount(api);
-    const confirm = byText("Confirm deletion");
+    const confirm = byText(t("privacy.confirm"));
     expect(confirm.disabled).toBe(true);
-    await click(byText("Preview deletion scope"));
+    await click(byText(t("privacy.preview")));
     expect(confirm.disabled).toBe(false);
     expect(document.activeElement).toBe(confirm);
     await click(confirm);
     expect(api.executeDeletion).toHaveBeenCalledWith("plan-opaque", "DELETE SYNTHETIC RECORD");
-    expect(document.querySelector("#operation-status")!.textContent).toContain("limitations");
+    expect(document.querySelector("#operation-status")!.textContent).toContain("ограничени");
   });
 
   it("T5 keeps recovery validation separate from activation", async () => {
     const api = mockApi(false);
     await mount(api);
-    const activate = byText("Activate validated candidate");
+    const activate = byText(t("recovery.activate"));
     expect(activate.disabled).toBe(true);
-    await click(byText("Validate isolated recovery"));
+    await click(byText(t("recovery.validate")));
     expect(activate.disabled).toBe(false);
-    expect(document.querySelector("#operation-status")!.textContent).toContain("active vault unchanged");
+    expect(document.querySelector("#operation-status")!.textContent).toContain("активное хранилище не изменено");
     await click(activate);
     expect(api.activateRecovery).toHaveBeenCalledWith("candidate-opaque", "ACTIVATE VALIDATED CANDIDATE");
   });
@@ -101,8 +102,8 @@ describe("E02 bounded desktop UI", () => {
     const form = (document.querySelector("#export-purpose") as HTMLInputElement).form!;
     form.requestSubmit();
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(document.querySelector("#operation-status")!.textContent).toContain("nothing written yet");
-    const execute = byText("Confirm synthetic export");
+    expect(document.querySelector("#operation-status")!.textContent).toContain("пока ничего не записано");
+    const execute = byText(t("export.confirm"));
     expect(execute.disabled).toBe(false);
     await click(execute);
     expect(api.executeExport).toHaveBeenCalledWith("export-opaque", "EXPORT SYNTHETIC PACKAGE");
@@ -130,7 +131,7 @@ describe("E02 bounded desktop UI", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(secret.value).toBe("");
     expect(document.activeElement).toBe(secret);
-    expect(document.querySelector("#unlock-error")!.textContent).toContain("UNLOCK_REJECTED");
+    expect(document.querySelector("#unlock-error")!.textContent).toContain(t("unlock.rejected"));
   });
 });
 
@@ -141,7 +142,7 @@ describe("E03 bounded archive UI", () => {
     const clock = document.querySelector<HTMLSelectElement>("#timeline-clock")!;
     expect([...clock.options].map((option) => option.value)).toEqual(["occurred", "observed", "reported", "recorded", "asserted"]);
     clock.value = "observed";
-    await click(byText("Load selected timeline"));
+    await click(byText(t("explore.timeline")));
     expect(api.archiveTimeline).toHaveBeenCalledWith("observed");
     const copy = document.body.textContent!.toLowerCase();
     for (const forbidden of ["streak", "overdue", "you are behind", "completion percentage", "hurry", "reward"]) {
@@ -154,11 +155,11 @@ describe("E03 bounded archive UI", () => {
     await mount(api);
     expect(document.querySelector("textarea")).toBeNull();
     expect(document.querySelector('input[type="file"]')).toBeNull();
-    await click(byText("Capture lamp report"));
+    await click(byText(t("archive.captureReport")));
     expect(api.archiveOperate).toHaveBeenCalledWith("CAPTURE_LAMP_REPORT", "occurred_summer_2042", "desktop_001");
-    const confirm = byText("Confirm canonical deletion");
+    const confirm = byText(t("canonical.confirm"));
     expect(confirm.disabled).toBe(true);
-    await click(byText("Preview canonical deletion"));
+    await click(byText(t("canonical.preview")));
     expect(confirm.disabled).toBe(false);
     expect(document.activeElement).toBe(confirm);
     await click(confirm);

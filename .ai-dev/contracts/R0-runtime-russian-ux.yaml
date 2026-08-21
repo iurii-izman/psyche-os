@@ -1,0 +1,60 @@
+task_id: R0-runtime-russian-ux
+base_sha: c2718c77b17ec5577cf85283b8340d787e2afe41
+
+profile: balanced
+risk: medium
+
+goal:
+  - Package accepted E11 metadata and make the existing synthetic desktop workflow runnable and Russian-first on Windows.
+
+non_goals:
+  - No PX01/session intelligence, architecture redesign, dependency change, real-data admission, or backend semantic change.
+
+authority:
+  - CONSTITUTION.md
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md
+  - docs/DECISION_LOG.md (ADR-022, ADR-023)
+  - docs/development/STATE.yaml
+
+expected_scope:
+  - docs/development/STATE.yaml
+  - docs/implementation/E11_ACCEPTANCE_REPORT.md
+  - desktop/index.html
+  - desktop/src/i18n.ts
+  - desktop/src/main.ts
+  - desktop/src-tauri/src/lib.rs
+  - desktop/tests/ui.test.ts
+  - scripts/dev/test_e02_desktop.py
+
+protected_scope:
+  - .ai-dev/policy/**
+
+acceptance:
+  - E11 is recorded as accepted and REAL_DATA_GATE remains CLOSED.
+  - The packaged desktop workflow is Russian-first without changing protocol or backend values.
+  - TypeScript checks, production build, native debug build, and native UIA smoke pass.
+
+verification:
+  - npm --prefix desktop run typecheck
+  - npm --prefix desktop run lint
+  - npm --prefix desktop run test:unit
+  - npm --prefix desktop run build
+  - npm --prefix desktop run sidecar:build
+  - npm --prefix desktop run tauri -- build --debug
+  - npm --prefix desktop run test:desktop
+  - uv run python scripts/dev/validate_orchestration.py
+  - git diff --check
+
+permissions:
+  network: true
+  dependencies: false
+  migrations: false
+  destructive: false
+
+routing:
+  initial: cheap
+  max_grounded_retry: 1
+  escalation: strong
+
+assumptions:
+  - The owner-requested branch push and draft PR creation are authorized when GitHub authentication is already available.
