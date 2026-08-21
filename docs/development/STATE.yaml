@@ -11,9 +11,9 @@ real_data_gate:
 current_epic:
   id: "E11"
   name: "Lifetime Operations, Release Evidence, and Gate Decision"
-  status: "IMPLEMENTED"
-  implementation_status: "IMPLEMENTED"
-  review_verdict: "NOT_REVIEWED"
+  status: "ACCEPTED"
+  implementation_status: "ACCEPTED"
+  review_verdict: "ACCEPT"
   risk: "RISK-H"
   expected_final_gate: "FULL"
   prompt: "docs/prompts/deepseek/E11_LIFETIME_OPERATIONS_RELEASE_EVIDENCE_GATE_DECISION.md"
@@ -69,6 +69,10 @@ accepted_epics:
     status: "ACCEPTED"
     report: "docs/implementation/E10_ACCEPTANCE_REPORT.md"
     commit: "6c2ccf75637ef85db42bc62caf206c1c0e736d21"
+  - id: "E11"
+    status: "ACCEPTED"
+    report: "docs/implementation/E11_ACCEPTANCE_REPORT.md"
+    commit: "3b5f9f6d657989c2dc7c24f7f0d2ad3f9549a835"
 
 next_epic: null
 
@@ -81,9 +85,9 @@ architecture:
 
 git:
   branch: "main"
-  prepared_from_commit: "24a882c88002ec88d8f79277a5868fb114d32d14"
-  accepted_commit: "6c2ccf75637ef85db42bc62caf206c1c0e736d21"
+  prepared_from_commit: "c2718c77b17ec5577cf85283b8340d787e2afe41"
+  accepted_commit: "3b5f9f6d657989c2dc7c24f7f0d2ad3f9549a835"
 
 next_action:
-  prompt: "docs/prompts/deepseek/E11_LIFETIME_OPERATIONS_RELEASE_EVIDENCE_GATE_DECISION.md"
-  instruction: "Run the exact E11 implementation prompt; keep REAL_DATA_GATE CLOSED and do not create an authorized OPEN decision."
+  prompt: null
+  instruction: "Run the bounded R0 runtime bootstrap and Russian UX workflow; keep REAL_DATA_GATE CLOSED and do not create a successor epic."

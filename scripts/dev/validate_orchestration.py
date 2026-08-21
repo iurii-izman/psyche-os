@@ -232,6 +232,108 @@ def validate_stable_gate_architecture(
     )
 
 
+def terminal_accepted_state(current: dict[str, Any], epic_ids: list[str], next_epic: Any) -> bool:
+    """Return whether STATE records the accepted final mapped epic."""
+    return bool(epic_ids) and (
+        current.get("id") == epic_ids[-1]
+        and current.get("status") == "ACCEPTED"
+        and next_epic is None
+    )
+
+
+def validate_epic_progression(
+    result: Validation, state: dict[str, Any], epic_ids: list[str]
+) -> None:
+    """Validate accepted history and successor state for the mapped epics."""
+    current = state.get("current_epic", {})
+    next_epic = state.get("next_epic")
+    next_epic_mapping = next_epic if isinstance(next_epic, dict) else {}
+    current_id = current.get("id")
+    accepted_entries = state.get("accepted_epics", [])
+    accepted_ids = {
+        entry if isinstance(entry, str) else entry.get("id")
+        for entry in accepted_entries
+        if isinstance(entry, (str, dict))
+    }
+    terminal_current = bool(epic_ids) and current_id == epic_ids[-1]
+
+    if terminal_current:
+        result.check(next_epic is None, "terminal E11 has no fictional successor")
+        result.check(
+            set(epic_ids[:-1]).issubset(accepted_ids),
+            "terminal E11 preparation preserves E00-E10 acceptance history",
+        )
+    else:
+        result.check(isinstance(next_epic, dict), "non-terminal state has a successor mapping")
+        result.check(next_epic_mapping.get("status") in ALLOWED_STATUS, "next epic status is valid")
+
+    if current_id == "E00" and current.get("review_verdict") == "FIX_REQUIRED":
+        result.check(current.get("status") == "IMPLEMENTED", "E00 implementation is awaiting fixes")
+        result.check(next_epic_mapping.get("status") == "PLANNED", "E01 remains PLANNED")
+        result.check(
+            state.get("next_action", {}).get("prompt") == current.get("fix_prompt"),
+            "next action points to the E00 fix prompt",
+        )
+        for field in ("fix_prompt", "acceptance_report", "deviation_record"):
+            value = current.get(field)
+            result.check(
+                isinstance(value, str) and (ROOT / value).is_file(),
+                f"E00 {field} reference exists",
+            )
+        result.check(not accepted_ids, "no implementation epic is prematurely accepted")
+    elif current_id == "E00" and current.get("status") == "ACCEPTED":
+        result.check("E00" in accepted_ids, "E00 acceptance is recorded")
+        result.check(next_epic_mapping.get("id") == "E01", "E01 follows accepted E00")
+        result.check(
+            next_epic_mapping.get("status") == "PLANNED",
+            "E01 remains PLANNED until JIT preparation",
+        )
+    elif current_id != "E00":
+        result.check("E00" in accepted_ids, "accepted E00 precedes later epic work")
+        if current.get("status") == "ACCEPTED":
+            result.check(current_id in accepted_ids, "later current epic acceptance is recorded")
+            if terminal_accepted_state(current, epic_ids, next_epic):
+                result.check(next_epic is None, "accepted terminal epic has no successor")
+            else:
+                current_index = epic_ids.index(current_id) if current_id in epic_ids else -1
+                expected_next_id = (
+                    epic_ids[current_index + 1]
+                    if 0 <= current_index < len(epic_ids) - 1
+                    else None
+                )
+                result.check(
+                    next_epic_mapping.get("id") == expected_next_id,
+                    "mapped successor follows accepted later current epic",
+                )
+                result.check(
+                    next_epic_mapping.get("status") == "PLANNED",
+                    "successor remains PLANNED until JIT preparation",
+                )
+        else:
+            result.check(
+                current.get("status") in {"READY", "IN_PROGRESS", "IMPLEMENTED", "BLOCKED"},
+                "later current epic has an actionable status",
+            )
+    else:
+        result.check(current.get("status") == "READY", "E00 is READY")
+        result.check(not accepted_ids, "no implementation epic is prematurely accepted")
+
+
+def branch_matches_workflow(
+    state: dict[str, Any], epic_ids: list[str], branch: str, candidate_branch: str | None
+) -> bool:
+    """Allow terminal post-roadmap work only on canonical or named codex/ branches."""
+    current = state.get("current_epic", {})
+    if terminal_accepted_state(current, epic_ids, state.get("next_epic")):
+        return branch == state.get("git", {}).get("branch") or (
+            branch.startswith("codex/") and len(branch) > len("codex/")
+        )
+    return branch == state.get("git", {}).get("branch") or (
+        current.get("status") in {"IN_PROGRESS", "IMPLEMENTED", "BLOCKED"}
+        and branch == candidate_branch
+    )
+
+
 def main() -> int:
     result = Validation()
 
@@ -261,17 +363,10 @@ def main() -> int:
 
     current = state.get("current_epic", {})
     next_epic = state.get("next_epic")
-    next_epic_mapping = next_epic if isinstance(next_epic, dict) else {}
     result.check(state.get("research", {}).get("converged") is True, "research is converged")
     validate_stable_gate_architecture(result, state, gate, profile)
     result.check(current.get("status") in ALLOWED_STATUS, "current epic status is valid")
     current_id = current.get("id")
-    accepted_entries = state.get("accepted_epics", [])
-    accepted_ids = {
-        entry if isinstance(entry, str) else entry.get("id")
-        for entry in accepted_entries
-        if isinstance(entry, (str, dict))
-    }
     epic_text = EPIC_MAP_PATH.read_text(encoding="utf-8") if EPIC_MAP_PATH.is_file() else ""
     epic_matches = EPIC_RE.findall(epic_text)
     epic_ids = [epic_id for epic_id, _ in epic_matches]
@@ -280,60 +375,7 @@ def main() -> int:
         "current epic id is valid",
     )
     terminal_current = bool(epic_ids) and current_id == epic_ids[-1]
-    if terminal_current:
-        result.check(next_epic is None, "terminal E11 has no fictional successor")
-        result.check(
-            set(epic_ids[:-1]).issubset(accepted_ids),
-            "terminal E11 preparation preserves E00-E10 acceptance history",
-        )
-    else:
-        result.check(isinstance(next_epic, dict), "non-terminal state has a successor mapping")
-        result.check(next_epic_mapping.get("status") in ALLOWED_STATUS, "next epic status is valid")
-    if current_id == "E00" and current.get("review_verdict") == "FIX_REQUIRED":
-        result.check(current.get("status") == "IMPLEMENTED", "E00 implementation is awaiting fixes")
-        result.check(next_epic_mapping.get("status") == "PLANNED", "E01 remains PLANNED")
-        result.check(
-            state.get("next_action", {}).get("prompt") == current.get("fix_prompt"),
-            "next action points to the E00 fix prompt",
-        )
-        for field in ("fix_prompt", "acceptance_report", "deviation_record"):
-            value = current.get(field)
-            result.check(
-                isinstance(value, str) and (ROOT / value).is_file(),
-                f"E00 {field} reference exists",
-            )
-        result.check(not accepted_ids, "no implementation epic is prematurely accepted")
-    elif current_id == "E00" and current.get("status") == "ACCEPTED":
-        result.check("E00" in accepted_ids, "E00 acceptance is recorded")
-        result.check(next_epic_mapping.get("id") == "E01", "E01 follows accepted E00")
-        result.check(
-            next_epic_mapping.get("status") == "PLANNED",
-            "E01 remains PLANNED until JIT preparation",
-        )
-    elif current_id != "E00":
-        result.check("E00" in accepted_ids, "accepted E00 precedes later epic work")
-        if current.get("status") == "ACCEPTED":
-            result.check(current_id in accepted_ids, "later current epic acceptance is recorded")
-            current_index = epic_ids.index(current_id) if current_id in epic_ids else -1
-            expected_next_id = (
-                epic_ids[current_index + 1] if 0 <= current_index < len(epic_ids) - 1 else None
-            )
-            result.check(
-                next_epic_mapping.get("id") == expected_next_id,
-                "mapped successor follows accepted later current epic",
-            )
-            result.check(
-                next_epic_mapping.get("status") == "PLANNED",
-                "successor remains PLANNED until JIT preparation",
-            )
-        else:
-            result.check(
-                current.get("status") in {"READY", "IN_PROGRESS", "IMPLEMENTED", "BLOCKED"},
-                "later current epic has an actionable status",
-            )
-    else:
-        result.check(current.get("status") == "READY", "E00 is READY")
-        result.check(not accepted_ids, "no implementation epic is prematurely accepted")
+    validate_epic_progression(result, state, epic_ids)
 
     for relative in nested_path_values(state):
         result.check((ROOT / relative).is_file(), f"state reference exists: {relative}")
@@ -397,12 +439,9 @@ def main() -> int:
     ).stdout.strip()
     candidate_match = re.search(r"\*\*Implementation branch:\*\* `([^`]+)`", current_prompt_text)
     candidate_branch = candidate_match.group(1) if candidate_match else None
-    branch_matches_workflow = branch == state.get("git", {}).get("branch") or (
-        current.get("status") in {"IN_PROGRESS", "IMPLEMENTED", "BLOCKED"}
-        and branch == candidate_branch
-    )
+    branch_matches = branch_matches_workflow(state, epic_ids, branch, candidate_branch)
     result.check(
-        branch_matches_workflow,
+        branch_matches,
         "Git branch matches canonical state or the current epic candidate",
     )
 
