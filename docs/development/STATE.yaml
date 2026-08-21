@@ -12,7 +12,7 @@ current_epic:
   id: "E11"
   name: "Lifetime Operations, Release Evidence, and Gate Decision"
   status: "IMPLEMENTED"
-  implementation_status: "NOT_IMPLEMENTED"
+  implementation_status: "IMPLEMENTED"
   review_verdict: "NOT_REVIEWED"
   risk: "RISK-H"
   expected_final_gate: "FULL"

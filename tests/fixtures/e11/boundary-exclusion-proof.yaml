@@ -1,0 +1,18 @@
+schema_version: "1.0"
+proof_class: "boundary_exclusion_proof_v1"
+proof_result: "PASS"
+validator_id: "synthetic_e11_oracle_v1"
+candidate_source_commit: "0ec9160795ff4490c1071d8271cd8a063b550ff0"
+candidate_build_id: "e11-draft-source-tree"
+candidate_platform:
+  operating_system: "Windows"
+  architecture: "x86_64"
+  runtime: "python-3.12"
+  packaging: "source-tree"
+boundary_ids:
+  - "general_blob_or_attachment_writes"
+  - "importer_parser_or_untrusted_rendering"
+  - "provider_model_or_network"
+  - "assessment_scoring"
+  - "longitudinal_or_n_of_1"
+  - "professional_report_or_external_handoff"

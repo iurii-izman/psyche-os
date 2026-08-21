@@ -27,6 +27,12 @@ RDG_STATUSES = {
     "STALE_OR_EXPIRED",
     "UNKNOWN_OR_INCOMPLETE",
 }
+_ADMISSIBLE_PROOF_CLASSES_BY_RDG = {
+    rdg_id: frozenset({"deterministic_validator_result_v1"}) for rdg_id in RDG_IDS
+}
+_BOUNDARY_EXCLUSION_PROOF_CLASS = "boundary_exclusion_proof_v1"
+_PASSING_PROOF_RESULT = "PASS"
+_CLOSED_RESIDUAL_RISK_STATUSES = {"RESOLVED"}
 _REQUIRED_REVIEW_STATE = "COMPLETE"
 _SHA256_LENGTH = 64
 
@@ -215,17 +221,70 @@ def _verify_profile_binding(
         reasons.append("profile_id_mismatch")
     if binding.get("profile_version") != profile.get("profile_version"):
         reasons.append("profile_version_mismatch")
-    if not _matches_sha256(path, binding.get("profile_definition_sha256")):
+    current_profile_bytes = path.read_bytes().replace(b"\r\n", b"\n")
+    if hashlib.sha256(current_profile_bytes).hexdigest() != binding.get(
+        "profile_definition_sha256"
+    ):
         reasons.append("profile_digest_mismatch")
     source_commit = binding.get("profile_source_commit")
     candidate = evaluation.get("candidate", {})
-    if not isinstance(candidate, dict) or source_commit != candidate.get("source_commit"):
-        reasons.append("profile_source_commit_mismatch")
+    candidate_source = candidate.get("source_commit") if isinstance(candidate, dict) else None
+    if not isinstance(source_commit, str):
+        reasons.append("profile_source_commit_missing")
+    else:
+        commit = subprocess.run(
+            ["git", "cat-file", "-e", f"{source_commit}^{{commit}}"],
+            cwd=root,
+            check=False,
+            capture_output=True,
+        )
+        if commit.returncode != 0:
+            reasons.append("profile_source_commit_missing")
+        else:
+            historical = subprocess.run(
+                ["git", "show", f"{source_commit}:{binding.get('profile_path', '')}"],
+                cwd=root,
+                check=False,
+                capture_output=True,
+            )
+            if historical.returncode != 0:
+                reasons.append("profile_historical_bytes_unavailable")
+            elif hashlib.sha256(historical.stdout).hexdigest() != binding.get(
+                "profile_definition_sha256"
+            ):
+                reasons.append("profile_historical_digest_mismatch")
+            if isinstance(candidate_source, str):
+                lineage = subprocess.run(
+                    ["git", "merge-base", "--is-ancestor", source_commit, candidate_source],
+                    cwd=root,
+                    check=False,
+                    capture_output=True,
+                )
+                if lineage.returncode != 0:
+                    reasons.append("profile_source_not_in_candidate_lineage")
     platform = candidate.get("platform") if isinstance(candidate, dict) else None
     supported = profile.get("supported_platform_envelope", {}).get("operating_systems", [])
     if not isinstance(platform, dict) or platform.get("operating_system") not in supported:
         reasons.append("unsupported_platform")
     return profile
+
+
+def _load_evidence_proof(
+    root: Path, path: Path, reasons: list[str], evidence_id: str
+) -> Mapping[str, Any] | None:
+    try:
+        proof = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        reasons.append(f"evidence_proof_unreadable:{evidence_id}:{type(exc).__name__}")
+        return None
+    if not isinstance(proof, Mapping):
+        reasons.append(f"evidence_proof_invalid:{evidence_id}")
+        return None
+    schema_errors = _schema_errors(root, proof, "evidence_proof.schema.json")
+    if schema_errors:
+        reasons.extend(f"evidence_proof_invalid:{evidence_id}:{error}" for error in schema_errors)
+        return None
+    return proof
 
 
 def _evidence_index(
@@ -246,7 +305,8 @@ def _evidence_index(
         if evidence_id in evidence_by_id:
             reasons.append(f"duplicate_evidence:{evidence_id}")
             continue
-        evidence_by_id[evidence_id] = item
+        indexed_item = dict(item)
+        evidence_by_id[evidence_id] = indexed_item
         if item.get("candidate_source_commit") != candidate_source:
             reasons.append(f"evidence_candidate_mismatch:{evidence_id}")
         if item.get("candidate_build_id") != candidate.get("build_id"):
@@ -259,6 +319,29 @@ def _evidence_index(
         path = _repo_path(root, item.get("raw_evidence_path"), f"evidence:{evidence_id}", reasons)
         if path is not None and not _matches_sha256(path, item.get("raw_evidence_sha256")):
             reasons.append(f"evidence_digest_mismatch:{evidence_id}")
+        if path is None:
+            continue
+        proof = _load_evidence_proof(root, path, reasons, evidence_id)
+        if proof is None:
+            continue
+        indexed_item["_verified_proof"] = proof
+        for field in (
+            "proof_class",
+            "proof_result",
+            "candidate_source_commit",
+            "candidate_build_id",
+            "candidate_platform",
+        ):
+            if proof.get(field) != item.get(field):
+                reasons.append(f"evidence_proof_mismatch:{evidence_id}:{field}")
+        declared_rdg_ids = item.get("rdg_ids", [])
+        if (
+            item.get("proof_class") == "deterministic_validator_result_v1"
+            and proof.get("rdg_ids", []) != declared_rdg_ids
+        ):
+            reasons.append(f"evidence_proof_mismatch:{evidence_id}:rdg_ids")
+        if item.get("proof_result") != _PASSING_PROOF_RESULT:
+            reasons.append(f"evidence_proof_not_passing:{evidence_id}")
     return evidence_by_id
 
 
@@ -306,7 +389,10 @@ def _review_index(
 
 
 def _boundary_assessments(
-    profile: Mapping[str, Any] | None, evaluation: Mapping[str, Any], reasons: list[str]
+    profile: Mapping[str, Any] | None,
+    evaluation: Mapping[str, Any],
+    evidence: Mapping[str, Mapping[str, Any]],
+    reasons: list[str],
 ) -> dict[str, Mapping[str, Any]]:
     raw = evaluation.get("boundary_assessments", [])
     assessments: dict[str, Mapping[str, Any]] = {}
@@ -334,6 +420,22 @@ def _boundary_assessments(
             reasons.append(f"boundary_profile_mismatch:{boundary_id}")
         if expected == "EXCLUDED" and assessment.get("unreachable") is not True:
             reasons.append(f"unproven_boundary_exclusion:{boundary_id}")
+        if expected == "EXCLUDED":
+            evidence_ids = assessment.get("exclusion_evidence_ids", [])
+            if not isinstance(evidence_ids, list) or not evidence_ids:
+                reasons.append(f"missing_boundary_exclusion_evidence:{boundary_id}")
+                continue
+            for evidence_id in evidence_ids:
+                proof = evidence.get(evidence_id)
+                raw_proof = proof.get("_verified_proof", {}) if isinstance(proof, Mapping) else {}
+                if (
+                    proof is None
+                    or proof.get("proof_class") != _BOUNDARY_EXCLUSION_PROOF_CLASS
+                    or proof.get("proof_result") != _PASSING_PROOF_RESULT
+                    or not isinstance(raw_proof, Mapping)
+                    or boundary_id not in raw_proof.get("boundary_ids", [])
+                ):
+                    reasons.append(f"invalid_boundary_exclusion_evidence:{boundary_id}")
     return assessments
 
 
@@ -378,12 +480,37 @@ def _control_results(
                 reasons.append(f"missing_control_evidence:{control_id}")
             for evidence_id in evidence_ids if isinstance(evidence_ids, list) else []:
                 item = evidence.get(evidence_id)
-                if item is None or control_id not in item.get("rdg_ids", []):
+                admissible = _ADMISSIBLE_PROOF_CLASSES_BY_RDG.get(control_id, frozenset())
+                if (
+                    item is None
+                    or control_id not in item.get("rdg_ids", [])
+                    or item.get("proof_class") not in admissible
+                    or item.get("proof_result") != _PASSING_PROOF_RESULT
+                ):
                     reasons.append(f"control_evidence_mismatch:{control_id}")
         if status == "NOT_APPLICABLE_EXCLUDED":
             excluded = control.get("excluded_boundary_ids", [])
             if sorted(excluded) != expected_boundaries or not expected_boundaries:
                 reasons.append(f"invalid_exclusion:{control_id}")
+                continue
+            for boundary_id in expected_boundaries:
+                boundary = inventory.get(boundary_id, {})
+                assessment = next(
+                    (
+                        item
+                        for item in evaluation.get("boundary_assessments", [])
+                        if isinstance(item, Mapping) and item.get("boundary_id") == boundary_id
+                    ),
+                    None,
+                )
+                if (
+                    not isinstance(boundary, Mapping)
+                    or boundary.get("state") != "EXCLUDED"
+                    or not isinstance(assessment, Mapping)
+                    or assessment.get("state") != "EXCLUDED"
+                    or assessment.get("unreachable") is not True
+                ):
+                    reasons.append(f"invalid_exclusion:{control_id}")
     return controls
 
 
@@ -499,7 +626,7 @@ def evaluate_evaluation(
     profile = _verify_profile_binding(root, evaluation, reasons)
     evidence = _evidence_index(root, evaluation, current_time, reasons)
     reviews = _review_index(evaluation, current_time, reasons)
-    assessments = _boundary_assessments(profile, evaluation, reasons)
+    assessments = _boundary_assessments(profile, evaluation, evidence, reasons)
     controls = _control_results(profile, evaluation, evidence, reasons)
     _required_reviews(profile, assessments, reviews, reasons)
     _verify_seal(evaluation, current_time, reasons)
@@ -524,9 +651,17 @@ def evaluate_evaluation(
         )
         if expires is not None and expires <= current_time:
             reasons.append(f"expired_residual_risk:{risk.get('id', 'unknown')}")
+        if (
+            risk.get("severity") in {"CRITICAL", "HIGH"}
+            and risk.get("status") not in _CLOSED_RESIDUAL_RISK_STATUSES
+        ):
+            reasons.append(f"unresolved_critical_or_high_residual_risk:{risk.get('id', 'unknown')}")
     if lifecycle == "DRAFT":
         reasons.append("draft_cannot_support_open")
-    if any(control.get("status") != "PROVED_FOR_CANDIDATE" for control in controls.values()):
+    if any(
+        control.get("status") not in {"PROVED_FOR_CANDIDATE", "NOT_APPLICABLE_EXCLUDED"}
+        for control in controls.values()
+    ):
         reasons.append("rdg_controls_not_proved")
     if evaluation.get("gate_decision", {}).get("requested_state") == "OPEN":
         reasons.append("automatic_open_forbidden")

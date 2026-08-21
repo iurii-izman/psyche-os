@@ -17,7 +17,7 @@ profile_binding:
   profile_path: "docs/architecture/REAL_DATA_GATE_PROFILE.yaml"
   profile_id: "local_personal_evidence_reflection_windows_v1"
   profile_version: "1.0"
-  profile_definition_sha256: "142d19860ae643a2455f200631fb3ed35f3c7b6510a9f61eae57f860614e62c3"
+  profile_definition_sha256: "04889ef104aad8d87e276a9a30d2f84f652b1602ca5c1da4d1cadb6223645c90"
   profile_source_commit: "0ec9160795ff4490c1071d8271cd8a063b550ff0"
 identities:
   lock:
@@ -33,16 +33,16 @@ identities:
 evidence: []
 reviews: []
 boundary_assessments:
-  - {boundary_id: "canonical_encrypted_store_and_key_recovery", state: "APPLICABLE", unreachable: false, review_ids: []}
-  - {boundary_id: "backup_restore_and_scoped_filesystem", state: "APPLICABLE", unreachable: false, review_ids: []}
-  - {boundary_id: "desktop_renderer_and_typed_ipc", state: "APPLICABLE", unreachable: false, review_ids: []}
-  - {boundary_id: "local_archive_and_disposable_retrieval_projection", state: "APPLICABLE", unreachable: false, review_ids: []}
-  - {boundary_id: "general_blob_or_attachment_writes", state: "EXCLUDED", unreachable: true, review_ids: []}
-  - {boundary_id: "importer_parser_or_untrusted_rendering", state: "EXCLUDED", unreachable: true, review_ids: []}
-  - {boundary_id: "provider_model_or_network", state: "EXCLUDED", unreachable: true, review_ids: []}
-  - {boundary_id: "assessment_scoring", state: "EXCLUDED", unreachable: true, review_ids: []}
-  - {boundary_id: "longitudinal_or_n_of_1", state: "EXCLUDED", unreachable: true, review_ids: []}
-  - {boundary_id: "professional_report_or_external_handoff", state: "EXCLUDED", unreachable: true, review_ids: []}
+  - {boundary_id: "canonical_encrypted_store_and_key_recovery", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "backup_restore_and_scoped_filesystem", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "desktop_renderer_and_typed_ipc", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "local_archive_and_disposable_retrieval_projection", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "general_blob_or_attachment_writes", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "importer_parser_or_untrusted_rendering", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "provider_model_or_network", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "assessment_scoring", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "longitudinal_or_n_of_1", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "professional_report_or_external_handoff", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: []}
 rdg_controls:
   - {id: "RDG-01", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["canonical_encrypted_store_and_key_recovery", "general_blob_or_attachment_writes"], evidence_ids: [], excluded_boundary_ids: []}
   - {id: "RDG-02", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery"], evidence_ids: [], excluded_boundary_ids: []}
@@ -58,6 +58,7 @@ rdg_controls:
   - {id: "RDG-12", status: "UNKNOWN_OR_INCOMPLETE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "desktop_renderer_and_typed_ipc", "general_blob_or_attachment_writes", "importer_parser_or_untrusted_rendering", "local_archive_and_disposable_retrieval_projection", "longitudinal_or_n_of_1", "professional_report_or_external_handoff", "provider_model_or_network"], evidence_ids: [], excluded_boundary_ids: []}
 residual_risks:
   - id: "all-rdg-controls-unproved-for-draft"
+    severity: "HIGH"
     status: "OPEN"
     expires_at: "2026-08-28T00:00:00Z"
 gate_decision:

@@ -67,7 +67,20 @@ TRANSIENT_DIRECTORY_NAMES = {
     "__pycache__",
     "node_modules",
 }
-SYNTHETIC_SECRET_MARKERS = ("synthetic", "secretvalue")
+SYNTHETIC_SECRET_ALLOWLIST = {
+    "tests/unit/test_ai_dev_harness.py": frozenset(
+        {
+            "sk-" + "synthetic-not-real-1234567890",
+            "sk-" + "synthetic-anthropic-not-real",
+        }
+    ),
+    "tests/unit/test_ai_dev_reportlog.py": frozenset(
+        {
+            "sk-" + "proj-synthetictestsecret123456",
+            "sk-" + "secretvalue1234567890",
+        }
+    ),
+}
 SOURCE_REQUIRED_FIELDS = {
     "id",
     "title",
@@ -450,27 +463,36 @@ def validate_repo_hygiene(result: Result) -> None:
     if dangerous:
         result.error(f"Forbidden sensitive/binary artifact types present: {dangerous}")
 
+    matches = potential_plaintext_secret_matches(ROOT, repository_files())
+    if matches:
+        result.error(f"Potential plaintext secrets detected: {matches}")
+    result.fact(
+        f"forbidden_sensitive_file_types={len(dangerous)} potential_secret_matches={len(matches)}"
+    )
+
+
+def potential_plaintext_secret_matches(
+    root: Path,
+    paths: list[Path],
+    allowlist: dict[str, frozenset[str]] | None = None,
+) -> list[str]:
+    """Return secret-shaped tokens except exact repository-owned fixture tuples."""
+    exact_allowlist = SYNTHETIC_SECRET_ALLOWLIST if allowlist is None else allowlist
     secret_patterns = (
         re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
         re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b"),
         re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     )
     matches: list[str] = []
-    for path in repository_files():
+    for path in paths:
         if not path.is_file() or path.suffix.lower() not in {".md", ".yaml", ".yml", ".py"}:
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         leaked = [match.group(0) for pattern in secret_patterns for match in pattern.finditer(text)]
-        if any(
-            not any(marker in value.lower() for marker in SYNTHETIC_SECRET_MARKERS)
-            for value in leaked
-        ):
-            matches.append(path.relative_to(ROOT).as_posix())
-    if matches:
-        result.error(f"Potential plaintext secrets detected: {matches}")
-    result.fact(
-        f"forbidden_sensitive_file_types={len(dangerous)} potential_secret_matches={len(matches)}"
-    )
+        relative = path.relative_to(root).as_posix()
+        if any(token not in exact_allowlist.get(relative, frozenset()) for token in leaked):
+            matches.append(relative)
+    return matches
 
 
 def main() -> int:

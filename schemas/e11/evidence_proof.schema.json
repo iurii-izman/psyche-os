@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "proof_class", "proof_result", "validator_id", "candidate_source_commit", "candidate_build_id", "candidate_platform", "rdg_ids"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "proof_class": {"const": "deterministic_validator_result_v1"},
+        "proof_result": {"const": "PASS"},
+        "validator_id": {"type": "string", "minLength": 1},
+        "candidate_source_commit": {"type": "string"},
+        "candidate_build_id": {"type": "string"},
+        "candidate_platform": {"type": "object"},
+        "rdg_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "proof_class", "proof_result", "validator_id", "candidate_source_commit", "candidate_build_id", "candidate_platform", "boundary_ids"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "proof_class": {"const": "boundary_exclusion_proof_v1"},
+        "proof_result": {"const": "PASS"},
+        "validator_id": {"type": "string", "minLength": 1},
+        "candidate_source_commit": {"type": "string"},
+        "candidate_build_id": {"type": "string"},
+        "candidate_platform": {"type": "object"},
+        "boundary_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+      }
+    }
+  ]
+}
