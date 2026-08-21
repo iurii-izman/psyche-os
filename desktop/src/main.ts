@@ -134,6 +134,44 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   title.append(el("p", t("hero.kicker")), el("h1", t("hero.heading")));
   title.append(el("p", t("hero.notice")));
 
+  const sessions = el("section");
+  sessions.className = "card sessions-card";
+  sessions.append(el("p", "МОИ СЕССИИ"), el("h2", "Локальная рефлексия"), el("p", "Локально зашифровано · только синтетические данные"));
+  const sessionBody = el("div");
+  const showSession = async (sessionId: string): Promise<void> => {
+    try {
+      const current = await api.reflectionGet(sessionId);
+      sessionBody.replaceChildren();
+      sessionBody.append(el("h3", current.title), el("p", current.state === "CLOSED" ? "Сессия завершена. История доступна только для чтения." : "Активная сессия"));
+      for (const turn of current.turns ?? []) {
+        const item = el("article"); item.className = "session-turn"; item.append(el("strong", "Ваш текст"), el("p", turn.content)); sessionBody.append(item);
+      }
+      const label = el("label", "Ваш текст"); label.htmlFor = "reflection-turn";
+      const content = el("textarea"); content.id = "reflection-turn"; content.name = "reflection-turn"; content.setAttribute("aria-label", "Ваш текст"); content.maxLength = 12000; content.rows = 5; content.required = true; content.disabled = current.state === "CLOSED";
+      const add = button("Добавить в сессию", async () => { await api.reflectionAddTurn(current.session_id, content.value); await showSession(current.session_id); }, "primary");
+      add.disabled = current.state === "CLOSED";
+      const close = button("Завершить сессию", async () => { await api.reflectionClose(current.session_id); await showSession(current.session_id); }); close.disabled = current.state === "CLOSED";
+      const remove = button("Удалить сессию", async () => { await api.reflectionDelete(current.session_id); await showList(); }, "danger");
+      const back = button("Назад к сессиям", async () => showList());
+      sessionBody.append(label, content, add, close, remove, back);
+    } catch (error) { safeError(operationStatus, error); }
+  };
+  const showList = async (): Promise<void> => {
+    try {
+      const result = await api.reflectionList(); sessionBody.replaceChildren();
+      for (const item of result.sessions) {
+        const row = el("div"); row.className = "session-row";
+        row.append(el("strong", item.title), el("span", `Сообщений: ${item.turn_count}`), el("span", item.state === "ACTIVE" ? "Активна" : "Завершена"), button("Открыть", async () => showSession(item.session_id))); sessionBody.append(row);
+      }
+    } catch (error) { safeError(operationStatus, error); }
+  };
+  const createForm = el("form");
+  const [sessionTitleLabel, sessionTitle] = field("Название", "reflection-title"); sessionTitle.maxLength = 160; sessionTitle.required = true;
+  const create = el("button", "Новая сессия"); create.type = "submit"; create.className = "primary";
+  createForm.append(sessionTitleLabel, sessionTitle, create);
+  createForm.addEventListener("submit", (event) => { event.preventDefault(); void api.reflectionCreate(sessionTitle.value).then((created) => showSession(created.session_id)).catch((error: unknown) => safeError(operationStatus, error)); });
+  sessions.append(createForm, sessionBody);
+
   const grid = el("div");
   grid.className = "grid";
 
@@ -330,8 +368,9 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   exports.append(exportForm);
 
   grid.append(privacy, recovery, exports, archive, explore, canonicalDeletion);
-  main.append(statusRegion, title, grid, operationStatus);
+  main.append(statusRegion, title, sessions, grid, operationStatus);
   root.append(header, main);
+  void showList();
 }
 
 if (!import.meta.env.VITEST) void mount();

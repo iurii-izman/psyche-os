@@ -17,6 +17,12 @@ from typing import Any, Final
 
 from sqlcipher3 import dbapi2
 
+from psyche_os.application.e03_archive import E03ArchiveError, E03ArchiveService
+from psyche_os.application.reflection_sessions import (
+    ReflectionSessionError,
+    ReflectionSessionService,
+    default_app_data,
+)
 from psyche_os.backup_export.operations import (
     BackupBuilder,
     ExportBuilder,
@@ -29,8 +35,6 @@ from psyche_os.backup_export.package_store import BackupPackageStore
 from psyche_os.crypto.envelope import derive_domain_key, generate_vmk
 from psyche_os.domain.ids import VaultId, generate_id
 from psyche_os.storage.migrations import Migrator
-from psyche_os.application.e03_archive import E03ArchiveError, E03ArchiveService
-
 
 PROTOCOL_VERSION: Final = "1.0"
 MAX_TEXT: Final = 512
@@ -57,6 +61,12 @@ ALLOWED_COMMANDS: Final = frozenset(
         "archive.explorer",
         "archive.snapshot_diff",
         "archive.deletion.execute",
+        "reflection_session.create",
+        "reflection_session.list",
+        "reflection_session.get",
+        "reflection_session.add_turn",
+        "reflection_session.close",
+        "reflection_session.delete",
     }
 )
 STATE_CHANGING_COMMANDS: Final = frozenset(
@@ -75,6 +85,12 @@ STATE_CHANGING_COMMANDS: Final = frozenset(
         "archive.explorer",
         "archive.snapshot_diff",
         "archive.deletion.execute",
+        "reflection_session.create",
+        "reflection_session.list",
+        "reflection_session.get",
+        "reflection_session.add_turn",
+        "reflection_session.close",
+        "reflection_session.delete",
     }
 )
 
@@ -123,7 +139,7 @@ class SyntheticVaultOperations:
 
     def _connect(self) -> Any:
         connection = dbapi2.connect(str(self._active_path))
-        connection.execute(f'PRAGMA key = "x\'{self._active_db_key_hex}\'"')
+        connection.execute(f"PRAGMA key = \"x'{self._active_db_key_hex}'\"")
         return connection
 
     def _create_synthetic_vault_and_backup(self) -> None:
@@ -152,9 +168,7 @@ class SyntheticVaultOperations:
             connection.close()
 
     def verify_backup(self) -> bool:
-        verified, _detail = verify_backup_file(
-            self._store, self._backup_relative, self._backup_key
-        )
+        verified, _detail = verify_backup_file(self._store, self._backup_relative, self._backup_key)
         return verified
 
     def validate_recovery(self) -> bool:
@@ -225,9 +239,7 @@ class DesktopApplicationService:
     _session_token: str | None = None
     _locked: bool = True
     _record_deleted: bool = False
-    _record_versions: list[str] = field(
-        default_factory=lambda: ["Synthetic baseline observation"]
-    )
+    _record_versions: list[str] = field(default_factory=lambda: ["Synthetic baseline observation"])
     _deletion_plans: dict[str, bool] = field(default_factory=dict)
     _recovery_candidate: str | None = None
     _active_generation: str = "synthetic-active-v1"
@@ -237,10 +249,15 @@ class DesktopApplicationService:
     )
     _archive_connection: Any = field(init=False, repr=False)
     _archive: E03ArchiveService = field(init=False, repr=False)
+    _reflection_sessions: ReflectionSessionService = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         self._archive_connection = sqlite3.connect(":memory:")
         self._archive = E03ArchiveService(self._archive_connection)
+        try:
+            self._reflection_sessions = ReflectionSessionService(default_app_data())
+        except ReflectionSessionError as exc:
+            raise DesktopServiceError(exc.code) from exc
 
     def dispatch(
         self,
@@ -273,8 +290,49 @@ class DesktopApplicationService:
             "archive.explorer": self._archive_explorer,
             "archive.snapshot_diff": self._archive_snapshot_diff,
             "archive.deletion.execute": self._archive_execute_deletion,
+            "reflection_session.create": self._reflection_create,
+            "reflection_session.list": self._reflection_list,
+            "reflection_session.get": self._reflection_get,
+            "reflection_session.add_turn": self._reflection_add_turn,
+            "reflection_session.close": self._reflection_close,
+            "reflection_session.delete": self._reflection_delete,
         }
         return handlers[command](payload)
+
+    def _reflection_create(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"title"})
+        return self._reflection_call(self._reflection_sessions.create_session, payload["title"])
+
+    def _reflection_list(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, set())
+        return self._reflection_call(self._reflection_sessions.list_sessions)
+
+    def _reflection_get(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"session_id"})
+        return self._reflection_call(self._reflection_sessions.get_session, payload["session_id"])
+
+    def _reflection_add_turn(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"session_id", "content"})
+        return self._reflection_call(
+            self._reflection_sessions.add_user_turn, payload["session_id"], payload["content"]
+        )
+
+    def _reflection_close(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"session_id"})
+        return self._reflection_call(self._reflection_sessions.close_session, payload["session_id"])
+
+    def _reflection_delete(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"session_id", "confirmation"})
+        return self._reflection_call(
+            self._reflection_sessions.delete_session, payload["session_id"], payload["confirmation"]
+        )
+
+    @staticmethod
+    def _reflection_call(operation: Any, *args: Any) -> dict[str, Any]:
+        try:
+            return operation(*args)
+        except ReflectionSessionError as exc:
+            raise DesktopServiceError(exc.code) from exc
 
     def _archive_operate(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"operation", "choice", "idempotency_key"})
@@ -503,3 +561,4 @@ class DesktopApplicationService:
     def close(self) -> None:
         self._archive_connection.close()
         self._vault_operations.close()
+        self._reflection_sessions.close()

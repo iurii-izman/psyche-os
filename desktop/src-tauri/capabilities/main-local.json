@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-local",
-  "description": "Packaged local main window may invoke only bounded PSYCHE OS E02 and E03 commands.",
+  "description": "Packaged local main window may invoke only bounded PSYCHE OS E02, E03, and V3-A0 commands.",
   "local": true,
   "remote": null,
   "windows": ["main"],
@@ -22,6 +22,12 @@
     "allow-desktop-archive-timeline",
     "allow-desktop-archive-explorer",
     "allow-desktop-archive-snapshot-diff",
-    "allow-desktop-archive-execute-deletion"
+    "allow-desktop-archive-execute-deletion",
+    "allow-desktop-reflection-create",
+    "allow-desktop-reflection-list",
+    "allow-desktop-reflection-get",
+    "allow-desktop-reflection-add-turn",
+    "allow-desktop-reflection-close",
+    "allow-desktop-reflection-delete"
   ]
 }

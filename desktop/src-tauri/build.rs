@@ -34,6 +34,12 @@ fn main() {
         "desktop_archive_explorer",
         "desktop_archive_snapshot_diff",
         "desktop_archive_execute_deletion",
+        "desktop_reflection_create",
+        "desktop_reflection_list",
+        "desktop_reflection_get",
+        "desktop_reflection_add_turn",
+        "desktop_reflection_close",
+        "desktop_reflection_delete",
     ];
     let attributes = tauri_build::Attributes::new()
         .app_manifest(tauri_build::AppManifest::new().commands(COMMANDS));

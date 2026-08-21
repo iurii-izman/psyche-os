@@ -7,6 +7,8 @@ export interface StatusView {
   network: string;
   privacy: { processing_location: string; cloud: string; telemetry: string };
 }
+export interface ReflectionSessionView { session_id: string; title: string; state: "ACTIVE" | "CLOSED"; retention: "ENCRYPTED_LOCAL"; created_at: string; updated_at: string; closed_at: string | null; turn_count: number; turns?: ReflectionTurnView[]; }
+export interface ReflectionTurnView { turn_id: string; session_id: string; sequence: number; actor: "USER"; created_at: string; content: string; }
 
 let sessionToken: string | null = null;
 
@@ -48,7 +50,13 @@ export const desktopApi = {
   archiveExplorer: (): Promise<Record<string, unknown>> => call("desktop_archive_explorer"),
   archiveSnapshotDiff: (): Promise<Record<string, unknown>> => call("desktop_archive_snapshot_diff"),
   archiveExecuteDeletion: (planId: string, confirmation: string): Promise<Record<string, unknown>> =>
-    call("desktop_archive_execute_deletion", { planId, confirmation })
+    call("desktop_archive_execute_deletion", { planId, confirmation }),
+  reflectionCreate: (title: string): Promise<ReflectionSessionView> => call("desktop_reflection_create", { title }),
+  reflectionList: (): Promise<{ sessions: ReflectionSessionView[] }> => call("desktop_reflection_list"),
+  reflectionGet: (sessionId: string): Promise<ReflectionSessionView> => call("desktop_reflection_get", { sessionId }),
+  reflectionAddTurn: (sessionId: string, content: string): Promise<ReflectionTurnView> => call("desktop_reflection_add_turn", { sessionId, content }),
+  reflectionClose: (sessionId: string): Promise<Record<string, unknown>> => call("desktop_reflection_close", { sessionId }),
+  reflectionDelete: (sessionId: string): Promise<Record<string, unknown>> => call("desktop_reflection_delete", { sessionId, confirmation: "DELETE REFLECTION SESSION" })
 };
 
 export type DesktopApi = typeof desktopApi;

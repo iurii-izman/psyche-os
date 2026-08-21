@@ -21,6 +21,7 @@ from psyche_os.storage.e03_schema import V2_MIGRATION_CHECKSUM, V2_MIGRATION_STA
 from psyche_os.storage.e05_schema import V3_MIGRATION_CHECKSUM, V3_MIGRATION_STATEMENTS
 from psyche_os.storage.e06_schema import V4_MIGRATION_CHECKSUM, V4_MIGRATION_STATEMENTS
 from psyche_os.storage.e08_schema import V5_MIGRATION_CHECKSUM, V5_MIGRATION_STATEMENTS
+from psyche_os.storage.v3a0_session_schema import V6_MIGRATION_CHECKSUM, V6_MIGRATION_STATEMENTS
 from psyche_os.storage.schema import (
     ALL_DDL,
     SCHEMA_VERSIONS,
@@ -133,6 +134,13 @@ MIGRATIONS: dict[int, Migration] = {
         statements=list(V5_MIGRATION_STATEMENTS),
         down_sql="",
         checksum=V5_MIGRATION_CHECKSUM,
+    ),
+    6: Migration(
+        version=6,
+        label="v3a0_reflection_workspace_v6",
+        statements=list(V6_MIGRATION_STATEMENTS),
+        down_sql="",
+        checksum=V6_MIGRATION_CHECKSUM,
     ),
 }
 
