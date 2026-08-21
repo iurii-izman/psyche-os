@@ -63,6 +63,25 @@ no production dependency added; V1 remains independently operable; `E11 NOT IMPL
 | A7 minimal harness environment | FIXED | harness env built from an explicit allowlist + only the exact provider credential (DeepSeek-derived for Claude/opencode; none extra for reasonix/codex) | unrelated parent secret absent from every harness env |
 | A8 claims match executable reality | FIXED | this report corrected: `code-review-graph` is LAB/conditional (not the default); selector claim gated on revalidation; testmon claim invalidated; Task-A causation downgraded; freeze/reboot caveat added; PREPARE figures explained (not double counting) | see "Invalidated claims" and "Selector revalidation" below |
 
+### Final A6 Closure R2 (2026-08-21)
+
+Independent Codex reverify proved a single residual merge blocker: **secret-bearing
+pytest nodeids could bypass the R1 redaction** and reach compact packets, rendered
+output, selector results, and persisted evidence. This pass closes it with two safe
+representations, keeping R1's machine-identity, selector, and fail-closed semantics
+intact:
+
+- **Presentation/persistence:** pytest nodeids are now redacted before entering any
+  compact packet, bounded failure record, rendered summary, or persisted evidence.
+- **Machine identity:** exact detector equality/intersection uses deterministic
+  SHA-256 fingerprints (`nodeid_fingerprint` / `failure_nodeid_fingerprints`),
+  never raw or redacted display nodeids. Two distinct secret-bearing nodeids that
+  redact to the same display remain distinct for machine matching (no false
+  positive; A1/A2 stay closed).
+- **Boundary:** raw nodeids exist only in the original local (gitignored) reportlog
+  artifact and transiently in parser memory; they are never returned to callers.
+- Pending: independent Codex A6-only reverify. **No ACCEPT claim here.**
+
 ### Invalidated historical claims
 
 - **Wave 2 test-selection recall** (PR11 1.0, testmon 0.8, testmon hub-schema false negative,

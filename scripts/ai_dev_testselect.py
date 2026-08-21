@@ -111,16 +111,19 @@ def run_pytest_in(worktree: Path, args: list[str], *, label: str, timeout: int =
 
 
 def parse_reportlog_counts(rl_path: Path, rc: int | None = None) -> dict[str, Any]:
-    """Parse a reportlog artifact into counts, COMPLETE failing nodeids, and a
+    """Parse a reportlog artifact into counts, COMPLETE failing identities, and a
     deterministic pytest status.
 
     A2: missing, malformed, or incomplete reportlogs are INCOMPLETE — never a
-    green and never detection. The failing nodeids come from the parser's
-    complete machine-accounting list (``failure_nodeids``), NOT the bounded
-    AI-facing presentation, so presentation truncation can never truncate
-    detector ground truth (A1).
+    green and never detection. Machine truth is the parser's complete fingerprint
+    list (``failure_nodeid_fingerprints``) — never the raw nodeid and never the
+    bounded AI-facing presentation (A1). ``failing`` carries the redacted display
+    nodeids for evidence/reading only and is never used for detector equality.
     """
-    base = {"collected": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0, "failing": [], "status": "INCOMPLETE"}
+    base = {
+        "collected": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0,
+        "failing": [], "failing_fingerprints": [], "status": "INCOMPLETE",
+    }
     if not rl_path.is_file():
         return base
     try:
@@ -137,6 +140,7 @@ def parse_reportlog_counts(rl_path: Path, rc: int | None = None) -> dict[str, An
         "errors": coll["errors"],
         "skipped": coll["skipped"],
         "failing": list(packet.get("failure_nodeids") or []),
+        "failing_fingerprints": list(packet.get("failure_nodeid_fingerprints") or []),
         "status": classify_run(packet, rc if rc is not None else packet.get("exit_code")),
     }
 
@@ -150,7 +154,7 @@ def classify_run(packet: dict[str, Any] | None, rc: int | None) -> str:
     as detection.
 
       PASS          rc 0, clean session
-      TEST_FAILURE  rc 1 with parsed failing nodeids, clean session
+      TEST_FAILURE  rc 1 with parsed failing identities (fingerprints), clean session
       INFRA_ERROR   rc 2/3/4 (interrupted / internal error / usage error) or
                     non-zero rc without trustworthy parsed failures
       NO_TESTS      rc 5 (pytest: no tests collected)
@@ -166,7 +170,7 @@ def classify_run(packet: dict[str, Any] | None, rc: int | None) -> str:
         return "NO_TESTS"
     if rc in (2, 3, 4):
         return "INFRA_ERROR"
-    if rc == 1 and (packet.get("failure_nodeids") or []):
+    if rc == 1 and (packet.get("failure_nodeid_fingerprints") or []):
         return "TEST_FAILURE"
     return "INFRA_ERROR"
 
@@ -182,6 +186,7 @@ def _summary(run: dict[str, Any]) -> dict[str, Any]:
         "failed": counts["failed"],
         "errors": counts["errors"],
         "failing_nodeids": counts["failing"],
+        "failing_fingerprints": counts["failing_fingerprints"],
     }
 
 
@@ -279,7 +284,7 @@ def run_test_select_scenario(scenario_id: str) -> dict[str, Any]:
                 ),
             }
         else:
-            detectors = set(full["failing_nodeids"])
+            detectors = set(full["failing_fingerprints"])
             results = {
                 "full": {**full, "detected": True, "detectors": sorted(detectors)},
             }
@@ -328,13 +333,16 @@ def run_test_select_scenario(scenario_id: str) -> dict[str, Any]:
 def _detects(selector_summary: dict[str, Any], detectors: set[str]) -> bool:
     """A selector detects the mutation only when:
       1. its execution is valid and trustworthy (TEST_FAILURE), and
-      2. its complete failing node set intersects the complete FULL detector set.
-    Count-based inference and infra/parser failures never count as detection."""
+      2. its complete failing fingerprint set intersects the complete FULL
+         detector fingerprint set.
+    Count-based inference and infra/parser failures never count as detection.
+    Machine equality uses deterministic SHA-256 fingerprints, never redacted
+    display nodeids (which may legitimately collapse distinct identities)."""
     if not detectors:
         return False
     if selector_summary.get("status") != "TEST_FAILURE":
         return False
-    return bool(set(selector_summary.get("failing_nodeids", [])) & detectors)
+    return bool(set(selector_summary.get("failing_fingerprints", [])) & detectors)
 
 
 def run_test_select_all() -> dict[str, Any]:
@@ -426,6 +434,7 @@ def _skipped_unavailable(name: str) -> dict[str, Any]:
         "failed": 0,
         "errors": 0,
         "failing_nodeids": [],
+        "failing_fingerprints": [],
         "detected": None,
     }
 

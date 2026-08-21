@@ -18,12 +18,19 @@ FAIL-CLOSED: the parser never invents a green. If the log has no SessionFinish
 reported as incomplete (exit_code None / truncated True) and the caller must
 treat it as UNKNOWN, never PASS.
 
+NODEID SAFETY: the returned compact packet is safe to serialize. A pytest
+nodeid is never returned raw: each failing identity is exposed as a
+deterministic SHA-256 fingerprint (``nodeid_fingerprint``) for exact machine
+matching plus a redacted display string. The raw nodeid exists only transiently
+while parsing and in the original local reportlog artifact.
+
 CLI:  uv run python scripts/ai_dev_reportlog.py <reportlog.jsonl> [--json]
 Run with the same `uv` environment that produced the artifact.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 from pathlib import Path
 import re
 import sys
@@ -61,6 +68,18 @@ def redact_secret(text: str) -> str:
     for pattern in _SECRET_PATTERNS:
         text = pattern.sub(REDACTED, text)
     return text
+
+
+def nodeid_fingerprint(raw_nodeid: str) -> str:
+    """Deterministic one-way SHA-256 of the raw pytest nodeid (MACHINE TRUTH).
+
+    This is the exact machine identity used for detector equality/intersection:
+    deterministic, collision-resistant for practical purposes, and it never
+    reveals the nodeid's content. The raw nodeid must exist only transiently in
+    the parser and in the original local reportlog artifact — it is never
+    returned in the serializable packet.
+    """
+    return hashlib.sha256(raw_nodeid.encode("utf-8")).hexdigest()
 
 
 class ReportLogError(Exception):
@@ -181,8 +200,12 @@ def parse_reportlog(path: Path | str, *, command: str | None = None) -> dict[str
     # MACHINE ACCOUNTING (complete, NEVER truncated): every failing detector
     # identity and the full failure-record count. Presentation (failures) is
     # bounded; machine truth is not. Callers that need detector ground truth
-    # MUST read failure_nodeids, never the bounded failures list.
+    # MUST read failure_nodeid_fingerprints — the parser never exposes a raw
+    # nodeid, only a deterministic SHA-256 fingerprint (exact identity) and a
+    # redacted display string (presentation). A redacted display may legitimately
+    # collapse two distinct secret-bearing nodeids; the fingerprint never does.
     failure_nodeids = [f["nodeid"] for f in failures]
+    failure_nodeid_fingerprints = [f["nodeid_fingerprint"] for f in failures]
     failures_capped = failures[:MAX_FAILURES]
 
     return {
@@ -201,6 +224,7 @@ def parse_reportlog(path: Path | str, *, command: str | None = None) -> dict[str
             "errors": errors,
         },
         "failure_nodeids": failure_nodeids,
+        "failure_nodeid_fingerprints": failure_nodeid_fingerprints,
         "failure_records_count": len(failures),
         "failures": failures_capped,
         "failures_truncated": failed + errors > len(failures_capped),
@@ -229,7 +253,8 @@ def _failure(nodeid: str, phase: str, longrepr: Any, index: int) -> dict[str, An
         tb = [redact_secret(ln) for ln in _traceback_lines(longrepr)]
     message = _bounded(message)
     return {
-        "nodeid": nodeid,
+        "nodeid": redact_secret(nodeid),
+        "nodeid_fingerprint": nodeid_fingerprint(nodeid),
         "phase": phase,
         "error_type": error_type,
         "message": message,

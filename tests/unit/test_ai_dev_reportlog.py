@@ -103,6 +103,7 @@ class TestReportLogParsing:
         assert len(result["failures"]) == 1
         f = result["failures"][0]
         assert f["nodeid"] == "tests/t.py::test_x"
+        assert f["nodeid_fingerprint"] == ai_dev_reportlog.nodeid_fingerprint("tests/t.py::test_x")
         assert f["phase"] == "call"
         assert f["error_type"] == "AssertionError"
         assert "boom" in f["message"]
@@ -268,6 +269,8 @@ class TestMachineTruthUncapped:
         result = ai_dev_reportlog.parse_reportlog(p)
         expected = {f"tests/t.py::test_{i}" for i in range(n)}
         assert set(result["failure_nodeids"]) == expected
+        assert len(result["failure_nodeid_fingerprints"]) == n
+        assert len(set(result["failure_nodeid_fingerprints"])) == n
         assert result["failure_records_count"] == n
         assert result["collection"]["failed"] == n
         # Presentation stays bounded; machine truth does not.
@@ -337,6 +340,90 @@ class TestSecretRedaction:
         assert "abcdefghijklmnopqrstuvwxyz012345" not in redacted
         assert "sk-secretvalue1234567890" not in redacted
         assert "[REDACTED]" in redacted
+
+
+class TestNodeidSecretRedaction:
+    """A6 closure: secret-bearing pytest nodeids are redacted for presentation
+    and persistence while exact machine identity is preserved through
+    deterministic SHA-256 fingerprints. A redacted display may collapse two
+    distinct identities; the fingerprint never does."""
+
+    def _secret_artifact(self, tmp_path: Path, nodeids: list[str]) -> Path:
+        p = tmp_path / "secret-nodeids.jsonl"
+        lines = [_session_start()]
+        for nodeid in nodeids:
+            lines.append(_test_report(nodeid, "call", "failed", _fail_longrepr("AssertionError", "boom")))
+        lines.append(_session_finish(1))
+        p.write_text("\n".join(lines), encoding="utf-8")
+        return p
+
+    def test_secret_bearing_nodeid_redacted_everywhere(self, tmp_path: Path) -> None:
+        token = "sk-proj-" + "A" * 24
+        nodeid = f"tests/test_api.py::test_call[{token}]"
+        result = ai_dev_reportlog.parse_reportlog(self._secret_artifact(tmp_path, [nodeid]))
+        assert token not in json.dumps(result)  # compact packet is safe to serialize
+        summary = ai_dev_reportlog.render_summary(result)
+        assert token not in summary  # rendered AI summary is safe
+        f = result["failures"][0]
+        assert "[REDACTED]" in f["nodeid"]
+        assert f["nodeid_fingerprint"] == ai_dev_reportlog.nodeid_fingerprint(nodeid)
+        assert len(f["nodeid_fingerprint"]) == 64
+        assert result["failure_nodeid_fingerprints"] == [f["nodeid_fingerprint"]]
+        assert result["failure_nodeids"] == [f["nodeid"]]
+
+    def test_distinct_secret_nodeids_keep_distinct_machine_identity(self, tmp_path: Path) -> None:
+        token_a = "sk-proj-" + "B" * 24
+        token_b = "sk-proj-" + "C" * 24
+        nodeid_a = f"tests/test_x.py::test_x[{token_a}]"
+        nodeid_b = f"tests/test_x.py::test_x[{token_b}]"
+        result = ai_dev_reportlog.parse_reportlog(self._secret_artifact(tmp_path, [nodeid_a, nodeid_b]))
+        display_a = result["failures"][0]["nodeid"]
+        display_b = result["failures"][1]["nodeid"]
+        assert display_a == display_b  # redaction collapses presentation
+        fp_a = result["failures"][0]["nodeid_fingerprint"]
+        fp_b = result["failures"][1]["nodeid_fingerprint"]
+        assert fp_a != fp_b  # machine identity never collapses
+        assert len(set(result["failure_nodeid_fingerprints"])) == 2
+        assert token_a not in json.dumps(result)
+        assert token_b not in json.dumps(result)
+
+    def test_setup_teardown_and_collection_nodeids_redacted(self, tmp_path: Path) -> None:
+        token = "sk-proj-" + "D" * 24
+        p = tmp_path / "phases.jsonl"
+        p.write_text(
+            "\n".join(
+                [
+                    _session_start(),
+                    _test_report(f"tests/t.py::test_s[{token}]", "setup", "failed", _fail_longrepr("RuntimeError", "fixture")),
+                    _test_report(f"tests/t.py::test_t[{token}]", "teardown", "failed", _fail_longrepr("RuntimeError", "teardown")),
+                    _collect(f"tests/bad[{token}].py", "failed", "ImportError while importing"),
+                    _session_finish(2),
+                ]
+            ),
+            encoding="utf-8",
+        )
+        result = ai_dev_reportlog.parse_reportlog(p)
+        assert token not in json.dumps(result)
+        assert len(result["failure_nodeid_fingerprints"]) == 3
+        for f in result["failures"]:
+            assert token not in f["nodeid"]
+            assert "[REDACTED]" in f["nodeid"]
+            assert len(f["nodeid_fingerprint"]) == 64
+
+    def test_machine_truth_complete_and_presentation_bounded_with_secrets(self, tmp_path: Path) -> None:
+        n = 25
+        token = "sk-proj-" + "A" * 24
+        nodeids = [f"tests/t.py::test_{i}[{token}]" for i in range(n)]
+        result = ai_dev_reportlog.parse_reportlog(self._secret_artifact(tmp_path, nodeids))
+        # A1: machine accounting stays complete and uncapped even with secrets.
+        assert result["collection"]["failed"] == n
+        assert result["failure_records_count"] == n
+        assert len(result["failure_nodeid_fingerprints"]) == n
+        assert len(set(result["failure_nodeid_fingerprints"])) == n
+        # Presentation stays bounded; raw secrets are absent from the packet.
+        assert len(result["failures"]) <= ai_dev_reportlog.MAX_FAILURES
+        assert result["failures_truncated"] is True
+        assert token not in json.dumps(result)
 
 
 # --------------------------------------------------------------------------- helpers
