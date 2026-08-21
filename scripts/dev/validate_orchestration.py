@@ -18,6 +18,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 STATE_PATH = ROOT / "docs/development/STATE.yaml"
 GATE_PATH = ROOT / "docs/architecture/REAL_DATA_GATE.yaml"
+PROFILE_PATH = ROOT / "docs/architecture/REAL_DATA_GATE_PROFILE.yaml"
 EPIC_MAP_PATH = ROOT / "docs/development/EPIC_MAP.md"
 
 REQUIRED_PATHS = (
@@ -33,6 +34,7 @@ REQUIRED_PATHS = (
     "docs/architecture/MENTAL_HEALTH_AI_SAFETY.md",
     "docs/architecture/THREAT_MODEL.md",
     "docs/architecture/REAL_DATA_GATE.yaml",
+    "docs/architecture/REAL_DATA_GATE_PROFILE.yaml",
     "docs/development/DEVELOPMENT_STRATEGY.md",
     "docs/development/EPIC_MAP.md",
     "docs/development/STATE.yaml",
@@ -61,6 +63,42 @@ FORBIDDEN_AUTHORIZATION = (
     re.compile(r"real data (?:is|are) (?:now )?allowed", re.IGNORECASE),
     re.compile(r"(?:ingest|load|copy|test with) real personal data", re.IGNORECASE),
 )
+RDG_IDS = [f"RDG-{index:02d}" for index in range(1, 13)]
+RDG_STATUSES = {
+    "PROVED_FOR_CANDIDATE",
+    "NOT_PROVED",
+    "NOT_APPLICABLE_EXCLUDED",
+    "STALE_OR_EXPIRED",
+    "UNKNOWN_OR_INCOMPLETE",
+}
+STALE_GATE_FIELDS = {
+    "snapshot_date",
+    "status",
+    "research_converged",
+    "production_implementation_exists",
+    "pre_real_data_blockers",
+    "current_decision",
+}
+STALE_GATE_AUTHORITY_FIELDS = {
+    "frozen_f0_contract",
+    "e00_rebaseline",
+    "next_implementation_contract",
+}
+EXACT_EVALUATION_PROFILE_FIELDS = {
+    "profile_definition_sha256",
+    "profile_source_commit",
+    "source_commit",
+    "build_artifact_hashes",
+    "sbom_identity",
+    "evidence_status",
+    "review_attestations",
+    "gate_decision",
+    "current_decision",
+    "evaluation_id",
+    "sealed_evaluation_sha256",
+    "candidate_enforcement_result",
+    "candidate_implementation_state",
+}
 
 
 class Validation:
@@ -83,10 +121,12 @@ def load_yaml(path: Path) -> dict[str, Any]:
 
 
 def nested_path_values(state: dict[str, Any]) -> list[str]:
+    next_epic = state.get("next_epic")
+    next_epic = next_epic if isinstance(next_epic, dict) else {}
     candidates = [
         state.get("real_data_gate", {}).get("authority"),
         state.get("current_epic", {}).get("prompt"),
-        state.get("next_epic", {}).get("preparation_prompt"),
+        next_epic.get("preparation_prompt"),
         state.get("architecture", {}).get("constitution"),
         state.get("architecture", {}).get("master_spec"),
         state.get("architecture", {}).get("decision_log"),
@@ -95,6 +135,101 @@ def nested_path_values(state: dict[str, Any]) -> list[str]:
         state.get("next_action", {}).get("prompt"),
     ]
     return [value for value in candidates if isinstance(value, str)]
+
+
+def mapping_contains_any_key(value: Any, forbidden: set[str]) -> bool:
+    if isinstance(value, dict):
+        return any(
+            key in forbidden or mapping_contains_any_key(child, forbidden)
+            for key, child in value.items()
+        )
+    if isinstance(value, list):
+        return any(mapping_contains_any_key(child, forbidden) for child in value)
+    return False
+
+
+def validate_stable_gate_architecture(
+    result: Validation, state: dict[str, Any], gate: dict[str, Any], profile: dict[str, Any]
+) -> None:
+    """Validate the stable policy/profile split without evaluating a candidate."""
+    result.check(state.get("real_data_gate", {}).get("state") == "CLOSED", "state gate is CLOSED")
+    result.check(gate.get("fail_closed_default") == "CLOSED", "policy default is CLOSED")
+    result.check(
+        gate.get("research_convergence_required") is True,
+        "policy requires research convergence without asserting its live state",
+    )
+    result.check(
+        gate.get("opening_rule", {}).get("automatic_opening_forbidden") is True,
+        "automatic gate opening is forbidden",
+    )
+    result.check(
+        gate.get("opening_rule", {}).get("coding_models_may_decide_gate") is False,
+        "coding models cannot act as gate deciders",
+    )
+    result.check(
+        gate.get("opening_rule", {}).get("gate_decider_role") == "REPOSITORY_OWNER",
+        "policy names REPOSITORY_OWNER as gate decider",
+    )
+    result.check(
+        gate.get("opening_rule", {}).get("attestation_method") == "local_human_attestation_v1",
+        "policy names the accepted local human attestation method",
+    )
+    result.check(not (set(gate) & STALE_GATE_FIELDS), "stable policy has no stale dynamic fields")
+    result.check(
+        not (set(gate.get("authority", {})) & STALE_GATE_AUTHORITY_FIELDS),
+        "stable policy has no historical implementation pointers",
+    )
+    result.check("profiles" not in gate.get("scope", {}), "stable policy has no profile-all scope")
+    result.check(
+        gate.get("authority", {}).get("profile_definition")
+        == "docs/architecture/REAL_DATA_GATE_PROFILE.yaml",
+        "policy profile owner path is canonical",
+    )
+    result.check(
+        gate.get("evaluation_records", {}).get("namespace_pattern")
+        == "artifacts/e11/gate-evaluations/<evaluation-id>.yaml",
+        "policy declares the exact evaluation namespace",
+    )
+    result.check(
+        gate.get("evaluation_records", {}).get("draft_can_support_open") is False
+        and gate.get("evaluation_records", {}).get("sealed_content_immutable") is True,
+        "policy requires DRAFT-to-SEALED fail-closed lifecycle",
+    )
+    result.check(
+        set(gate.get("rdg_status_vocabulary", [])) == RDG_STATUSES,
+        "policy has canonical RDG statuses",
+    )
+    requirements = gate.get("requirements", [])
+    result.check(
+        isinstance(requirements, list)
+        and [item.get("id") for item in requirements if isinstance(item, dict)] == RDG_IDS,
+        "stable policy retains RDG-01 through RDG-12 definitions",
+    )
+    result.check(
+        not any(
+            isinstance(item, dict) and ({"state", "evidence", "decision", "review"} & set(item))
+            for item in requirements
+        ),
+        "stable policy has no per-candidate RDG state or evidence",
+    )
+    result.check(
+        profile.get("status") == "ACCEPTED_STABLE_PROFILE_DEFINITION"
+        and profile.get("authoritative") is True,
+        "stable profile is authoritative",
+    )
+    result.check(
+        isinstance(profile.get("profile_id"), str)
+        and isinstance(profile.get("profile_version"), str),
+        "stable profile has versioned identity",
+    )
+    result.check(
+        profile.get("definition_lifecycle", {}).get("self_digest_forbidden") is True,
+        "stable profile forbids self-owned digest",
+    )
+    result.check(
+        not mapping_contains_any_key(profile, EXACT_EVALUATION_PROFILE_FIELDS),
+        "stable profile has no exact evaluation, build, evidence, or decision fields",
+    )
 
 
 def main() -> int:
@@ -117,17 +252,19 @@ def main() -> int:
         result.failures.append(f"REAL_DATA_GATE.yaml parse failed: {exc}")
         gate = {}
 
+    try:
+        profile = load_yaml(PROFILE_PATH)
+        result.check(True, "REAL_DATA_GATE_PROFILE.yaml parses as a mapping")
+    except Exception as exc:
+        result.failures.append(f"REAL_DATA_GATE_PROFILE.yaml parse failed: {exc}")
+        profile = {}
+
     current = state.get("current_epic", {})
-    next_epic = state.get("next_epic", {})
+    next_epic = state.get("next_epic")
+    next_epic_mapping = next_epic if isinstance(next_epic, dict) else {}
     result.check(state.get("research", {}).get("converged") is True, "research is converged")
-    result.check(state.get("real_data_gate", {}).get("state") == "CLOSED", "state gate is CLOSED")
-    result.check(gate.get("status") == "CLOSED", "authoritative gate is CLOSED")
-    result.check(
-        gate.get("opening_rule", {}).get("automatic_opening_forbidden") is True,
-        "automatic gate opening is forbidden",
-    )
+    validate_stable_gate_architecture(result, state, gate, profile)
     result.check(current.get("status") in ALLOWED_STATUS, "current epic status is valid")
-    result.check(next_epic.get("status") in ALLOWED_STATUS, "next epic status is valid")
     current_id = current.get("id")
     accepted_entries = state.get("accepted_epics", [])
     accepted_ids = {
@@ -142,9 +279,19 @@ def main() -> int:
         isinstance(current_id, str) and re.fullmatch(r"E\d{2}", current_id) is not None,
         "current epic id is valid",
     )
+    terminal_current = bool(epic_ids) and current_id == epic_ids[-1]
+    if terminal_current:
+        result.check(next_epic is None, "terminal E11 has no fictional successor")
+        result.check(
+            set(epic_ids[:-1]).issubset(accepted_ids),
+            "terminal E11 preparation preserves E00-E10 acceptance history",
+        )
+    else:
+        result.check(isinstance(next_epic, dict), "non-terminal state has a successor mapping")
+        result.check(next_epic_mapping.get("status") in ALLOWED_STATUS, "next epic status is valid")
     if current_id == "E00" and current.get("review_verdict") == "FIX_REQUIRED":
         result.check(current.get("status") == "IMPLEMENTED", "E00 implementation is awaiting fixes")
-        result.check(next_epic.get("status") == "PLANNED", "E01 remains PLANNED")
+        result.check(next_epic_mapping.get("status") == "PLANNED", "E01 remains PLANNED")
         result.check(
             state.get("next_action", {}).get("prompt") == current.get("fix_prompt"),
             "next action points to the E00 fix prompt",
@@ -158,24 +305,25 @@ def main() -> int:
         result.check(not accepted_ids, "no implementation epic is prematurely accepted")
     elif current_id == "E00" and current.get("status") == "ACCEPTED":
         result.check("E00" in accepted_ids, "E00 acceptance is recorded")
-        result.check(next_epic.get("id") == "E01", "E01 follows accepted E00")
-        result.check(next_epic.get("status") == "PLANNED", "E01 remains PLANNED until JIT preparation")
+        result.check(next_epic_mapping.get("id") == "E01", "E01 follows accepted E00")
+        result.check(
+            next_epic_mapping.get("status") == "PLANNED",
+            "E01 remains PLANNED until JIT preparation",
+        )
     elif current_id != "E00":
         result.check("E00" in accepted_ids, "accepted E00 precedes later epic work")
         if current.get("status") == "ACCEPTED":
             result.check(current_id in accepted_ids, "later current epic acceptance is recorded")
             current_index = epic_ids.index(current_id) if current_id in epic_ids else -1
             expected_next_id = (
-                epic_ids[current_index + 1]
-                if 0 <= current_index < len(epic_ids) - 1
-                else None
+                epic_ids[current_index + 1] if 0 <= current_index < len(epic_ids) - 1 else None
             )
             result.check(
-                next_epic.get("id") == expected_next_id,
+                next_epic_mapping.get("id") == expected_next_id,
                 "mapped successor follows accepted later current epic",
             )
             result.check(
-                next_epic.get("status") == "PLANNED",
+                next_epic_mapping.get("status") == "PLANNED",
                 "successor remains PLANNED until JIT preparation",
             )
         else:
@@ -196,7 +344,10 @@ def main() -> int:
         epic_ids == [f"E{index:02d}" for index in range(12)], "epic IDs are sequential E00-E11"
     )
     result.check(current.get("id") in epic_ids, "current epic exists in epic map")
-    result.check(next_epic.get("id") in epic_ids, "next epic exists in epic map")
+    if terminal_current:
+        result.check(next_epic is None, "terminal successor representation is null")
+    else:
+        result.check(next_epic_mapping.get("id") in epic_ids, "next epic exists in epic map")
 
     current_prompt_path = ROOT / str(current.get("prompt", ""))
     current_prompt_text = (
@@ -210,7 +361,9 @@ def main() -> int:
         "REAL_DATA_GATE" in current_prompt_text and "CLOSED" in current_prompt_text,
         "current prompt explicitly keeps gate CLOSED",
     )
-    result.check("synthetic" in current_prompt_text.lower(), "current prompt requires synthetic data")
+    result.check(
+        "synthetic" in current_prompt_text.lower(), "current prompt requires synthetic data"
+    )
 
     for relative in MARKDOWN_PATHS:
         path = ROOT / relative
@@ -242,9 +395,7 @@ def main() -> int:
         capture_output=True,
         text=True,
     ).stdout.strip()
-    candidate_match = re.search(
-        r"\*\*Implementation branch:\*\* `([^`]+)`", current_prompt_text
-    )
+    candidate_match = re.search(r"\*\*Implementation branch:\*\* `([^`]+)`", current_prompt_text)
     candidate_branch = candidate_match.group(1) if candidate_match else None
     branch_matches_workflow = branch == state.get("git", {}).get("branch") or (
         current.get("status") in {"IN_PROGRESS", "IMPLEMENTED", "BLOCKED"}
@@ -262,7 +413,7 @@ def main() -> int:
 
     print(
         f"SUMMARY: {len(result.passes)} passed, {len(result.failures)} failed; "
-        f"epics={len(epic_ids)}, gate={gate.get('status', 'UNKNOWN')}"
+        f"epics={len(epic_ids)}, gate_default={gate.get('fail_closed_default', 'UNKNOWN')}"
     )
     return 1 if result.failures else 0
 

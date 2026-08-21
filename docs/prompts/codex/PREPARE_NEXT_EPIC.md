@@ -35,7 +35,7 @@ The North Star is not implementation authority. It must not add deliverables, ca
    For E07–E11, include only the smallest compatibility note applicable to that epic; defer every future conversational capability outside its mapped scope.
 6. Save exactly one prompt as `docs/prompts/deepseek/{NEXT_ID}_{SHORT_NAME}.md`.
 7. Run `python scripts/dev/validate_orchestration.py` and any prompt-specific lightweight checks.
-8. At this epic boundary update `STATE.yaml`: current epic becomes the next epic with `READY`, exact prompt/risk/review fields; preserve accepted history/commit; set the following mapped epic to `PLANNED`; update `next_action`.
+8. At this epic boundary update `STATE.yaml`: current epic becomes the next epic with `READY`, exact prompt/risk/review fields; preserve accepted history/commit; set the following mapped epic to `PLANNED`; update `next_action`. If the prepared epic is the final mapped epic, set `next_epic: null` instead. `null` is valid only for the last epic in `EPIC_MAP`; no fictional successor is created.
 
 ## Stop conditions
 
