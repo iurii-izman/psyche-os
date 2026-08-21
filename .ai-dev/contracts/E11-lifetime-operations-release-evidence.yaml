@@ -1,0 +1,61 @@
+task_id: E11-lifetime-operations-release-evidence
+base_sha: 0ec9160795ff4490c1071d8271cd8a063b550ff0
+
+profile: quality
+risk: high
+
+goal:
+  - Implement deterministic, exact-candidate release and real-data-gate evidence evaluation that remains fail closed without a human owner attestation.
+
+non_goals:
+  - Do not admit real data, create an OPEN decision, or impersonate REPOSITORY_OWNER.
+  - Do not alter stable gate policy/profile definitions, add a dependency, or implement a new product boundary.
+
+authority:
+  - CONSTITUTION.md
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md#20-migrations-durability-integrity-export-and-deletion
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md#25-real-data-gate
+  - docs/DECISION_LOG.md#adr-023-profile-specific-real-data-gate-evaluation
+  - docs/prompts/deepseek/E11_LIFETIME_OPERATIONS_RELEASE_EVIDENCE_GATE_DECISION.md
+
+expected_scope:
+  - src/psyche_os/release_evidence/**
+  - scripts/validate_e11_gate_evaluations.py
+  - schemas/e11/**
+  - artifacts/e11/**
+  - tests/unit/test_e11_gate_evaluation.py
+  - docs/development/reports/E11.md
+  - docs/development/STATE.yaml
+
+protected_scope:
+  - .ai-dev/policy/**
+  - .ai-dev/verification/**
+  - AGENTS.md
+  - CONSTITUTION.md
+
+acceptance:
+  - Exact candidate identities, current evidence, applicable reviews, exclusions, reproduction and human attestation are evaluated fail closed.
+  - DRAFT cannot support OPEN, SEALED payloads are digest-immutable, and a changed fact requires a successor.
+  - All E11 synthetic failure cases have focused coverage and REAL_DATA_GATE remains CLOSED.
+
+verification:
+  - uv run pytest -q tests/unit/test_e11_gate_evaluation.py
+  - uv run python scripts/validate_e11_gate_evaluations.py --require-closed
+  - uv run pytest -q
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run python scripts/validate_research_foundation.py
+
+permissions:
+  network: false
+  dependencies: false
+  migrations: false
+  destructive: false
+
+routing:
+  initial: strong
+  max_grounded_retry: 1
+  escalation: strong
+
+assumptions:
+  - The candidate evaluation artifact may truthfully remain DRAFT and CLOSED while release evidence and human review are absent.
+  - A future REPOSITORY_OWNER adds any local_human_attestation_v1 record separately; implementation cannot establish that authority.

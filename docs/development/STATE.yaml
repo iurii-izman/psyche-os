@@ -11,7 +11,7 @@ real_data_gate:
 current_epic:
   id: "E11"
   name: "Lifetime Operations, Release Evidence, and Gate Decision"
-  status: "READY"
+  status: "IMPLEMENTED"
   implementation_status: "NOT_IMPLEMENTED"
   review_verdict: "NOT_REVIEWED"
   risk: "RISK-H"

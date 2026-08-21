@@ -46,8 +46,10 @@ def test_arbitrary_payload_cannot_modify_protocol_or_analysis_policy_and_gate_st
     with pytest.raises(E05LongitudinalError, match="INVALID_NAMED_OPERATION"):
         service.operate("ANALYZE_SQL", "SELECT * FROM sleep_records", "attack2")
     assert service.connection.execute("SELECT * FROM sampling_protocols").fetchall() == before
-    gate = Path("docs/architecture/REAL_DATA_GATE.yaml").read_text(encoding="utf-8")
-    assert 'status: "CLOSED"' in gate
+    policy = Path("docs/architecture/REAL_DATA_GATE.yaml").read_text(encoding="utf-8")
+    state = Path("docs/development/STATE.yaml").read_text(encoding="utf-8")
+    assert 'fail_closed_default: "CLOSED"' in policy
+    assert 'state: "CLOSED"' in state
 
 
 def test_database_constraints_reject_incomplete_device_metadata_and_out_of_window_event() -> None:

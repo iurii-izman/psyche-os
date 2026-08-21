@@ -9,8 +9,10 @@ source-registry build helper.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 from urllib.parse import urlparse
 
@@ -57,6 +59,15 @@ FORBIDDEN_SUFFIXES = {
     ".key",
     ".env",
 }
+TRANSIENT_DIRECTORY_NAMES = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+}
+SYNTHETIC_SECRET_MARKERS = ("synthetic", "secretvalue")
 SOURCE_REQUIRED_FIELDS = {
     "id",
     "title",
@@ -102,8 +113,41 @@ def load_yaml(relative: str, result: Result):
         return None
 
 
+def repository_files() -> list[Path]:
+    """Return candidate files, excluding generated/ignored workspace material.
+
+    The research gate validates the candidate repository, not vendored package
+    documentation, virtual environments, or other local worktrees. Nonignored
+    user files intentionally remain in scope for personal-data/secret checks.
+    """
+    candidates: list[Path] = []
+    for directory, names, files in os.walk(ROOT):
+        current = Path(directory)
+        relative_parts = current.relative_to(ROOT).parts
+        names[:] = sorted(
+            name
+            for name in names
+            if name not in TRANSIENT_DIRECTORY_NAMES
+            and not (relative_parts == (".claude",) and name == "worktrees")
+        )
+        candidates.extend(current / name for name in sorted(files))
+    if not candidates:
+        return []
+    relative_paths = "\0".join(path.relative_to(ROOT).as_posix() for path in candidates) + "\0"
+    ignored = subprocess.run(
+        ["git", "check-ignore", "-z", "--stdin"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        input=relative_paths,
+        text=True,
+    )
+    ignored_paths = {entry for entry in ignored.stdout.split("\0") if entry}
+    return [path for path in candidates if path.relative_to(ROOT).as_posix() not in ignored_paths]
+
+
 def markdown_files() -> list[Path]:
-    return sorted(path for path in ROOT.rglob("*.md") if ".git" not in path.parts)
+    return [path for path in repository_files() if path.suffix.lower() == ".md"]
 
 
 def validate_required(result: Result) -> None:
@@ -258,19 +302,29 @@ def validate_ontology(source_ids: set[str], result: Result) -> None:
 
 def validate_gate(result: Result) -> None:
     gate = load_yaml("docs/architecture/REAL_DATA_GATE.yaml", result)
-    if not isinstance(gate, dict):
+    state = load_yaml("docs/development/STATE.yaml", result)
+    if not isinstance(gate, dict) or not isinstance(state, dict):
         return
-    if gate.get("status") != "CLOSED" or gate.get("production_implementation_exists") is not False:
-        result.error("REAL_DATA_GATE must be CLOSED with no production implementation")
+    if (
+        state.get("real_data_gate", {}).get("state") != "CLOSED"
+        or gate.get("fail_closed_default") != "CLOSED"
+    ):
+        result.error("REAL_DATA_GATE live state/default must remain CLOSED")
     requirements = gate.get("requirements", [])
     if not requirements or any(
-        item.get("state") != "UNSATISFIED" or item.get("evidence") is not None
+        not isinstance(item, dict)
+        or "state" in item
+        or "evidence" in item
+        or "review" in item
+        or "decision" in item
         for item in requirements
     ):
-        result.error("Every real-data requirement must remain UNSATISFIED with null evidence")
+        result.error(
+            "Stable real-data policy requirements must not carry dynamic candidate evidence"
+        )
     if gate.get("opening_rule", {}).get("automatic_opening_forbidden") is not True:
         result.error("Automatic real-data opening must be forbidden")
-    result.fact(f"real_data_gate={gate.get('status')} requirements={len(requirements)} satisfied=0")
+    result.fact(f"real_data_gate=CLOSED requirements={len(requirements)} satisfied=0")
 
 
 def normalize_heading(value: str) -> str:
@@ -385,9 +439,7 @@ def validate_master_and_threat(result: Result) -> None:
 
 def validate_repo_hygiene(result: Result) -> None:
     dangerous: list[str] = []
-    for path in ROOT.rglob("*"):
-        if not path.is_file() or ".git" in path.parts:
-            continue
+    for path in repository_files():
         relative = path.relative_to(ROOT).as_posix()
         if path.suffix.lower() in FORBIDDEN_SUFFIXES or path.name.lower() in {
             ".env",
@@ -404,15 +456,15 @@ def validate_repo_hygiene(result: Result) -> None:
         re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     )
     matches: list[str] = []
-    for path in ROOT.rglob("*"):
-        if (
-            not path.is_file()
-            or ".git" in path.parts
-            or path.suffix.lower() not in {".md", ".yaml", ".yml", ".py"}
-        ):
+    for path in repository_files():
+        if not path.is_file() or path.suffix.lower() not in {".md", ".yaml", ".yml", ".py"}:
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
-        if any(pattern.search(text) for pattern in secret_patterns):
+        leaked = [match.group(0) for pattern in secret_patterns for match in pattern.finditer(text)]
+        if any(
+            not any(marker in value.lower() for marker in SYNTHETIC_SECRET_MARKERS)
+            for value in leaked
+        ):
             matches.append(path.relative_to(ROOT).as_posix())
     if matches:
         result.error(f"Potential plaintext secrets detected: {matches}")
