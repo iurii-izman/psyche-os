@@ -1,0 +1,53 @@
+task_id: V3-A0
+base_sha: 705ab3e7abe9d6b0156f70f8d8862b74298a5ee3
+profile: quality
+risk: high
+goal:
+  - Deliver a synthetic-only, encrypted local Reflection Session workspace through the Windows desktop flow.
+non_goals:
+  - No AI/provider calls, canonical evidence writes, cloud/sync, real data, or E12 roadmap changes.
+authority:
+  - CONSTITUTION.md
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md
+  - docs/architecture/SYSTEM_ARCHITECTURE.md
+  - docs/architecture/DATA_MODEL.md
+  - docs/architecture/PRIVACY_SECURITY_MODEL.md
+  - docs/architecture/MENTAL_HEALTH_AI_SAFETY.md
+  - docs/DECISION_LOG.md
+  - V3-A0 Task Contract
+expected_scope:
+  - .ai-dev/contracts/v3a0-runnable-session.yaml
+  - src/psyche_os/domain
+  - src/psyche_os/application
+  - src/psyche_os/storage
+  - src/psyche_os/interfaces/desktop_sidecar.py
+  - desktop/src
+  - desktop/src-tauri/src/lib.rs
+  - desktop/tests
+  - tests/unit
+  - tests/integration
+  - scripts/dev/test_e02_desktop.py
+  - docs/DECISION_LOG.md
+protected_scope:
+  - .ai-dev/policy
+  - .ai-dev/verification
+acceptance:
+  - Reflection sessions and user turns persist encrypted across a full desktop restart.
+  - Content operations require the current unlock token and closed sessions reject turns.
+  - Session content remains interaction workspace data and never becomes canonical evidence, logs, audit, telemetry, or network traffic.
+  - The Russian UI supports create, list, open, add, close, and delete.
+verification:
+  - Targeted Python, TypeScript, Rust, migration, and native UIA checks.
+  - One final HIGH-risk product gate specified by V3-A0.
+permissions:
+  network: false
+  dependencies: false
+  migrations: true
+  destructive: false
+  crypto_key_handling: true
+routing:
+  initial: strong
+  max_grounded_retry: 1
+  escalation: strong
+assumptions:
+  - The user-provided V3-A0 Task Contract is explicit pre-authorization for the additive migration and minimal existing-DPAPI bootstrap reuse.

@@ -35,7 +35,13 @@ function mockApi(locked = false): DesktopApi {
     archiveTimeline: vi.fn(async (temporalRole: string) => ({ selected_clock: temporalRole, items: [] })),
     archiveExplorer: vi.fn(async () => ({ notice: "Claims are proposals, not facts." })),
     archiveSnapshotDiff: vi.fn(async () => ({ changed: ["claim-lamp"], unresolved_contradictions: 1, completion_percentage: null })),
-    archiveExecuteDeletion: vi.fn(async () => ({ receipt_id: "e03-receipt", content_in_receipt: false }))
+    archiveExecuteDeletion: vi.fn(async () => ({ receipt_id: "e03-receipt", content_in_receipt: false })),
+    reflectionCreate: vi.fn(async () => ({ session_id: "reflection-1", title: "Тест", state: "ACTIVE" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: null, turn_count: 0 })),
+    reflectionList: vi.fn(async () => ({ sessions: [] })),
+    reflectionGet: vi.fn(async () => ({ session_id: "reflection-1", title: "Тест", state: "ACTIVE" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: null, turn_count: 0, turns: [] })),
+    reflectionAddTurn: vi.fn(async () => ({ turn_id: "turn-1", session_id: "reflection-1", sequence: 1, actor: "USER" as const, created_at: "2026-01-01T00:00:00Z", content: "Тест" })),
+    reflectionClose: vi.fn(async () => ({ state: "CLOSED" })),
+    reflectionDelete: vi.fn(async () => ({ deleted: true, content_in_receipt: false }))
   };
 }
 
@@ -51,6 +57,24 @@ async function click(node: HTMLElement): Promise<void> {
 }
 
 describe("E02 bounded desktop UI", () => {
+  it("presents the Russian local reflection-session entry point", async () => {
+    const api = mockApi(false);
+    await mount(api);
+    expect(document.body.textContent).toContain("МОИ СЕССИИ");
+    expect(byText("Новая сессия")).toBeTruthy();
+    const title = document.querySelector<HTMLInputElement>("#reflection-title")!;
+    title.value = "Синтетическая сессия";
+    title.form!.requestSubmit();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(api.reflectionCreate).toHaveBeenCalledWith("Синтетическая сессия");
+    expect(byText("Добавить в сессию")).toBeTruthy();
+    const turn = document.querySelector<HTMLTextAreaElement>("#reflection-turn")!;
+    expect(turn.name).toBe("reflection-turn");
+    expect(turn.getAttribute("aria-label")).toBe("Ваш текст");
+    expect(turn.labels?.[0]?.textContent).toBe("Ваш текст");
+    expect(turn.maxLength).toBe(12000);
+  });
+
   it("T3 renders malicious synthetic markup as inert text", async () => {
     const api = mockApi(false);
     const canary = '<img src=x onerror="window.__pwned=1"><script>bad()</script>';
@@ -60,7 +84,7 @@ describe("E02 bounded desktop UI", () => {
     const reason = document.querySelector<HTMLInputElement>("#correction-reason")!;
     replacement.value = canary;
     reason.value = "Synthetic correction";
-    document.querySelector<HTMLFormElement>("section form")!.requestSubmit();
+    replacement.form!.requestSubmit();
     await new Promise((resolve) => setTimeout(resolve, 0));
     const status = document.querySelector("#operation-status")!;
     expect(status.textContent).toContain(canary);

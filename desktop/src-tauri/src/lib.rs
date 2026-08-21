@@ -12,6 +12,7 @@ use uuid::Uuid;
 const PROTOCOL_VERSION: &str = "1.0";
 const MAX_FRAME_BYTES: usize = 65_536;
 const MAX_TEXT: usize = 512;
+const MAX_TURN_TEXT: usize = 12_000;
 const ALLOWED_ORIGINS: &[(&str, &str)] = &[("tauri", "localhost"), ("http", "tauri.localhost")];
 
 #[derive(Debug, Serialize)]
@@ -51,6 +52,11 @@ impl SidecarClient {
     fn spawn() -> Result<Self, String> {
         let path = locate_sidecar().ok_or_else(|| "SIDECAR_UNAVAILABLE".to_string())?;
         let temp_directory = std::env::temp_dir();
+        let app_data = std::env::var_os("PSYCHE_OS_APP_DATA")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("LOCALAPPDATA").map(|base| PathBuf::from(base).join("PSYCHE OS")))
+            .ok_or_else(|| "SIDECAR_UNAVAILABLE".to_string())?;
+        std::fs::create_dir_all(&app_data).map_err(|_| "SIDECAR_UNAVAILABLE".to_string())?;
         let mut child = Command::new(path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -66,6 +72,7 @@ impl SidecarClient {
             // never accepted from renderer request data.
             .env("TEMP", &temp_directory)
             .env("TMP", &temp_directory)
+            .env("PSYCHE_OS_APP_DATA", app_data)
             .spawn()
             .map_err(|_| "SIDECAR_UNAVAILABLE".to_string())?;
         let stdin = child
@@ -293,6 +300,19 @@ struct TimelineRequest {
     temporal_role: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReflectionCreateRequest { session_token: Option<String>, title: String }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReflectionSessionRequest { session_token: Option<String>, session_id: String }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReflectionTurnRequest { session_token: Option<String>, session_id: String, content: String }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReflectionDeleteRequest { session_token: Option<String>, session_id: String, confirmation: String }
+
 fn bounded(values: &[&str]) -> Result<(), String> {
     if values
         .iter()
@@ -302,6 +322,40 @@ fn bounded(values: &[&str]) -> Result<(), String> {
     } else {
         Err("INVALID_PAYLOAD".to_string())
     }
+}
+
+fn bounded_turn(value: &str) -> Result<(), String> {
+    if !value.trim().is_empty() && value.len() <= MAX_TURN_TEXT { Ok(()) } else { Err("INVALID_PAYLOAD".to_string()) }
+}
+
+#[tauri::command]
+fn desktop_reflection_create(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionCreateRequest) -> Result<Value, String> {
+    bounded(&[&request.title])?;
+    invoke_python(&window, &state, "reflection_session.create", request.session_token.as_deref(), json!({"title": request.title}))
+}
+#[tauri::command]
+fn desktop_reflection_list(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> {
+    invoke_python(&window, &state, "reflection_session.list", request.session_token.as_deref(), json!({}))
+}
+#[tauri::command]
+fn desktop_reflection_get(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionSessionRequest) -> Result<Value, String> {
+    bounded(&[&request.session_id])?;
+    invoke_python(&window, &state, "reflection_session.get", request.session_token.as_deref(), json!({"session_id": request.session_id}))
+}
+#[tauri::command]
+fn desktop_reflection_add_turn(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionTurnRequest) -> Result<Value, String> {
+    bounded(&[&request.session_id])?; bounded_turn(&request.content)?;
+    invoke_python(&window, &state, "reflection_session.add_turn", request.session_token.as_deref(), json!({"session_id": request.session_id, "content": request.content}))
+}
+#[tauri::command]
+fn desktop_reflection_close(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionSessionRequest) -> Result<Value, String> {
+    bounded(&[&request.session_id])?;
+    invoke_python(&window, &state, "reflection_session.close", request.session_token.as_deref(), json!({"session_id": request.session_id}))
+}
+#[tauri::command]
+fn desktop_reflection_delete(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionDeleteRequest) -> Result<Value, String> {
+    bounded(&[&request.session_id, &request.confirmation])?;
+    invoke_python(&window, &state, "reflection_session.delete", request.session_token.as_deref(), json!({"session_id": request.session_id, "confirmation": request.confirmation}))
 }
 
 #[tauri::command]
@@ -541,6 +595,8 @@ pub fn run() {
             desktop_archive_explorer,
             desktop_archive_snapshot_diff,
             desktop_archive_execute_deletion
+            ,desktop_reflection_create, desktop_reflection_list, desktop_reflection_get,
+            desktop_reflection_add_turn, desktop_reflection_close, desktop_reflection_delete
         ])
         .setup(|app| {
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))

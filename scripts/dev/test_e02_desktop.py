@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
+import tempfile
 import time
 from typing import Any
 
 import psutil
 from pywinauto import Desktop
-
 
 WINDOW_TITLE = "PSYCHE OS — Управление локальным хранилищем"
 SECRET_CANARY = "E02-SECRET-CANARY-8ca4c3"
@@ -29,8 +30,37 @@ def wait_for_text(window: Any, needle: str, timeout: float = 20.0) -> None:
 
 
 def edit(window: Any, title: str, value: str) -> None:
+    control = window.child_window(title=title, control_type="Edit").wait("exists", 8)
+    control.set_focus()
     control = window.child_window(title=title, control_type="Edit").wait("ready", 8)
     control.set_edit_text(value)
+
+
+def edit_id(window: Any, automation_id: str, value: str) -> None:
+    control = window.child_window(auto_id=automation_id, control_type="Edit").wait("ready", 8)
+    control.set_edit_text(value)
+
+
+def find_editable(window: Any, accessible_name: str) -> Any:
+    """Focus the observed native WebView2 Edit and reacquire it after scrolling."""
+    control = window.child_window(title=accessible_name, control_type="Edit").wait("exists", 8)
+    control.set_focus()
+    return window.child_window(title=accessible_name, control_type="Edit").wait("ready", 8)
+
+
+def enter_editable(window: Any, accessible_name: str, value: str) -> None:
+    control = find_editable(window, accessible_name)
+    control.type_keys(value, with_spaces=True)
+    deadline = time.monotonic() + 2.0
+    actual = ""
+    while time.monotonic() < deadline:
+        actual = control.get_value()
+        if actual == value:
+            return
+        time.sleep(0.05)
+    raise AssertionError(
+        f"Native editable control did not retain entered value: {accessible_name}; observed {actual!r}"
+    )
 
 
 def click(window: Any, title: str) -> None:
@@ -100,16 +130,64 @@ def terminate_tree(process: subprocess.Popen[bytes]) -> None:
         pass
 
 
-def run(executable: Path) -> dict[str, Any]:
+def _launch(executable: Path, app_data: Path) -> subprocess.Popen[bytes]:
+    environment = os.environ.copy()
+    environment["PSYCHE_OS_APP_DATA"] = str(app_data)
+    return subprocess.Popen([str(executable)], cwd=executable.parent, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=environment)
+
+
+def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any]:
+    title = "UIA тестовая сессия"
+    canary = "V3A0-UIA-RESTART-CANARY"
+    first = _launch(executable, app_data)
+    try:
+        window = Desktop(backend="uia").window(process=first.pid, title=WINDOW_TITLE)
+        window.wait("visible", timeout=20)
+        edit(window, "Локальный секрет сессии", SECRET_CANARY)
+        click(window, "Разблокировать локально")
+        wait_for_text(window, "МОИ СЕССИИ")
+        edit(window, "Название", title)
+        click(window, "Новая сессия")
+        wait_for_text(window, "Добавить в сессию")
+        enter_editable(window, "Ваш текст", canary)
+        click(window, "Добавить в сессию")
+        wait_for_text(window, canary)
+    finally:
+        terminate_tree(first)
+    if psutil.pid_exists(first.pid):
+        raise AssertionError("First desktop process survived restart boundary")
+
+    second = _launch(executable, app_data)
+    try:
+        window = Desktop(backend="uia").window(process=second.pid, title=WINDOW_TITLE)
+        window.wait("visible", timeout=20)
+        edit(window, "Локальный секрет сессии", SECRET_CANARY)
+        click(window, "Разблокировать локально")
+        wait_for_text(window, title)
+        click(window, "Открыть")
+        wait_for_text(window, canary)
+        enter_editable(window, "Ваш текст", "V3A0-UIA-SECOND-TURN")
+        click(window, "Добавить в сессию")
+        wait_for_text(window, "V3A0-UIA-SECOND-TURN")
+        click(window, "Завершить сессию")
+        wait_for_text(window, "Сессия завершена")
+        if window.child_window(title="Добавить в сессию", control_type="Button").is_enabled():
+            raise AssertionError("Closed session still accepts turns")
+        click(window, "Удалить сессию")
+        wait_for_text(window, "МОИ СЕССИИ")
+        if title in "\n".join(control.window_text() for control in window.descendants()):
+            raise AssertionError("Deleted session remains in list")
+        return {"first_pid": first.pid, "second_pid": second.pid,
+                "persistence_canary": canary, "restart_persistence": True}
+    finally:
+        terminate_tree(second)
+
+
+def run(executable: Path, app_data: Path) -> dict[str, Any]:
     if not executable.is_file():
         raise SystemExit(f"Desktop executable does not exist: {executable}")
-    process = subprocess.Popen(
-        [str(executable)],
-        cwd=executable.parent,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    process = _launch(executable, app_data)
     try:
         window = Desktop(backend="uia").window(process=process.pid, title=WINDOW_TITLE)
         window.wait("visible", timeout=20)
@@ -208,10 +286,16 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--executable", required=True, type=Path)
     args = parser.parse_args()
-    evidence = run(args.executable.resolve())
+    with tempfile.TemporaryDirectory(prefix="psyche-os-v3a0-uia-") as temporary:
+        app_data = Path(temporary)
+        restart = restart_persistence_proof(args.executable.resolve(), app_data)
+        evidence = run(args.executable.resolve(), app_data)
+        evidence.update(restart)
     print(json.dumps(evidence, indent=2, sort_keys=True))
     print("E02_NATIVE_DESKTOP_UIA: PASS")
     print("E03_NATIVE_DESKTOP_UIA: PASS")
+    print("V3A0_NATIVE_TURN_ENTRY: PASS")
+    print("V3A0_NATIVE_RESTART_PERSISTENCE: PASS")
     return 0
 
 

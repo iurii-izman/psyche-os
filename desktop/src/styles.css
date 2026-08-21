@@ -7,7 +7,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button { min-height: 44px; border: 1px solid #869287; border-radius: 10px; padding: .7rem 1rem; cursor: pointer; background: #edf0ea; color: #14241d; }
 button:hover { background: #e1e7df; }
 button:focus-visible, input:focus-visible, select:focus-visible, .skip-link:focus { outline: 3px solid #17694c; outline-offset: 3px; }
@@ -34,6 +34,7 @@ h2 { font-family: Georgia, serif; font-size: 1.7rem; font-weight: 500; margin: .
 .card button { width: 100%; margin-top: .55rem; }
 label { font-weight: 650; font-size: .88rem; margin-top: .3rem; }
 input[type="text"], input[type="password"] { min-height: 44px; border: 1px solid #9ba79e; border-radius: 8px; padding: .65rem .75rem; width: 100%; }
+textarea { border: 1px solid #9ba79e; border-radius: 8px; padding: .65rem .75rem; width: 100%; min-height: 7rem; resize: vertical; }
 select { min-height: 44px; border: 1px solid #9ba79e; border-radius: 8px; padding: .65rem .75rem; width: 100%; background: white; }
 label:has(input[type="checkbox"]) { display: flex; align-items: center; gap: .5rem; font-weight: 500; }
 input[type="checkbox"] { width: 20px; height: 20px; }
@@ -45,6 +46,9 @@ hr { border: 0; border-top: 1px solid #e0e4dd; margin: 1.2rem 0; }
 .result dd { margin: 0; overflow-wrap: anywhere; }
 .unlock { max-width: 560px; margin: 3rem auto; }
 .field-error { min-height: 1.2rem; color: #8a1f1f; margin: 0; }
+.sessions-card { margin: 1rem 0; }
+.session-row, .session-turn { border-top: 1px solid #e0e4dd; padding: .8rem 0; display: flex; gap: .7rem; align-items: center; flex-wrap: wrap; }
+.session-turn { display: block; white-space: pre-wrap; }
 
 @media (max-width: 800px) {
   .grid { grid-template-columns: 1fr; }
