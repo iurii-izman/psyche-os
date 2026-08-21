@@ -1,11 +1,12 @@
-schema_version: "1.0"
+schema_version: "2.0"
 gate_id: "PSYCHE-REAL-DATA-GATE"
-snapshot_date: "2026-08-11"
-status: "CLOSED"
-research_converged: true
-production_implementation_exists: false
+policy_status: "ACCEPTED_STABLE_POLICY"
+policy_scope: "stable_real_data_gate_policy"
+
+fail_closed_default: "CLOSED"
+research_convergence_required: true
+
 scope:
-  profiles: ["all"]
   data_classes:
     - "real_personal"
     - "psychological"
@@ -15,113 +16,101 @@ scope:
     - "messages_calendar_wearables_life_archive"
     - "third_party_personal"
   synthetic_fixtures_allowed: true
+
 authority:
   constitution: "CONSTITUTION.md"
   master_spec: "docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md"
   privacy_security: "docs/architecture/PRIVACY_SECURITY_MODEL.md"
   threat_model: "docs/architecture/THREAT_MODEL.md"
-  frozen_f0_contract: "docs/prompts/F0_IMPLEMENTATION_PROMPT.md"
-  next_implementation_contract: "docs/prompts/deepseek/E02_SECURE_DESKTOP_SHELL.md"
-  e00_rebaseline: "docs/development/E00_REBASELINE_DECISION.md"
+  decision_log: "docs/DECISION_LOG.md#adr-023-profile-specific-real-data-gate-evaluation"
+  profile_definition: "docs/architecture/REAL_DATA_GATE_PROFILE.yaml"
+
+evaluation_records:
+  namespace_pattern: "artifacts/e11/gate-evaluations/<evaluation-id>.yaml"
+  lifecycle: ["DRAFT", "SEALED"]
+  draft_can_support_open: false
+  sealed_content_immutable: true
+  successor_required_for:
+    - "build_or_platform_change"
+    - "profile_definition_change"
+    - "evidence_or_review_change"
+    - "expiry_or_regression"
+    - "rdg_status_or_applicability_change"
+    - "human_decision_change"
+  exact_profile_binding_required:
+    - "profile_path"
+    - "profile_id"
+    - "profile_version"
+    - "profile_definition_sha256"
+    - "profile_source_commit"
+
 opening_rule:
   automatic_opening_forbidden: true
   exact_build_and_profile_required: true
   independent_review_required: true
   unresolved_critical_or_high_findings_allowed: false
   evidence_expiry_required: true
-  signed_decision_record_required: true
+  human_decision_required: true
+  gate_decider_role: "REPOSITORY_OWNER"
+  attestation_method: "local_human_attestation_v1"
+  coding_models_may_decide_gate: false
+
+rdg_status_vocabulary:
+  - "PROVED_FOR_CANDIDATE"
+  - "NOT_PROVED"
+  - "NOT_APPLICABLE_EXCLUDED"
+  - "STALE_OR_EXPIRED"
+  - "UNKNOWN_OR_INCOMPLETE"
+
+applicability:
+  default: "APPLICABLE_UNTIL_EXACT_EVALUATION_PROVES_OTHERWISE"
+  not_applicable_excluded_only_when: >-
+    The exact evaluation proves every boundary predicate for the complete
+    control is EXCLUDED and unreachable in the exact candidate. Excluding one
+    sub-boundary never makes a mixed control not applicable.
+  always_applicable_for_real_data_candidate: ["RDG-09", "RDG-10", "RDG-11", "RDG-12"]
+
 requirements:
   - id: "RDG-01"
     control: "encrypted_database_and_blob_profile_verified"
-    state: "UNSATISFIED"
-    evidence: null
   - id: "RDG-02"
     control: "key_rotation_and_independent_recovery_verified"
-    state: "UNSATISFIED"
-    evidence: null
   - id: "RDG-03"
     control: "encrypted_backup_and_clean_isolated_restore_verified"
-    state: "UNSATISFIED"
-    evidence: null
   - id: "RDG-04"
     control: "deletion_lineage_projection_rebuild_and_backup_expiry_verified"
-    state: "UNSATISFIED"
-    evidence: null
   - id: "RDG-05"
     control: "migration_and_open_export_round_trip_verified"
-    state: "UNSATISFIED"
-    evidence: null
   - id: "RDG-06"
     control: "no_plaintext_temp_wal_log_crash_package_or_projection_leak_verified"
-    state: "UNSATISFIED"
-    evidence: null
   - id: "RDG-07"
     control: "never_cloud_lineage_property_tests_pass"
-    state: "UNSATISFIED"
-    evidence: null
   - id: "RDG-08"
     control: "enabled_import_and_render_boundaries_verified"
-    state: "UNSATISFIED"
-    evidence: null
   - id: "RDG-09"
     control: "dependency_sbom_license_build_provenance_and_secret_gates_pass"
-    state: "UNSATISFIED"
-    evidence: null
   - id: "RDG-10"
     control: "threat_model_crypto_privacy_and_deletion_independent_review_pass"
-    state: "UNSATISFIED"
-    evidence: null
   - id: "RDG-11"
     control: "intended_use_privacy_legal_and_regulatory_review_complete"
-    state: "UNSATISFIED"
-    evidence: null
   - id: "RDG-12"
     control: "synthetic_acceptance_fault_recovery_and_deletion_usability_suite_pass"
-    state: "UNSATISFIED"
-    evidence: null
-pre_real_data_blockers:
-  - id: "PRD-F02"
-    finding: "authenticated_backup_completeness_and_atomic_isolated_restore"
-    severity: "HIGH"
-    state: "UNSATISFIED"
-    blocking_stage: "PRE_REAL_DATA"
-    assigned_epic: "E01"
-    affected_requirements: ["RDG-03", "RDG-04", "RDG-12"]
-    capability_state: "DISABLED_DEFERRED"
-  - id: "PRD-F05-BLOB"
-    finding: "blob_lifecycle_and_vault_bound_verification"
-    severity: "HIGH"
-    state: "UNSATISFIED"
-    blocking_stage: "PRE_REAL_DATA"
-    assigned_epic: "E01"
-    affected_requirements: ["RDG-01", "RDG-04", "RDG-06"]
-    capability_state: "DISABLED_DEFERRED"
-  - id: "PRD-F09"
-    finding: "windows_reparse_toctou_filesystem_mutation"
-    severity: "HIGH"
-    state: "UNSATISFIED_RUNTIME_NOT_VERIFIED"
-    blocking_stage: "PRE_REAL_DATA"
-    assigned_epic: "E01"
-    affected_requirements: ["RDG-06", "RDG-10", "RDG-12"]
-    capability_state: "DISABLED_DEFERRED"
-  - id: "PRD-F08-SUPPLY"
-    finding: "release_grade_dependency_sbom_license_build_provenance_reconciliation"
-    severity: "HIGH_FOR_ENABLED_RELEASE_PROFILE"
-    state: "UNSATISFIED"
-    blocking_stage: "PRE_REAL_DATA"
-    assigned_epic: "E11"
-    affected_requirements: ["RDG-09"]
-    capability_state: "EVIDENCE_DEFERRED"
-regression_triggers:
-  - "security_or_privacy_incident"
-  - "critical_or_high_finding"
-  - "cloud_provider_or_model_enabled_or_changed"
-  - "sync_sharing_mobile_remote_or_multi_user_profile"
-  - "new_importer_parser_renderer_or_webview"
-  - "clinician_or_research_workflow"
-  - "major_schema_crypto_key_or_backup_change"
-  - "legal_or_intended_use_change"
-current_decision:
-  decision: "Do not ingest, copy, migrate or test with real personal data."
-  reason: "E01 database-only backup/recovery is accepted, but blob/general-filesystem controls and all independent real-data evidence remain unsatisfied."
-  next_action: "Execute docs/prompts/deepseek/E02_SECURE_DESKTOP_SHELL.md with synthetic fixtures only; do not open the gate."
+
+regression_invalidation_triggers:
+  - "crypto_key_storage_schema_migration_deletion_backup_recovery_filesystem_or_plaintext_change"
+  - "desktop_renderer_ipc_webview_importer_parser_quarantine_projection_or_retrieval_change"
+  - "provider_model_network_prompt_policy_or_safety_change_or_cloud_enablement"
+  - "professional_clinical_research_assessment_longitudinal_n_of_1_distribution_sharing_sync_mobile_or_multi_user_change"
+  - "dependency_lock_sbom_license_signing_build_provenance_packaging_or_platform_change"
+  - "intended_use_legal_or_jurisdiction_change"
+  - "source_retraction_or_correction_affecting_a_boundary"
+  - "evidence_review_or_attestation_expiry"
+  - "reproduction_failure"
+  - "incident_or_new_critical_or_high_finding"
+
+invalidation_rule: >-
+  Any applicable trigger invalidates the affected candidate evaluation. An
+  incident or new Critical/High finding closes the affected profile until a new
+  exact evaluation proves the repaired candidate with current evidence and
+  required reviews. No consent, model output, or automatic process can bypass
+  this rule.

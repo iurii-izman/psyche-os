@@ -1,0 +1,99 @@
+schema_version: "1.0"
+status: "ACCEPTED_STABLE_PROFILE_DEFINITION"
+authoritative: true
+
+profile_id: "local_personal_evidence_reflection_windows_v1"
+profile_version: "1.0"
+
+definition_lifecycle:
+  external_evaluation_binding_required: true
+  self_digest_forbidden: true
+  bind_in_exact_evaluation_by:
+    - "profile_path"
+    - "profile_id"
+    - "profile_version"
+    - "profile_definition_sha256"
+    - "profile_source_commit"
+  candidate_enforcement_must_be_proven_in_exact_evaluation: true
+
+intended_use:
+  statement: >-
+    Single-user, local personal evidence and reflection management. It is not
+    diagnosis, treatment, triage, clinical decision support, cloud service,
+    research deployment, clinician portal, or shared/multi-user service.
+  real_data_admission: "PROHIBITED_UNTIL_EXACT_EVALUATION_HAS_VALID_HUMAN_OPEN_DECISION"
+
+supported_platform_envelope:
+  operating_systems: ["Windows"]
+  exact_architecture_runtime_and_packaging: "BOUND_IN_EXACT_EVALUATION"
+
+boundary_inventory:
+  canonical_encrypted_store_and_key_recovery:
+    state: "ENABLED"
+    trust_boundary: "local_vault_os_keystore_independent_recovery"
+    applicable_rdg: ["RDG-01", "RDG-02", "RDG-04", "RDG-05", "RDG-06", "RDG-07", "RDG-10", "RDG-12"]
+    required_review_classes: ["independent_crypto_key_recovery", "independent_privacy_deletion"]
+  backup_restore_and_scoped_filesystem:
+    state: "ENABLED"
+    trust_boundary: "encrypted_backup_isolated_restore_windows_filesystem"
+    applicable_rdg: ["RDG-02", "RDG-03", "RDG-04", "RDG-05", "RDG-06", "RDG-10", "RDG-12"]
+    required_review_classes: ["independent_recovery", "independent_privacy_deletion"]
+  desktop_renderer_and_typed_ipc:
+    state: "ENABLED"
+    trust_boundary: "desktop_renderer_typed_ipc_local_sidecar"
+    applicable_rdg: ["RDG-06", "RDG-08", "RDG-09", "RDG-10", "RDG-12"]
+    required_review_classes: ["independent_technical_security"]
+  local_archive_and_disposable_retrieval_projection:
+    state: "ENABLED"
+    trust_boundary: "local_projection_and_rebuild"
+    applicable_rdg: ["RDG-04", "RDG-05", "RDG-06", "RDG-07", "RDG-10", "RDG-12"]
+    required_review_classes: ["independent_privacy_deletion"]
+  general_blob_or_attachment_writes:
+    state: "EXCLUDED"
+    exclusion_requirement: "No general blob or attachment write path is shipped or reachable."
+    applicable_rdg: ["RDG-01", "RDG-04", "RDG-06", "RDG-10", "RDG-12"]
+    required_review_classes: ["independent_technical_security"]
+  importer_parser_or_untrusted_rendering:
+    state: "EXCLUDED"
+    exclusion_requirement: "No user-supplied importer, parser, quarantine, or document rendering path is shipped or reachable."
+    applicable_rdg: ["RDG-08", "RDG-09", "RDG-10", "RDG-12"]
+    required_review_classes: ["independent_import_parser"]
+  provider_model_or_network:
+    state: "EXCLUDED"
+    exclusion_requirement: "No provider adapter, model call, network listener, cloud disclosure, telemetry, sync, or remote update is enabled."
+    applicable_rdg: ["RDG-07", "RDG-09", "RDG-10", "RDG-11", "RDG-12"]
+    required_review_classes: ["qualified_privacy", "qualified_safety"]
+  assessment_scoring:
+    state: "EXCLUDED"
+    exclusion_requirement: "No assessment instrument, scoring, or screening workflow is enabled."
+    applicable_rdg: ["RDG-09", "RDG-11"]
+    required_review_classes: ["qualified_rights_scientific_psychometric"]
+  longitudinal_or_n_of_1:
+    state: "EXCLUDED"
+    exclusion_requirement: "No longitudinal, passive sensing, N-of-1, or intervention workflow is enabled."
+    applicable_rdg: ["RDG-09", "RDG-11", "RDG-12"]
+    required_review_classes: ["qualified_scientific_clinical"]
+  professional_report_or_external_handoff:
+    state: "EXCLUDED"
+    exclusion_requirement: "No professional report, clinician handoff, audience-specific export, or third-party disclosure workflow is enabled."
+    applicable_rdg: ["RDG-04", "RDG-05", "RDG-06", "RDG-09", "RDG-11", "RDG-12"]
+    required_review_classes: ["qualified_legal_privacy_clinical_human_factors"]
+
+rdg_applicability_rules:
+  default: "APPLICABLE_UNTIL_EXACT_EVALUATION_PROVES_OTHERWISE"
+  not_applicable_excluded_only_when: >-
+    The exact evaluation proves every boundary predicate for the complete RDG
+    control is EXCLUDED and unreachable in the exact candidate.
+  always_applicable_for_real_data_candidate: ["RDG-09", "RDG-10", "RDG-11", "RDG-12"]
+
+required_review_classes:
+  coding_model_output: "NON_AUTHORITATIVE_PROPOSAL_ONLY"
+  independent_technical_review: "REQUIRED_FOR_APPLICABLE_BOUNDARIES"
+  qualified_review: "REQUIRED_WHEN_PROFILE_BOUNDARY_OR_DEPLOYMENT_REQUIRES_IT"
+  gate_decider: "REPOSITORY_OWNER"
+  human_attestation_method: "local_human_attestation_v1"
+
+rationale_authority:
+  decision: "docs/DECISION_LOG.md#adr-023-profile-specific-real-data-gate-evaluation"
+  gate_policy: "docs/architecture/REAL_DATA_GATE.yaml"
+  roadmap: "docs/ROADMAP.md#phase-8--lifetime-maintenance-not-feature-accumulation"
