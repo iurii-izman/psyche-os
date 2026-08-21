@@ -21,3 +21,5 @@ targeted checks, the read-only closed-gate validator, the full Python suite,
 orchestration validation, research-foundation validation, and diff hygiene.
 The candidate remains a DRAFT closed evaluation: E11 does not create a human
 attestation or an `OPEN` decision.
+
+**USER_RUNTIME_SMOKE:** `DEFERRED_BY_OWNER`
