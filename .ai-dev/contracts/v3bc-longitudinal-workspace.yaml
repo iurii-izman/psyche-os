@@ -3,7 +3,7 @@ base_sha: 688a670646ee3cf9e6b2c13eb1697c3a47b33861
 profile: balanced
 risk: medium
 goal:
-  - Provide a deterministic, read-only longitudinal workspace over accepted reflection, exploration, and action records.
+  - Complete the deterministic, read-only longitudinal workspace over accepted reflection, exploration, and action records without changing its architecture.
 non_goals:
   - No migrations, storage writes, IPC/capability changes, dependencies, network, provider, scoring, or semantic inference.
 authority:
@@ -27,9 +27,11 @@ protected_scope:
   - docs/development/STATE.yaml
 acceptance:
   - Projection rebuilds deterministically from existing read APIs and never writes canonical state.
-  - Russian UI presents coverage, exact recurrence, trajectories, unknowns, contradictions, action/outcome history, comparison, and product timeline.
+  - Guided coverage counts only structurally persisted exploration state; an empty ExplorationView is not guided.
+  - Exact recurrence remains limited to two or more sessions, while UNKNOWN and CONTRADICTION history retains singleton per-session records, states, timestamps, and anchors.
+  - Russian UI presents complete session comparison, hypothesis relations, and action/outcome provenance without scoring or causal/effectiveness claims.
   - CLOSED source sessions remain visible and no deleted-source cache exists.
-verification:
+repository_required_gates:
   - npm --prefix desktop run typecheck
   - npm --prefix desktop run lint
   - npm --prefix desktop run test:unit
@@ -37,6 +39,33 @@ verification:
   - uv run pytest -q
   - uv run python scripts/dev/validate_orchestration.py
   - uv run python scripts/validate_research_foundation.py
+  - git diff --check
+contract_required_proof:
+  - risk: Longitudinal projections or rendering could misrepresent persisted session history.
+    insufficiency_of_repository_gates: TypeScript gates do not by themselves prove the required history, comparison, and provenance semantics.
+    primary_oracle: Deterministic longitudinal projection and UI unit tests.
+    failure_meaning: A failure blocks the candidate because the read-only product semantics are not proven.
+    alternate_oracles: []
+    stop_or_escalation: Stop for a deterministic product-test failure or a material semantic boundary expansion.
+  - risk: The packaged desktop shell could fail to launch, unlock, preserve restart state, or render the longitudinal destination.
+    insufficiency_of_repository_gates: Static and unit checks do not exercise the packaged desktop runtime.
+    primary_oracle: Existing bounded packaged runtime evidence for launch, unlock, restart, CLOSED/delete, unique longitudinal destination, and absence of loader/render operation errors.
+    failure_meaning: A product runtime failure blocks the candidate.
+    alternate_oracles: []
+    stop_or_escalation: Run at most one existing bounded current-candidate smoke; do not create or redesign a harness feature.
+supplemental_evidence:
+  - evidence: Deep dynamic WebView2 UIA enumeration of every longitudinal selector and post-render control.
+    classification: oracle/tool_harness_defect
+    residual_limitation: Deep dynamic WebView2 accessibility-tree proof remains unreliable after destination render.
+    separate_debt: true
+    product_acceptance_impact: Non-blocking for this MEDIUM TypeScript-only slice when repository gates and contract-required proof pass.
+    human_approval: Explicitly approved for this V3-B/C acceptance update; it does not waive repository gates, weaken tests, or alter product semantics.
+proof_recovery_budget:
+  max_feature_local_repair_loops: 1
+oracle_failure_policy:
+  classify_as: oracle/tool_harness_defect
+  low_medium: Stop verifier expansion when repository gates and contract-required product evidence pass; record the bounded residual as supplemental debt.
+  high_critical: Missing load-bearing runtime or security evidence remains blocking.
 permissions:
   network: false
   dependencies: false
