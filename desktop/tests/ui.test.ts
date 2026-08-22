@@ -41,7 +41,15 @@ function mockApi(locked = false): DesktopApi {
     reflectionGet: vi.fn(async () => ({ session_id: "reflection-1", title: "Тест", state: "ACTIVE" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: null, turn_count: 0, turns: [] })),
     reflectionAddTurn: vi.fn(async () => ({ turn_id: "turn-1", session_id: "reflection-1", sequence: 1, actor: "USER" as const, created_at: "2026-01-01T00:00:00Z", content: "Тест" })),
     reflectionClose: vi.fn(async () => ({ state: "CLOSED" })),
-    reflectionDelete: vi.fn(async () => ({ deleted: true, content_in_receipt: false }))
+    reflectionDelete: vi.fn(async () => ({ deleted: true, content_in_receipt: false })),
+    explorationStart: vi.fn(async () => ({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] })),
+    explorationGet: vi.fn(async () => ({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] })),
+    explorationAnswer: vi.fn(async () => ({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] })),
+    explorationSkip: vi.fn(async () => ({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] })),
+    formulationPropose: vi.fn(async () => ({})),
+    formulationCorrect: vi.fn(async () => ({})),
+    formulationAccept: vi.fn(async () => ({})),
+    formulationReject: vi.fn(async () => ({}))
   };
 }
 

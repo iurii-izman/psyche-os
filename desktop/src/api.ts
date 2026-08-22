@@ -9,6 +9,7 @@ export interface StatusView {
 }
 export interface ReflectionSessionView { session_id: string; title: string; state: "ACTIVE" | "CLOSED"; retention: "ENCRYPTED_LOCAL"; created_at: string; updated_at: string; closed_at: string | null; turn_count: number; turns?: ReflectionTurnView[]; }
 export interface ReflectionTurnView { turn_id: string; session_id: string; sequence: number; actor: "USER"; created_at: string; content: string; }
+export interface ExplorationView { context: Array<{ context_item_id: string; dimension: string; kind: "KNOWN" | "UNKNOWN" | "CONTRADICTION"; text: string; state: string; source_turn_ids: string[] }>; hypotheses: Array<{ hypothesis_id: string; proposal_text: string; uncertainty_text: string; discriminator_text: string }>; next_question: { question_id: string; text: string } | null; snapshots: Array<{ snapshot_id: string; version: number }>; formulations: Array<{ formulation_id: string; version: number; status: string; summary: string; correction_text: string | null }>; }
 
 let sessionToken: string | null = null;
 
@@ -56,7 +57,15 @@ export const desktopApi = {
   reflectionGet: (sessionId: string): Promise<ReflectionSessionView> => call("desktop_reflection_get", { sessionId }),
   reflectionAddTurn: (sessionId: string, content: string): Promise<ReflectionTurnView> => call("desktop_reflection_add_turn", { sessionId, content }),
   reflectionClose: (sessionId: string): Promise<Record<string, unknown>> => call("desktop_reflection_close", { sessionId }),
-  reflectionDelete: (sessionId: string): Promise<Record<string, unknown>> => call("desktop_reflection_delete", { sessionId, confirmation: "DELETE REFLECTION SESSION" })
+  reflectionDelete: (sessionId: string): Promise<Record<string, unknown>> => call("desktop_reflection_delete", { sessionId, confirmation: "DELETE REFLECTION SESSION" }),
+  explorationStart: (sessionId: string): Promise<ExplorationView> => call("desktop_exploration_start", { sessionId }),
+  explorationGet: (sessionId: string): Promise<ExplorationView> => call("desktop_exploration_get", { sessionId }),
+  explorationAnswer: (questionId: string, answerText: string): Promise<ExplorationView> => call("desktop_exploration_answer", { questionId, answerText }),
+  explorationSkip: (questionId: string): Promise<ExplorationView> => call("desktop_exploration_skip", { questionId }),
+  formulationPropose: (sessionId: string): Promise<Record<string, unknown>> => call("desktop_formulation_propose", { sessionId }),
+  formulationCorrect: (formulationId: string, correctionText: string): Promise<Record<string, unknown>> => call("desktop_formulation_correct", { formulationId, correctionText }),
+  formulationAccept: (formulationId: string): Promise<Record<string, unknown>> => call("desktop_formulation_accept", { formulationId }),
+  formulationReject: (formulationId: string): Promise<Record<string, unknown>> => call("desktop_formulation_reject", { formulationId })
 };
 
 export type DesktopApi = typeof desktopApi;

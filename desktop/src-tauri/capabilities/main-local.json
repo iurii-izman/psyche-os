@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-local",
-  "description": "Packaged local main window may invoke only bounded PSYCHE OS E02, E03, and V3-A0 commands.",
+  "description": "Packaged local main window may invoke only bounded PSYCHE OS E02, E03, V3-A0, and V3-A1 commands.",
   "local": true,
   "remote": null,
   "windows": ["main"],
@@ -28,6 +28,14 @@
     "allow-desktop-reflection-get",
     "allow-desktop-reflection-add-turn",
     "allow-desktop-reflection-close",
-    "allow-desktop-reflection-delete"
+    "allow-desktop-reflection-delete",
+    "allow-desktop-exploration-start",
+    "allow-desktop-exploration-get",
+    "allow-desktop-exploration-answer",
+    "allow-desktop-exploration-skip",
+    "allow-desktop-formulation-propose",
+    "allow-desktop-formulation-correct",
+    "allow-desktop-formulation-accept",
+    "allow-desktop-formulation-reject"
   ]
 }

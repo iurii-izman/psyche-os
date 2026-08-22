@@ -1,0 +1,85 @@
+task_id: V3-A1
+base_sha: 6ab2f5992094a247953ee0f639e6e62e400f2332
+
+profile: quality
+risk: high
+
+goal:
+  - Add a deterministic, encrypted, session-scoped Guided Exploration workflow with non-leading questions, competing working hypotheses, and versioned user-accepted formulations.
+
+non_goals:
+  - No diagnosis, treatment, provider activation, network behavior, canonical evidence writes, real-data admission, or unrelated refactoring.
+
+authority:
+  - CONSTITUTION.md
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md
+  - docs/architecture/SYSTEM_ARCHITECTURE.md
+  - docs/architecture/DATA_MODEL.md
+  - docs/architecture/PRIVACY_SECURITY_MODEL.md
+  - docs/architecture/MENTAL_HEALTH_AI_SAFETY.md
+  - docs/DECISION_LOG.md
+
+expected_scope:
+  - src/psyche_os/domain/reflection_exploration.py
+  - src/psyche_os/application/guided_exploration.py
+  - src/psyche_os/application/reflection_sessions.py
+  - src/psyche_os/application/desktop_service.py
+  - src/psyche_os/storage/v3a1_exploration_schema.py
+  - src/psyche_os/storage/migrations.py
+  - src/psyche_os/storage/schema.py
+  - desktop/src/api.ts
+  - desktop/src/main.ts
+  - desktop/src/i18n.ts
+  - desktop/src/styles.css
+  - desktop/src-tauri/src/lib.rs
+  - desktop/src-tauri/build.rs
+  - desktop/src-tauri/capabilities/main-local.json
+  - desktop/tests/ui.test.ts
+  - scripts/dev/test_e02_desktop.py
+  - tests/unit/test_v3a1_guided_exploration.py
+  - tests/integration/test_v3a1_migration.py
+
+protected_scope:
+  - .ai-dev/policy/**
+  - .ai-dev/verification/**
+
+acceptance:
+  - V7 is additive, encrypted through the V3-A0 SQLCipher workspace, and migrates V1 through V7.
+  - User turns remain the only answer transcript and report context item provenance is exact.
+  - The reference planner is deterministic, neutral, non-diagnostic, provider-free, and proposes at most three questions.
+  - Hypotheses preserve separate support, counterevidence, and unknown references.
+  - Formulations are versioned proposals; acceptance makes exactly one CURRENT without writing canonical evidence.
+  - The typed IPC and Russian-first desktop flow persist across a full restart.
+
+verification:
+  - uv run pytest -q tests/unit/test_v3a1_guided_exploration.py tests/unit/test_v3a0_reflection_sessions.py tests/integration/test_v3a1_migration.py
+  - uv run ruff check src/psyche_os/application/guided_exploration.py src/psyche_os/application/reflection_sessions.py src/psyche_os/application/desktop_service.py src/psyche_os/domain/reflection_exploration.py src/psyche_os/storage/v3a1_exploration_schema.py tests/unit/test_v3a1_guided_exploration.py tests/integration/test_v3a1_migration.py
+  - npm --prefix desktop run typecheck
+  - npm --prefix desktop run lint
+  - npm --prefix desktop run test:unit
+  - npm --prefix desktop run build
+  - npm --prefix desktop run sidecar:build
+  - npm --prefix desktop run tauri -- build --debug
+  - npm --prefix desktop run test:desktop
+  - uv run pytest -q
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run python scripts/validate_research_foundation.py
+  - git diff --check
+
+permissions:
+  network: false
+  dependencies: false
+  migrations: true
+  destructive: false
+  commit: true
+  push: true
+  draft_pr: true
+
+routing:
+  initial: strong
+  max_grounded_retry: 1
+  escalation: stop
+
+assumptions:
+  - V3-A0 reflection-session data remains synthetic-only and its existing SQLCipher key lifecycle is reused without modification.
+  - The user-provided Task Contract is explicit pre-authorization for the additive V7 migration, typed IPC commands, candidate commit, push, and draft PR.

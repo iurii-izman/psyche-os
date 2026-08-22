@@ -73,7 +73,7 @@ class ReflectionSessionService:
             row = connection.execute("PRAGMA cipher_version").fetchone()
             if not row or not row[0]:
                 raise ReflectionSessionError("STORAGE_UNAVAILABLE")
-            report = Migrator(connection).apply(6)
+            report = Migrator(connection).apply(7)
             if not report.success:
                 raise ReflectionSessionError("STORAGE_UNAVAILABLE")
             return connection
@@ -86,6 +86,11 @@ class ReflectionSessionService:
 
     def close(self) -> None:
         self._connection.close()
+
+    @property
+    def connection(self) -> Any:
+        """Internal workspace connection for bounded V3-A1 operations only."""
+        return self._connection
 
     def create_session(self, title: Any) -> dict[str, Any]:
         title = _text(title, MAX_TITLE)

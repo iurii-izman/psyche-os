@@ -312,6 +312,18 @@ struct ReflectionTurnRequest { session_token: Option<String>, session_id: String
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ReflectionDeleteRequest { session_token: Option<String>, session_id: String, confirmation: String }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ExplorationAnswerRequest { session_token: Option<String>, question_id: String, answer_text: String }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct FormulationCorrectionRequest { session_token: Option<String>, formulation_id: String, correction_text: String }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct FormulationRequest { session_token: Option<String>, formulation_id: String }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ExplorationQuestionRequest { session_token: Option<String>, question_id: String }
 
 fn bounded(values: &[&str]) -> Result<(), String> {
     if values
@@ -356,6 +368,46 @@ fn desktop_reflection_close(window: WebviewWindow, state: tauri::State<'_, Deskt
 fn desktop_reflection_delete(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionDeleteRequest) -> Result<Value, String> {
     bounded(&[&request.session_id, &request.confirmation])?;
     invoke_python(&window, &state, "reflection_session.delete", request.session_token.as_deref(), json!({"session_id": request.session_id, "confirmation": request.confirmation}))
+}
+#[tauri::command]
+fn desktop_exploration_start(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionSessionRequest) -> Result<Value, String> {
+    bounded(&[&request.session_id])?;
+    invoke_python(&window, &state, "reflection_exploration.start", request.session_token.as_deref(), json!({"session_id": request.session_id}))
+}
+#[tauri::command]
+fn desktop_exploration_get(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionSessionRequest) -> Result<Value, String> {
+    bounded(&[&request.session_id])?;
+    invoke_python(&window, &state, "reflection_exploration.get", request.session_token.as_deref(), json!({"session_id": request.session_id}))
+}
+#[tauri::command]
+fn desktop_exploration_answer(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ExplorationAnswerRequest) -> Result<Value, String> {
+    bounded(&[&request.question_id])?; bounded_turn(&request.answer_text)?;
+    invoke_python(&window, &state, "reflection_exploration.answer", request.session_token.as_deref(), json!({"question_id": request.question_id, "answer_text": request.answer_text}))
+}
+#[tauri::command]
+fn desktop_exploration_skip(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ExplorationQuestionRequest) -> Result<Value, String> {
+    bounded(&[&request.question_id])?;
+    invoke_python(&window, &state, "reflection_exploration.skip", request.session_token.as_deref(), json!({"question_id": request.question_id}))
+}
+#[tauri::command]
+fn desktop_formulation_propose(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionSessionRequest) -> Result<Value, String> {
+    bounded(&[&request.session_id])?;
+    invoke_python(&window, &state, "reflection_exploration.formulation.propose", request.session_token.as_deref(), json!({"session_id": request.session_id}))
+}
+#[tauri::command]
+fn desktop_formulation_correct(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: FormulationCorrectionRequest) -> Result<Value, String> {
+    bounded(&[&request.formulation_id, &request.correction_text])?;
+    invoke_python(&window, &state, "reflection_exploration.formulation.correct", request.session_token.as_deref(), json!({"formulation_id": request.formulation_id, "correction_text": request.correction_text}))
+}
+#[tauri::command]
+fn desktop_formulation_accept(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: FormulationRequest) -> Result<Value, String> {
+    bounded(&[&request.formulation_id])?;
+    invoke_python(&window, &state, "reflection_exploration.formulation.accept", request.session_token.as_deref(), json!({"formulation_id": request.formulation_id}))
+}
+#[tauri::command]
+fn desktop_formulation_reject(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: FormulationRequest) -> Result<Value, String> {
+    bounded(&[&request.formulation_id])?;
+    invoke_python(&window, &state, "reflection_exploration.formulation.reject", request.session_token.as_deref(), json!({"formulation_id": request.formulation_id}))
 }
 
 #[tauri::command]
@@ -596,7 +648,9 @@ pub fn run() {
             desktop_archive_snapshot_diff,
             desktop_archive_execute_deletion
             ,desktop_reflection_create, desktop_reflection_list, desktop_reflection_get,
-            desktop_reflection_add_turn, desktop_reflection_close, desktop_reflection_delete
+            desktop_reflection_add_turn, desktop_reflection_close, desktop_reflection_delete,
+            desktop_exploration_start, desktop_exploration_get, desktop_exploration_answer, desktop_exploration_skip,
+            desktop_formulation_propose, desktop_formulation_correct, desktop_formulation_accept, desktop_formulation_reject
         ])
         .setup(|app| {
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
