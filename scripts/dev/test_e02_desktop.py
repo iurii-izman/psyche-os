@@ -19,16 +19,186 @@ from pywinauto import Desktop
 WINDOW_TITLE = "PSYCHE OS — Управление локальным хранилищем"
 SECRET_CANARY = "E02-SECRET-CANARY-8ca4c3"
 MARKUP_CANARY = '<img src=x onerror="alert(1)"><script>bad()</script>'
+WINDOW_ROOT_PIDS: dict[int, int] = {}
+
+
+def _window_hwnd(window: Any) -> int:
+    try:
+        return int(window.wrapper_object().handle)
+    except Exception as error:
+        raise AssertionError(f"UIA_TOP_LEVEL_HANDLE_UNAVAILABLE {error!r}") from error
+
+
+def native_window_state(hwnd: int, root_pid: int) -> dict[str, Any]:
+    """Use Win32, not UIA, as the authority for a top-level window's liveness."""
+    user32 = ctypes.windll.user32
+    is_window = bool(user32.IsWindow(hwnd))
+    process_id = ctypes.c_ulong()
+    title_buffer = ctypes.create_unicode_buffer(512)
+    if is_window:
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(process_id))
+        user32.GetWindowTextW(hwnd, title_buffer, len(title_buffer))
+    owned_pids = _owned_pids(root_pid)
+    return {
+        "hwnd": hwnd,
+        "is_window": is_window,
+        "is_visible": bool(is_window and user32.IsWindowVisible(hwnd)),
+        "native_title": title_buffer.value,
+        "window_process_id": process_id.value,
+        "root_pid": root_pid,
+        "owned_process_ids": sorted(owned_pids),
+        "owned": bool(is_window and process_id.value in owned_pids),
+    }
+
+
+def fresh_window(window: Any) -> Any:
+    """Return a fresh UIA path for a live Win32 HWND; UIA readiness is semantic."""
+    hwnd = _window_hwnd(window)
+    root_pid = WINDOW_ROOT_PIDS.get(hwnd)
+    if root_pid is None:
+        raise AssertionError(f"UIA_TOP_LEVEL_ROOT_PID_UNKNOWN {json.dumps({'hwnd': hwnd}, sort_keys=True)}")
+    state = native_window_state(hwnd, root_pid)
+    if not state["is_window"]:
+        raise AssertionError(f"UIA_TOP_LEVEL_WINDOW_GONE {json.dumps(state, ensure_ascii=False, sort_keys=True)}")
+    if not state["owned"] or not state["is_visible"]:
+        raise AssertionError(f"UIA_TOP_LEVEL_NATIVE_STATE_FAILED {json.dumps(state, ensure_ascii=False, sort_keys=True)}")
+    return Desktop(backend="uia").window(handle=hwnd)
+
+
+def _control_diagnostics(window: Any, request: dict[str, Any]) -> dict[str, Any]:
+    """Bounded, content-free context for a failed descendant lookup."""
+    fresh = fresh_window(window)
+    wrapper = fresh.wrapper_object()
+    markers = ("Локальный секрет сессии", "МОИ СЕССИИ", "Сессия завершена", "ДИНАМИКА ПО СЕССИЯМ")
+    try:
+        descendants = fresh.descendants()
+        text = "\n".join(control.window_text() for control in descendants)
+        controls = [
+            {
+                "name": control.window_text(),
+                "type": control.friendly_class_name(),
+                "automation_id": control.element_info.automation_id,
+            }
+            for control in descendants[:30]
+            if control.window_text()
+        ]
+    except Exception as error:
+        text, controls = "", [{"enumeration_error": repr(error)}]
+    return {
+        "top_level_hwnd": int(wrapper.handle),
+        "top_level_process_id": wrapper.element_info.process_id,
+        "request": request,
+        "visible_markers": {marker: marker in text for marker in markers},
+        "matching_controls": controls,
+    }
+
+
+def _longitudinal_surface_diagnostics(window: Any, root_pid: int) -> dict[str, Any]:
+    """Capture the bounded native surface needed to classify one navigation attempt."""
+    fresh = fresh_window(window)
+    wrapper = fresh.wrapper_object()
+    descendants = fresh.descendants()
+    text = "\n".join(control.window_text() for control in descendants)
+    operation_status = next(
+        (control.window_text() for control in descendants if control.element_info.automation_id == "operation-status"),
+        "",
+    )
+    combo_boxes = [
+        {"name": control.window_text(), "automation_id": control.element_info.automation_id}
+        for control in descendants
+        if control.element_info.control_type == "ComboBox"
+    ]
+    relevant_controls = [
+        {"name": control.window_text(), "type": control.friendly_class_name(), "automation_id": control.element_info.automation_id}
+        for control in descendants
+        if control.element_info.control_type in {"Button", "ComboBox", "ListItem"} and control.window_text()
+    ][:40]
+    return {
+        "top_level_hwnd": int(wrapper.handle),
+        "top_level_process_id": wrapper.element_info.process_id,
+        "hwnd_survives": bool(ctypes.windll.user32.IsWindow(int(wrapper.handle))),
+        "owned_process_ids": sorted(_owned_pids(root_pid)),
+        "session_a_visible": "V3BC-SESSION-A" in text,
+        "session_b_visible": "V3BC-SESSION-B" in text,
+        "longitudinal_markers": {
+            marker: marker in text
+            for marker in ("1. Обзор записей", "2. История рабочих формулировок", "7. Сравнить две сессии")
+        },
+        "operation_status": operation_status,
+        "old_open_controls_present": any(
+            control.element_info.control_type == "Button" and control.window_text() == "Открыть"
+            for control in descendants
+        ),
+        "combo_boxes": combo_boxes,
+        "relevant_controls": relevant_controls,
+    }
+
+
+def wait_for_longitudinal_transition(window: Any, root_pid: int, before: dict[str, Any]) -> dict[str, Any]:
+    """Observe one invoked longitudinal navigation until its unique destination or error surface."""
+    deadline = time.monotonic() + 20
+    latest = before
+    while time.monotonic() < deadline:
+        latest = _longitudinal_surface_diagnostics(window, root_pid)
+        if latest["longitudinal_markers"]["1. Обзор записей"]:
+            return {"before": before, "after": latest, "outcome": "destination"}
+        if latest["operation_status"] and latest["operation_status"] != before["operation_status"]:
+            raise AssertionError(
+                "LONGITUDINAL_TRANSITION_OPERATION_ERROR "
+                f"{json.dumps({'before': before, 'after': latest}, ensure_ascii=False, sort_keys=True)}"
+            )
+        time.sleep(0.2)
+    raise AssertionError(
+        "LONGITUDINAL_TRANSITION_NO_DESTINATION_OR_ERROR "
+        f"{json.dumps({'before': before, 'after': latest}, ensure_ascii=False, sort_keys=True)}"
+    )
+
+
+def _control_or_fail(window: Any, request: dict[str, Any], state: str = "ready") -> Any:
+    criteria = dict(request)
+    found_index = criteria.pop("found_index", 0)
+    fallback_title = criteria.pop("fallback_title", None)
+    deadline = time.monotonic() + 8
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        fresh = fresh_window(window)
+        try:
+            matches = [
+                control
+                for control in fresh.descendants()
+                if ("title" not in criteria or control.window_text() == criteria["title"])
+                and (
+                    "auto_id" not in criteria
+                    or control.element_info.automation_id == criteria["auto_id"]
+                    or (fallback_title is not None and control.window_text() == fallback_title)
+                )
+                and ("control_type" not in criteria or control.element_info.control_type == criteria["control_type"])
+            ]
+            if len(matches) > found_index:
+                control = matches[found_index]
+                if state == "exists" or (control.is_visible() and control.is_enabled()):
+                    return control
+        except Exception as error:
+            last_error = error
+        time.sleep(0.2)
+    diagnostics = _control_diagnostics(window, request)
+    raise AssertionError(
+        f"UIA_CONTROL_LOOKUP_FAILED {json.dumps(diagnostics, ensure_ascii=False, sort_keys=True)}"
+    ) from last_error
 
 
 def wait_for_text(window: Any, needle: str, timeout: float = 20.0) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        text = "\n".join(control.window_text() for control in window.descendants())
+        fresh = fresh_window(window)
+        text = "\n".join(control.window_text() for control in fresh.descendants())
         if needle in text:
             return
         time.sleep(0.2)
-    raise AssertionError(f"Timed out waiting for UI state: {needle}")
+    raise AssertionError(
+        "UIA_TEXT_LOOKUP_FAILED "
+        f"{json.dumps(_control_diagnostics(window, {'text': needle}), ensure_ascii=False, sort_keys=True)}"
+    )
 
 
 def edit(window: Any, title: str, value: str) -> None:
@@ -36,15 +206,17 @@ def edit(window: Any, title: str, value: str) -> None:
 
 
 def edit_id(window: Any, automation_id: str, value: str) -> None:
-    control = window.child_window(auto_id=automation_id, control_type="Edit").wait("ready", 8)
+    control = _control_or_fail(window, {"auto_id": automation_id, "control_type": "Edit"})
     control.set_edit_text(value)
 
 
 def find_editable(window: Any, accessible_name: str) -> Any:
     """Reacquire the native WebView2 Edit immediately before each write."""
-    control = window.child_window(title=accessible_name, control_type="Edit").wait("exists", 8)
+    control = _control_or_fail(window, {"title": accessible_name, "control_type": "Edit"}, "exists")
     control.set_focus()
-    return window.child_window(title=accessible_name, control_type="Edit").wait("ready", 8)
+    ready = _control_or_fail(window, {"title": accessible_name, "control_type": "Edit"})
+    ready.set_focus()
+    return ready
 
 
 def enter_editable(window: Any, accessible_name: str, value: str) -> None:
@@ -87,19 +259,22 @@ def click(window: Any, title: str, found_index: int | None = None) -> None:
     criteria: dict[str, Any] = {"title": title, "control_type": "Button"}
     if found_index is not None:
         criteria["found_index"] = found_index
-    control = window.child_window(**criteria).wait("exists", 8)
+    control = _control_or_fail(window, criteria, "exists")
     if not control.is_enabled():
         raise AssertionError(f"Native button is disabled: {title}")
     control.invoke()
 
 
-def select_id(window: Any, automation_id: str, index: int) -> None:
-    control = window.child_window(auto_id=automation_id, control_type="ComboBox").wait("ready", 8)
+def select_id(window: Any, automation_id: str, index: int, accessible_name: str | None = None) -> None:
+    request: dict[str, Any] = {"auto_id": automation_id, "control_type": "ComboBox"}
+    if accessible_name is not None:
+        request["fallback_title"] = accessible_name
+    control = _control_or_fail(window, request)
     control.expand()
     deadline = time.monotonic() + 8
     items: list[Any] = []
     while time.monotonic() < deadline:
-        items = window.descendants(control_type="ListItem")
+        items = fresh_window(window).descendants(control_type="ListItem")
         if len(items) > index:
             items[index].click_input()
             return
@@ -108,7 +283,7 @@ def select_id(window: Any, automation_id: str, index: int) -> None:
 
 
 def choose_radio(window: Any, title: str) -> None:
-    control = window.child_window(title=title, control_type="RadioButton").wait("ready", 8)
+    control = _control_or_fail(window, {"title": title, "control_type": "RadioButton"})
     control.select()
 
 
@@ -123,7 +298,8 @@ def assert_edit_values(window: Any, expected: dict[str, str]) -> None:
 
 def assert_absent_or_disabled(window: Any, title: str, control_type: str) -> None:
     """Accept an intentionally removed control, but reject an enabled write path."""
-    control = window.child_window(title=title, control_type=control_type)
+    request = {"title": title, "control_type": control_type}
+    control = fresh_window(window).child_window(**request)
     if not control.exists(timeout=1):
         return
     if control.is_enabled():
@@ -131,61 +307,67 @@ def assert_absent_or_disabled(window: Any, title: str, control_type: str) -> Non
 
 
 def _owned_pids(root_pid: int) -> set[int]:
-    root = psutil.Process(root_pid)
-    return {root_pid, *(process.pid for process in root.children(recursive=True))}
+    try:
+        root = psutil.Process(root_pid)
+        return {root_pid, *(process.pid for process in root.children(recursive=True))}
+    except psutil.Error:
+        return set()
+
+
+def acquire_owned_window(
+    root_pid: int, timeout: float = 20.0, preferred_hwnd: int | None = None
+) -> tuple[Any, dict[str, Any]]:
+    """Acquire exactly one visible titled top-level window owned by the process tree."""
+    desktop = Desktop(backend="uia")
+    diagnostics: dict[str, Any] = {
+        "root_pid": root_pid,
+        "preferred_hwnd": preferred_hwnd,
+        "titled_candidates": [],
+    }
+    if preferred_hwnd is not None:
+        preferred_state = native_window_state(preferred_hwnd, root_pid)
+        diagnostics["preferred_state"] = preferred_state
+        if preferred_state["is_window"] and preferred_state["owned"] and preferred_state["is_visible"]:
+            WINDOW_ROOT_PIDS[preferred_hwnd] = root_pid
+            diagnostics["chosen_strategy"] = "preferred_live_hwnd"
+            return desktop.window(handle=preferred_hwnd), diagnostics
+        if preferred_state["is_window"]:
+            raise AssertionError(f"UIA_WINDOW_ACQUISITION_FAILED {json.dumps(diagnostics, ensure_ascii=False, sort_keys=True)}")
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        candidates: list[dict[str, Any]] = []
+        for candidate in desktop.windows():
+            state = native_window_state(int(candidate.handle), root_pid)
+            if state["native_title"] == WINDOW_TITLE:
+                candidates.append(state)
+        diagnostics["owned_process_ids"] = sorted(_owned_pids(root_pid))
+        diagnostics["titled_candidates"] = candidates
+        owned = [candidate for candidate in candidates if candidate["owned"] and candidate["is_visible"]]
+        if len(owned) == 1:
+            hwnd = int(owned[0]["hwnd"])
+            WINDOW_ROOT_PIDS[hwnd] = root_pid
+            diagnostics["chosen_strategy"] = "owned_titled_candidate"
+            diagnostics["chosen_hwnd"] = hwnd
+            return desktop.window(handle=hwnd), diagnostics
+        if len(owned) > 1:
+            diagnostics["chosen_strategy"] = "ambiguous_owned_candidates"
+            raise AssertionError(f"UIA_WINDOW_ACQUISITION_FAILED {json.dumps(diagnostics, ensure_ascii=False, sort_keys=True)}")
+        time.sleep(0.2)
+    diagnostics["chosen_strategy"] = "timed_out_without_owned_candidate"
+    raise AssertionError(f"UIA_WINDOW_ACQUISITION_FAILED {json.dumps(diagnostics, ensure_ascii=False, sort_keys=True)}")
 
 
 def refresh_window(window: Any, root_pid: int) -> tuple[Any, dict[str, Any]]:
     """Refresh a replaced WebView2 accessibility subtree through its stable HWND."""
-    wrapper = window.wrapper_object()
-    hwnd = int(wrapper.handle)
-    markers = ("Сессия завершена", "АНАЛИТИКА СЕССИИ", "ИСТОРИЯ МОИХ СЛЕДУЮЩИХ ШАГОВ")
-    text = "\n".join(control.window_text() for control in window.descendants())
-    owned_pids = _owned_pids(root_pid)
-    desktop = Desktop(backend="uia")
-    diagnostics: dict[str, Any] = {
-        "old_hwnd": hwnd,
-        "old_process_id": wrapper.element_info.process_id,
-        "old_title": wrapper.window_text(),
-        "old_visible": wrapper.is_visible(),
-        "old_enabled": wrapper.is_enabled(),
-        "old_descendants_available": bool(window.descendants()),
-        "old_markers": {marker: marker in text for marker in markers},
-        "owned_process_ids": sorted(owned_pids),
-    }
-    hwnd_survives = bool(ctypes.windll.user32.IsWindow(hwnd))
-    diagnostics["hwnd_survives"] = hwnd_survives
-    if hwnd_survives:
-        refreshed = desktop.window(handle=hwnd)
-        refreshed.wait("visible", timeout=8)
-        diagnostics["refresh_strategy"] = "existing_hwnd"
-        diagnostics["new_process_id"] = refreshed.wrapper_object().element_info.process_id
-        return refreshed, diagnostics
-    candidates = []
-    for candidate in desktop.windows():
-        if candidate.window_text() == WINDOW_TITLE:
-            candidates.append(
-                {
-                    "hwnd": int(candidate.handle),
-                    "process_id": candidate.element_info.process_id,
-                    "visible": candidate.is_visible(),
-                }
-            )
-    diagnostics["titled_candidates"] = candidates
-    owned = [
-        candidate
-        for candidate in candidates
-        if candidate["process_id"] in owned_pids and candidate["visible"]
-    ]
-    if len(owned) != 1:
-        raise AssertionError(
-            f"UIA_WINDOW_LIFECYCLE_FAILED {json.dumps(diagnostics, sort_keys=True)}"
-        )
-    refreshed = desktop.window(handle=owned[0]["hwnd"])
-    refreshed.wait("visible", timeout=8)
-    diagnostics["refresh_strategy"] = "owned_title_fallback"
-    diagnostics["new_process_id"] = refreshed.wrapper_object().element_info.process_id
-    return refreshed, diagnostics
+    hwnd = _window_hwnd(window)
+    state = native_window_state(hwnd, root_pid)
+    if state["is_window"]:
+        if not state["owned"] or not state["is_visible"]:
+            raise AssertionError(f"UIA_WINDOW_LIFECYCLE_FAILED {json.dumps(state, ensure_ascii=False, sort_keys=True)}")
+        WINDOW_ROOT_PIDS[hwnd] = root_pid
+        return Desktop(backend="uia").window(handle=hwnd), {"chosen_strategy": "preferred_live_hwnd", "native_state": state}
+    return acquire_owned_window(root_pid)
 
 
 def process_evidence(root_pid: int) -> dict[str, Any]:
@@ -267,12 +449,12 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
     canary = "V3A0-UIA-RESTART-CANARY"
     first = _launch(executable, app_data)
     try:
-        window = Desktop(backend="uia").window(process=first.pid, title=WINDOW_TITLE)
-        window.wait("visible", timeout=20)
+        window, _ = acquire_owned_window(first.pid)
         wait_for_text(window, "Локальный секрет сессии")
         edit_id(window, "unlock-secret", SECRET_CANARY)
         click(window, "Разблокировать локально")
         wait_for_text(window, "МОИ СЕССИИ")
+        window, _ = refresh_window(window, first.pid)
         edit(window, "Название", title)
         click(window, "Новая сессия")
         wait_for_text(window, "Добавить в сессию")
@@ -323,12 +505,12 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
 
     second = _launch(executable, app_data)
     try:
-        window = Desktop(backend="uia").window(process=second.pid, title=WINDOW_TITLE)
-        window.wait("visible", timeout=20)
+        window, _ = acquire_owned_window(second.pid)
         wait_for_text(window, "Локальный секрет сессии")
         edit_id(window, "unlock-secret", SECRET_CANARY)
         click(window, "Разблокировать локально")
         wait_for_text(window, title)
+        window, _ = refresh_window(window, second.pid)
         click(window, "Открыть")
         wait_for_text(window, canary)
         wait_for_text(window, "SYNTHETIC-V3A1-CORRECTION")
@@ -358,7 +540,7 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         assert_absent_or_disabled(window, "Сохранить отметку", "Button")
         click(window, "Удалить сессию")
         wait_for_text(window, "МОИ СЕССИИ")
-        if title in "\n".join(control.window_text() for control in window.descendants()):
+        if title in "\n".join(control.window_text() for control in fresh_window(window).descendants()):
             raise AssertionError("Deleted session remains in list")
         return {
             "first_pid": first.pid,
@@ -371,19 +553,198 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         terminate_tree(second)
 
 
+def _create_v3bc_session(
+    window: Any,
+    title: str,
+    only_canary: str,
+    formulation_canary: str,
+    *,
+    with_action: bool,
+) -> None:
+    """Create one complete synthetic longitudinal source through native UIA."""
+    recurrence = "V3BC-EXACT-RECURRENCE"
+    edit(window, "Название", title)
+    click(window, "Новая сессия")
+    wait_for_text(window, "Добавить в сессию")
+    enter_editable(window, "Ваш текст", recurrence)
+    click(window, "Добавить в сессию")
+    wait_for_text(window, recurrence)
+    wait_for_text(window, "Следующий вопрос")
+    # The guided answer becomes a separately sourced KNOWN context record, so
+    # comparison can honestly distinguish it from the shared first turn.
+    enter_editable(window, "Ответ на следующий вопрос", only_canary)
+    click(window, "Ответить на следующий вопрос")
+    wait_for_text(window, only_canary)
+    click(window, "Составить рабочую формулировку")
+    wait_for_text(window, "Рабочее предложение, не диагноз")
+    enter_editable(window, "Исправление формулировки", formulation_canary)
+    click(window, "Исправить")
+    wait_for_text(window, formulation_canary)
+    click(window, "Принять как рабочую", found_index=0)
+    wait_for_text(window, "CURRENT")
+    for marker in ("АНАЛИТИКА СЕССИИ", "ИТОГ СЕССИИ"):
+        wait_for_text(window, marker)
+    if not with_action:
+        return
+    enter_editable(window, "Моя цель", "V3BC-GOAL-A")
+    select_id(window, "action-anchor", 1)
+    choose_radio(window, "Ничего не предпринимать сейчас и оставить вопрос открытым.")
+    enter_editable(window, "Текст следующего шага", "V3BC-ACTION-A")
+    click(window, "Сохранить мой следующий шаг")
+    wait_for_text(window, "V3BC-ACTION-A")
+    enter_editable(window, "Ваш комментарий о результате", "V3BC-OUTCOME-A")
+    click(window, "Сохранить отметку")
+    wait_for_text(window, "V3BC-OUTCOME-A")
+
+
+def _assert_v3bc_workspace(window: Any, *, after_restart: bool) -> None:
+    """Assert the read-only projection and its real UIA comparison controls."""
+    required = (
+        "ДИНАМИКА ПО СЕССИЯМ",
+        "V3BC-SESSION-A",
+        "V3BC-SESSION-B",
+        "1. Обзор записей",
+        "Сессий с guided exploration: 2",
+        "V3BC-EXACT-RECURRENCE",
+        "Одинаковая запись встречалась в 2 сессиях.",
+        "2. История рабочих формулировок",
+        "V3BC-FORMULATION-A",
+        "V3BC-FORMULATION-B",
+        "4. Рабочие альтернативы по сессиям",
+        "SUPPORT (",
+        "V3BC-EXACT-RECURRENCE",
+        "5. Неизвестное и противоречия",
+        "Неизвестное: Пока неизвестно, в каких ситуациях это заметнее или слабее.",
+        "Состояние относится к записи внутри конкретной сессии.",
+        "Открыто",
+        "6. Мои следующие шаги и отметки",
+        "V3BC-GOAL-A",
+        "V3BC-ACTION-A",
+        "V3BC-OUTCOME-A",
+        "Отметка «Сделано» говорит только о выполнении шага, а не о его пользе или эффективности.",
+        "7. Сравнить две сессии",
+        "8. Хронология записанных событий продукта",
+    )
+    for marker in required:
+        wait_for_text(window, marker)
+    visible = "\n".join(control.window_text() for control in fresh_window(window).descendants())
+    # A repeated UNKNOWN is an open question in each recorded session, not
+    # negative evidence, resolution, persistence, or a contradiction.  This
+    # deterministic flow creates none of the latter, so its contradiction
+    # portion is honestly empty while UNKNOWN history remains populated.
+    if "Противоречие:" in visible:
+        raise AssertionError("Synthetic V3-B/C flow unexpectedly rendered a contradiction record")
+    # Only-A/B are context records, not recurrence groups: neither may acquire
+    # a false two-session recurrence presentation.
+    for canary in ("V3BC-ONLY-A", "V3BC-ONLY-B"):
+        if f"{canary} · user_report · Одинаковая запись" in visible:
+            raise AssertionError(f"Single-session canary was falsely presented as recurrence: {canary}")
+    # The workspace itself exposes selectors/navigation only; all source writes
+    # are absent while the projection is shown.  The global new-session form is
+    # intentionally outside this read-only surface and is not treated as one.
+    for title, control_type in (
+        ("Добавить в сессию", "Button"),
+        ("Завершить сессию", "Button"),
+        ("Удалить сессию", "Button"),
+        ("Исправить", "Button"),
+        ("Принять как рабочую", "Button"),
+        ("Сохранить мой следующий шаг", "Button"),
+        ("Сохранить отметку", "Button"),
+    ):
+        control = fresh_window(window).child_window(title=title, control_type=control_type)
+        if control.exists(timeout=1):
+            raise AssertionError(f"Longitudinal workspace exposes a mutation control: {title}")
+    # UIA ComboBox/ListItem interaction, never renderer state injection.
+    select_id(window, "longitudinal-session-a", 0, "Сессия A")
+    select_id(window, "longitudinal-session-b", 1, "Сессия B")
+    for marker in (
+        "Общие точные записи: V3BC-EXACT-RECURRENCE",
+        "Только в A: V3BC-ONLY-A",
+        "Только в B: V3BC-ONLY-B",
+        "Не записано в этой сессии",
+        "V3BC-FORMULATION-A",
+        "V3BC-FORMULATION-B",
+        "CURRENT A:",
+        "Гипотеза",
+        "Действие A:",
+    ):
+        wait_for_text(window, marker)
+    if after_restart:
+        wait_for_text(window, "V3BC-SESSION-A")
+
+
+def v3bc_longitudinal_proof(executable: Path, app_data: Path) -> dict[str, Any]:
+    """Prove V3-B/C derives an honest two-session view after a full restart."""
+    first = _launch(executable, app_data)
+    try:
+        window, _ = acquire_owned_window(first.pid)
+        wait_for_text(window, "Локальный секрет сессии")
+        edit_id(window, "unlock-secret", SECRET_CANARY)
+        click(window, "Разблокировать локально")
+        wait_for_text(window, "МОИ СЕССИИ")
+        window, _ = refresh_window(window, first.pid)
+        _create_v3bc_session(window, "V3BC-SESSION-A", "V3BC-ONLY-A", "V3BC-FORMULATION-A", with_action=True)
+        click(window, "Завершить сессию")
+        wait_for_text(window, "Сессия завершена")
+        window, closed_lifecycle = refresh_window(window, first.pid)
+        wait_for_text(window, "V3BC-SESSION-A")
+        click(window, "Назад к сессиям")
+        _control_or_fail(window, {"title": "Открыть", "control_type": "Button"}, "exists")
+        _create_v3bc_session(window, "V3BC-SESSION-B", "V3BC-ONLY-B", "V3BC-FORMULATION-B", with_action=False)
+        click(window, "Назад к сессиям")
+        _control_or_fail(window, {"title": "Открыть", "control_type": "Button"}, "exists")
+        transition_before = _longitudinal_surface_diagnostics(window, first.pid)
+        click(window, "ДИНАМИКА ПО СЕССИЯМ")
+        transition = wait_for_longitudinal_transition(window, first.pid, transition_before)
+        window, _ = refresh_window(window, first.pid)
+        _assert_v3bc_workspace(window, after_restart=False)
+        runtime = process_evidence(first.pid)
+    finally:
+        terminate_tree(first)
+    if psutil.pid_exists(first.pid):
+        raise AssertionError("First V3-B/C desktop process survived restart boundary")
+
+    second = _launch(executable, app_data)
+    try:
+        window, _ = acquire_owned_window(second.pid)
+        wait_for_text(window, "Локальный секрет сессии")
+        edit_id(window, "unlock-secret", SECRET_CANARY)
+        click(window, "Разблокировать локально")
+        wait_for_text(window, "ДИНАМИКА ПО СЕССИЯМ")
+        window, _ = refresh_window(window, second.pid)
+        _control_or_fail(window, {"title": "Открыть", "control_type": "Button"}, "exists")
+        transition_before = _longitudinal_surface_diagnostics(window, second.pid)
+        click(window, "ДИНАМИКА ПО СЕССИЯМ")
+        restart_transition = wait_for_longitudinal_transition(window, second.pid, transition_before)
+        window, _ = refresh_window(window, second.pid)
+        _assert_v3bc_workspace(window, after_restart=True)
+        return {
+            **runtime,
+            "v3bc_first_pid": first.pid,
+            "v3bc_second_pid": second.pid,
+            "v3bc_closed_session_lifecycle": closed_lifecycle,
+            "v3bc_transition": transition,
+            "v3bc_restart_transition": restart_transition,
+            "v3bc_restart_rebuild": True,
+            "v3bc_two_session_comparison": True,
+        }
+    finally:
+        terminate_tree(second)
+
+
 def run(executable: Path, app_data: Path) -> dict[str, Any]:
     if not executable.is_file():
         raise SystemExit(f"Desktop executable does not exist: {executable}")
     process = _launch(executable, app_data)
     try:
-        window = Desktop(backend="uia").window(process=process.pid, title=WINDOW_TITLE)
-        window.wait("visible", timeout=20)
+        window, _ = acquire_owned_window(process.pid)
         wait_for_text(window, "Локальный секрет сессии")
 
         edit_id(window, "unlock-secret", SECRET_CANARY)
         click(window, "Разблокировать локально")
         wait_for_text(window, "Ваш локальный центр управления")
-        visible_text = "\n".join(control.window_text() for control in window.descendants())
+        window, _ = refresh_window(window, process.pid)
+        visible_text = "\n".join(control.window_text() for control in fresh_window(window).descendants())
         if SECRET_CANARY in visible_text:
             raise AssertionError("Unlock secret leaked into the native accessibility surface")
         for required in (
@@ -402,8 +763,7 @@ def run(executable: Path, app_data: Path) -> dict[str, Any]:
             window,
             "Исправление применено к этой синтетической сессии; предыдущая версия сессии сохранена.",
         )
-        if len(Desktop(backend="uia").windows(process=process.pid, title=WINDOW_TITLE)) != 1:
-            raise AssertionError("Untrusted markup changed the native window surface")
+        acquire_owned_window(process.pid)
 
         click(window, "Предпросмотр области удаления")
         wait_for_text(window, "Это только пробный запуск удаления; ничего не удалено.")
@@ -438,8 +798,8 @@ def run(executable: Path, app_data: Path) -> dict[str, Any]:
 
         # E03-T1..T7: only fixed fictional operations are available.  Exercise
         # the canonical sequence through the packaged Rust/Python boundary.
-        window.set_focus()
-        window.type_keys("{END}")
+        fresh_window(window).set_focus()
+        fresh_window(window).type_keys("{END}")
         time.sleep(0.5)
         for label in (
             "Зафиксировать отчёт о лампе",
@@ -498,12 +858,19 @@ def run(executable: Path, app_data: Path) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--executable", required=True, type=Path)
+    parser.add_argument("--scenario", choices=("all", "restart"), default="all")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="psyche-os-v3a0-uia-") as temporary:
         app_data = Path(temporary)
         restart = restart_persistence_proof(args.executable.resolve(), app_data)
+        if args.scenario == "restart":
+            print(json.dumps(restart, indent=2, sort_keys=True))
+            print("V3A0_NATIVE_RESTART_PERSISTENCE: PASS")
+            return 0
+        longitudinal = v3bc_longitudinal_proof(args.executable.resolve(), app_data)
         evidence = run(args.executable.resolve(), app_data)
         evidence.update(restart)
+        evidence.update(longitudinal)
     print(json.dumps(evidence, indent=2, sort_keys=True))
     print("E02_NATIVE_DESKTOP_UIA: PASS")
     print("E03_NATIVE_DESKTOP_UIA: PASS")
@@ -514,6 +881,7 @@ def main() -> int:
     print("V3A1_NATIVE_RESTART_PERSISTENCE: PASS")
     print("V3A2_NATIVE_ANALYTICAL_WORKSPACE: PASS")
     print("V3A3_NATIVE_SYNTHESIS_ACTION_WORKSPACE: PASS")
+    print("V3BC_NATIVE_LONGITUDINAL_WORKSPACE: PASS")
     return 0
 
 
