@@ -48,6 +48,10 @@ fn main() {
         "desktop_formulation_correct",
         "desktop_formulation_accept",
         "desktop_formulation_reject",
+        "desktop_action_options",
+        "desktop_action_list",
+        "desktop_action_create",
+        "desktop_action_record_outcome",
     ];
     let attributes = tauri_build::Attributes::new()
         .app_manifest(tauri_build::AppManifest::new().commands(COMMANDS));

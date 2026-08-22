@@ -15,6 +15,11 @@ export interface ExplorationHypothesis { hypothesis_id: string; proposal_text: s
 export interface ExplorationSnapshot { snapshot_id: string; version: number; method_version?: string; created_at?: string; }
 export interface ExplorationFormulation { formulation_id: string; version: number; parent_formulation_id?: string | null; snapshot_id?: string; status: "PROPOSED" | "CURRENT" | "REJECTED" | "SUPERSEDED"; summary: string; correction_text: string | null; method_version?: string; created_at?: string; updated_at?: string; }
 export interface ExplorationView { context: ExplorationContextItem[]; hypotheses: ExplorationHypothesis[]; next_question: { question_id: string; text: string; dimension?: string; status?: string; snapshot_id?: string } | null; snapshots: ExplorationSnapshot[]; formulations: ExplorationFormulation[]; }
+export type ActionAnchorType = "UNKNOWN" | "CONTRADICTION" | "FORMULATION" | null;
+export type ActionOutcomeStatus = "DONE" | "NOT_DONE" | "CANCELLED" | "UNKNOWN";
+export interface ActionOption { template_id: "PAUSE" | "OBSERVE_ONE_EXAMPLE" | "CLARIFY_ONE_UNKNOWN" | "FORMULATE_HUMAN_QUESTION"; template_version: string; text: string; }
+export interface ActionOutcome { outcome_id: string; status: ActionOutcomeStatus; note_text: string | null; created_at: string; }
+export interface ActionPlan { plan_id: string; session_id: string; version: number; supersedes_plan_id: string | null; status: "CURRENT" | "SUPERSEDED" | "CLOSED"; basis_snapshot_id: string | null; basis_formulation_id: string | null; anchor_type: ActionAnchorType; anchor_id: string | null; user_goal: string; template_id: ActionOption["template_id"]; template_version: string; action_text: string; method_version: string; created_at: string; updated_at: string; outcome: ActionOutcome | null; }
 
 let sessionToken: string | null = null;
 
@@ -71,6 +76,10 @@ export const desktopApi = {
   formulationCorrect: (formulationId: string, correctionText: string): Promise<Record<string, unknown>> => call("desktop_formulation_correct", { formulationId, correctionText }),
   formulationAccept: (formulationId: string): Promise<Record<string, unknown>> => call("desktop_formulation_accept", { formulationId }),
   formulationReject: (formulationId: string): Promise<Record<string, unknown>> => call("desktop_formulation_reject", { formulationId })
+  ,actionOptions: (sessionId: string, anchorType: ActionAnchorType, anchorId: string | null): Promise<{ session_id: string; anchor_type: ActionAnchorType; anchor_id: string | null; options: ActionOption[] }> => call("desktop_action_options", { sessionId, anchorType, anchorId })
+  ,actionList: (sessionId: string): Promise<{ session_id: string; plans: ActionPlan[] }> => call("desktop_action_list", { sessionId })
+  ,actionCreate: (input: { sessionId: string; userGoal: string; templateId: ActionOption["template_id"]; actionText: string; anchorType: ActionAnchorType; anchorId: string | null }): Promise<ActionPlan> => call("desktop_action_create", input)
+  ,actionRecordOutcome: (planId: string, status: ActionOutcomeStatus, noteText: string | null): Promise<ActionOutcome> => call("desktop_action_record_outcome", { planId, status, noteText })
 };
 
 export type DesktopApi = typeof desktopApi;

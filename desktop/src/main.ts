@@ -1,5 +1,6 @@
-import { desktopApi, type DesktopApi, type ExplorationView, type ReflectionSessionView, type StatusView } from "./api";
+import { desktopApi, type ActionAnchorType, type ActionOption, type DesktopApi, type ExplorationView, type ReflectionSessionView, type StatusView } from "./api";
 import { buildAnalyticalWorkspace, presentDimension, presentFormulationStatus, presentUnknownState } from "./analytical-workspace";
+import { buildSessionSynthesis } from "./synthesis-action-workspace";
 import { presentKey, presentValue, t, type TranslationKey } from "./i18n";
 
 type Data = Record<string, unknown>;
@@ -108,6 +109,80 @@ function renderAnalyticalWorkspace(session: ReflectionSessionView, exploration: 
   else { const list = el("ol"); for (const event of view.timeline) list.append(el("li", `${event.at} · ${event.label} · ${event.detail}`)); timeline.append(list); }
   return workspace;
 }
+
+async function renderSynthesisActionWorkspace(api: DesktopApi, session: ReflectionSessionView, exploration: ExplorationView, refresh: () => Promise<void>): Promise<HTMLElement> {
+  const workspace = el("section");
+  workspace.className = "synthesis-action-workspace";
+  const synthesis = buildSessionSynthesis(session, exploration);
+  workspace.append(el("h3", "ИТОГ СЕССИИ"), el("p", "Итог — это производное представление сохранённых данных сессии, а не новый факт, диагноз или окончательный вывод."));
+  const summarySection = (heading: string, values: string[], empty: string): void => {
+    workspace.append(el("h4", heading));
+    if (!values.length) workspace.append(el("p", empty));
+    else { const list = el("ul"); list.append(...values.map((value) => el("li", value))); workspace.append(list); }
+  };
+  summarySection("Что вы сообщили", synthesis.known, "Сохранённых сообщённых элементов пока нет.");
+  summarySection("Текущая рабочая формулировка", synthesis.current_formulation ? [synthesis.current_formulation] : [], "Текущая рабочая формулировка ещё не принята.");
+  summarySection("Что изменилось", [synthesis.changed], "");
+  summarySection("Что остаётся неизвестным", synthesis.unresolved, "Неразрешённых неизвестных пока не зафиксировано.");
+  summarySection("Противоречия / разные ответы", synthesis.contradictions, "Зафиксированных противоречий пока нет.");
+  summarySection("Рабочие альтернативы", synthesis.alternatives, "Рабочие альтернативы пока не зафиксированы.");
+
+  const history = await api.actionList(session.session_id);
+  const historySection = el("section"); historySection.append(el("h4", "ИСТОРИЯ МОИХ СЛЕДУЮЩИХ ШАГОВ"));
+  if (!history.plans.length) historySection.append(el("p", "Сохранённых шагов пока нет."));
+  for (const plan of history.plans) {
+    const item = el("article"); item.className = "action-plan";
+    item.append(el("strong", `Версия ${plan.version} · ${plan.status}`), el("p", `Ваша цель: ${plan.user_goal}`), el("p", `Вы выбрали: ${plan.template_id}`), el("p", plan.action_text), el("small", `Основание: снимок ${plan.basis_snapshot_id ?? "не сохранён"}; формулировка ${plan.basis_formulation_id ?? "не выбрана"}; ориентир ${plan.anchor_id ?? "не выбран"}.`));
+    if (plan.outcome) item.append(el("p", `Ваша отметка: ${presentOutcome(plan.outcome.status)}${plan.outcome.note_text ? ` · ${plan.outcome.note_text}` : ""}`));
+    historySection.append(item);
+  }
+  workspace.append(historySection);
+  if (session.state === "CLOSED") return workspace;
+
+  const form = el("section"); form.className = "action-draft";
+  form.append(el("h4", "МОЯ ЦЕЛЬ"), el("p", "Эти варианты — не лечение и не медицинская рекомендация. Можно выбрать паузу или изменить текст шага."));
+  const goal = el("textarea"); goal.id = "action-goal"; goal.setAttribute("aria-label", "Моя цель"); goal.maxLength = 12000; goal.rows = 3;
+  const anchorLabel = el("label", "НА ЧТО ОПЕРЕТЬСЯ"); anchorLabel.htmlFor = "action-anchor";
+  const anchor = el("select"); anchor.id = "action-anchor";
+  const addAnchor = (label: string, type: ActionAnchorType, id: string | null): void => { const option = el("option", label); option.value = JSON.stringify({ type, id }); anchor.append(option); };
+  addAnchor("Не выбирать ориентир", null, null);
+  for (const item of exploration.context.filter((item) => item.kind === "UNKNOWN" && item.state !== "RESOLVED")) addAnchor(`Открытый вопрос: ${item.text}`, "UNKNOWN", item.context_item_id);
+  for (const item of exploration.context.filter((item) => item.kind === "CONTRADICTION")) addAnchor(`Разные ответы: ${item.text}`, "CONTRADICTION", item.context_item_id);
+  const current = exploration.formulations.find((item) => item.status === "CURRENT");
+  if (current) addAnchor("Текущая рабочая формулировка", "FORMULATION", current.formulation_id);
+  const options = el("fieldset"); options.append(el("legend", "ВАРИАНТЫ СЛЕДУЮЩЕГО ШАГА"));
+  const actionText = el("textarea"); actionText.id = "action-text"; actionText.setAttribute("aria-label", "Текст следующего шага"); actionText.maxLength = 12000; actionText.rows = 4;
+  let selected: ActionOption | null = null;
+  const renderOptions = async (): Promise<void> => {
+    const selection = JSON.parse(anchor.value) as { type: ActionAnchorType; id: string | null };
+    const response = await api.actionOptions(session.session_id, selection.type, selection.id);
+    options.replaceChildren(el("legend", "ВАРИАНТЫ СЛЕДУЮЩЕГО ШАГА")); selected = null;
+    for (const option of response.options) {
+      const label = el("label"); const input = el("input"); input.type = "radio"; input.name = "action-template"; input.value = option.template_id;
+      input.addEventListener("change", () => { selected = option; actionText.value = option.text; }); label.append(input, document.createTextNode(` ${option.text}`)); options.append(label);
+    }
+  };
+  anchor.addEventListener("change", () => void renderOptions().catch(() => undefined));
+  await renderOptions();
+  const save = button("Сохранить мой следующий шаг", async () => {
+    if (!selected) { safeError(workspace, "INVALID_TEMPLATE"); return; }
+    const selection = JSON.parse(anchor.value) as { type: ActionAnchorType; id: string | null };
+    await api.actionCreate({ sessionId: session.session_id, userGoal: goal.value, templateId: selected.template_id, actionText: actionText.value, anchorType: selection.type, anchorId: selection.id });
+    await refresh();
+  }, "primary");
+  form.append(goal, anchorLabel, anchor, options, actionText, save); workspace.append(form);
+  for (const plan of history.plans.filter((item) => item.status === "CURRENT")) {
+    const outcome = el("section"); outcome.append(el("h4", "КАК ЗАКОНЧИЛОСЬ?"));
+    const status = el("select"); status.id = `outcome-${plan.plan_id}`;
+    const outcomeOptions: Array<[string, string]> = [["DONE", "Сделано"], ["NOT_DONE", "Не сделано"], ["CANCELLED", "Отменено"], ["UNKNOWN", "Пока не знаю"]];
+    for (const [value, label] of outcomeOptions) { const option = el("option", label); option.value = value; status.append(option); }
+    const note = el("textarea"); note.setAttribute("aria-label", "Ваш комментарий о результате"); note.maxLength = 12000; note.rows = 2;
+    outcome.append(status, note, button("Сохранить отметку", async () => { await api.actionRecordOutcome(plan.plan_id, status.value as "DONE" | "NOT_DONE" | "CANCELLED" | "UNKNOWN", note.value || null); await refresh(); })); workspace.append(outcome);
+  }
+  return workspace;
+}
+
+function presentOutcome(status: string): string { return ({ DONE: "Сделано", NOT_DONE: "Не сделано", CANCELLED: "Отменено", UNKNOWN: "Пока не знаю" } as Record<string, string>)[status] ?? status; }
 
 export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   const root = document.querySelector<HTMLDivElement>("#app");
@@ -237,6 +312,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
           exploration.append(item);
         }
         exploration.append(renderAnalyticalWorkspace(current, state));
+        exploration.append(await renderSynthesisActionWorkspace(api, current, state, async () => showSession(current.session_id)));
       };
       const label = el("label", "Ваш текст"); label.htmlFor = "reflection-turn";
       const content = el("textarea"); content.id = "reflection-turn"; content.name = "reflection-turn"; content.setAttribute("aria-label", "Ваш текст"); content.maxLength = 12000; content.rows = 5; content.required = true; content.disabled = current.state === "CLOSED";

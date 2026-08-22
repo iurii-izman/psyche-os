@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ExplorationView, ReflectionSessionView } from "../src/api";
 import { buildAnalyticalWorkspace, formulationDiff } from "../src/analytical-workspace";
+import { buildSessionSynthesis } from "../src/synthesis-action-workspace";
 
 const session: ReflectionSessionView = {
   session_id: "session-1", title: "Синтетическая сессия", state: "CLOSED", retention: "ENCRYPTED_LOCAL", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:03:00Z", closed_at: "2026-01-01T00:03:00Z", turn_count: 2,
@@ -59,5 +60,18 @@ describe("V3-A2 analytical projection", () => {
       ["2026-01-01T00:00:02Z", "turn", "turn-2"],
       ["2026-01-01T00:00:03Z", "formulation", "formulation-2"]
     ]);
+  });
+});
+
+describe("V3-A3 session synthesis projection", () => {
+  it("is deterministic and keeps current, unknown, skipped, contradiction, and alternatives distinct", () => {
+    const first = buildSessionSynthesis(session, exploration);
+    const second = buildSessionSynthesis(session, exploration);
+    expect(first).toEqual(second);
+    expect(first.current_formulation).toBe("Основа\nУбрано");
+    expect(first.unresolved).toEqual(["Открытый вопрос · OPEN", "Ответ пропущен · SKIPPED"]);
+    expect(first.contradictions).toEqual(["Разные синтетические ответы"]);
+    expect(first.alternatives[0]).toContain("Не установленный факт");
+    expect(JSON.stringify(first).toLowerCase()).not.toMatch(/диагноз|причин|поможет/);
   });
 });

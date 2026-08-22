@@ -49,7 +49,11 @@ function mockApi(locked = false): DesktopApi {
     formulationPropose: vi.fn(async () => ({})),
     formulationCorrect: vi.fn(async () => ({})),
     formulationAccept: vi.fn(async () => ({})),
-    formulationReject: vi.fn(async () => ({}))
+    formulationReject: vi.fn(async () => ({})),
+    actionOptions: vi.fn(async () => ({ session_id: "reflection-1", anchor_type: null, anchor_id: null, options: [{ template_id: "PAUSE" as const, template_version: "v1", text: "Ничего не предпринимать сейчас и оставить вопрос открытым." }] })),
+    actionList: vi.fn(async () => ({ session_id: "reflection-1", plans: [] })),
+    actionCreate: vi.fn(async () => ({ plan_id: "plan-1", session_id: "reflection-1", version: 1, supersedes_plan_id: null, status: "CURRENT" as const, basis_snapshot_id: null, basis_formulation_id: null, anchor_type: null, anchor_id: null, user_goal: "Цель", template_id: "PAUSE" as const, template_version: "v1", action_text: "Пауза", method_version: "v1", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", outcome: null })),
+    actionRecordOutcome: vi.fn(async () => ({ outcome_id: "outcome-1", status: "DONE" as const, note_text: null, created_at: "2026-01-01T00:00:00Z" }))
   };
 }
 

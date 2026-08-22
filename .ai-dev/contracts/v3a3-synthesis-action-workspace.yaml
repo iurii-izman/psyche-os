@@ -1,0 +1,91 @@
+task_id: V3-A3
+base_sha: 130e8075b505f4d8411f8fb6de079265467c6574
+
+profile: quality
+risk: high
+
+goal:
+  - Add deterministic session synthesis and a user-authored, safe orientation action workspace.
+  - Persist action-plan history and user-reported outcomes with additive V9 migration semantics.
+
+non_goals:
+  - No clinical guidance, intervention engine, efficacy claim, ranking, network, provider, or runtime LLM.
+  - No modification of accepted V1-V8 migrations, crypto/key handling, privacy boundary, or REAL_DATA_GATE.
+  - Do not merge the V3-A3 candidate.
+
+authority:
+  - CONSTITUTION.md (C-01, C-02, C-08, C-09, C-10, C-16, C-19)
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md (sections 14.4, 15.2, 19.2, 20)
+  - docs/architecture/MENTAL_HEALTH_AI_SAFETY.md (sections 2-3)
+  - User Task Contract: V3-A3 Synthesis + Action Workspace
+
+expected_scope:
+  - .ai-dev/contracts/v3a3-synthesis-action-workspace.yaml
+  - src/psyche_os/application
+  - src/psyche_os/domain
+  - src/psyche_os/storage
+  - desktop/src
+  - desktop/src-tauri/src/lib.rs
+  - desktop/src-tauri/build.rs
+  - desktop/src-tauri/capabilities/main-local.json
+  - desktop/tests
+  - tests/unit
+  - tests/integration
+  - scripts/dev/test_e02_desktop.py
+
+protected_scope:
+  - .ai-dev/policy/**
+  - .ai-dev/verification/**
+  - docs/development/STATE.yaml
+  - CONSTITUTION.md
+
+acceptance:
+  - Deterministic synthesis preserves uncertainty and contradictions without producing new claims.
+  - Safe closed template registry, user-authored goal and editable draft create immutable versioned plans.
+  - Additive V9 preserves V8, supports cascade deletion, and records outcomes without asserting efficacy.
+  - Typed local IPC and Russian desktop UX support create, history, restart persistence, outcome, and closed-session read-only behavior.
+  - Targeted, desktop, Rust, native, and final high-risk verification pass.
+
+verification:
+  - uv run ruff format --check src/psyche_os/application src/psyche_os/domain src/psyche_os/storage tests/unit tests/integration
+  - uv run ruff check src/psyche_os/application src/psyche_os/domain src/psyche_os/storage tests/unit tests/integration
+  - uv run pytest tests/unit tests/integration -q
+  - npm --prefix desktop run typecheck
+  - npm --prefix desktop run lint
+  - npm --prefix desktop run test:unit
+  - npm --prefix desktop run build
+  - npm --prefix desktop run sidecar:build
+  - cargo check / clippy / test in desktop/src-tauri
+  - npm --prefix desktop run tauri -- build --debug
+  - npm --prefix desktop run test:desktop
+  - uv run pytest -q
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run python scripts/validate_research_foundation.py
+
+permissions:
+  inspect: true
+  edit_expected_scope: true
+  migrations: additive_v9_only
+  tauri_ipc: bounded_action_commands_only
+  targeted_tests: true
+  bounded_repairs: true
+  final_verification: true
+  commit: true
+  push: true
+  open_normal_pr: true
+  merge_a3: false
+  destructive_migration: false
+  network: false
+  provider: false
+  crypto_key_changes: false
+  dependencies: false
+  protected_scope: false
+
+routing:
+  initial: strong
+  max_grounded_retry: 1
+  escalation: strong
+
+assumptions:
+  - A3_BASE_SHA is the merge commit 130e8075b505f4d8411f8fb6de079265467c6574.
+  - All fixtures and native acceptance data remain synthetic.
