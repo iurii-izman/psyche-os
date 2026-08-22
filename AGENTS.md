@@ -54,6 +54,14 @@ A deterministic, vendor-neutral control plane around the coding harness lives in
   control-plane-change).
 - **Verification**: real commands in `.ai-dev/verification/commands.yaml`; gate ladder
   in `gates.yaml`. Targeted inner loop; final risk gate once.
+- **Delivery priority**: optimize for accepted Psyche OS user-facing progress with the
+  minimum sufficient, risk-proportionate evidence. Harnesses, agents, evaluators, and
+  verification infrastructure support the product; improve them only for a required
+  gate, a material invariant, or a repeated material bottleneck with justified payoff.
+- **Proof classification**: keep repository-required gates, contract-required proof,
+  and supplemental evidence distinct. A supplemental/oracle failure is neither a
+  product PASS nor an automatic product FAIL; classify it, preserve evidence, and do
+  not let feature-local verifier repair become an unbounded blocker.
 - **Context**: `rg` → `ast-grep` → exact ranges (`.ai-dev/context-broker.md`).
 - **Routing / stop**: `.ai-dev/routing/routing.yaml`. Stop or escalate on repeated
   deterministic failure, authority conflict, missing approval, environment breakage,

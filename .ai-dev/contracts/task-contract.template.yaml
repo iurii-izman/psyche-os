@@ -28,8 +28,40 @@ protected_scope:
 acceptance:
   - <observable criteria that prove the task is done>
 
-verification:
-  - <ruff / mypy / targeted pytest / final gate — from .ai-dev/verification/commands.yaml>
+# Keep these categories distinct. Tiny tasks may omit empty optional sections, but a
+# non-trivial task must not turn convenience evidence into an unstated acceptance gate.
+repository_required_gates:
+  - <policy-owned command/gate from .ai-dev/verification; cannot be silently waived>
+
+contract_required_proof: []
+# Each additional proof must name its risk, why repository gates are insufficient,
+# trusted oracle, failure meaning, and stop/escalation condition.
+# - risk: <named product/security risk>
+#   insufficiency_of_repository_gates: <why policy gates alone do not prove it>
+#   oracle: <trusted test/runtime/review evidence path>
+#   failure_meaning: <what a failure establishes or does not establish>
+#   stop_or_escalation: <bounded next action>
+
+supplemental_evidence: []
+# Diagnostics, smoke, exploratory evidence, or convenience checks. Failure does not
+# automatically fail the product; it must be classified under oracle_failure_policy.
+
+proof_recovery_budget:
+  max_feature_local_repair_loops: 1
+  # More work requires an explicit, risk-based reason; it cannot be spent merely to
+  # obtain a decorative PASS marker.
+
+oracle_failure_policy:
+  classify_as: product_defect|test_defect|oracle_defect|environment_defect|tool_harness_defect
+  # Required proof cannot be silently relabelled supplemental after failure. An
+  # independent reviewer/orchestrator may explicitly invalidate a non-load-bearing
+  # oracle and select sufficient already-trusted alternate evidence.
+  low_medium: <stop verifier expansion when policy gates and sufficient trusted product evidence pass; record bounded residual>
+  high_critical: <missing load-bearing runtime/security evidence remains blocking>
+
+stop_conditions:
+  - <product-risk stop/escalation condition>
+  - <verifier rabbit-hole stop condition when relevant>
 
 permissions:
   network: false

@@ -1,0 +1,61 @@
+decision_id: AI-DEV-001
+title: Product-first delivery alignment
+date: 2026-08-23
+status: candidate_for_review
+authority:
+  - CONSTITUTION.md
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md
+  - docs/development/STATE.yaml
+  - docs/development/EPIC_MAP.md
+scope:
+  - AGENTS.md
+  - .ai-dev
+reason: >-
+  After the accepted secure-foundation and lifecycle epics, current main directs a
+  bounded R0 runtime and Russian UX workflow while REAL_DATA_GATE remains CLOSED.
+  The control plane already requires targeted, risk-proportionate verification and a
+  final gate once, but it does not clearly distinguish required proof from
+  supplemental evidence or bound unreliable verifier work for normal product slices.
+audit:
+  keep:
+    - authority-first development and protected-path approval
+    - synthetic-only data, NEVER_CLOUD, and REAL_DATA_GATE=CLOSED
+    - targeted inner loops, risk-proportionate final gates, and HIGH/CRITICAL review
+    - anti-reward-hacking and no silent verifier weakening
+  clarify:
+    - product delivery is the optimization target; control-plane tooling is supporting infrastructure
+    - repository-required gates, contract-required proof, and supplemental evidence have different authority
+    - oracle/infrastructure failure requires classification, not an automatic product verdict
+    - repeated non-discriminating verifier failure stops feature-local repair
+  unchanged:
+    - canonical verification commands and final gate definitions
+    - security, privacy, crypto, storage, permissions, network, and real-data policy
+decision:
+  - Add product-first delivery guidance without changing mandatory gates.
+  - Require non-trivial contracts to classify evidence and bound recovery.
+  - Permit an explicit independent classification of a non-load-bearing invalid oracle,
+    never an implementer-side silent waiver or relabelling after failure.
+  - Keep missing load-bearing HIGH/CRITICAL runtime or security evidence blocking.
+affected_invariants:
+  - C-01
+  - C-02
+  - C-10
+  - C-11
+  - C-13
+  - C-15
+  - C-20
+safety_review:
+  does_not_permit:
+    - deleting, skipping, xfail-ing, or weakening tests/assertions for green
+    - disabling scanners or repository-required gates
+    - treating infrastructure failure as product PASS
+    - bypassing security/privacy evidence for HIGH/CRITICAL changes
+    - admitting real data, changing REAL_DATA_GATE, or silently changing acceptance
+    - bypassing protected-path approval or silently changing provider/model fallback
+rollback: >-
+  Revert this decision's aligned guidance as one atomic change. No application data,
+  runtime behavior, verification command, or safety boundary is changed.
+review_trigger:
+  - A proposed use would waive a repository-required gate.
+  - A HIGH/CRITICAL change lacks load-bearing runtime or security evidence.
+  - Verifier debt becomes a repeated material bottleneck across product slices.

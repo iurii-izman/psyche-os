@@ -18,6 +18,8 @@ verification:
   last_command: <command>
   result: pass|fail|timeout
   last_verified_diff_hash: <hash of last verified state>
+  failure_classification: product_defect|test_defect|oracle_defect|environment_defect|tool_harness_defect|not_applicable
+  proof_status: repository_gate|contract_required|supplemental|not_applicable
 
 current_hypothesis: <current working hypothesis>
 unresolved:
