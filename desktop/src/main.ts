@@ -2,6 +2,7 @@ import { desktopApi, type ActionAnchorType, type ActionOption, type DesktopApi, 
 import { buildAnalyticalWorkspace, presentDimension, presentFormulationStatus, presentUnknownState } from "./analytical-workspace";
 import { buildSessionSynthesis } from "./synthesis-action-workspace";
 import { buildLongitudinalWorkspace, compareSessions, type LongitudinalSessionBundle } from "./longitudinal-workspace";
+import { buildReturnWorkspace, type ReturnCandidate, type ReturnCandidateCategory } from "./return-workspace";
 import { presentKey, presentValue, t, type TranslationKey } from "./i18n";
 
 type Data = Record<string, unknown>;
@@ -209,6 +210,29 @@ function renderLongitudinalWorkspace(bundles: LongitudinalSessionBundle[]): HTML
   listSection(root, "8. Хронология записанных событий продукта", view.timeline.map((event) => `${event.at} · ${event.type} · ${event.detail}`), "Записанных событий продукта пока нет."); root.append(el("p", "Это хронология записей внутри продукта, а не восстановленная хронология жизни.")); return root;
 }
 
+function renderReturnWorkspace(bundles: LongitudinalSessionBundle[], choose: (candidate: ReturnCandidate) => Promise<void>): HTMLElement {
+  const view = buildReturnWorkspace(bundles);
+  const root = el("section"); root.className = "return-workspace";
+  root.append(el("h2", "К ЧЕМУ ВЕРНУТЬСЯ"), el("p", "Здесь показаны только ранее сохранённые записи. Вы сами решаете, открывать ли что-либо и когда."));
+  const labels: Record<ReturnCandidateCategory, string> = { OPEN_UNKNOWN: "Открытые вопросы и пропущенное", CURRENT_FORMULATION: "Рабочие формулировки", CURRENT_ACTION: "Мои следующие шаги", OUTCOME: "Мои отметки", SESSION: "Предыдущие сессии" };
+  const provenance = (candidate: ReturnCandidate): string => candidate.provenance === "DERIVED" ? "Записано ранее · производное представление" : candidate.provenance === "USER_AUTHORED" ? "Записано ранее · ваш текст / ваша отметка" : "Записано ранее";
+  for (const category of ["OPEN_UNKNOWN", "CURRENT_FORMULATION", "CURRENT_ACTION", "OUTCOME", "SESSION"] as ReturnCandidateCategory[]) {
+    const section = el("section"); section.append(el("h3", labels[category]));
+    const values = view.by_category[category];
+    if (!values.length) section.append(el("p", "Таких сохранённых записей пока нет."));
+    for (const candidate of values) {
+      const item = el("article"); item.className = "return-candidate";
+      item.append(el("p", candidate.text), el("small", `${provenance(candidate)} · сессия: ${candidate.session_title} · ${candidate.recorded_at} · состояние: ${candidate.state}`));
+      if (candidate.source_anchors.length) item.append(el("small", `Источник: ${candidate.source_anchors.join(", ")}`));
+      item.append(button("Вернуться к этой записи", async () => choose(candidate), "secondary"));
+      section.append(item);
+    }
+    root.append(section);
+  }
+  root.append(el("p", "«Открыто» и «пропущено» описывают состояние записи; они не означают срочность. Отсутствие новой записи не означает разрешение. «Сделано» не означает эффективность."));
+  return root;
+}
+
 export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   const root = document.querySelector<HTMLDivElement>("#app");
   if (!root) throw new Error("APP_ROOT_MISSING");
@@ -377,12 +401,26 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
       sessionBody.replaceChildren(renderLongitudinalWorkspace(bundles), button("Назад к сессиям", showList));
     } catch (error) { safeError(operationStatus, error); }
   };
+  const showReturn = async (): Promise<void> => {
+    const viewEpoch = ++sessionViewEpoch;
+    try {
+      const listed = await api.reflectionList();
+      if (viewEpoch !== sessionViewEpoch) return;
+      const bundles = await Promise.all(listed.sessions.map(async (listedSession): Promise<LongitudinalSessionBundle> => {
+        const session = await api.reflectionGet(listedSession.session_id);
+        const [exploration, actionHistory] = await Promise.all([api.explorationGet(session.session_id), api.actionList(session.session_id)]);
+        return { session, exploration, plans: actionHistory.plans };
+      }));
+      if (viewEpoch !== sessionViewEpoch) return;
+      sessionBody.replaceChildren(renderReturnWorkspace(bundles, async (candidate) => showSession(candidate.session_id)), button("Назад к сессиям", showList));
+    } catch (error) { safeError(operationStatus, error); }
+  };
   const createForm = el("form");
   const [sessionTitleLabel, sessionTitle] = field("Название", "reflection-title"); sessionTitle.maxLength = 160; sessionTitle.required = true;
   const create = el("button", "Новая сессия"); create.type = "submit"; create.className = "primary";
   createForm.append(sessionTitleLabel, sessionTitle, create);
   createForm.addEventListener("submit", (event) => { event.preventDefault(); void api.reflectionCreate(sessionTitle.value).then((created) => showSession(created.session_id)).catch((error: unknown) => safeError(operationStatus, error)); });
-  sessions.append(button("ДИНАМИКА ПО СЕССИЯМ", showLongitudinal, "primary"), createForm, sessionBody);
+  sessions.append(button("К ЧЕМУ ВЕРНУТЬСЯ", showReturn, "primary"), button("ДИНАМИКА ПО СЕССИЯМ", showLongitudinal), createForm, sessionBody);
 
   const grid = el("div");
   grid.className = "grid";
