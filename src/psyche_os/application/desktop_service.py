@@ -365,7 +365,7 @@ class DesktopApplicationService:
         return self._reflection_call(self._guided_exploration.correct_formulation, payload["formulation_id"], payload["correction_text"])
     def _exploration_formulation_accept(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"formulation_id"})
-        return self._reflection_call(self._guided_exploration.set_formulation_status, payload["formulation_id"], "ACCEPTED")
+        return self._reflection_call(self._guided_exploration.set_formulation_status, payload["formulation_id"], "CURRENT")
     def _exploration_formulation_reject(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"formulation_id"})
         return self._reflection_call(self._guided_exploration.set_formulation_status, payload["formulation_id"], "REJECTED")

@@ -44,7 +44,7 @@ protected_scope:
   - .ai-dev/verification/**
 
 acceptance:
-  - V7 is additive, encrypted through the V3-A0 SQLCipher workspace, and migrates V1 through V7.
+  - V7 is the frozen initial Guided Exploration schema; V8 is the additive, encrypted final semantic compatibility migration and migrates V1 through V8.
   - User turns remain the only answer transcript and report context item provenance is exact.
   - The reference planner is deterministic, neutral, non-diagnostic, provider-free, and proposes at most three questions.
   - Hypotheses preserve separate support, counterevidence, and unknown references.

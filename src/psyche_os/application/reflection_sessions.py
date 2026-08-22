@@ -73,7 +73,7 @@ class ReflectionSessionService:
             row = connection.execute("PRAGMA cipher_version").fetchone()
             if not row or not row[0]:
                 raise ReflectionSessionError("STORAGE_UNAVAILABLE")
-            report = Migrator(connection).apply(7)
+            report = Migrator(connection).apply(8)
             if not report.success:
                 raise ReflectionSessionError("STORAGE_UNAVAILABLE")
             return connection
