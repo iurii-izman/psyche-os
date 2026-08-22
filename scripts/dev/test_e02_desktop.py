@@ -273,6 +273,7 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         edit_id(window, "unlock-secret", SECRET_CANARY)
         click(window, "Разблокировать локально")
         wait_for_text(window, "МОИ СЕССИИ")
+        window, _ = refresh_window(window, first.pid)
         edit(window, "Название", title)
         click(window, "Новая сессия")
         wait_for_text(window, "Добавить в сессию")
@@ -329,6 +330,7 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         edit_id(window, "unlock-secret", SECRET_CANARY)
         click(window, "Разблокировать локально")
         wait_for_text(window, title)
+        window, _ = refresh_window(window, second.pid)
         click(window, "Открыть")
         wait_for_text(window, canary)
         wait_for_text(window, "SYNTHETIC-V3A1-CORRECTION")
@@ -371,6 +373,172 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         terminate_tree(second)
 
 
+def _create_v3bc_session(
+    window: Any,
+    title: str,
+    only_canary: str,
+    formulation_canary: str,
+    *,
+    with_action: bool,
+) -> None:
+    """Create one complete synthetic longitudinal source through native UIA."""
+    recurrence = "V3BC-EXACT-RECURRENCE"
+    edit(window, "Название", title)
+    click(window, "Новая сессия")
+    wait_for_text(window, "Добавить в сессию")
+    enter_editable(window, "Ваш текст", recurrence)
+    click(window, "Добавить в сессию")
+    wait_for_text(window, recurrence)
+    wait_for_text(window, "Следующий вопрос")
+    # The guided answer becomes a separately sourced KNOWN context record, so
+    # comparison can honestly distinguish it from the shared first turn.
+    enter_editable(window, "Ответ на следующий вопрос", only_canary)
+    click(window, "Ответить на следующий вопрос")
+    wait_for_text(window, only_canary)
+    click(window, "Составить рабочую формулировку")
+    wait_for_text(window, "Рабочее предложение, не диагноз")
+    enter_editable(window, "Исправление формулировки", formulation_canary)
+    click(window, "Исправить")
+    wait_for_text(window, formulation_canary)
+    click(window, "Принять как рабочую", found_index=0)
+    wait_for_text(window, "CURRENT")
+    for marker in ("АНАЛИТИКА СЕССИИ", "ИТОГ СЕССИИ"):
+        wait_for_text(window, marker)
+    if not with_action:
+        return
+    enter_editable(window, "Моя цель", "V3BC-GOAL-A")
+    select_id(window, "action-anchor", 1)
+    choose_radio(window, "Ничего не предпринимать сейчас и оставить вопрос открытым.")
+    enter_editable(window, "Текст следующего шага", "V3BC-ACTION-A")
+    click(window, "Сохранить мой следующий шаг")
+    wait_for_text(window, "V3BC-ACTION-A")
+    enter_editable(window, "Ваш комментарий о результате", "V3BC-OUTCOME-A")
+    click(window, "Сохранить отметку")
+    wait_for_text(window, "V3BC-OUTCOME-A")
+
+
+def _assert_v3bc_workspace(window: Any, *, after_restart: bool) -> None:
+    """Assert the read-only projection and its real UIA comparison controls."""
+    required = (
+        "ДИНАМИКА ПО СЕССИЯМ",
+        "V3BC-SESSION-A",
+        "V3BC-SESSION-B",
+        "1. Обзор записей",
+        "V3BC-EXACT-RECURRENCE",
+        "Одинаковая запись встречалась в 2 сессиях.",
+        "2. История рабочих формулировок",
+        "V3BC-FORMULATION-A",
+        "V3BC-FORMULATION-B",
+        "4. Рабочие альтернативы по сессиям",
+        "5. Неизвестное и противоречия",
+        "Неизвестное: Пока неизвестно, в каких ситуациях это заметнее или слабее. · одинаковый текст в 2 сессиях",
+        "Группировка выполнена по одинаковому тексту записи; это не означает, что это один и тот же факт во времени.",
+        "6. Мои следующие шаги и отметки",
+        "V3BC-ACTION-A",
+        "V3BC-OUTCOME-A",
+        "Отметка «Сделано» говорит только о выполнении шага, а не о его пользе или эффективности.",
+        "7. Сравнить две сессии",
+        "8. Хронология записанных событий продукта",
+    )
+    for marker in required:
+        wait_for_text(window, marker)
+    visible = "\n".join(control.window_text() for control in window.descendants())
+    # A repeated UNKNOWN is an open question in each recorded session, not
+    # negative evidence, resolution, persistence, or a contradiction.  This
+    # deterministic flow creates none of the latter, so its contradiction
+    # portion is honestly empty while UNKNOWN history remains populated.
+    if "Противоречие:" in visible:
+        raise AssertionError("Synthetic V3-B/C flow unexpectedly rendered a contradiction record")
+    # Only-A/B are context records, not recurrence groups: neither may acquire
+    # a false two-session recurrence presentation.
+    for canary in ("V3BC-ONLY-A", "V3BC-ONLY-B"):
+        if f"{canary} · user_report · Одинаковая запись" in visible:
+            raise AssertionError(f"Single-session canary was falsely presented as recurrence: {canary}")
+    # The workspace itself exposes selectors/navigation only; all source writes
+    # are absent while the projection is shown.  The global new-session form is
+    # intentionally outside this read-only surface and is not treated as one.
+    for title, control_type in (
+        ("Добавить в сессию", "Button"),
+        ("Завершить сессию", "Button"),
+        ("Удалить сессию", "Button"),
+        ("Исправить", "Button"),
+        ("Принять как рабочую", "Button"),
+        ("Сохранить мой следующий шаг", "Button"),
+        ("Сохранить отметку", "Button"),
+    ):
+        control = window.child_window(title=title, control_type=control_type)
+        if control.exists(timeout=1):
+            raise AssertionError(f"Longitudinal workspace exposes a mutation control: {title}")
+    # UIA ComboBox/ListItem interaction, never renderer state injection.
+    select_id(window, "longitudinal-session-a", 0)
+    select_id(window, "longitudinal-session-b", 1)
+    for marker in (
+        "Общие точные записи: V3BC-EXACT-RECURRENCE",
+        "Только в A: V3BC-ONLY-A",
+        "Только в B: V3BC-ONLY-B",
+        "Не записано в этой сессии",
+        "V3BC-FORMULATION-A",
+        "V3BC-FORMULATION-B",
+    ):
+        wait_for_text(window, marker)
+    if after_restart:
+        wait_for_text(window, "V3BC-SESSION-A")
+
+
+def v3bc_longitudinal_proof(executable: Path, app_data: Path) -> dict[str, Any]:
+    """Prove V3-B/C derives an honest two-session view after a full restart."""
+    first = _launch(executable, app_data)
+    try:
+        window = Desktop(backend="uia").window(process=first.pid, title=WINDOW_TITLE)
+        window.wait("visible", timeout=20)
+        wait_for_text(window, "Локальный секрет сессии")
+        edit_id(window, "unlock-secret", SECRET_CANARY)
+        click(window, "Разблокировать локально")
+        wait_for_text(window, "МОИ СЕССИИ")
+        window, _ = refresh_window(window, first.pid)
+        _create_v3bc_session(window, "V3BC-SESSION-A", "V3BC-ONLY-A", "V3BC-FORMULATION-A", with_action=True)
+        click(window, "Завершить сессию")
+        wait_for_text(window, "Сессия завершена")
+        window, closed_lifecycle = refresh_window(window, first.pid)
+        wait_for_text(window, "V3BC-SESSION-A")
+        click(window, "Назад к сессиям")
+        wait_for_text(window, "МОИ СЕССИИ")
+        _create_v3bc_session(window, "V3BC-SESSION-B", "V3BC-ONLY-B", "V3BC-FORMULATION-B", with_action=False)
+        click(window, "Назад к сессиям")
+        wait_for_text(window, "ДИНАМИКА ПО СЕССИЯМ")
+        click(window, "ДИНАМИКА ПО СЕССИЯМ")
+        window, _ = refresh_window(window, first.pid)
+        _assert_v3bc_workspace(window, after_restart=False)
+        runtime = process_evidence(first.pid)
+    finally:
+        terminate_tree(first)
+    if psutil.pid_exists(first.pid):
+        raise AssertionError("First V3-B/C desktop process survived restart boundary")
+
+    second = _launch(executable, app_data)
+    try:
+        window = Desktop(backend="uia").window(process=second.pid, title=WINDOW_TITLE)
+        window.wait("visible", timeout=20)
+        wait_for_text(window, "Локальный секрет сессии")
+        edit_id(window, "unlock-secret", SECRET_CANARY)
+        click(window, "Разблокировать локально")
+        wait_for_text(window, "ДИНАМИКА ПО СЕССИЯМ")
+        window, _ = refresh_window(window, second.pid)
+        click(window, "ДИНАМИКА ПО СЕССИЯМ")
+        window, _ = refresh_window(window, second.pid)
+        _assert_v3bc_workspace(window, after_restart=True)
+        return {
+            **runtime,
+            "v3bc_first_pid": first.pid,
+            "v3bc_second_pid": second.pid,
+            "v3bc_closed_session_lifecycle": closed_lifecycle,
+            "v3bc_restart_rebuild": True,
+            "v3bc_two_session_comparison": True,
+        }
+    finally:
+        terminate_tree(second)
+
+
 def run(executable: Path, app_data: Path) -> dict[str, Any]:
     if not executable.is_file():
         raise SystemExit(f"Desktop executable does not exist: {executable}")
@@ -383,6 +551,7 @@ def run(executable: Path, app_data: Path) -> dict[str, Any]:
         edit_id(window, "unlock-secret", SECRET_CANARY)
         click(window, "Разблокировать локально")
         wait_for_text(window, "Ваш локальный центр управления")
+        window, _ = refresh_window(window, process.pid)
         visible_text = "\n".join(control.window_text() for control in window.descendants())
         if SECRET_CANARY in visible_text:
             raise AssertionError("Unlock secret leaked into the native accessibility surface")
@@ -502,8 +671,10 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="psyche-os-v3a0-uia-") as temporary:
         app_data = Path(temporary)
         restart = restart_persistence_proof(args.executable.resolve(), app_data)
+        longitudinal = v3bc_longitudinal_proof(args.executable.resolve(), app_data)
         evidence = run(args.executable.resolve(), app_data)
         evidence.update(restart)
+        evidence.update(longitudinal)
     print(json.dumps(evidence, indent=2, sort_keys=True))
     print("E02_NATIVE_DESKTOP_UIA: PASS")
     print("E03_NATIVE_DESKTOP_UIA: PASS")
@@ -514,6 +685,7 @@ def main() -> int:
     print("V3A1_NATIVE_RESTART_PERSISTENCE: PASS")
     print("V3A2_NATIVE_ANALYTICAL_WORKSPACE: PASS")
     print("V3A3_NATIVE_SYNTHESIS_ACTION_WORKSPACE: PASS")
+    print("V3BC_NATIVE_LONGITUDINAL_WORKSPACE: PASS")
     return 0
 
 

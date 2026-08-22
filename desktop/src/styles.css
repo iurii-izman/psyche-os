@@ -55,6 +55,10 @@ hr { border: 0; border-top: 1px solid #e0e4dd; margin: 1.2rem 0; }
 .analytical-workspace h3, .analytical-workspace h4, .analytical-workspace h5 { margin: 0 0 .5rem; }
 .analytical-workspace p, .analytical-workspace small { display: block; margin: .35rem 0; overflow-wrap: anywhere; }
 .analytical-workspace ul, .analytical-workspace ol { margin: .45rem 0; padding-left: 1.3rem; }
+.longitudinal-workspace { display: grid; gap: .85rem; margin-top: 1.2rem; border-top: 2px solid #164f3c; padding-top: 1.2rem; }
+.longitudinal-workspace > section, .longitudinal-workspace > ul { background: #fafbf8; border: 1px solid #d9ded6; border-radius: 10px; padding: .9rem; margin: 0; }
+.longitudinal-workspace p, .longitudinal-workspace li { overflow-wrap: anywhere; }
+.comparison { display: grid; gap: .55rem; }
 
 @media (max-width: 800px) {
   .grid { grid-template-columns: 1fr; }

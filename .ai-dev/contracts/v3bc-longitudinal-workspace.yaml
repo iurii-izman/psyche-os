@@ -1,0 +1,51 @@
+task_id: V3-BC-LONGITUDINAL-WORKSPACE
+base_sha: 688a670646ee3cf9e6b2c13eb1697c3a47b33861
+profile: balanced
+risk: medium
+goal:
+  - Provide a deterministic, read-only longitudinal workspace over accepted reflection, exploration, and action records.
+non_goals:
+  - No migrations, storage writes, IPC/capability changes, dependencies, network, provider, scoring, or semantic inference.
+authority:
+  - CONSTITUTION.md C-20
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md sections 11 and 25
+  - docs/DECISION_LOG.md ADR-013 ADR-020 ADR-022
+  - docs/architecture/REAL_DATA_GATE.yaml
+expected_scope:
+  - desktop/src/api.ts
+  - desktop/src/main.ts
+  - desktop/src/longitudinal-workspace.ts
+  - desktop/src/styles.css
+  - desktop/tests/longitudinal-workspace.test.ts
+  - desktop/tests/ui.test.ts
+  - scripts/dev/test_e02_desktop.py
+  - .ai-dev/contracts/v3bc-longitudinal-workspace.yaml
+protected_scope:
+  - CONSTITUTION.md
+  - .ai-dev/policy/**
+  - .ai-dev/verification/**
+  - docs/development/STATE.yaml
+acceptance:
+  - Projection rebuilds deterministically from existing read APIs and never writes canonical state.
+  - Russian UI presents coverage, exact recurrence, trajectories, unknowns, contradictions, action/outcome history, comparison, and product timeline.
+  - CLOSED source sessions remain visible and no deleted-source cache exists.
+verification:
+  - npm --prefix desktop run typecheck
+  - npm --prefix desktop run lint
+  - npm --prefix desktop run test:unit
+  - npm --prefix desktop run build
+  - uv run pytest -q
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run python scripts/validate_research_foundation.py
+permissions:
+  network: false
+  dependencies: false
+  migrations: false
+  destructive: false
+recovery_budget: 2
+stop_conditions:
+  - Need for schema, migration, privileged IPC, network/provider, protected path, or a semantic requirement unavailable from persisted read data.
+routing:
+  initial: cheap
+  max_grounded_retry: 1
+  escalation: strong

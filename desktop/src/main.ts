@@ -1,6 +1,7 @@
 import { desktopApi, type ActionAnchorType, type ActionOption, type DesktopApi, type ExplorationView, type ReflectionSessionView, type StatusView } from "./api";
 import { buildAnalyticalWorkspace, presentDimension, presentFormulationStatus, presentUnknownState } from "./analytical-workspace";
 import { buildSessionSynthesis } from "./synthesis-action-workspace";
+import { buildLongitudinalWorkspace, compareSessions, type LongitudinalSessionBundle } from "./longitudinal-workspace";
 import { presentKey, presentValue, t, type TranslationKey } from "./i18n";
 
 type Data = Record<string, unknown>;
@@ -184,6 +185,27 @@ async function renderSynthesisActionWorkspace(api: DesktopApi, session: Reflecti
 
 function presentOutcome(status: string): string { return ({ DONE: "Сделано", NOT_DONE: "Не сделано", CANCELLED: "Отменено", UNKNOWN: "Пока не знаю" } as Record<string, string>)[status] ?? status; }
 
+function listSection(root: HTMLElement, heading: string, values: string[], empty: string): void { root.append(el("h3", heading)); if (!values.length) root.append(el("p", empty)); else { const list = el("ul"); list.append(...values.map((value) => el("li", value))); root.append(list); } }
+function renderLongitudinalWorkspace(bundles: LongitudinalSessionBundle[]): HTMLElement {
+  const view = buildLongitudinalWorkspace(bundles); const root = el("section"); root.className = "longitudinal-workspace";
+  root.append(el("h2", "ДИНАМИКА ПО СЕССИЯМ"), el("p", "Это объём сохранённых записей, а не оценка состояния или прогресса."));
+  listSection(root, "1. Обзор записей", [`Сессий: ${view.coverage.sessions}`, `Сессий с guided exploration: ${view.coverage.guided}`, `Сессий с CURRENT formulation: ${view.coverage.current}`, `Сохранённых следующих шагов: ${view.coverage.plans}`, `Пользовательских отметок о результате: ${view.coverage.outcomes}`], "Сессий пока нет.");
+  listSection(root, "2. История рабочих формулировок", view.formulations.map((entry) => `${entry.session.title} · ${entry.session.created_at} · версия ${entry.formulation.version}: ${entry.formulation.summary}${entry.diff ? " · Текстовые отличия от предыдущей записанной формулировки" : ""}`), "CURRENT рабочих формулировок пока нет.");
+  listSection(root, "3. Что повторялось в записях", view.recurrences.map((group) => `${group.text} · ${group.dimension} · Одинаковая запись встречалась в ${group.session_count} сессиях. (${group.sessions.map((s) => s.title).join(", ")})`), "Одинаковых записей в двух разных сессиях пока нет.");
+  root.append(el("p", "Разные формулировки не объединяются: это только точное совпадение kind, dimension и текста."));
+  listSection(root, "4. Рабочие альтернативы по сессиям", view.hypotheses.flatMap((group) => group.entries.map((entry) => `${group.template_id} · ${entry.session.title}: ${entry.hypothesis.proposal_text} · Неопределённость: ${entry.hypothesis.uncertainty_text} · SUPPORT: ${entry.refs.SUPPORT.length}; COUNTEREVIDENCE: ${entry.refs.COUNTEREVIDENCE.length}; UNKNOWN: ${entry.refs.UNKNOWN.length}`)), "Рабочие альтернативы с устойчивым template_id пока не зафиксированы.");
+  root.append(el("p", "Частота появления рабочей альтернативы не означает её истинность."));
+  listSection(root, "5. Неизвестное и противоречия", [...view.unknowns.map((group) => `Неизвестное: ${group.text} · одинаковый текст в ${group.session_count} сессиях`), ...view.contradictions.map((group) => `Противоречие: ${group.text} · одинаковая запись о противоречии встречалась в ${group.session_count} сессиях`)], "Повторяющихся неизвестных или противоречий пока нет.");
+  root.append(el("p", "Группировка выполнена по одинаковому тексту записи; это не означает, что это один и тот же факт во времени."));
+  listSection(root, "6. Мои следующие шаги и отметки", view.plans.map((plan) => [plan.session_id, `${plan.template_id} ${plan.template_version}`, plan.action_text, plan.outcome ? `Ваша отметка: ${presentOutcome(plan.outcome.status)}${plan.outcome.note_text ? ` · ${plan.outcome.note_text}` : ""}` : "Отметки пока нет"].join(" · ")), "Сохранённых следующих шагов пока нет.");
+  root.append(el("p", "Отметка «Сделано» говорит только о выполнении шага, а не о его пользе или эффективности."));
+  const comparison = el("section"); comparison.className = "comparison"; comparison.append(el("h3", "7. Сравнить две сессии")); const a = el("select"), b = el("select"), result = el("div"); a.id = "longitudinal-session-a"; b.id = "longitudinal-session-b";
+  for (const bundle of view.sessions) for (const select of [a, b]) { const option = el("option", `${bundle.session.title} · ${bundle.session.created_at}`); option.value = bundle.session.session_id; select.append(option); }
+  const show = (): void => { const left = view.sessions.find((x) => x.session.session_id === a.value), right = view.sessions.find((x) => x.session.session_id === b.value); if (!left || !right) return; const diff = compareSessions(left, right); const difference = diff.formulation_diff ? `добавлено ${diff.formulation_diff.added_lines.join("; ") || "нет"}; убрано ${diff.formulation_diff.removed_lines.join("; ") || "нет"}` : "нет двух CURRENT формулировок"; result.replaceChildren(el("p", `Общие точные записи: ${diff.common.map((x) => x.text).join(", ") || "нет"}`), el("p", `Только в A: ${diff.only_a.map((x) => x.text).join(", ") || "нет"}`), el("p", `Только в B: ${diff.only_b.map((x) => x.text).join(", ") || "нет"}`), el("p", "Отсутствующая строка: «Не записано в этой сессии»."), el("p", `Текстовые отличия формулировок: ${difference}`)); };
+  a.setAttribute("aria-label", "Сессия A"); b.setAttribute("aria-label", "Сессия B"); a.addEventListener("change", show); b.addEventListener("change", show); const aLabel = el("label", "Сессия A"), bLabel = el("label", "Сессия B"); aLabel.htmlFor = a.id; bLabel.htmlFor = b.id; comparison.append(aLabel, a, bLabel, b, result); root.append(comparison); show();
+  listSection(root, "8. Хронология записанных событий продукта", view.timeline.map((event) => `${event.at} · ${event.type} · ${event.detail}`), "Записанных событий продукта пока нет."); root.append(el("p", "Это хронология записей внутри продукта, а не восстановленная хронология жизни.")); return root;
+}
+
 export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   const root = document.querySelector<HTMLDivElement>("#app");
   if (!root) throw new Error("APP_ROOT_MISSING");
@@ -334,12 +356,23 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
       }
     } catch (error) { safeError(operationStatus, error); }
   };
+  const showLongitudinal = async (): Promise<void> => {
+    try {
+      const listed = await api.reflectionList();
+      const bundles = await Promise.all(listed.sessions.map(async (listedSession): Promise<LongitudinalSessionBundle> => {
+        const session = await api.reflectionGet(listedSession.session_id);
+        const [exploration, actionHistory] = await Promise.all([api.explorationGet(session.session_id), api.actionList(session.session_id)]);
+        return { session, exploration, plans: actionHistory.plans };
+      }));
+      sessionBody.replaceChildren(renderLongitudinalWorkspace(bundles), button("Назад к сессиям", showList));
+    } catch (error) { safeError(operationStatus, error); }
+  };
   const createForm = el("form");
   const [sessionTitleLabel, sessionTitle] = field("Название", "reflection-title"); sessionTitle.maxLength = 160; sessionTitle.required = true;
   const create = el("button", "Новая сессия"); create.type = "submit"; create.className = "primary";
   createForm.append(sessionTitleLabel, sessionTitle, create);
   createForm.addEventListener("submit", (event) => { event.preventDefault(); void api.reflectionCreate(sessionTitle.value).then((created) => showSession(created.session_id)).catch((error: unknown) => safeError(operationStatus, error)); });
-  sessions.append(createForm, sessionBody);
+  sessions.append(button("ДИНАМИКА ПО СЕССИЯМ", showLongitudinal, "primary"), createForm, sessionBody);
 
   const grid = el("div");
   grid.className = "grid";

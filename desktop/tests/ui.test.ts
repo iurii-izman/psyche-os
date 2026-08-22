@@ -115,6 +115,16 @@ describe("E02 bounded desktop UI", () => {
     expect(turn.maxLength).toBe(12000);
   });
 
+  it("V3-B/C opens the global read-only longitudinal workspace for two synthetic sessions", async () => {
+    const api = mockApi(false);
+    const sessions = ["a", "b"].map((id, index) => ({ session_id: id, title: `Сессия ${id}`, state: index ? "ACTIVE" as const : "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: `2026-01-0${index + 1}T00:00:00Z`, updated_at: `2026-01-0${index + 1}T00:00:00Z`, closed_at: index ? null : "2026-01-01T00:00:00Z", turn_count: 1, turns: [{ turn_id: `turn-${id}`, session_id: id, sequence: 1, actor: "USER" as const, created_at: `2026-01-0${index + 1}T00:00:00Z`, content: "синтетический" }] }));
+    vi.mocked(api.reflectionList).mockResolvedValue({ sessions }); vi.mocked(api.reflectionGet).mockImplementation(async (id) => sessions.find((item) => item.session_id === id)!);
+    vi.mocked(api.explorationGet).mockImplementation(async (id) => ({ context: [{ context_item_id: `known-${id}`, dimension: "context", kind: "KNOWN", text: "Точная запись", state: "RECORDED", source_turn_ids: [`turn-${id}`], created_at: "2026-01-01T00:00:00Z" }, { context_item_id: `unknown-${id}`, dimension: "context", kind: "UNKNOWN", text: "Открытый вопрос", state: "OPEN", source_turn_ids: [], created_at: "2026-01-01T00:00:00Z" }, { context_item_id: `contradiction-${id}`, dimension: "context", kind: "CONTRADICTION", text: "Разные ответы", state: "OPEN", source_turn_ids: [], created_at: "2026-01-01T00:00:00Z" }], hypotheses: [{ hypothesis_id: `h-${id}`, template_id: "contextual", proposal_text: "Вариант", uncertainty_text: "Неизвестно", discriminator_text: "Уточнить", context_refs: [] }], next_question: null, snapshots: [], formulations: [{ formulation_id: `f-${id}`, version: 1, status: "CURRENT", summary: `Формулировка ${id}`, correction_text: null, created_at: "2026-01-01T00:00:00Z" }] }));
+    vi.mocked(api.actionList).mockResolvedValue({ session_id: "a", plans: [] }); await mount(api); await click(byText("ДИНАМИКА ПО СЕССИЯМ"));
+    const workspace = document.querySelector<HTMLElement>(".longitudinal-workspace")!; for (const text of ["Обзор записей", "История рабочих формулировок", "Что повторялось в записях", "Рабочие альтернативы", "Неизвестное и противоречия", "Мои следующие шаги и отметки", "Сравнить две сессии", "Хронология записанных событий продукта", "Точная запись"]) expect(workspace.textContent).toContain(text);
+    expect(workspace.querySelector("button, textarea")).toBeNull(); expect(workspace.querySelectorAll("select")).toHaveLength(2);
+  });
+
   it("T3 renders malicious synthetic markup as inert text", async () => {
     const api = mockApi(false);
     const canary = '<img src=x onerror="window.__pwned=1"><script>bad()</script>';
