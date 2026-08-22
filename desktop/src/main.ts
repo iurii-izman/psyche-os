@@ -146,6 +146,34 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
       for (const turn of current.turns ?? []) {
         const item = el("article"); item.className = "session-turn"; item.append(el("strong", "Ваш текст"), el("p", turn.content)); sessionBody.append(item);
       }
+      const exploration = el("section"); exploration.className = "guided-exploration";
+      const renderExploration = async (): Promise<void> => {
+        exploration.replaceChildren();
+        if ((current.turns ?? []).length === 0) return;
+        const state = current.state === "CLOSED" ? await api.explorationGet(current.session_id) : await api.explorationStart(current.session_id);
+        const block = (heading: string, values: string[]): void => { const section = el("div"); section.append(el("h4", heading), ...values.map((value) => el("p", value))); exploration.append(section); };
+        block("Что уже известно", state.context.filter((item) => item.kind === "KNOWN").map((item) => `${item.text} · источник: ваш ответ`));
+        block("Что пока неизвестно", state.context.filter((item) => item.kind === "UNKNOWN" && item.state !== "RESOLVED").map((item) => item.text));
+        const contradictions = state.context.filter((item) => item.kind === "CONTRADICTION").map((item) => item.text);
+        block("Противоречия / контрпримеры", contradictions.length ? contradictions : ["Сейчас противоречия не установлены."]);
+        block("Рабочие гипотезы", state.hypotheses.map((item) => `${item.proposal_text} Неопределённость: ${item.uncertainty_text}`));
+        if (state.next_question) {
+          const answer = el("textarea"); answer.id = "guided-answer"; answer.setAttribute("aria-label", "Ответ на следующий вопрос"); answer.maxLength = 12000; answer.rows = 3; answer.disabled = current.state === "CLOSED";
+          const ask = button("Ответить на следующий вопрос", async () => { await api.explorationAnswer(state.next_question!.question_id, answer.value); await showSession(current.session_id); }, "primary"); ask.disabled = current.state === "CLOSED";
+          const skip = button("Пропустить / не знаю", async () => { await api.explorationSkip(state.next_question!.question_id); await showSession(current.session_id); }); skip.disabled = current.state === "CLOSED";
+          exploration.append(el("h4", "Следующий вопрос"), el("p", state.next_question.text), answer, ask, skip);
+        }
+        const propose = button("Составить рабочую формулировку", async () => { await api.formulationPropose(current.session_id); await showSession(current.session_id); }); propose.disabled = current.state === "CLOSED";
+        exploration.append(el("h4", "Рабочая формулировка"), el("p", "Это рабочее предложение, не диагноз и не установленный факт; его можно исправить или отклонить."), propose, el("h4", "История формулировок"));
+        for (const formulation of state.formulations) {
+          const item = el("article"); item.append(el("strong", `Версия ${formulation.version}: ${formulation.status}`), el("p", formulation.summary));
+          if (current.state === "ACTIVE" && formulation.status === "PROPOSED") {
+            const correction = el("textarea"); correction.setAttribute("aria-label", "Исправление формулировки"); correction.maxLength = 12000; correction.rows = 2;
+            item.append(correction, button("Исправить", async () => { await api.formulationCorrect(formulation.formulation_id, correction.value); await showSession(current.session_id); }), button("Принять как рабочую", async () => { await api.formulationAccept(formulation.formulation_id); await showSession(current.session_id); }), button("Отклонить", async () => { await api.formulationReject(formulation.formulation_id); await showSession(current.session_id); }));
+          }
+          exploration.append(item);
+        }
+      };
       const label = el("label", "Ваш текст"); label.htmlFor = "reflection-turn";
       const content = el("textarea"); content.id = "reflection-turn"; content.name = "reflection-turn"; content.setAttribute("aria-label", "Ваш текст"); content.maxLength = 12000; content.rows = 5; content.required = true; content.disabled = current.state === "CLOSED";
       const add = button("Добавить в сессию", async () => { await api.reflectionAddTurn(current.session_id, content.value); await showSession(current.session_id); }, "primary");
@@ -153,7 +181,8 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
       const close = button("Завершить сессию", async () => { await api.reflectionClose(current.session_id); await showSession(current.session_id); }); close.disabled = current.state === "CLOSED";
       const remove = button("Удалить сессию", async () => { await api.reflectionDelete(current.session_id); await showList(); }, "danger");
       const back = button("Назад к сессиям", async () => showList());
-      sessionBody.append(label, content, add, close, remove, back);
+      sessionBody.append(label, content, add, exploration, close, remove, back);
+      await renderExploration();
     } catch (error) { safeError(operationStatus, error); }
   };
   const showList = async (): Promise<void> => {

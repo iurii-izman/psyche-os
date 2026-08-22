@@ -30,10 +30,7 @@ def wait_for_text(window: Any, needle: str, timeout: float = 20.0) -> None:
 
 
 def edit(window: Any, title: str, value: str) -> None:
-    control = window.child_window(title=title, control_type="Edit").wait("exists", 8)
-    control.set_focus()
-    control = window.child_window(title=title, control_type="Edit").wait("ready", 8)
-    control.set_edit_text(value)
+    enter_editable(window, title, value)
 
 
 def edit_id(window: Any, automation_id: str, value: str) -> None:
@@ -42,30 +39,74 @@ def edit_id(window: Any, automation_id: str, value: str) -> None:
 
 
 def find_editable(window: Any, accessible_name: str) -> Any:
-    """Focus the observed native WebView2 Edit and reacquire it after scrolling."""
+    """Reacquire the native WebView2 Edit immediately before each write."""
     control = window.child_window(title=accessible_name, control_type="Edit").wait("exists", 8)
     control.set_focus()
     return window.child_window(title=accessible_name, control_type="Edit").wait("ready", 8)
 
 
 def enter_editable(window: Any, accessible_name: str, value: str) -> None:
-    control = find_editable(window, accessible_name)
-    control.type_keys(value, with_spaces=True)
-    deadline = time.monotonic() + 2.0
-    actual = ""
-    while time.monotonic() < deadline:
-        actual = control.get_value()
-        if actual == value:
+    """Set and read back the whole value with a bounded WebView2 fallback."""
+    observed = ""
+    automation_id = ""
+    value_pattern = False
+    enabled = False
+    for attempt in range(1, 4):
+        control = find_editable(window, accessible_name)
+        automation_id = control.element_info.automation_id
+        enabled = control.is_enabled()
+        if not enabled:
+            raise AssertionError(f"Native editable control is disabled: {accessible_name}")
+        control.set_focus()
+        try:
+            value_pattern = bool(control.iface_value)
+        except Exception:
+            value_pattern = False
+        if value_pattern and attempt == 1:
+            control.set_edit_text(value)
+        else:
+            control.type_keys("^a{BACKSPACE}" + value, with_spaces=True)
+        control = find_editable(window, accessible_name)
+        observed = control.get_value()
+        if observed == value:
             return
-        time.sleep(0.05)
+        # A ValuePattern write can be accepted by UIA while WebView2 drops it.
+        # Remaining attempts replace the complete value via keyboard; they never
+        # append a missing suffix.
     raise AssertionError(
-        f"Native editable control did not retain entered value: {accessible_name}; observed {actual!r}"
+        "Native editable control did not retain full value: "
+        f"name={accessible_name!r} automation_id={automation_id!r} attempts=3 "
+        f"expected_length={len(value)} observed_length={len(observed)} "
+        f"observed={observed!r} enabled={enabled} value_pattern={value_pattern}"
     )
 
 
-def click(window: Any, title: str) -> None:
-    control = window.child_window(title=title, control_type="Button").wait("exists", 8)
+def click(window: Any, title: str, found_index: int | None = None) -> None:
+    criteria: dict[str, Any] = {"title": title, "control_type": "Button"}
+    if found_index is not None:
+        criteria["found_index"] = found_index
+    control = window.child_window(**criteria).wait("exists", 8)
+    if not control.is_enabled():
+        raise AssertionError(f"Native button is disabled: {title}")
     control.invoke()
+
+
+def assert_edit_values(window: Any, expected: dict[str, str]) -> None:
+    observed = {title: find_editable(window, title).get_value() for title in expected}
+    if observed != expected:
+        raise AssertionError(
+            "UIA_INPUT_RELIABILITY before export preview: "
+            f"expected={expected!r} observed={observed!r}"
+        )
+
+
+def assert_absent_or_disabled(window: Any, title: str, control_type: str) -> None:
+    """Accept an intentionally removed control, but reject an enabled write path."""
+    control = window.child_window(title=title, control_type=control_type)
+    if not control.exists(timeout=1):
+        return
+    if control.is_enabled():
+        raise AssertionError(f"Closed session still exposes an enabled control: {title}")
 
 
 def process_evidence(root_pid: int) -> dict[str, Any]:
@@ -144,7 +185,8 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
     try:
         window = Desktop(backend="uia").window(process=first.pid, title=WINDOW_TITLE)
         window.wait("visible", timeout=20)
-        edit(window, "Локальный секрет сессии", SECRET_CANARY)
+        wait_for_text(window, "Локальный секрет сессии")
+        edit_id(window, "unlock-secret", SECRET_CANARY)
         click(window, "Разблокировать локально")
         wait_for_text(window, "МОИ СЕССИИ")
         edit(window, "Название", title)
@@ -153,6 +195,20 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         enter_editable(window, "Ваш текст", canary)
         click(window, "Добавить в сессию")
         wait_for_text(window, canary)
+        wait_for_text(window, "Рабочие гипотезы")
+        wait_for_text(window, "Следующий вопрос")
+        enter_editable(window, "Ответ на следующий вопрос", "SYNTHETIC-V3A1-ANSWER")
+        click(window, "Ответить на следующий вопрос")
+        wait_for_text(window, "SYNTHETIC-V3A1-ANSWER")
+        click(window, "Составить рабочую формулировку")
+        wait_for_text(window, "Рабочее предложение, не диагноз")
+        enter_editable(window, "Исправление формулировки", "SYNTHETIC-V3A1-CORRECTION")
+        click(window, "Исправить")
+        wait_for_text(window, "SYNTHETIC-V3A1-CORRECTION")
+        # Formulation history remains visible. The UI renders newest version first,
+        # so select its action rather than assuming a text label is globally unique.
+        click(window, "Принять как рабочую", found_index=0)
+        wait_for_text(window, "CURRENT")
     finally:
         terminate_tree(first)
     if psutil.pid_exists(first.pid):
@@ -162,18 +218,24 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
     try:
         window = Desktop(backend="uia").window(process=second.pid, title=WINDOW_TITLE)
         window.wait("visible", timeout=20)
-        edit(window, "Локальный секрет сессии", SECRET_CANARY)
+        wait_for_text(window, "Локальный секрет сессии")
+        edit_id(window, "unlock-secret", SECRET_CANARY)
         click(window, "Разблокировать локально")
         wait_for_text(window, title)
         click(window, "Открыть")
         wait_for_text(window, canary)
+        wait_for_text(window, "SYNTHETIC-V3A1-CORRECTION")
         enter_editable(window, "Ваш текст", "V3A0-UIA-SECOND-TURN")
         click(window, "Добавить в сессию")
         wait_for_text(window, "V3A0-UIA-SECOND-TURN")
         click(window, "Завершить сессию")
         wait_for_text(window, "Сессия завершена")
-        if window.child_window(title="Добавить в сессию", control_type="Button").is_enabled():
-            raise AssertionError("Closed session still accepts turns")
+        # `showSession` replaces the renderer subtree. Reacquire the top-level
+        # UIA wrapper before asserting a control in the new accessibility tree.
+        window = Desktop(backend="uia").window(process=second.pid, title=WINDOW_TITLE)
+        window.wait("visible", timeout=8)
+        assert_absent_or_disabled(window, "Ваш текст", "Edit")
+        assert_absent_or_disabled(window, "Добавить в сессию", "Button")
         click(window, "Удалить сессию")
         wait_for_text(window, "МОИ СЕССИИ")
         if title in "\n".join(control.window_text() for control in window.descendants()):
@@ -191,8 +253,9 @@ def run(executable: Path, app_data: Path) -> dict[str, Any]:
     try:
         window = Desktop(backend="uia").window(process=process.pid, title=WINDOW_TITLE)
         window.wait("visible", timeout=20)
+        wait_for_text(window, "Локальный секрет сессии")
 
-        edit(window, "Локальный секрет сессии", SECRET_CANARY)
+        edit_id(window, "unlock-secret", SECRET_CANARY)
         click(window, "Разблокировать локально")
         wait_for_text(window, "Ваш локальный центр управления")
         visible_text = "\n".join(control.window_text() for control in window.descendants())
@@ -224,6 +287,11 @@ def run(executable: Path, app_data: Path) -> dict[str, Any]:
         edit(window, "Цель", "portability")
         edit(window, "Получатель", "owner")
         edit(window, "Область", "synthetic minimum")
+        assert_edit_values(window, {
+            "Цель": "portability",
+            "Получатель": "owner",
+            "Область": "synthetic minimum",
+        })
         click(window, "Предпросмотр экспорта")
         wait_for_text(window, "Предпросмотр экспорта: пока ничего не записано.")
         click(window, "Подтвердить синтетический экспорт")
@@ -296,6 +364,9 @@ def main() -> int:
     print("E03_NATIVE_DESKTOP_UIA: PASS")
     print("V3A0_NATIVE_TURN_ENTRY: PASS")
     print("V3A0_NATIVE_RESTART_PERSISTENCE: PASS")
+    print("V3A1_NATIVE_GUIDED_EXPLORATION: PASS")
+    print("V3A1_NATIVE_FORMULATION_VERSIONING: PASS")
+    print("V3A1_NATIVE_RESTART_PERSISTENCE: PASS")
     return 0
 
 

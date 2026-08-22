@@ -40,6 +40,14 @@ fn main() {
         "desktop_reflection_add_turn",
         "desktop_reflection_close",
         "desktop_reflection_delete",
+        "desktop_exploration_start",
+        "desktop_exploration_get",
+        "desktop_exploration_answer",
+        "desktop_exploration_skip",
+        "desktop_formulation_propose",
+        "desktop_formulation_correct",
+        "desktop_formulation_accept",
+        "desktop_formulation_reject",
     ];
     let attributes = tauri_build::Attributes::new()
         .app_manifest(tauri_build::AppManifest::new().commands(COMMANDS));
