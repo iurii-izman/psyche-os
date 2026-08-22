@@ -12,11 +12,23 @@ STEPS:
 2. Select repository gates from `.ai-dev/verification/gates.yaml` by changed area
    (python / ts / rust), then run targeted inner-loop checks per edit batch.
 3. Run the risk-appropriate final repository gate once. Required extra proof must use
-   its stated trusted oracle and failure meaning.
+   its stated primary trusted oracle, failure meaning, and any pre-authorized
+   equivalent alternate-oracle conditions.
 4. If an oracle fails, classify PRODUCT / TEST / ORACLE / ENVIRONMENT / TOOL-HARNESS
-   failure. Infrastructure failure is neither product PASS nor automatic product FAIL.
-   Determine whether the missing proof is load-bearing, then use an already-trusted
-   alternate evidence path if sufficient or block only the affected acceptance claim.
+   failure and identify its proof class. Infrastructure failure is neither product PASS
+   nor automatic product FAIL:
+   - A repository-required gate remains mandatory; it cannot be waived, replaced by a
+     Task Contract fallback, or reclassified as supplemental.
+   - Classified supplemental evidence failure does not change acceptance when all
+     repository gates and contract-required proof remain satisfied and no material
+     product/security invariant is unproven.
+   - Contract-required proof may switch only to an already-trusted, equivalent
+     alternate oracle explicitly pre-authorized in the Task Contract before execution.
+     Record the primary failure, alternate evidence, and residual limitation.
+   - Without that pre-authorization, keep the affected acceptance claim blocked until
+     explicit human approval changes acceptance under `approvals.yaml`; neither an
+     implementer nor reviewer/orchestrator may remove, downgrade, or replace proof
+     after observing its failure.
 5. For LOW/MEDIUM work, stop feature-local verifier expansion when policy gates pass,
    deterministic tests and/or trustworthy runtime evidence cover material behavior,
    and the failing non-load-bearing oracle does not protect a storage, security,

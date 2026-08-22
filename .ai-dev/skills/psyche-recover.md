@@ -15,10 +15,12 @@ STEPS:
 4. Respect circuit breakers (`.ai-dev/routing/routing.yaml`): one grounded retry,
    then escalate; provider failure → snapshot then explicit fallback/pause.
 5. On repeated verifier failure, preserve known-good product work and stop
-   feature-local infrastructure expansion. Choose an already-trusted sufficient
-   alternate oracle, record separate verifier debt, or escalate the verifier as its
-   own task if future product work materially depends on it. Do not hide a missing
-   load-bearing HIGH/CRITICAL proof.
+   feature-local infrastructure expansion. For supplemental evidence, record separate
+   verifier debt or escalate the verifier as its own task if future product work
+   materially depends on it. For contract-required proof, use only an explicitly
+   pre-authorized equivalent alternate oracle; otherwise keep the claim blocked until
+   human approval changes acceptance. Do not hide a missing load-bearing HIGH/CRITICAL
+   proof or replace a repository-required gate.
 
 OUTPUT: a Recovery Packet (bounded, no raw transcript) and a next action.
 

@@ -33,8 +33,9 @@ audit:
 decision:
   - Add product-first delivery guidance without changing mandatory gates.
   - Require non-trivial contracts to classify evidence and bound recovery.
-  - Permit an explicit independent classification of a non-load-bearing invalid oracle,
-    never an implementer-side silent waiver or relabelling after failure.
+  - Permit explicit classification of a non-load-bearing supplemental oracle failure;
+    an equivalent alternate for contract-required proof must be pre-authorized in the
+    Task Contract, otherwise its post-failure replacement needs explicit human approval.
   - Keep missing load-bearing HIGH/CRITICAL runtime or security evidence blocking.
 affected_invariants:
   - C-01
