@@ -109,6 +109,72 @@ def test_plans_capture_backend_basis_preserve_history_and_outcomes_are_not_evide
         actions.record_outcome(second["plan_id"], "DONE")
 
 
+def test_basis_omits_a_legacy_non_reconstructible_snapshot(tmp_path: Path) -> None:
+    sessions, _guided, actions, session = _workspace(tmp_path)
+    sid = str(session["session_id"])
+    snapshot_id = sessions.connection.execute(
+        "SELECT latest_snapshot_id FROM reflection_explorations WHERE session_id=?", (sid,)
+    ).fetchone()[0]
+    with sessions.connection:
+        sessions.connection.execute(
+            "DELETE FROM reflection_snapshot_context_items WHERE snapshot_id=?", (snapshot_id,)
+        )
+    plan = actions.create(sid, "Синтетическая цель", "PAUSE", "Пауза")
+    assert plan["basis_snapshot_id"] is None
+
+
+def test_basis_selects_latest_reconstructible_snapshot_not_legacy_pointer(tmp_path: Path) -> None:
+    sessions, _guided, actions, session = _workspace(tmp_path)
+    sid = str(session["session_id"])
+    reconstructible_id = sessions.connection.execute(
+        "SELECT latest_snapshot_id FROM reflection_explorations WHERE session_id=?", (sid,)
+    ).fetchone()[0]
+    with sessions.connection:
+        sessions.connection.execute(
+            "UPDATE reflection_exploration_snapshots SET version=2 WHERE snapshot_id=?",
+            (reconstructible_id,),
+        )
+        sessions.connection.execute(
+            "INSERT INTO reflection_exploration_snapshots VALUES(?,?,?,?,?)",
+            ("legacy-non-reconstructible", sid, 1, "legacy-v7", "synthetic-now"),
+        )
+        sessions.connection.execute(
+            "UPDATE reflection_explorations SET latest_snapshot_id=? WHERE session_id=?",
+            ("legacy-non-reconstructible", sid),
+        )
+    plan = actions.create(sid, "Синтетическая цель", "PAUSE", "Пауза")
+    assert plan["basis_snapshot_id"] == reconstructible_id
+
+
+def test_formulation_anchor_requires_current_same_session_status(tmp_path: Path) -> None:
+    sessions, guided, actions, session = _workspace(tmp_path)
+    sid = str(session["session_id"])
+    original_current = next(
+        item for item in guided.get(sid)["formulations"] if item["status"] == "CURRENT"
+    )
+    assert (
+        actions.options(sid, "FORMULATION", original_current["formulation_id"])["anchor_id"]
+        == original_current["formulation_id"]
+    )
+    proposed = guided.propose_formulation(sid)
+    with pytest.raises(ReflectionSessionError, match="INVALID_ANCHOR"):
+        actions.options(sid, "FORMULATION", proposed["formulation_id"])
+    rejected = guided.set_formulation_status(proposed["formulation_id"], "REJECTED")
+    with pytest.raises(ReflectionSessionError, match="INVALID_ANCHOR"):
+        actions.options(sid, "FORMULATION", rejected["formulation_id"])
+    successor = guided.propose_formulation(sid)
+    current = guided.set_formulation_status(successor["formulation_id"], "CURRENT")
+    with pytest.raises(ReflectionSessionError, match="INVALID_ANCHOR"):
+        actions.options(sid, "FORMULATION", original_current["formulation_id"])
+    assert (
+        actions.options(sid, "FORMULATION", current["formulation_id"])["anchor_id"]
+        == current["formulation_id"]
+    )
+    foreign = sessions.create_session("Другая синтетическая сессия")
+    with pytest.raises(ReflectionSessionError, match="INVALID_ANCHOR"):
+        actions.options(foreign["session_id"], "FORMULATION", current["formulation_id"])
+
+
 def test_closed_session_rejects_action_writes_and_session_deletion_cascades(tmp_path: Path) -> None:
     sessions, _guided, actions, session = _workspace(tmp_path)
     sid = str(session["session_id"])

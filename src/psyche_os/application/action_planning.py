@@ -65,7 +65,7 @@ class ActionPlanningService:
             raise ReflectionSessionError("INVALID_ANCHOR")
         if anchor_type == "FORMULATION":
             row = self.db.execute(
-                "SELECT 1 FROM reflection_formulations WHERE formulation_id=? AND session_id=?",
+                "SELECT 1 FROM reflection_formulations WHERE formulation_id=? AND session_id=? AND status='CURRENT'",
                 (anchor_id, sid),
             ).fetchone()
         else:
@@ -97,7 +97,12 @@ class ActionPlanningService:
 
     def _basis(self, sid: str) -> tuple[str | None, str | None]:
         snapshot = self.db.execute(
-            "SELECT latest_snapshot_id FROM reflection_explorations WHERE session_id=?", (sid,)
+            "SELECT snapshot_id FROM reflection_exploration_snapshots "
+            "WHERE session_id=? AND EXISTS ("
+            "SELECT 1 FROM reflection_snapshot_context_items "
+            "WHERE reflection_snapshot_context_items.snapshot_id=reflection_exploration_snapshots.snapshot_id"
+            ") ORDER BY version DESC, snapshot_id DESC LIMIT 1",
+            (sid,),
         ).fetchone()
         formulation = self.db.execute(
             "SELECT formulation_id FROM reflection_formulations WHERE session_id=? AND status='CURRENT'",

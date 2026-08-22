@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import os
 from pathlib import Path
@@ -127,6 +128,64 @@ def assert_absent_or_disabled(window: Any, title: str, control_type: str) -> Non
         return
     if control.is_enabled():
         raise AssertionError(f"Closed session still exposes an enabled control: {title}")
+
+
+def _owned_pids(root_pid: int) -> set[int]:
+    root = psutil.Process(root_pid)
+    return {root_pid, *(process.pid for process in root.children(recursive=True))}
+
+
+def refresh_window(window: Any, root_pid: int) -> tuple[Any, dict[str, Any]]:
+    """Refresh a replaced WebView2 accessibility subtree through its stable HWND."""
+    wrapper = window.wrapper_object()
+    hwnd = int(wrapper.handle)
+    markers = ("Сессия завершена", "АНАЛИТИКА СЕССИИ", "ИСТОРИЯ МОИХ СЛЕДУЮЩИХ ШАГОВ")
+    text = "\n".join(control.window_text() for control in window.descendants())
+    owned_pids = _owned_pids(root_pid)
+    desktop = Desktop(backend="uia")
+    diagnostics: dict[str, Any] = {
+        "old_hwnd": hwnd,
+        "old_process_id": wrapper.element_info.process_id,
+        "old_title": wrapper.window_text(),
+        "old_visible": wrapper.is_visible(),
+        "old_enabled": wrapper.is_enabled(),
+        "old_descendants_available": bool(window.descendants()),
+        "old_markers": {marker: marker in text for marker in markers},
+        "owned_process_ids": sorted(owned_pids),
+    }
+    hwnd_survives = bool(ctypes.windll.user32.IsWindow(hwnd))
+    diagnostics["hwnd_survives"] = hwnd_survives
+    if hwnd_survives:
+        refreshed = desktop.window(handle=hwnd)
+        refreshed.wait("visible", timeout=8)
+        diagnostics["refresh_strategy"] = "existing_hwnd"
+        diagnostics["new_process_id"] = refreshed.wrapper_object().element_info.process_id
+        return refreshed, diagnostics
+    candidates = []
+    for candidate in desktop.windows():
+        if candidate.window_text() == WINDOW_TITLE:
+            candidates.append(
+                {
+                    "hwnd": int(candidate.handle),
+                    "process_id": candidate.element_info.process_id,
+                    "visible": candidate.is_visible(),
+                }
+            )
+    diagnostics["titled_candidates"] = candidates
+    owned = [
+        candidate
+        for candidate in candidates
+        if candidate["process_id"] in owned_pids and candidate["visible"]
+    ]
+    if len(owned) != 1:
+        raise AssertionError(
+            f"UIA_WINDOW_LIFECYCLE_FAILED {json.dumps(diagnostics, sort_keys=True)}"
+        )
+    refreshed = desktop.window(handle=owned[0]["hwnd"])
+    refreshed.wait("visible", timeout=8)
+    diagnostics["refresh_strategy"] = "owned_title_fallback"
+    diagnostics["new_process_id"] = refreshed.wrapper_object().element_info.process_id
+    return refreshed, diagnostics
 
 
 def process_evidence(root_pid: int) -> dict[str, Any]:
@@ -286,10 +345,9 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         wait_for_text(window, "V3A0-UIA-SECOND-TURN")
         click(window, "Завершить сессию")
         wait_for_text(window, "Сессия завершена")
-        # `showSession` replaces the renderer subtree. Reacquire the top-level
-        # UIA wrapper before asserting a control in the new accessibility tree.
-        window = Desktop(backend="uia").window(process=second.pid, title=WINDOW_TITLE)
-        window.wait("visible", timeout=8)
+        # `showSession` replaces the renderer subtree; keep the native HWND and
+        # refresh only its UIA view rather than rediscovering by root PID.
+        window, lifecycle = refresh_window(window, second.pid)
         assert_absent_or_disabled(window, "Ваш текст", "Edit")
         assert_absent_or_disabled(window, "Добавить в сессию", "Button")
         wait_for_text(window, "АНАЛИТИКА СЕССИИ")
@@ -307,6 +365,7 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
             "second_pid": second.pid,
             "persistence_canary": canary,
             "restart_persistence": True,
+            "closed_window_lifecycle": lifecycle,
         }
     finally:
         terminate_tree(second)
