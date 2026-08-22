@@ -17,6 +17,7 @@ from typing import Any, Final
 
 from sqlcipher3 import dbapi2
 
+from psyche_os.application.action_planning import ActionPlanningService
 from psyche_os.application.e03_archive import E03ArchiveError, E03ArchiveService
 from psyche_os.application.guided_exploration import GuidedExplorationService
 from psyche_os.application.reflection_sessions import (
@@ -68,10 +69,18 @@ ALLOWED_COMMANDS: Final = frozenset(
         "reflection_session.add_turn",
         "reflection_session.close",
         "reflection_session.delete",
-        "reflection_exploration.start", "reflection_exploration.get", "reflection_exploration.answer",
-        "reflection_exploration.skip", "reflection_exploration.formulation.propose",
-        "reflection_exploration.formulation.correct", "reflection_exploration.formulation.accept",
+        "reflection_exploration.start",
+        "reflection_exploration.get",
+        "reflection_exploration.answer",
+        "reflection_exploration.skip",
+        "reflection_exploration.formulation.propose",
+        "reflection_exploration.formulation.correct",
+        "reflection_exploration.formulation.accept",
         "reflection_exploration.formulation.reject",
+        "reflection_action.options",
+        "reflection_action.list",
+        "reflection_action.create",
+        "reflection_action.record_outcome",
     }
 )
 STATE_CHANGING_COMMANDS: Final = frozenset(
@@ -96,9 +105,17 @@ STATE_CHANGING_COMMANDS: Final = frozenset(
         "reflection_session.add_turn",
         "reflection_session.close",
         "reflection_session.delete",
-        "reflection_exploration.start", "reflection_exploration.answer", "reflection_exploration.skip",
-        "reflection_exploration.formulation.propose", "reflection_exploration.formulation.correct",
-        "reflection_exploration.formulation.accept", "reflection_exploration.formulation.reject",
+        "reflection_exploration.start",
+        "reflection_exploration.answer",
+        "reflection_exploration.skip",
+        "reflection_exploration.formulation.propose",
+        "reflection_exploration.formulation.correct",
+        "reflection_exploration.formulation.accept",
+        "reflection_exploration.formulation.reject",
+        "reflection_action.options",
+        "reflection_action.list",
+        "reflection_action.create",
+        "reflection_action.record_outcome",
     }
 )
 
@@ -259,6 +276,7 @@ class DesktopApplicationService:
     _archive: E03ArchiveService = field(init=False, repr=False)
     _reflection_sessions: ReflectionSessionService = field(init=False, repr=False)
     _guided_exploration: GuidedExplorationService = field(init=False, repr=False)
+    _action_planning: ActionPlanningService = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         self._archive_connection = sqlite3.connect(":memory:")
@@ -266,6 +284,7 @@ class DesktopApplicationService:
         try:
             self._reflection_sessions = ReflectionSessionService(default_app_data())
             self._guided_exploration = GuidedExplorationService(self._reflection_sessions)
+            self._action_planning = ActionPlanningService(self._reflection_sessions)
         except ReflectionSessionError as exc:
             raise DesktopServiceError(exc.code) from exc
 
@@ -314,6 +333,10 @@ class DesktopApplicationService:
             "reflection_exploration.formulation.correct": self._exploration_formulation_correct,
             "reflection_exploration.formulation.accept": self._exploration_formulation_accept,
             "reflection_exploration.formulation.reject": self._exploration_formulation_reject,
+            "reflection_action.options": self._action_options,
+            "reflection_action.list": self._action_list,
+            "reflection_action.create": self._action_create,
+            "reflection_action.record_outcome": self._action_record_outcome,
         }
         return handlers[command](payload)
 
@@ -348,27 +371,83 @@ class DesktopApplicationService:
     def _exploration_start(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"session_id"})
         return self._reflection_call(self._guided_exploration.start, payload["session_id"])
+
     def _exploration_get(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"session_id"})
         return self._reflection_call(self._guided_exploration.get, payload["session_id"])
+
     def _exploration_answer(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"question_id", "answer_text"})
-        return self._reflection_call(self._guided_exploration.answer, payload["question_id"], payload["answer_text"])
+        return self._reflection_call(
+            self._guided_exploration.answer, payload["question_id"], payload["answer_text"]
+        )
+
     def _exploration_skip(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"question_id"})
         return self._reflection_call(self._guided_exploration.skip, payload["question_id"])
+
     def _exploration_formulation_propose(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"session_id"})
-        return self._reflection_call(self._guided_exploration.propose_formulation, payload["session_id"])
+        return self._reflection_call(
+            self._guided_exploration.propose_formulation, payload["session_id"]
+        )
+
     def _exploration_formulation_correct(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"formulation_id", "correction_text"})
-        return self._reflection_call(self._guided_exploration.correct_formulation, payload["formulation_id"], payload["correction_text"])
+        return self._reflection_call(
+            self._guided_exploration.correct_formulation,
+            payload["formulation_id"],
+            payload["correction_text"],
+        )
+
     def _exploration_formulation_accept(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"formulation_id"})
-        return self._reflection_call(self._guided_exploration.set_formulation_status, payload["formulation_id"], "CURRENT")
+        return self._reflection_call(
+            self._guided_exploration.set_formulation_status, payload["formulation_id"], "CURRENT"
+        )
+
     def _exploration_formulation_reject(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"formulation_id"})
-        return self._reflection_call(self._guided_exploration.set_formulation_status, payload["formulation_id"], "REJECTED")
+        return self._reflection_call(
+            self._guided_exploration.set_formulation_status, payload["formulation_id"], "REJECTED"
+        )
+
+    def _action_options(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"session_id", "anchor_type", "anchor_id"})
+        return self._reflection_call(
+            self._action_planning.options,
+            payload["session_id"],
+            payload["anchor_type"],
+            payload["anchor_id"],
+        )
+
+    def _action_list(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"session_id"})
+        return self._reflection_call(self._action_planning.list, payload["session_id"])
+
+    def _action_create(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(
+            payload,
+            {"session_id", "user_goal", "template_id", "action_text", "anchor_type", "anchor_id"},
+        )
+        return self._reflection_call(
+            self._action_planning.create,
+            payload["session_id"],
+            payload["user_goal"],
+            payload["template_id"],
+            payload["action_text"],
+            payload["anchor_type"],
+            payload["anchor_id"],
+        )
+
+    def _action_record_outcome(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"plan_id", "status", "note_text"})
+        return self._reflection_call(
+            self._action_planning.record_outcome,
+            payload["plan_id"],
+            payload["status"],
+            payload["note_text"],
+        )
 
     @staticmethod
     def _reflection_call(operation: Any, *args: Any) -> dict[str, Any]:

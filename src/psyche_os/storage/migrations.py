@@ -31,6 +31,7 @@ from psyche_os.storage.v3a1_exploration_v8_schema import (
     V8_MIGRATION_CHECKSUM,
     V8_MIGRATION_STATEMENTS,
 )
+from psyche_os.storage.v3a3_action_schema import V9_MIGRATION_CHECKSUM, V9_MIGRATION_STATEMENTS
 
 # The accepted default reader remains V1.  E03 calls target_version=2
 # explicitly; this prevents legacy callers from silently migrating a vault.
@@ -147,8 +148,24 @@ MIGRATIONS: dict[int, Migration] = {
         down_sql="",
         checksum=V6_MIGRATION_CHECKSUM,
     ),
-    7: Migration(version=7, label="v3a1_guided_exploration_v7", statements=list(V7_MIGRATION_STATEMENTS), checksum=V7_MIGRATION_CHECKSUM),
-    8: Migration(version=8, label="v3a1_guided_exploration_v8", statements=list(V8_MIGRATION_STATEMENTS), checksum=V8_MIGRATION_CHECKSUM),
+    7: Migration(
+        version=7,
+        label="v3a1_guided_exploration_v7",
+        statements=list(V7_MIGRATION_STATEMENTS),
+        checksum=V7_MIGRATION_CHECKSUM,
+    ),
+    8: Migration(
+        version=8,
+        label="v3a1_guided_exploration_v8",
+        statements=list(V8_MIGRATION_STATEMENTS),
+        checksum=V8_MIGRATION_CHECKSUM,
+    ),
+    9: Migration(
+        version=9,
+        label="v3a3_action_workspace_v9",
+        statements=list(V9_MIGRATION_STATEMENTS),
+        checksum=V9_MIGRATION_CHECKSUM,
+    ),
 }
 
 

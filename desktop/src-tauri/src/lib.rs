@@ -324,6 +324,15 @@ struct FormulationRequest { session_token: Option<String>, formulation_id: Strin
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ExplorationQuestionRequest { session_token: Option<String>, question_id: String }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ActionOptionsRequest { session_token: Option<String>, session_id: String, anchor_type: Option<String>, anchor_id: Option<String> }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ActionCreateRequest { session_token: Option<String>, session_id: String, user_goal: String, template_id: String, action_text: String, anchor_type: Option<String>, anchor_id: Option<String> }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ActionOutcomeRequest { session_token: Option<String>, plan_id: String, status: String, note_text: Option<String> }
 
 fn bounded(values: &[&str]) -> Result<(), String> {
     if values
@@ -408,6 +417,31 @@ fn desktop_formulation_accept(window: WebviewWindow, state: tauri::State<'_, Des
 fn desktop_formulation_reject(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: FormulationRequest) -> Result<Value, String> {
     bounded(&[&request.formulation_id])?;
     invoke_python(&window, &state, "reflection_exploration.formulation.reject", request.session_token.as_deref(), json!({"formulation_id": request.formulation_id}))
+}
+#[tauri::command]
+fn desktop_action_options(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ActionOptionsRequest) -> Result<Value, String> {
+    bounded(&[&request.session_id])?;
+    if let Some(anchor_type) = &request.anchor_type { bounded(&[anchor_type])?; }
+    if let Some(anchor_id) = &request.anchor_id { bounded(&[anchor_id])?; }
+    invoke_python(&window, &state, "reflection_action.options", request.session_token.as_deref(), json!({"session_id": request.session_id, "anchor_type": request.anchor_type, "anchor_id": request.anchor_id}))
+}
+#[tauri::command]
+fn desktop_action_list(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionSessionRequest) -> Result<Value, String> {
+    bounded(&[&request.session_id])?;
+    invoke_python(&window, &state, "reflection_action.list", request.session_token.as_deref(), json!({"session_id": request.session_id}))
+}
+#[tauri::command]
+fn desktop_action_create(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ActionCreateRequest) -> Result<Value, String> {
+    bounded(&[&request.session_id, &request.template_id])?; bounded_turn(&request.user_goal)?; bounded_turn(&request.action_text)?;
+    if let Some(anchor_type) = &request.anchor_type { bounded(&[anchor_type])?; }
+    if let Some(anchor_id) = &request.anchor_id { bounded(&[anchor_id])?; }
+    invoke_python(&window, &state, "reflection_action.create", request.session_token.as_deref(), json!({"session_id": request.session_id, "user_goal": request.user_goal, "template_id": request.template_id, "action_text": request.action_text, "anchor_type": request.anchor_type, "anchor_id": request.anchor_id}))
+}
+#[tauri::command]
+fn desktop_action_record_outcome(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ActionOutcomeRequest) -> Result<Value, String> {
+    bounded(&[&request.plan_id, &request.status])?;
+    if let Some(note_text) = &request.note_text { bounded_turn(note_text)?; }
+    invoke_python(&window, &state, "reflection_action.record_outcome", request.session_token.as_deref(), json!({"plan_id": request.plan_id, "status": request.status, "note_text": request.note_text}))
 }
 
 #[tauri::command]
@@ -650,7 +684,8 @@ pub fn run() {
             ,desktop_reflection_create, desktop_reflection_list, desktop_reflection_get,
             desktop_reflection_add_turn, desktop_reflection_close, desktop_reflection_delete,
             desktop_exploration_start, desktop_exploration_get, desktop_exploration_answer, desktop_exploration_skip,
-            desktop_formulation_propose, desktop_formulation_correct, desktop_formulation_accept, desktop_formulation_reject
+            desktop_formulation_propose, desktop_formulation_correct, desktop_formulation_accept, desktop_formulation_reject,
+            desktop_action_options, desktop_action_list, desktop_action_create, desktop_action_record_outcome
         ])
         .setup(|app| {
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))

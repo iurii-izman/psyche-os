@@ -1,4 +1,5 @@
 """Exercise packaged E02 and E03 workflows through the native UIA boundary."""
+# ruff: noqa: RUF001
 
 from __future__ import annotations
 
@@ -91,6 +92,25 @@ def click(window: Any, title: str, found_index: int | None = None) -> None:
     control.invoke()
 
 
+def select_id(window: Any, automation_id: str, index: int) -> None:
+    control = window.child_window(auto_id=automation_id, control_type="ComboBox").wait("ready", 8)
+    control.expand()
+    deadline = time.monotonic() + 8
+    items: list[Any] = []
+    while time.monotonic() < deadline:
+        items = window.descendants(control_type="ListItem")
+        if len(items) > index:
+            items[index].click_input()
+            return
+        time.sleep(0.1)
+    raise AssertionError(f"Native select option is unavailable: {automation_id} index={index}")
+
+
+def choose_radio(window: Any, title: str) -> None:
+    control = window.child_window(title=title, control_type="RadioButton").wait("ready", 8)
+    control.select()
+
+
 def assert_edit_values(window: Any, expected: dict[str, str]) -> None:
     observed = {title: find_editable(window, title).get_value() for title in expected}
     if observed != expected:
@@ -145,8 +165,7 @@ def process_evidence(root_pid: int) -> dict[str, Any]:
         raise AssertionError(f"Desktop process tree opened a listener: {listeners}")
     if application_connections:
         raise AssertionError(
-            "Desktop or fixed sidecar used an INET connection: "
-            f"{application_connections}"
+            f"Desktop or fixed sidecar used an INET connection: {application_connections}"
         )
     return {
         "process_names": names,
@@ -174,8 +193,14 @@ def terminate_tree(process: subprocess.Popen[bytes]) -> None:
 def _launch(executable: Path, app_data: Path) -> subprocess.Popen[bytes]:
     environment = os.environ.copy()
     environment["PSYCHE_OS_APP_DATA"] = str(app_data)
-    return subprocess.Popen([str(executable)], cwd=executable.parent, stdin=subprocess.DEVNULL,
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=environment)
+    return subprocess.Popen(
+        [str(executable)],
+        cwd=executable.parent,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env=environment,
+    )
 
 
 def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any]:
@@ -222,6 +247,16 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
             "Хронология сессии",
         ):
             wait_for_text(window, marker)
+        wait_for_text(window, "ИТОГ СЕССИИ")
+        enter_editable(window, "Моя цель", "V3A3-SYNTHETIC-USER-GOAL")
+        select_id(window, "action-anchor", 1)
+        # PAUSE remains an equal safe option regardless of the selected anchor.
+        wait_for_text(window, "Ничего не предпринимать сейчас и оставить вопрос открытым.")
+        choose_radio(window, "Ничего не предпринимать сейчас и оставить вопрос открытым.")
+        enter_editable(window, "Текст следующего шага", "V3A3-SYNTHETIC-EDITED-ACTION")
+        click(window, "Сохранить мой следующий шаг")
+        wait_for_text(window, "V3A3-SYNTHETIC-EDITED-ACTION")
+        wait_for_text(window, "КАК ЗАКОНЧИЛОСЬ?")
     finally:
         terminate_tree(first)
     if psutil.pid_exists(first.pid):
@@ -241,6 +276,11 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         wait_for_text(window, "АНАЛИТИКА СЕССИИ")
         wait_for_text(window, "Текущая рабочая формулировка")
         wait_for_text(window, "Хронология сессии")
+        wait_for_text(window, "ИТОГ СЕССИИ")
+        wait_for_text(window, "V3A3-SYNTHETIC-EDITED-ACTION")
+        enter_editable(window, "Ваш комментарий о результате", "V3A3-SYNTHETIC-OUTCOME-NOTE")
+        click(window, "Сохранить отметку")
+        wait_for_text(window, "V3A3-SYNTHETIC-OUTCOME-NOTE")
         enter_editable(window, "Ваш текст", "V3A0-UIA-SECOND-TURN")
         click(window, "Добавить в сессию")
         wait_for_text(window, "V3A0-UIA-SECOND-TURN")
@@ -254,12 +294,20 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         assert_absent_or_disabled(window, "Добавить в сессию", "Button")
         wait_for_text(window, "АНАЛИТИКА СЕССИИ")
         wait_for_text(window, "Хронология сессии")
+        wait_for_text(window, "ИСТОРИЯ МОИХ СЛЕДУЮЩИХ ШАГОВ")
+        assert_absent_or_disabled(window, "Моя цель", "Edit")
+        assert_absent_or_disabled(window, "Сохранить мой следующий шаг", "Button")
+        assert_absent_or_disabled(window, "Сохранить отметку", "Button")
         click(window, "Удалить сессию")
         wait_for_text(window, "МОИ СЕССИИ")
         if title in "\n".join(control.window_text() for control in window.descendants()):
             raise AssertionError("Deleted session remains in list")
-        return {"first_pid": first.pid, "second_pid": second.pid,
-                "persistence_canary": canary, "restart_persistence": True}
+        return {
+            "first_pid": first.pid,
+            "second_pid": second.pid,
+            "persistence_canary": canary,
+            "restart_persistence": True,
+        }
     finally:
         terminate_tree(second)
 
@@ -279,21 +327,32 @@ def run(executable: Path, app_data: Path) -> dict[str, Any]:
         visible_text = "\n".join(control.window_text() for control in window.descendants())
         if SECRET_CANARY in visible_text:
             raise AssertionError("Unlock secret leaked into the native accessibility surface")
-        for required in ("Только синтетические данные", "Закрыт", "Без сети и слушателей", "Отключено"):
+        for required in (
+            "Только синтетические данные",
+            "Закрыт",
+            "Без сети и слушателей",
+            "Отключено",
+        ):
             if required not in visible_text:
                 raise AssertionError(f"Missing privacy/runtime status: {required}")
 
         edit(window, "Исправленное синтетическое наблюдение", MARKUP_CANARY)
         edit(window, "Причина исправления", "Проверка безопасности синтетического UIA")
         click(window, "Сохранить историю и исправить")
-        wait_for_text(window, "Исправление применено к этой синтетической сессии; предыдущая версия сессии сохранена.")
+        wait_for_text(
+            window,
+            "Исправление применено к этой синтетической сессии; предыдущая версия сессии сохранена.",
+        )
         if len(Desktop(backend="uia").windows(process=process.pid, title=WINDOW_TITLE)) != 1:
             raise AssertionError("Untrusted markup changed the native window surface")
 
         click(window, "Предпросмотр области удаления")
         wait_for_text(window, "Это только пробный запуск удаления; ничего не удалено.")
         click(window, "Подтвердить удаление")
-        wait_for_text(window, "Удаление в синтетической сессии применено с указанными ограничениями; каноническая запись не изменена.")
+        wait_for_text(
+            window,
+            "Удаление в синтетической сессии применено с указанными ограничениями; каноническая запись не изменена.",
+        )
 
         click(window, "Проверить резервную копию")
         wait_for_text(window, "Резервная копия проверена без раскрытия содержимого.")
@@ -305,11 +364,14 @@ def run(executable: Path, app_data: Path) -> dict[str, Any]:
         edit(window, "Цель", "portability")
         edit(window, "Получатель", "owner")
         edit(window, "Область", "synthetic minimum")
-        assert_edit_values(window, {
-            "Цель": "portability",
-            "Получатель": "owner",
-            "Область": "synthetic minimum",
-        })
+        assert_edit_values(
+            window,
+            {
+                "Цель": "portability",
+                "Получатель": "owner",
+                "Область": "synthetic minimum",
+            },
+        )
         click(window, "Предпросмотр экспорта")
         wait_for_text(window, "Предпросмотр экспорта: пока ничего не записано.")
         click(window, "Подтвердить синтетический экспорт")
@@ -330,7 +392,9 @@ def run(executable: Path, app_data: Path) -> dict[str, Any]:
             "Исправить время отчёта канонически",
         ):
             click(window, label)
-            wait_for_text(window, f"{label}. Операция выполнена для встроенного вымышленного набора.")
+            wait_for_text(
+                window, f"{label}. Операция выполнена для встроенного вымышленного набора."
+            )
         click(window, "Загрузить выбранную шкалу")
         wait_for_text(window, "Шкала использует «Событие произошло»")
         click(window, "Открыть обозреватель доказательств")
@@ -338,9 +402,13 @@ def run(executable: Path, app_data: Path) -> dict[str, Any]:
         click(window, "Сравнить снимки модели")
         wait_for_text(window, "неразрешённое состояние остаётся видимым")
         click(window, "Предпросмотр канонического удаления")
-        wait_for_text(window, "Это только пробный запуск канонического удаления; состояние не изменено.")
+        wait_for_text(
+            window, "Это только пробный запуск канонического удаления; состояние не изменено."
+        )
         click(window, "Подтвердить каноническое удаление")
-        wait_for_text(window, "квитанция не содержит удалённых данных или стабильного хеша содержимого")
+        wait_for_text(
+            window, "квитанция не содержит удалённых данных или стабильного хеша содержимого"
+        )
 
         evidence = process_evidence(process.pid)
         evidence.update(
@@ -386,6 +454,7 @@ def main() -> int:
     print("V3A1_NATIVE_FORMULATION_VERSIONING: PASS")
     print("V3A1_NATIVE_RESTART_PERSISTENCE: PASS")
     print("V3A2_NATIVE_ANALYTICAL_WORKSPACE: PASS")
+    print("V3A3_NATIVE_SYNTHESIS_ACTION_WORKSPACE: PASS")
     return 0
 
 
