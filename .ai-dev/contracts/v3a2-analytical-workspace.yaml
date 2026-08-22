@@ -1,0 +1,70 @@
+task_id: V3-A2-ANALYTICAL-WORKSPACE
+base_sha: 40155c721f98e6bd8bf4a2c9de2c0a7573687422
+
+profile: balanced
+risk: medium
+
+goal:
+  - Add a deterministic, read-only Russian analytical projection for one persisted Reflection Session.
+
+non_goals:
+  - No persistence, migration, Tauri IPC/capability, dependency, provider, network, or policy change.
+  - No diagnosis, recommendation, scoring, causal inference, or mutation from analytics.
+
+authority:
+  - CONSTITUTION.md (C-02, C-05, C-08, C-11, C-20)
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md (projection, provenance, uncertainty, chronology)
+  - docs/DECISION_LOG.md (ADR-002, ADR-004)
+  - docs/architecture/MENTAL_HEALTH_AI_SAFETY.md
+
+expected_scope:
+  - .ai-dev/contracts/v3a2-analytical-workspace.yaml
+  - desktop/src/api.ts
+  - desktop/src/analytical-workspace.ts
+  - desktop/src/main.ts
+  - desktop/src/styles.css
+  - desktop/tests/ui.test.ts
+  - desktop/tests/analytical-workspace.test.ts
+  - scripts/dev/test_e02_desktop.py
+
+protected_scope:
+  - CONSTITUTION.md
+  - .ai-dev/policy/**
+  - .ai-dev/verification/**
+  - docs/development/STATE.yaml
+  - src/psyche_os/storage/**
+  - src/psyche_os/application/**
+  - desktop/src-tauri/**
+
+acceptance:
+  - Current formulation is selected only by CURRENT status; history and deterministic text diffs remain visible.
+  - Context, hypotheses, unknowns, contradictions, source anchors, and product-event timeline render without inventing data.
+  - CLOSED sessions remain analytical and read-only; the same persisted source state yields the same projection after restart.
+
+verification:
+  - npm --prefix desktop run typecheck
+  - npm --prefix desktop run lint
+  - npm --prefix desktop run test:unit
+  - npm --prefix desktop run build
+  - npm --prefix desktop run sidecar:build
+  - npm --prefix desktop run tauri -- build --debug
+  - npm --prefix desktop run test:desktop
+  - uv run pytest -q
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run python scripts/validate_research_foundation.py
+  - git diff --check
+
+permissions:
+  network: false
+  dependencies: false
+  migrations: false
+  destructive: false
+  publication: true
+
+routing:
+  initial: cheap
+  max_grounded_retry: 1
+  escalation: strong
+
+assumptions:
+  - Existing reflectionGet and explorationGet responses contain all required read-only metadata.

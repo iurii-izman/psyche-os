@@ -1,4 +1,5 @@
-import { desktopApi, type DesktopApi, type StatusView } from "./api";
+import { desktopApi, type DesktopApi, type ExplorationView, type ReflectionSessionView, type StatusView } from "./api";
+import { buildAnalyticalWorkspace, presentDimension, presentFormulationStatus, presentUnknownState } from "./analytical-workspace";
 import { presentKey, presentValue, t, type TranslationKey } from "./i18n";
 
 type Data = Record<string, unknown>;
@@ -44,6 +45,68 @@ function safeError(region: HTMLElement, error: unknown): void {
   const code = typeof error === "string" ? error : "OPERATION_FAILED";
   region.textContent = t("error.operation", { code: code.slice(0, 80) });
   region.focus();
+}
+
+function renderAnalyticalWorkspace(session: ReflectionSessionView, exploration: ExplorationView): HTMLElement {
+  const view = buildAnalyticalWorkspace(session, exploration);
+  const workspace = el("section");
+  workspace.className = "analytical-workspace";
+  workspace.append(el("h3", "АНАЛИТИКА СЕССИИ"), el("p", "Это только чтение: аналитика строится из уже сохранённого состояния сессии."));
+  const section = (heading: string): HTMLElement => { const node = el("section"); node.append(el("h4", heading)); workspace.append(node); return node; };
+  const contextLine = (item: { text: string; source_anchors: string[]; state: string }): HTMLElement => {
+    const line = el("li", item.text);
+    line.append(el("small", ` · ${item.source_anchors.length ? `источник: ${item.source_anchors.join(", ")}` : "источник не указан"}`));
+    if (item.state) line.append(el("small", ` · ${presentUnknownState(item.state)}`));
+    return line;
+  };
+  const current = section("Текущая рабочая формулировка");
+  current.append(el("p", "Рабочая формулировка — это текущее предложение, а не установленный факт или диагноз."));
+  if (view.current) current.append(el("strong", `Версия ${view.current.version} · ${presentFormulationStatus(view.current.status)}`), el("p", view.current.summary));
+  else current.append(el("p", "Текущая рабочая формулировка ещё не принята."));
+  const history = section("Как менялась формулировка");
+  if (!view.formulations.length) history.append(el("p", "Версий формулировки пока нет."));
+  for (const formulation of view.formulations) {
+    const item = el("article"); item.className = "analytical-item";
+    item.append(el("strong", `Версия ${formulation.version} · ${presentFormulationStatus(formulation.status)}`), el("small", `Создано: ${formulation.created_at ?? "не указано"} · Обновлено: ${formulation.updated_at ?? "не указано"}`), el("p", formulation.summary), el("small", formulation.comparison_label));
+    if (formulation.correction_text) item.append(el("p", `Исправление: ${formulation.correction_text}`));
+    if (!formulation.added_lines.length && !formulation.removed_lines.length) item.append(el("p", formulation.comparison_label === "Предыдущей версии нет" ? "Текстовой разницы для первой версии нет." : "Текстовых различий нет."));
+    if (formulation.added_lines.length) item.append(el("strong", "Добавлено:"), ...formulation.added_lines.map((line) => el("p", `+ ${line}`)));
+    if (formulation.removed_lines.length) item.append(el("strong", "Убрано:"), ...formulation.removed_lines.map((line) => el("p", `- ${line}`)));
+    history.append(item);
+  }
+  const matrix = section("Матрица контекста");
+  if (!view.context_by_dimension.length) matrix.append(el("p", "Контекстные элементы пока не зафиксированы."));
+  for (const group of view.context_by_dimension) {
+    const item = el("article"); item.className = "analytical-item"; item.append(el("h5", presentDimension(group.dimension)));
+    for (const kind of ["KNOWN", "UNKNOWN", "CONTRADICTION"] as const) {
+      const entries = group.items.filter((entry) => entry.kind === kind); if (!entries.length) continue;
+      const label = { KNOWN: "Известно", UNKNOWN: "Неизвестно", CONTRADICTION: "Противоречия / разные ответы" }[kind];
+      const list = el("ul"); list.append(...entries.map(contextLine)); item.append(el("strong", label), list);
+    }
+    matrix.append(item);
+  }
+  const hypotheses = section("Рабочие гипотезы и основания");
+  if (!view.hypotheses.length) hypotheses.append(el("p", "Рабочие гипотезы пока не зафиксированы."));
+  for (const hypothesis of view.hypotheses) {
+    const item = el("article"); item.className = "analytical-item"; item.append(el("p", hypothesis.proposal_text), el("small", `Неопределённость: ${hypothesis.uncertainty_text}`));
+    if (hypothesis.discriminator_text) item.append(el("small", `Что могло бы различить варианты: ${hypothesis.discriminator_text}`));
+    for (const [heading, relations, empty] of [["Поддерживает", hypothesis.support, "Поддерживающие данные пока не зафиксированы."], ["Противоречит / контрпример", hypothesis.counterevidence, "Контрпримеры пока не зафиксированы."], ["Остаётся неизвестным", hypothesis.unknown, "Неизвестные данные для этой гипотезы пока не зафиксированы."]] as const) {
+      item.append(el("strong", heading));
+      if (!relations.length) item.append(el("p", empty));
+      else { const list = el("ul"); list.append(...relations.map((relation) => contextLine(relation.context))); item.append(list); }
+    }
+    hypotheses.append(item);
+  }
+  const contradictions = section("Противоречия / разные ответы");
+  if (!view.contradictions.length) contradictions.append(el("p", "Сейчас зафиксированных противоречий нет."));
+  else { const list = el("ul"); list.append(...view.contradictions.map(contextLine)); contradictions.append(list); }
+  const unknowns = section("Что остаётся неизвестным");
+  if (!view.unresolved_unknowns.length) unknowns.append(el("p", "Неразрешённых неизвестных пока не зафиксировано."));
+  else { const list = el("ul"); list.append(...view.unresolved_unknowns.map(contextLine)); unknowns.append(list); }
+  const timeline = section("Хронология сессии"); timeline.append(el("p", "Это хронология записанных событий продукта, а не восстановленная биография."));
+  if (!view.timeline.length) timeline.append(el("p", "Записанных событий для хронологии пока нет."));
+  else { const list = el("ol"); for (const event of view.timeline) list.append(el("li", `${event.at} · ${event.label} · ${event.detail}`)); timeline.append(list); }
+  return workspace;
 }
 
 export async function mount(api: DesktopApi = desktopApi): Promise<void> {
@@ -173,6 +236,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
           }
           exploration.append(item);
         }
+        exploration.append(renderAnalyticalWorkspace(current, state));
       };
       const label = el("label", "Ваш текст"); label.htmlFor = "reflection-turn";
       const content = el("textarea"); content.id = "reflection-turn"; content.name = "reflection-turn"; content.setAttribute("aria-label", "Ваш текст"); content.maxLength = 12000; content.rows = 5; content.required = true; content.disabled = current.state === "CLOSED";
