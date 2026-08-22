@@ -209,6 +209,19 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         # so select its action rather than assuming a text label is globally unique.
         click(window, "Принять как рабочую", found_index=0)
         wait_for_text(window, "CURRENT")
+        # V3-A2: the projection is read-only and derives only the persisted
+        # V3-A1 session state; its headings are native accessibility evidence.
+        for marker in (
+            "АНАЛИТИКА СЕССИИ",
+            "Текущая рабочая формулировка",
+            "Как менялась формулировка",
+            "Матрица контекста",
+            "Рабочие гипотезы и основания",
+            "Противоречия / разные ответы",
+            "Что остаётся неизвестным",
+            "Хронология сессии",
+        ):
+            wait_for_text(window, marker)
     finally:
         terminate_tree(first)
     if psutil.pid_exists(first.pid):
@@ -225,6 +238,9 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         click(window, "Открыть")
         wait_for_text(window, canary)
         wait_for_text(window, "SYNTHETIC-V3A1-CORRECTION")
+        wait_for_text(window, "АНАЛИТИКА СЕССИИ")
+        wait_for_text(window, "Текущая рабочая формулировка")
+        wait_for_text(window, "Хронология сессии")
         enter_editable(window, "Ваш текст", "V3A0-UIA-SECOND-TURN")
         click(window, "Добавить в сессию")
         wait_for_text(window, "V3A0-UIA-SECOND-TURN")
@@ -236,6 +252,8 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         window.wait("visible", timeout=8)
         assert_absent_or_disabled(window, "Ваш текст", "Edit")
         assert_absent_or_disabled(window, "Добавить в сессию", "Button")
+        wait_for_text(window, "АНАЛИТИКА СЕССИИ")
+        wait_for_text(window, "Хронология сессии")
         click(window, "Удалить сессию")
         wait_for_text(window, "МОИ СЕССИИ")
         if title in "\n".join(control.window_text() for control in window.descendants()):
@@ -367,6 +385,7 @@ def main() -> int:
     print("V3A1_NATIVE_GUIDED_EXPLORATION: PASS")
     print("V3A1_NATIVE_FORMULATION_VERSIONING: PASS")
     print("V3A1_NATIVE_RESTART_PERSISTENCE: PASS")
+    print("V3A2_NATIVE_ANALYTICAL_WORKSPACE: PASS")
     return 0
 
 

@@ -9,7 +9,12 @@ export interface StatusView {
 }
 export interface ReflectionSessionView { session_id: string; title: string; state: "ACTIVE" | "CLOSED"; retention: "ENCRYPTED_LOCAL"; created_at: string; updated_at: string; closed_at: string | null; turn_count: number; turns?: ReflectionTurnView[]; }
 export interface ReflectionTurnView { turn_id: string; session_id: string; sequence: number; actor: "USER"; created_at: string; content: string; }
-export interface ExplorationView { context: Array<{ context_item_id: string; dimension: string; kind: "KNOWN" | "UNKNOWN" | "CONTRADICTION"; text: string; state: string; source_turn_ids: string[] }>; hypotheses: Array<{ hypothesis_id: string; proposal_text: string; uncertainty_text: string; discriminator_text: string; context_refs: Array<{ context_item_id: string; relation: "SUPPORT" | "COUNTEREVIDENCE" | "UNKNOWN"; source_turn_ids: string[] }> }>; next_question: { question_id: string; text: string } | null; snapshots: Array<{ snapshot_id: string; version: number }>; formulations: Array<{ formulation_id: string; version: number; status: "PROPOSED" | "CURRENT" | "REJECTED" | "SUPERSEDED"; summary: string; correction_text: string | null }>; }
+export interface ExplorationContextItem { context_item_id: string; dimension: string; kind: "KNOWN" | "UNKNOWN" | "CONTRADICTION"; text: string; state: string; source_turn_ids: string[]; created_at?: string; }
+export interface ExplorationHypothesisRef { context_item_id: string; relation: "SUPPORT" | "COUNTEREVIDENCE" | "UNKNOWN"; source_turn_ids: string[]; }
+export interface ExplorationHypothesis { hypothesis_id: string; proposal_text: string; uncertainty_text: string; discriminator_text: string; created_at?: string; context_refs: ExplorationHypothesisRef[]; }
+export interface ExplorationSnapshot { snapshot_id: string; version: number; method_version?: string; created_at?: string; }
+export interface ExplorationFormulation { formulation_id: string; version: number; parent_formulation_id?: string | null; snapshot_id?: string; status: "PROPOSED" | "CURRENT" | "REJECTED" | "SUPERSEDED"; summary: string; correction_text: string | null; method_version?: string; created_at?: string; updated_at?: string; }
+export interface ExplorationView { context: ExplorationContextItem[]; hypotheses: ExplorationHypothesis[]; next_question: { question_id: string; text: string; dimension?: string; status?: string; snapshot_id?: string } | null; snapshots: ExplorationSnapshot[]; formulations: ExplorationFormulation[]; }
 
 let sessionToken: string | null = null;
 

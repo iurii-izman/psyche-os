@@ -65,6 +65,34 @@ async function click(node: HTMLElement): Promise<void> {
 }
 
 describe("E02 bounded desktop UI", () => {
+  it("V3-A2 renders a closed analytical workspace without analytics write controls", async () => {
+    const api = mockApi(false);
+    const session = { session_id: "reflection-1", title: "Тест", state: "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:02:00Z", closed_at: "2026-01-01T00:02:00Z", turn_count: 1, turns: [{ turn_id: "turn-1", session_id: "reflection-1", sequence: 1, actor: "USER" as const, created_at: "2026-01-01T00:00:01Z", content: "Синтетический ответ" }] };
+    vi.mocked(api.reflectionCreate).mockResolvedValue(session);
+    vi.mocked(api.reflectionGet).mockResolvedValue(session);
+    vi.mocked(api.explorationGet).mockResolvedValue({
+      context: [
+        { context_item_id: "known", dimension: "user_report", kind: "KNOWN", text: "Известное", state: "RECORDED", source_turn_ids: ["turn-1"], created_at: "2026-01-01T00:00:01Z" },
+        { context_item_id: "unknown", dimension: "future_dimension", kind: "UNKNOWN", text: "Пропущенное", state: "SKIPPED", source_turn_ids: ["turn-1"], created_at: "2026-01-01T00:00:02Z" },
+        { context_item_id: "conflict", dimension: "context", kind: "CONTRADICTION", text: "Разные ответы", state: "OPEN", source_turn_ids: ["turn-1"], created_at: "2026-01-01T00:00:03Z" }
+      ],
+      hypotheses: [{ hypothesis_id: "hypothesis-1", proposal_text: "Рабочий вариант", uncertainty_text: "Не факт", discriminator_text: "Уточнение", context_refs: [{ context_item_id: "known", relation: "SUPPORT", source_turn_ids: ["turn-1"] }, { context_item_id: "conflict", relation: "COUNTEREVIDENCE", source_turn_ids: ["turn-1"] }, { context_item_id: "unknown", relation: "UNKNOWN", source_turn_ids: ["turn-1"] }] }],
+      next_question: null,
+      snapshots: [{ snapshot_id: "snapshot-1", version: 1, created_at: "2026-01-01T00:00:01Z" }],
+      formulations: [{ formulation_id: "formulation-1", version: 1, parent_formulation_id: null, status: "CURRENT", summary: "Синтетическая формулировка", correction_text: null, created_at: "2026-01-01T00:00:02Z", updated_at: "2026-01-01T00:00:02Z" }]
+    });
+    await mount(api);
+    const title = document.querySelector<HTMLInputElement>("#reflection-title")!;
+    title.value = "Тест";
+    title.form!.requestSubmit();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const analytics = document.querySelector<HTMLElement>(".analytical-workspace")!;
+    expect(analytics.textContent).toContain("АНАЛИТИКА СЕССИИ");
+    for (const required of ["Текущая рабочая формулировка", "Как менялась формулировка", "Матрица контекста", "Поддерживает", "Противоречит / контрпример", "Остаётся неизвестным", "Пропущено / «не знаю»", "Противоречия / разные ответы", "Хронология сессии", "ваш ответ №1"]) expect(analytics.textContent).toContain(required);
+    expect(analytics.querySelector("button, input, textarea, select")).toBeNull();
+    expect(document.querySelector<HTMLTextAreaElement>("#reflection-turn")!.disabled).toBe(true);
+  });
+
   it("presents the Russian local reflection-session entry point", async () => {
     const api = mockApi(false);
     await mount(api);
