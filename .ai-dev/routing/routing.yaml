@@ -34,6 +34,12 @@ circuit_breakers:
     max_grounded_retry: 1
     repeated_patch_failures: change_strategy_or_escalate
     unbounded_search_tool_loop: stop
+    verifier_rabbit_hole: >-
+      If failures are not direct product regressions, span unrelated
+      UI/locator/lifecycle mechanisms, exceed the product repair effort, and no
+      longer discriminate correctness, stop feature-local verifier repair. Use a
+      trusted sufficient oracle, record separate verifier debt, or escalate verifier
+      architecture only when future product work materially depends on it.
     budget_exceeded: explicit_continuation_required
   provider:
     on_rate_limit_timeout_5xx: limited_technical_retries_then_open
