@@ -231,14 +231,27 @@ describe("E02 bounded desktop UI", () => {
     expect(document.body.textContent).toContain("Моя новая сессия");
   });
 
-  it("V3-F cancel creates nothing and a stale creation cannot replace newer Return navigation", async () => {
+  it("V3-F cancel before submit creates nothing and returns to Return", async () => {
     const api = mockApi(false);
     const source = { session_id: "source", title: "Исходная", state: "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: "2026-01-01T00:00:00Z", turn_count: 1, turns: [] };
-    let resolveCreate!: (value: typeof source) => void;
-    vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [source] }); vi.mocked(api.reflectionGet).mockResolvedValue(source); vi.mocked(api.explorationGet).mockResolvedValue({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }); vi.mocked(api.reflectionCreate).mockImplementationOnce(() => new Promise((resolve) => { resolveCreate = resolve; }));
+    vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [source] }); vi.mocked(api.reflectionGet).mockResolvedValue(source); vi.mocked(api.explorationGet).mockResolvedValue({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] });
     await mount(api); await click(byText("К чему вернуться")); await click(byText("Начать новую сессию"));
-    const text = document.querySelector<HTMLTextAreaElement>("#follow-up-text")!; text.value = "Новый текст"; text.form!.requestSubmit(); await click(byText("Отмена")); resolveCreate(source); await new Promise((resolve) => setTimeout(resolve, 0));
+    await click(byText("Отмена"));
     expect(document.querySelector(".return-workspace")).not.toBeNull(); expect(api.reflectionAddTurn).not.toHaveBeenCalled();
+    expect(api.reflectionCreate).not.toHaveBeenCalled();
+  });
+
+  it("V3-F completes an authorized write during newer navigation without replacing it", async () => {
+    const api = mockApi(false);
+    const source = { session_id: "source", title: "Исходная", state: "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: "2026-01-01T00:00:00Z", turn_count: 1, turns: [] };
+    const created = { ...source, session_id: "new", title: "Новая", state: "ACTIVE" as const, closed_at: null };
+    let resolveCreate!: (value: typeof created) => void;
+    vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [source] }); vi.mocked(api.reflectionGet).mockResolvedValue(source); vi.mocked(api.explorationGet).mockResolvedValue({ context: [{ context_item_id: "historical", dimension: "context", kind: "UNKNOWN", text: "Исторический текст", state: "OPEN", source_turn_ids: [], created_at: "2026-01-01T00:00:00Z" }], hypotheses: [], next_question: null, snapshots: [], formulations: [] }); vi.mocked(api.reflectionCreate).mockImplementationOnce(() => new Promise((resolve) => { resolveCreate = resolve; }));
+    await mount(api); await click(byText("К чему вернуться")); await click(byText("Начать новую сессию"));
+    const title = document.querySelector<HTMLInputElement>("#follow-up-title")!; const text = document.querySelector<HTMLTextAreaElement>("#follow-up-text")!; title.value = "Новая"; text.value = "Точный новый текст"; text.form!.requestSubmit();
+    expect(byText("Начать новую сессию").disabled).toBe(true); expect(byText("Отмена").disabled).toBe(true);
+    await click(byText("Динамика")); expect(document.querySelector(".longitudinal-workspace")).not.toBeNull(); resolveCreate(created); await new Promise((resolve) => setTimeout(resolve, 0)); await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(api.reflectionAddTurn).toHaveBeenLastCalledWith("new", "Точный новый текст"); expect(vi.mocked(api.reflectionAddTurn).mock.calls.at(-1)?.[1]).not.toContain("Исторический текст"); expect(document.querySelector(".longitudinal-workspace")).not.toBeNull(); expect(document.querySelector(".follow-up-workspace")).toBeNull();
   });
 
   it("V3-F keeps the follow-up surface and reports failure without false success", async () => {

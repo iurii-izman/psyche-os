@@ -480,16 +480,18 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       if (viewEpoch !== sessionViewEpoch) return;
+      const submittedTitle = title.value;
+      const submittedText = text.value;
       create.disabled = true;
+      cancel.disabled = true;
       void (async () => {
         try {
-          const created = await api.reflectionCreate(title.value);
-          if (viewEpoch !== sessionViewEpoch) return;
-          await api.reflectionAddTurn(created.session_id, text.value);
+          const created = await api.reflectionCreate(submittedTitle);
+          await api.reflectionAddTurn(created.session_id, submittedText);
           if (viewEpoch !== sessionViewEpoch) return;
           await showSession(created.session_id);
         } catch (error) {
-          if (viewEpoch === sessionViewEpoch) { create.disabled = false; safeError(operationStatus, error); }
+          if (viewEpoch === sessionViewEpoch) { create.disabled = false; cancel.disabled = false; safeError(operationStatus, error); }
         }
       })();
     });
