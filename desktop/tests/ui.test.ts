@@ -190,7 +190,7 @@ describe("E02 bounded desktop UI", () => {
     expect(workspace.textContent).toContain("не означает эффективность");
   });
 
-  it("V3-D displays provenance and opens only the chosen source session", async () => {
+  it("V3-F presents a CLOSED source as read-only follow-up context", async () => {
     const api = mockApi(false);
     const session = { session_id: "return-a", title: "Исходная сессия", state: "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: "2026-01-01T00:00:00Z", turn_count: 1, turns: [{ turn_id: "turn-return-a", session_id: "return-a", sequence: 1, actor: "USER" as const, created_at: "2026-01-01T00:00:00Z", content: "Синтетический исходный текст" }] };
     vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [session] });
@@ -201,11 +201,53 @@ describe("E02 bounded desktop UI", () => {
     const workspace = document.querySelector<HTMLElement>(".return-workspace")!;
     expect(workspace.textContent).toContain("Записано ранее");
     expect(workspace.textContent).toContain("Источник: ваш ответ №1");
-    await click(byText("Вернуться к этой записи"));
-    expect(api.reflectionGet).toHaveBeenLastCalledWith("return-a");
-    expect(document.body.textContent).toContain("ЗАКРЫТАЯ СЕССИЯ · ТОЛЬКО ЧТЕНИЕ");
-    expect(document.body.textContent).toContain("Ваш текст");
-    expect(document.body.textContent).not.toContain("Ваш новый текст");
+    await click(byText("Начать новую сессию"));
+    expect(document.querySelector(".follow-up-workspace")?.textContent).toContain("Записано ранее");
+    expect(document.querySelector(".follow-up-workspace")?.textContent).toContain("Источник: ваш ответ №1");
+    expect(document.querySelector(".follow-up-workspace")?.textContent).toContain("Закрыта · только чтение");
+    expect(document.querySelector<HTMLTextAreaElement>("#follow-up-text")?.value).toBe("");
+  });
+
+  it("V3-F explicitly continues an ACTIVE Return source", async () => {
+    const api = mockApi(false);
+    const session = { session_id: "return-active", title: "Активная исходная", state: "ACTIVE" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: null, turn_count: 1, turns: [{ turn_id: "turn-active", session_id: "return-active", sequence: 1, actor: "USER" as const, created_at: "2026-01-01T00:00:00Z", content: "Синтетический исходный текст" }] };
+    vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [session] }); vi.mocked(api.reflectionGet).mockResolvedValue(session); vi.mocked(api.explorationGet).mockResolvedValue({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] });
+    await mount(api); await click(byText("К чему вернуться")); await click(byText("Продолжить эту сессию"));
+    expect(api.reflectionGet).toHaveBeenLastCalledWith("return-active");
+    expect(document.body.textContent).toContain("АКТИВНАЯ СЕССИЯ");
+  });
+
+  it("V3-F sends only exact new user text to the ordinary session APIs", async () => {
+    const api = mockApi(false);
+    const source = { session_id: "source", title: "Исходная", state: "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: "2026-01-01T00:00:00Z", turn_count: 1, turns: [] };
+    const created = { ...source, session_id: "new", title: "Моя новая сессия", state: "ACTIVE" as const, closed_at: null, turn_count: 1, turns: [{ turn_id: "new-turn", session_id: "new", sequence: 1, actor: "USER" as const, created_at: "2026-01-02T00:00:00Z", content: "Только новый текст" }] };
+    vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [source] }); vi.mocked(api.reflectionGet).mockImplementation(async (id) => id === "new" ? created : source); vi.mocked(api.reflectionCreate).mockResolvedValue(created); vi.mocked(api.explorationGet).mockResolvedValue({ context: [{ context_item_id: "old", dimension: "context", kind: "UNKNOWN", text: "Исторический текст", state: "OPEN", source_turn_ids: [], created_at: "2026-01-01T00:00:00Z" }], hypotheses: [], next_question: null, snapshots: [], formulations: [] });
+    await mount(api); await click(byText("К чему вернуться")); await click(byText("Начать новую сессию"));
+    const title = document.querySelector<HTMLInputElement>("#follow-up-title")!; const text = document.querySelector<HTMLTextAreaElement>("#follow-up-text")!; title.value = "Моя новая сессия"; text.value = "Только новый текст"; text.form!.requestSubmit();
+    await new Promise((resolve) => setTimeout(resolve, 0)); await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(api.reflectionCreate).toHaveBeenLastCalledWith("Моя новая сессия");
+    expect(api.reflectionAddTurn).toHaveBeenLastCalledWith("new", "Только новый текст");
+    expect(vi.mocked(api.reflectionAddTurn).mock.calls[0]?.[1]).not.toContain("Исторический текст");
+    expect(document.body.textContent).toContain("Моя новая сессия");
+  });
+
+  it("V3-F cancel creates nothing and a stale creation cannot replace newer Return navigation", async () => {
+    const api = mockApi(false);
+    const source = { session_id: "source", title: "Исходная", state: "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: "2026-01-01T00:00:00Z", turn_count: 1, turns: [] };
+    let resolveCreate!: (value: typeof source) => void;
+    vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [source] }); vi.mocked(api.reflectionGet).mockResolvedValue(source); vi.mocked(api.explorationGet).mockResolvedValue({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }); vi.mocked(api.reflectionCreate).mockImplementationOnce(() => new Promise((resolve) => { resolveCreate = resolve; }));
+    await mount(api); await click(byText("К чему вернуться")); await click(byText("Начать новую сессию"));
+    const text = document.querySelector<HTMLTextAreaElement>("#follow-up-text")!; text.value = "Новый текст"; text.form!.requestSubmit(); await click(byText("Отмена")); resolveCreate(source); await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.querySelector(".return-workspace")).not.toBeNull(); expect(api.reflectionAddTurn).not.toHaveBeenCalled();
+  });
+
+  it("V3-F keeps the follow-up surface and reports failure without false success", async () => {
+    const api = mockApi(false);
+    const source = { session_id: "source", title: "Исходная", state: "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: "2026-01-01T00:00:00Z", turn_count: 1, turns: [] };
+    vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [source] }); vi.mocked(api.reflectionGet).mockResolvedValue(source); vi.mocked(api.explorationGet).mockResolvedValue({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }); vi.mocked(api.reflectionCreate).mockRejectedValue("CREATE_FAILED");
+    await mount(api); await click(byText("К чему вернуться")); await click(byText("Начать новую сессию"));
+    const text = document.querySelector<HTMLTextAreaElement>("#follow-up-text")!; text.value = "Новый текст"; text.form!.requestSubmit(); await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.querySelector(".follow-up-workspace")).not.toBeNull(); expect(document.querySelector("#operation-status")?.textContent).toContain("CREATE_FAILED"); expect(document.body.textContent).not.toContain("АКТИВНАЯ СЕССИЯ");
   });
 
   it("V3-B/C opens the global read-only longitudinal workspace for two synthetic sessions", async () => {

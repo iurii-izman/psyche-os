@@ -3,6 +3,7 @@ import { buildAnalyticalWorkspace, presentDimension, presentFormulationStatus, p
 import { buildSessionSynthesis } from "./synthesis-action-workspace";
 import { buildLongitudinalWorkspace, compareSessions, type LongitudinalSessionBundle } from "./longitudinal-workspace";
 import { buildReturnWorkspace, type ReturnCandidate, type ReturnCandidateCategory } from "./return-workspace";
+import { buildFollowUpWorkspace } from "./follow-up-workspace";
 import { buildProductJourney, presentJourneyState } from "./product-journey";
 import { presentKey, presentValue, t, type TranslationKey } from "./i18n";
 
@@ -225,7 +226,7 @@ function renderReturnWorkspace(bundles: LongitudinalSessionBundle[], choose: (ca
       const item = el("article"); item.className = "return-candidate";
       item.append(el("p", candidate.text), el("small", `${provenance(candidate)} · сессия: ${candidate.session_title} · ${candidate.recorded_at} · состояние: ${candidate.state}`));
       if (candidate.source_anchors.length) item.append(el("small", `Источник: ${candidate.source_anchors.join(", ")}`));
-      item.append(button("Вернуться к этой записи", async () => choose(candidate), "secondary"));
+      item.append(button(candidate.session_state === "ACTIVE" ? "Продолжить эту сессию" : "Начать новую сессию", async () => choose(candidate), candidate.session_state === "ACTIVE" ? "primary" : "secondary"));
       section.append(item);
     }
     root.append(section);
@@ -451,8 +452,49 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
         return { session, exploration, plans: actionHistory.plans };
       }));
       if (viewEpoch !== sessionViewEpoch) return;
-      sessionBody.replaceChildren(el("h2", "К чему вернуться"), renderReturnWorkspace(bundles, async (candidate) => showSession(candidate.session_id)), button("К сессиям", showList), button("На главную", showHome));
+      sessionBody.replaceChildren(el("h2", "К чему вернуться"), renderReturnWorkspace(bundles, async (candidate) => {
+        if (candidate.session_state === "ACTIVE") await showSession(candidate.session_id);
+        else await showFollowUp(candidate);
+      }), button("К сессиям", showList), button("На главную", showHome));
     } catch (error) { safeError(operationStatus, error); }
+  };
+  const showFollowUp = async (candidate: ReturnCandidate): Promise<void> => {
+    const viewEpoch = ++sessionViewEpoch;
+    const view = buildFollowUpWorkspace(candidate);
+    const root = el("section");
+    root.className = "follow-up-workspace";
+    root.append(el("h2", "ВЕРНУТЬСЯ К ЗАПИСИ"), el("p", "Историческая запись показана только для чтения. Она не будет добавлена в новую сессию."));
+    const historical = el("section");
+    historical.className = "follow-up-historical";
+    historical.append(el("h3", "Записано ранее"), el("p", view.candidate.text), el("small", `${view.provenance_label} · ${view.candidate.category} · ${view.candidate.recorded_at} · состояние: ${view.candidate.state}`));
+    if (view.candidate.source_anchors.length) historical.append(el("small", `Источник: ${view.candidate.source_anchors.join(", ")}`));
+    const source = el("section");
+    source.append(el("h3", "Исходная сессия"), el("p", `${view.candidate.session_title} · ${view.source_state_label}`));
+    const form = el("form"); form.className = "follow-up-form";
+    const [titleLabel, title] = field("Новая сессия", "follow-up-title"); title.maxLength = 160; title.required = true; title.value = view.suggested_title;
+    const textLabel = el("label", "Что вы хотите записать сейчас?"); textLabel.htmlFor = "follow-up-text";
+    const text = el("textarea"); text.id = "follow-up-text"; text.name = "follow-up-text"; text.setAttribute("aria-label", "Что вы хотите записать сейчас?"); text.maxLength = 12000; text.rows = 5; text.required = true;
+    const create = el("button", "Начать новую сессию"); create.type = "submit"; create.className = "primary";
+    const cancel = button("Отмена", showReturn);
+    form.append(titleLabel, title, textLabel, text, create, cancel);
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (viewEpoch !== sessionViewEpoch) return;
+      create.disabled = true;
+      void (async () => {
+        try {
+          const created = await api.reflectionCreate(title.value);
+          if (viewEpoch !== sessionViewEpoch) return;
+          await api.reflectionAddTurn(created.session_id, text.value);
+          if (viewEpoch !== sessionViewEpoch) return;
+          await showSession(created.session_id);
+        } catch (error) {
+          if (viewEpoch === sessionViewEpoch) { create.disabled = false; safeError(operationStatus, error); }
+        }
+      })();
+    });
+    root.append(historical, source, form);
+    if (viewEpoch === sessionViewEpoch) sessionBody.replaceChildren(root);
   };
   const createForm = el("form");
   const [sessionTitleLabel, sessionTitle] = field("Название", "reflection-title"); sessionTitle.maxLength = 160; sessionTitle.required = true;
