@@ -19,7 +19,7 @@ from sqlcipher3 import dbapi2
 
 from psyche_os.application.action_planning import ActionPlanningService
 from psyche_os.application.e03_archive import E03ArchiveError, E03ArchiveService
-from psyche_os.application.e07_bounded_ai import (PURPOSE, BoundedAIProposalService, E07BoundaryError, ProviderRegistry, ProviderRegistryEntry)
+from psyche_os.application.e07_bounded_ai import (ALLOWED_ROLES_BY_CATEGORY, PURPOSE, BoundedAIProposalService, E07BoundaryError, ProviderRegistry, ProviderRegistryEntry)
 from psyche_os.adapters.e07_provider import OpenAIReflectionProvider, SQLiteCanonicalRecordReader
 from psyche_os.domain.ai_proposal import EvidenceRole, ProviderIdentity
 from psyche_os.policy.engine import CloudPolicy, ExportRule, PolicyAxes, ProcessingLocation, Sensitivity, ThirdPartyScope
@@ -43,6 +43,7 @@ from psyche_os.domain.ids import VaultId, generate_id
 from psyche_os.storage.migrations import Migrator
 
 PROTOCOL_VERSION: Final = "1.0"
+BUILD_VERSION: Final = "0.2.0"
 MAX_TEXT: Final = 512
 MAX_SECRET: Final = 256
 ALLOWED_EXPORT_PURPOSES: Final = frozenset({"portability", "review"})
@@ -73,6 +74,7 @@ ALLOWED_COMMANDS: Final = frozenset(
         "reflection_session.add_turn",
         "reflection_session.close",
         "reflection_session.delete",
+        "reflection.search",
         "reflection_exploration.start",
         "reflection_exploration.get",
         "reflection_exploration.answer",
@@ -85,7 +87,7 @@ ALLOWED_COMMANDS: Final = frozenset(
         "reflection_action.list",
         "reflection_action.create",
         "reflection_action.record_outcome",
-        "ai.status", "ai.prepare", "ai.authorize_execute",
+        "ai.status", "ai.list_eligible", "ai.prepare", "ai.authorize_execute",
     }
 )
 STATE_CHANGING_COMMANDS: Final = frozenset(
@@ -110,6 +112,7 @@ STATE_CHANGING_COMMANDS: Final = frozenset(
         "reflection_session.add_turn",
         "reflection_session.close",
         "reflection_session.delete",
+        "reflection.search",
         "reflection_exploration.start",
         "reflection_exploration.answer",
         "reflection_exploration.skip",
@@ -121,7 +124,7 @@ STATE_CHANGING_COMMANDS: Final = frozenset(
         "reflection_action.list",
         "reflection_action.create",
         "reflection_action.record_outcome",
-        "ai.prepare", "ai.authorize_execute",
+        "ai.list_eligible", "ai.prepare", "ai.authorize_execute",
     }
 )
 
@@ -334,6 +337,7 @@ class DesktopApplicationService:
             "reflection_session.add_turn": self._reflection_add_turn,
             "reflection_session.close": self._reflection_close,
             "reflection_session.delete": self._reflection_delete,
+            "reflection.search": self._reflection_search,
             "reflection_exploration.start": self._exploration_start,
             "reflection_exploration.get": self._exploration_get,
             "reflection_exploration.answer": self._exploration_answer,
@@ -346,7 +350,7 @@ class DesktopApplicationService:
             "reflection_action.list": self._action_list,
             "reflection_action.create": self._action_create,
             "reflection_action.record_outcome": self._action_record_outcome,
-            "ai.status": self._ai_status, "ai.prepare": self._ai_prepare, "ai.authorize_execute": self._ai_authorize_execute,
+            "ai.status": self._ai_status, "ai.list_eligible": self._ai_list_eligible, "ai.prepare": self._ai_prepare, "ai.authorize_execute": self._ai_authorize_execute,
         }
         return handlers[command](payload)
 
@@ -369,15 +373,62 @@ class DesktopApplicationService:
         import os
         return {"runtime_profile": "SYNTHETIC_LAB", "local_personal": "NOT_ADMITTED", "ai": "READY_SYNTHETIC_LAB" if os.environ.get("OPENAI_API_KEY") else "NOT_CONFIGURED", "provider": "OpenAI", "model": "gpt-5.6-luna"}
 
-    def _ai_prepare(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def _ai_list_eligible(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, set())
+        import datetime as dt
+        records = self._ai.list_eligible(cutoff=dt.datetime.now(dt.UTC))
+        return {"provider": "OpenAI", "model": "gpt-5.6-luna", "records": records, "notice": "Synthetic cloud-eligible records only; proposal only."}
+
+    @staticmethod
+    def _validate_ai_selection(value: Any) -> tuple[tuple[str, EvidenceRole], ...]:
+        if not isinstance(value, list) or not value or len(value) > 8:
+            raise DesktopServiceError("INVALID_SELECTION")
+        selected: list[tuple[str, EvidenceRole]] = []
+        seen: set[str] = set()
+        for item in value:
+            if not isinstance(item, dict) or set(item) != {"record_id", "role"}:
+                raise DesktopServiceError("INVALID_SELECTION")
+            record_id = item["record_id"]
+            role_value = item["role"]
+            if (
+                not isinstance(record_id, str)
+                or not record_id.strip()
+                or len(record_id) > MAX_TEXT
+                or role_value not in {"supporting", "counterevidence", "unknown"}
+            ):
+                raise DesktopServiceError("INVALID_SELECTION")
+            record_id = record_id.strip()
+            if record_id in seen:
+                raise DesktopServiceError("INVALID_SELECTION")
+            seen.add(record_id)
+            selected.append((record_id, EvidenceRole(role_value)))
+        roles = {role for _, role in selected}
+        if roles != {EvidenceRole.SUPPORTING, EvidenceRole.COUNTEREVIDENCE, EvidenceRole.UNKNOWN}:
+            raise DesktopServiceError("INVALID_SELECTION")
+        return tuple(selected)
+
+    def _ai_prepare(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"selected"})
         import datetime as dt, uuid
+        selected = self._validate_ai_selection(payload["selected"])
+        roles_by_id = dict(selected)
+        # Backend-owned category/role compatibility: a renderer cannot assign
+        # a role the record category does not allow, nor select a reflection
+        # workspace id (it is never a canonical eligible record).
+        for record_id, role in selected:
+            category = self._ai.category_for(record_id)
+            if category not in ALLOWED_ROLES_BY_CATEGORY or role not in ALLOWED_ROLES_BY_CATEGORY[category]:
+                raise DesktopServiceError("INVALID_SELECTION")
         identity = ProviderIdentity("openai", "gpt-5.6-luna", "responses-v1-store-false")
         try:
-            self._ai_prepared = self._ai.prepare(interaction_id=f"ai-lab-{uuid.uuid4()}", purpose=PURPOSE, selected=(("assertion-lamp", EvidenceRole.SUPPORTING), ("assertion-counter", EvidenceRole.COUNTEREVIDENCE), ("unknown-lamp", EvidenceRole.UNKNOWN)), provider_identity=identity, cutoff=dt.datetime.now(dt.UTC))
+            self._ai_prepared = self._ai.prepare(interaction_id=f"ai-lab-{uuid.uuid4()}", purpose=PURPOSE, selected=selected, provider_identity=identity, cutoff=dt.datetime.now(dt.UTC))
         except E07BoundaryError as exc: raise DesktopServiceError(exc.code) from exc
         preview = self._ai_prepared.preview
-        return {"preview_id": preview.preview_id, "selected": preview.selected, "provider": "OpenAI", "model": "gpt-5.6-luna", "purpose": preview.purpose, "notice": "Synthetic cloud-eligible records only; proposal only."}
+        selected_rows = [
+            {"record_id": record_id, "version_id": version_id, "category": category, "role": roles_by_id[record_id].value}
+            for record_id, version_id, category in preview.selected
+        ]
+        return {"preview_id": preview.preview_id, "selected": selected_rows, "provider": "OpenAI", "model": "gpt-5.6-luna", "purpose": preview.purpose, "retention": preview.retention, "notice": "Synthetic cloud-eligible records only; proposal only."}
 
     def _ai_authorize_execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"preview_id", "opt_in"})
@@ -418,6 +469,16 @@ class DesktopApplicationService:
         _require_exact(payload, {"session_id", "confirmation"})
         return self._reflection_call(
             self._reflection_sessions.delete_session, payload["session_id"], payload["confirmation"]
+        )
+
+    def _reflection_search(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"query", "state", "limit", "offset"})
+        return self._reflection_call(
+            self._reflection_sessions.search,
+            payload["query"],
+            payload["state"],
+            payload["limit"],
+            payload["offset"],
         )
 
     def _exploration_start(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -557,6 +618,8 @@ class DesktopApplicationService:
             "data_mode": "SYNTHETIC_ONLY",
             "real_data_gate": "CLOSED",
             "network": "OFFLINE_NO_LISTENER",
+            "runtime_profile": "SYNTHETIC_LAB",
+            "build_version": BUILD_VERSION,
             "privacy": {
                 "processing_location": "LOCAL_ONLY",
                 "cloud": "DISABLED",

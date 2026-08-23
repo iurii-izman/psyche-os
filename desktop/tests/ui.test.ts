@@ -2,7 +2,7 @@ import axe from "axe-core";
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
-import type { DesktopApi, StatusView } from "../src/api";
+import type { DesktopApi, SearchView, StatusView, AiRole } from "../src/api";
 import { mount } from "../src/main";
 import { t } from "../src/i18n";
 
@@ -12,6 +12,8 @@ function syntheticStatus(locked = false): StatusView {
     data_mode: "SYNTHETIC_ONLY",
     real_data_gate: "CLOSED",
     network: "OFFLINE_NO_LISTENER",
+    runtime_profile: "SYNTHETIC_LAB",
+    build_version: "0.2.0",
     privacy: { processing_location: "LOCAL_ONLY", cloud: "DISABLED", telemetry: "OFF" }
   };
 }
@@ -21,7 +23,12 @@ function mockApi(locked = false): DesktopApi {
   return {
     status: vi.fn(async () => syntheticStatus(stateLocked)),
     aiStatus: vi.fn(async () => ({ runtime_profile: "SYNTHETIC_LAB" as const, local_personal: "NOT_ADMITTED" as const, ai: "NOT_CONFIGURED" as const, provider: "OpenAI", model: "gpt-5.6-luna" })),
-    aiPrepare: vi.fn(async () => ({ preview_id: "ai-preview", selected: [["assertion-lamp", "v1", "assertion"]] as [string, string, string][], provider: "OpenAI", model: "gpt-5.6-luna", purpose: "synthetic_evidence_grounded_reflection", notice: "proposal only" })),
+    aiListEligible: vi.fn(async () => ({ provider: "OpenAI", model: "gpt-5.6-luna", records: [
+      { record_id: "assertion-lamp", version_id: "assertion-lamp-v1", category: "assertion" as const, allowed_roles: ["supporting", "counterevidence"] as AiRole[], display_text: "Синтетическая запись о лампе" },
+      { record_id: "assertion-counter", version_id: "assertion-counter-v1", category: "assertion" as const, allowed_roles: ["supporting", "counterevidence"] as AiRole[], display_text: "Синтетический контрзапись" },
+      { record_id: "unknown-lamp", version_id: "unknown-lamp-v1", category: "unknown" as const, allowed_roles: ["unknown"] as AiRole[], display_text: "Синтетический вопрос" }
+    ], notice: "Synthetic cloud-eligible records only; proposal only." })),
+    aiPrepare: vi.fn(async (selected: { recordId: string; role: AiRole }[]) => ({ preview_id: "ai-preview", selected: selected.map((item) => ({ record_id: item.recordId, version_id: "v1", category: item.role === "unknown" ? "unknown" : "assertion", role: item.role })), provider: "OpenAI", model: "gpt-5.6-luna", purpose: "synthetic_evidence_grounded_reflection", retention: "ephemeral", notice: "proposal only" })),
     aiAuthorizeExecute: vi.fn(async () => ({ proposal: { status: "PROPOSED", reflections: ["Синтетическое наблюдение."], counterevidence: ["assertion-counter"], unknowns: ["Синтетическая неопределённость."], questions: ["Какой синтетический источник мог бы это уточнить?"] } })),
     unlock: vi.fn(async () => { stateLocked = false; return { session_token: "opaque-session" }; }),
     lock: vi.fn(async () => { stateLocked = true; return { locked: true }; }),
@@ -45,6 +52,7 @@ function mockApi(locked = false): DesktopApi {
     reflectionAddTurn: vi.fn(async () => ({ turn_id: "turn-1", session_id: "reflection-1", sequence: 1, actor: "USER" as const, created_at: "2026-01-01T00:00:00Z", content: "Тест" })),
     reflectionClose: vi.fn(async () => ({ state: "CLOSED" })),
     reflectionDelete: vi.fn(async () => ({ deleted: true, content_in_receipt: false })),
+    reflectionSearch: vi.fn(async (query: string) => ({ query, state: "ALL" as const, total_matches: query ? 1 : 0, returned_count: query ? 1 : 0, offset: 0, limit: 50, truncated: false, has_more: false, results: query ? [{ session_id: "reflection-1", session_title: "Тест", session_state: "ACTIVE" as const, session_updated_at: "2026-01-01T00:00:00Z", match_kind: "USER_TURN" as const, turn_id: "turn-1", turn_sequence: 1, excerpt: query }] : [] })),
     explorationStart: vi.fn(async () => ({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] })),
     explorationGet: vi.fn(async () => ({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] })),
     explorationAnswer: vi.fn(async () => ({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] })),
@@ -71,11 +79,31 @@ async function click(node: HTMLElement): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+function selectSyntheticEvidence(recordId: string, role: string): void {
+  const checkbox = document.querySelector<HTMLInputElement>(`input[aria-label="Выбрать запись ${recordId}"]`)!;
+  checkbox.checked = true;
+  checkbox.dispatchEvent(new Event("change"));
+  const select = document.querySelector<HTMLSelectElement>(`select[aria-label="Роль для ${recordId}"]`)!;
+  select.value = role;
+  select.dispatchEvent(new Event("change"));
+}
+
 describe("E02 bounded desktop UI", () => {
   it("E07 renders a validated AI proposal as a Russian-first proposal-only card", async () => {
     const api = mockApi(false);
     await mount(api);
+    selectSyntheticEvidence("assertion-lamp", "supporting");
+    selectSyntheticEvidence("assertion-counter", "counterevidence");
+    selectSyntheticEvidence("unknown-lamp", "unknown");
     await click(byText("Показать предварительное раскрытие"));
+    const preview = document.querySelector<HTMLElement>(".ai-preview-card")!;
+    expect(preview.textContent).toContain("ПРЕДВАРИТЕЛЬНОЕ РАСКРЫТИЕ");
+    expect(preview.textContent).toContain("OpenAI");
+    expect(preview.textContent).toContain("gpt-5.6-luna");
+    expect(preview.textContent).toContain("Поддерживающее");
+    expect(preview.textContent).toContain("Контраргумент");
+    expect(preview.textContent).toContain("Неизвестное");
+    expect(api.aiPrepare).toHaveBeenCalledWith([{ recordId: "assertion-lamp", role: "supporting" }, { recordId: "assertion-counter", role: "counterevidence" }, { recordId: "unknown-lamp", role: "unknown" }]);
     await click(byText("Отправить выбранные синтетические данные"));
     const card = document.querySelector<HTMLElement>(".ai-proposal-card")!;
     for (const text of ["AI-ПРЕДЛОЖЕНИЕ · LAB", "PROPOSED", "Наблюдение", "Синтетическое наблюдение.", "Неопределённость", "Контраргументы", "Что остаётся неизвестным", "Вопросы", "автоматически не сохраняется"]) expect(card.textContent).toContain(text);
@@ -406,6 +434,68 @@ describe("E02 bounded desktop UI", () => {
     expect(secret.value).toBe("");
     expect(document.activeElement).toBe(secret);
     expect(document.querySelector("#unlock-error")!.textContent).toContain(t("unlock.rejected"));
+  });
+
+  it("field preview search finds a local match and opens the source session", async () => {
+    const api = mockApi(false);
+    await mount(api);
+    await click(byText("Поиск"));
+    const search = document.querySelector<HTMLInputElement>("#search-query")!;
+    search.value = "лампа";
+    await click(byText("Найти"));
+    expect(api.reflectionSearch).toHaveBeenCalledWith("лампа", "ALL", 50, 0);
+    expect(document.querySelector(".search-meta")?.textContent).toContain("Совпадений: 1");
+    expect(document.querySelector(".search-result")?.textContent).toContain("Совпадение в вашей записи №1");
+    await click(byText("Открыть сессию"));
+    expect(api.reflectionGet).toHaveBeenLastCalledWith("reflection-1");
+    expect(document.querySelector(".session-header")).not.toBeNull();
+  });
+
+  it("field preview review hub shows persisted states without scoring and opens a session", async () => {
+    const api = mockApi(false);
+    const session = { session_id: "hub-1", title: "Обзорная сессия", state: "ACTIVE" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: null, turn_count: 1, turns: [{ turn_id: "turn-hub", session_id: "hub-1", sequence: 1, actor: "USER" as const, created_at: "2026-01-01T00:00:00Z", content: "Синтетическая запись" }] };
+    vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [session] });
+    vi.mocked(api.reflectionGet).mockResolvedValue(session);
+    vi.mocked(api.explorationGet).mockResolvedValue({ context: [{ context_item_id: "open-hub", dimension: "context", kind: "UNKNOWN", text: "Открытый вопрос обзора", state: "OPEN", source_turn_ids: ["turn-hub"], created_at: "2026-01-01T00:00:00Z" }], hypotheses: [], next_question: null, snapshots: [], formulations: [{ formulation_id: "f-hub", version: 1, status: "CURRENT", summary: "Рабочая формулировка обзора", correction_text: null, created_at: "2026-01-01T00:00:00Z" }] });
+    vi.mocked(api.actionList).mockResolvedValue({ session_id: "hub-1", plans: [{ plan_id: "plan-hub", session_id: "hub-1", version: 1, supersedes_plan_id: null, status: "CURRENT" as const, basis_snapshot_id: null, basis_formulation_id: null, anchor_type: null, anchor_id: null, user_goal: "Цель", template_id: "PAUSE" as const, template_version: "v1", action_text: "Сохранённый шаг обзора", method_version: "v1", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", outcome: { outcome_id: "outcome-hub", status: "DONE" as const, note_text: null, created_at: "2026-01-01T00:00:00Z" } }] });
+    await mount(api);
+    await click(byText("Обзор"));
+    const hub = document.querySelector<HTMLElement>(".review-hub")!;
+    for (const text of ["МОЙ ОБЗОР", "АКТИВНЫЕ СЕССИИ", "ОТКРЫТЫЕ / ПРОПУЩЕННЫЕ ВОПРОСЫ", "Открытый вопрос обзора", "ТЕКУЩИЕ РАБОЧИЕ ФОРМУЛИРОВКИ", "Рабочая формулировка обзора", "СОХРАНЁННЫЕ ШАГИ", "Сохранённый шаг обзора", "ИСХОДЫ / OUTCOMES", "ПОСЛЕДНИЕ СЕССИИ", "не означает истинность", "не о его эффективности"]) expect(hub.textContent).toContain(text);
+    const itemsText = [...hub.querySelectorAll<HTMLElement>(".review-item")].map((node) => node.textContent).join(" ");
+    expect(itemsText).not.toMatch(/приоритет|срочно|оценк|прогресс|эффективност|важно|лучший|рекомендац/i);
+    await click(byText("Открыть сессию"));
+    expect(api.reflectionGet).toHaveBeenLastCalledWith("hub-1");
+  });
+
+  it("field preview home exposes Search and Review routes with AI secondary and build identity", async () => {
+    const api = mockApi(false);
+    await mount(api);
+    const home = document.querySelector<HTMLElement>(".product-home")!;
+    expect(home.textContent).toContain("ГЛАВНЫЕ РАЗДЕЛЫ");
+    for (const label of ["Поиск", "Обзор", "Сессии", "К чему вернуться", "Динамика"]) expect(home.textContent).toContain(label);
+    expect(document.body.textContent).toContain("SYNTHETIC LAB");
+    expect(document.body.textContent).toContain("Режим личных данных пока не допущен");
+    expect(document.body.textContent).toContain("сборка 0.2.0");
+    expect(document.body.textContent).toContain("профиль: SYNTHETIC_LAB");
+    expect(document.body.textContent).toContain("REAL_DATA_GATE: CLOSED");
+    expect(document.querySelector(".ai-eligible-row")).not.toBeNull();
+  });
+
+  it("field preview stale search load cannot replace a newer destination", async () => {
+    const api = mockApi(false);
+    let resolveSearch!: (value: SearchView) => void;
+    vi.mocked(api.reflectionSearch).mockImplementationOnce(() => new Promise((resolve) => { resolveSearch = resolve; }));
+    await mount(api);
+    await click(byText("Поиск"));
+    const search = document.querySelector<HTMLInputElement>("#search-query")!;
+    search.value = "лампа";
+    await click(byText("Найти"));
+    await click(byText("Сессии"));
+    resolveSearch({ query: "лампа", state: "ALL", total_matches: 0, returned_count: 0, offset: 0, limit: 50, truncated: false, has_more: false, results: [] });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.querySelector(".search-workspace")).toBeNull();
+    expect(byText("Начать новую сессию")).toBeTruthy();
   });
 });
 

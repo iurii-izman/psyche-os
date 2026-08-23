@@ -103,6 +103,14 @@ class SQLiteCanonicalRecordReader:
             parents,
         )
 
+    def enumerate_ids(self) -> tuple[str, ...]:
+        """Read-only enumeration of currently active canonical record ids."""
+        record_ids: list[str] = []
+        for table in ("assertions", "unknowns"):
+            cursor = self.connection.execute(f"SELECT record_id FROM {table} WHERE is_active=1")
+            record_ids.extend(str(row[0]) for row in cursor.fetchall())
+        return tuple(sorted(set(record_ids)))
+
     def read_content(self, record_id: str, version_id: str) -> str:
         self.content_reads += 1
         assertion = _row(
