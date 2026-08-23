@@ -129,8 +129,8 @@ class OpenAIReflectionProvider:
     endpoint = "https://api.openai.com/v1/responses"
     max_response_bytes = 256_000
 
-    def __init__(self, *, transport: Any = request.urlopen, api_key: str | None = None) -> None:
-        self._transport = transport
+    def __init__(self, *, transport: Any | None = None, api_key: str | None = None) -> None:
+        self._transport = transport or request.build_opener(_RejectRedirects()).open
         self._api_key = api_key
         self.invocation_count = 0
 
@@ -141,12 +141,16 @@ class OpenAIReflectionProvider:
         if provider_request.provider_identity.provider != "openai" or provider_request.provider_identity.model_snapshot != "gpt-5.6-luna":
             raise ProviderUnavailableError("MODEL_NOT_AVAILABLE")
         self.invocation_count += 1
-        schema = {
-            "type": "json_schema", "name": "e07_reflection_proposal", "strict": True,
-            "schema": {"type": "object", "additionalProperties": False,
-                "required": ["schema_version", "proposal_id", "status", "reflections", "counterevidence", "unknowns", "questions"],
-                "properties": {"schema_version": {"const": "e07-reflection-proposal-v1"}, "proposal_id": {"type": "string"}, "status": {"const": "PROPOSED"}, "reflections": {"type": "array"}, "counterevidence": {"type": "array"}, "unknowns": {"type": "array"}, "questions": {"type": "array"}}},
-        }
+        supporting = [item.record_id for item in provider_request.records if item.role.value == "supporting"]
+        counters = [item.record_id for item in provider_request.records if item.role.value == "counterevidence"]
+        unknowns = [item.record_id for item in provider_request.records if item.role.value == "unknown"]
+        text = {"type": "string", "minLength": 1, "maxLength": 500}
+        identifier = {"type": "string", "minLength": 1, "maxLength": 128}
+        reflection = {"type": "object", "additionalProperties": False, "required": ["statement_id", "text", "supporting_evidence_ids", "uncertainty", "claim_level"], "properties": {"statement_id": identifier, "text": text, "supporting_evidence_ids": {"type": "array", "minItems": 1, "maxItems": len(supporting), "uniqueItems": True, "items": {"type": "string", "enum": supporting}}, "uncertainty": {"type": "string", "minLength": 1, "maxLength": 240}, "claim_level": {"type": "integer", "minimum": 0, "maximum": int(provider_request.claim_ceiling)}}}
+        unknown = {"type": "object", "additionalProperties": False, "required": ["unknown_id", "uncertainty"], "properties": {"unknown_id": {"type": "string", "enum": unknowns}, "uncertainty": {"type": "string", "minLength": 1, "maxLength": 240}}}
+        question = {"type": "object", "additionalProperties": False, "required": ["question_id", "unknown_id", "text"], "properties": {"question_id": identifier, "unknown_id": {"type": "string", "enum": unknowns}, "text": {"type": "string", "minLength": 1, "maxLength": 240}}}
+        shape = {"type": "object", "additionalProperties": False, "required": ["schema_version", "proposal_id", "status", "reflections", "counterevidence", "unknowns", "questions"], "properties": {"schema_version": {"const": "e07-reflection-proposal-v1"}, "proposal_id": identifier, "status": {"const": "PROPOSED"}, "reflections": {"type": "array", "minItems": 1, "maxItems": 4, "items": reflection}, "counterevidence": {"type": "array", "minItems": len(counters), "maxItems": len(counters), "uniqueItems": True, "items": {"type": "string", "enum": counters}}, "unknowns": {"type": "array", "minItems": len(unknowns), "maxItems": len(unknowns), "uniqueItems": True, "items": unknown}, "questions": {"type": "array", "maxItems": 3, "items": question}}}
+        schema = {"type": "json_schema", "name": "e07_reflection_proposal", "strict": True, "schema": shape}
         payload = {"model": "gpt-5.6-luna", "store": False, "max_output_tokens": 900,
             "text": {"format": schema}, "input": [{"role": "developer", "content": "Return only the requested bounded E07 proposal. It is a proposal, not evidence, fact, diagnosis, recommendation, or action."}, {"role": "user", "content": json.dumps({"purpose": provider_request.purpose, "records": [{"record_id": r.record_id, "version_id": r.version_id, "category": r.category, "role": r.role.value, "content": r.content} for r in provider_request.records]}, ensure_ascii=False)}]}
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
@@ -169,6 +173,13 @@ class OpenAIReflectionProvider:
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             raise ProviderUnavailableError("PROVIDER_MALFORMED_RESPONSE") from exc
         raise ProviderUnavailableError("PROVIDER_MALFORMED_RESPONSE")
+
+
+class _RejectRedirects(request.HTTPRedirectHandler):
+    """A credential-bearing request must fail at the first redirect response."""
+
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:
+        return None
 
 
 @dataclass(slots=True)
