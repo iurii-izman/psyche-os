@@ -1,0 +1,86 @@
+task_id: V3-F
+base_sha: 4ff9cd129655d47eeda6da19cb04a36c15da455d
+
+profile: balanced
+risk: medium
+
+goal:
+  - Let a user explicitly continue an ACTIVE Return source or create an ordinary new reflection from a CLOSED source while viewing the historical candidate read-only.
+
+non_goals:
+  - No persistent follow-up relationship, schema, migration, storage, Tauri, Rust, dependency, network, provider, or real-data-gate change.
+
+authority:
+  - CONSTITUTION.md C-02, C-03
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md IC-1
+  - docs/DECISION_LOG.md ADR-004
+
+expected_scope:
+  - .ai-dev/contracts/v3f-user-controlled-follow-up.yaml
+  - desktop/src/main.ts
+  - desktop/src/follow-up-workspace.ts
+  - desktop/src/styles.css
+  - desktop/tests/follow-up-workspace.test.ts
+  - desktop/tests/ui.test.ts
+
+protected_scope:
+  - .ai-dev/policy/**
+
+acceptance:
+  - ACTIVE candidates explicitly open their existing session.
+  - CLOSED candidates show read-only historical provenance and can create an ordinary session from a user-entered title and text.
+  - Only exact user-entered text reaches the existing turn-write API; historical material is never inserted into it.
+  - A cancelled or failed creation has no false-success view, and stale navigation cannot overwrite a newer destination.
+
+repository_required_gates:
+  - npm --prefix desktop run typecheck
+  - npm --prefix desktop run lint
+  - npm --prefix desktop run test:unit
+  - npm --prefix desktop run build
+  - uv run pytest -q
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run python scripts/validate_research_foundation.py
+  - git diff --check
+
+contract_required_proof:
+  - risk: historical or derived content could be misrepresented as user-authored
+    insufficiency_of_repository_gates: type and lint checks do not establish the exact API payload or read-only presentation
+    primary_oracle: focused Vitest UI tests asserting exact reflectionAddTurn content and historical provenance labels
+    failure_meaning: a failure proves that authorship or provenance presentation is not established
+    alternate_oracles: []
+    stop_or_escalation: repair the renderer-only path once; stop if the required behavior needs a new persistence boundary
+  - risk: an older asynchronous follow-up action could replace newer navigation
+    insufficiency_of_repository_gates: static checks do not exercise navigation ordering
+    primary_oracle: focused Vitest deferred-promise navigation test
+    failure_meaning: a failure proves stale rendering can replace a newer destination
+    alternate_oracles: []
+    stop_or_escalation: reuse the existing epoch protection; stop if its scope requires navigation redesign
+
+supplemental_evidence:
+  - existing packaged runtime smoke only, if it can run without harness changes
+
+proof_recovery_budget:
+  max_feature_local_repair_loops: 1
+
+oracle_failure_policy:
+  classify_as: product_defect
+  low_medium: stop verifier expansion when policy gates and sufficient deterministic product evidence pass; record bounded residual
+  high_critical: not applicable
+
+stop_conditions:
+  - Stop before implementation if basic behavior requires a persistent relationship or a new storage/API boundary.
+  - Stop on a material authority conflict or repository-required gate failure beyond the bounded repair budget.
+
+permissions:
+  network: false
+  dependencies: false
+  migrations: false
+  destructive: false
+
+routing:
+  initial: cheap
+  max_grounded_retry: 1
+  escalation: strong
+
+assumptions:
+  - Existing create-then-add-turn behavior may leave an empty ordinary session if the write fails; the UI will disclose failure and never claim success.
