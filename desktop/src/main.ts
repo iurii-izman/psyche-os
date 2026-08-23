@@ -53,22 +53,18 @@ function safeError(region: HTMLElement, error: unknown): void {
   region.focus();
 }
 
-type AiProposalView = {
-  status: string;
-  reflections: string[];
-  counterevidence: string[];
-  unknowns: string[];
-  questions: string[];
-};
+type AiProposalView = import("./api").AiProposal;
 
 function aiProposal(value: Data): AiProposalView | null {
   const proposal = value.proposal;
   if (!proposal || typeof proposal !== "object" || Array.isArray(proposal)) return null;
   const fields = proposal as Record<string, unknown>;
-  const array = (key: string): string[] | null => Array.isArray(fields[key]) && fields[key].every((item) => typeof item === "string") ? fields[key] as string[] : null;
-  const reflections = array("reflections"), counterevidence = array("counterevidence"), unknowns = array("unknowns"), questions = array("questions");
+  const strings = (key: string): string[] | null => Array.isArray(fields[key]) && fields[key].every((item) => typeof item === "string") ? fields[key] as string[] : null;
+  const records = (key: string): Record<string, unknown>[] | null => Array.isArray(fields[key]) && fields[key].every((item) => item && typeof item === "object" && !Array.isArray(item)) ? fields[key] as Record<string, unknown>[] : null;
+  const reflections = records("reflections"), counterevidence = strings("counterevidence"), unknowns = records("unknowns"), questions = records("questions");
   if (typeof fields.status !== "string" || !reflections || !counterevidence || !unknowns || !questions) return null;
-  return { status: fields.status, reflections, counterevidence, unknowns, questions };
+  if (!reflections.every((item) => typeof item.statement_id === "string" && typeof item.text === "string" && Array.isArray(item.supporting_evidence_ids) && item.supporting_evidence_ids.every((id) => typeof id === "string") && typeof item.uncertainty === "string" && typeof item.claim_level === "number") || !unknowns.every((item) => typeof item.unknown_id === "string" && typeof item.uncertainty === "string") || !questions.every((item) => typeof item.question_id === "string" && typeof item.unknown_id === "string" && typeof item.text === "string")) return null;
+  return { status: fields.status, reflections: reflections as unknown as AiProposalView["reflections"], counterevidence, unknowns: unknowns as unknown as AiProposalView["unknowns"], questions: questions as unknown as AiProposalView["questions"] };
 }
 
 function renderAiProposalCard(region: HTMLElement, value: Data): boolean {
@@ -81,11 +77,10 @@ function renderAiProposalCard(region: HTMLElement, value: Data): boolean {
     card.append(el("h3", heading));
     card.append(...(values.length ? values : [empty]).map((item) => el("p", item)));
   };
-  section("Наблюдение", proposal.reflections, "Наблюдение не возвращено.");
-  section("Неопределённость", proposal.unknowns, "Неопределённость не возвращена.");
+  section("Наблюдения / рабочие предложения", proposal.reflections.map((item) => `${item.text} · неопределённость: ${item.uncertainty} · уровень утверждения: ${item.claim_level} · основания: ${item.supporting_evidence_ids.join(", ") || "не указаны"}`), "Наблюдение не возвращено.");
   section("Контраргументы", proposal.counterevidence, "Контраргументы не возвращены.");
-  section("Что остаётся неизвестным", proposal.unknowns, "Неизвестное не возвращено.");
-  section("Вопросы", proposal.questions, "Вопросы не возвращены.");
+  section("Что остаётся неизвестным", proposal.unknowns.map((item) => `${item.unknown_id} · неопределённость: ${item.uncertainty}`), "Неизвестное не возвращено.");
+  section("Вопросы", proposal.questions.map((item) => item.text), "Вопросы не возвращены.");
   card.append(el("small", "Это предложение модели, а не факт, диагноз или рекомендация. Результат автоматически не сохраняется."));
   region.replaceChildren(card);
   return true;
@@ -328,8 +323,11 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   for (const [label, value] of [
     [t("status.data"), status.data_mode],
     [t("status.gate"), status.real_data_gate],
-    [t("status.runtime"), status.network],
-    [t("status.cloud"), status.privacy.cloud]
+    ["Входящий слушатель", status.inbound_listener],
+    ["Исходящий провайдер", status.outbound_provider],
+    ["Облачное хранение", status.privacy.cloud_storage],
+    ["Раскрытие в облако", status.privacy.cloud_disclosure],
+    ["Телеметрия", status.privacy.telemetry]
   ]) {
     const item = el("div");
     item.append(el("span", label), el("strong", presentValue(value)));
@@ -340,7 +338,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
     lockButton.hidden = true;
     const unlock = el("section");
     unlock.className = "unlock card";
-    unlock.append(el("p", t("value.OFFLINE_NO_LISTENER")), el("h1", t("unlock.heading")));
+    unlock.append(el("p", "Локальное приложение без входящего слушателя. Внешний AI-провайдер доступен только для явно выбранных синтетических данных."), el("h1", t("unlock.heading")));
     unlock.append(el("p", t("unlock.notice")));
     const form = el("form");
     const [secretLabel, secret] = field(t("unlock.secret"), "unlock-secret", "password");
@@ -874,7 +872,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   const aiSend = button("Отправить выбранные синтетические данные", async () => {
     try {
       const result = await api.aiAuthorizeExecute(aiPreview);
-      if (!renderAiProposalCard(aiProposalCard, result)) throw "OPERATION_FAILED";
+      if (!renderAiProposalCard(aiProposalCard, result as unknown as Data)) throw "OPERATION_FAILED";
       operationStatus.textContent = "Проверенное предложение получено. Оно не записано в архив.";
       aiSend.disabled = true;
     }

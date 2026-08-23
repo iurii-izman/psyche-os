@@ -139,6 +139,10 @@ class ActivationError(Exception):
     """Raised when vault activation fails - content-free detail only."""
 
 
+class ExportError(Exception):
+    """Raised when a logical export cannot be produced safely."""
+
+
 class DeferredFeatureError(RuntimeError):
     """Raised when a PRE_REAL_DATA capability is invoked during E00/E01."""
 
@@ -1545,6 +1549,55 @@ def recover_and_restore(
 EXPORT_MAGIC = b"PSYCHE-EXPORT-V2"
 EXPORT_FORMAT_VERSION = 2
 
+_DEFAULT_EXPORT_TABLES = (
+    "vault_config",
+    "actors",
+    "subjects",
+    "source_artifacts",
+    "blobs",
+    "reports",
+    "observations",
+    "assertions",
+    "claims",
+    "data_policies",
+    "policy_lineage",
+    "derivation_runs",
+    "derivation_io",
+    "audit_events",
+)
+
+_EXPORT_TABLE_HAS_IS_ACTIVE = {
+    name: has_is_active for name, has_is_active, _required in _REQUIRED_BACKUP_TABLES
+}
+
+# These are the minimum columns needed to recognise a selected source as the
+# canonical V1 table rather than a same-named, incompatible table.  Exporting
+# every column remains intentional; this map is only a fail-closed preflight.
+_EXPORT_REQUIRED_COLUMNS: dict[str, frozenset[str]] = {
+    "schema_migrations": frozenset({"version", "label", "checksum"}),
+    "vault_config": frozenset(
+        {"vault_id", "vault_name", "data_mode", "created_at", "key_state"}
+    ),
+    "actors": frozenset({"record_id", "actor_id", "is_active"}),
+    "subjects": frozenset({"record_id", "subject_id", "is_active"}),
+    "source_artifacts": frozenset({"record_id", "artifact_id", "is_active"}),
+    "blobs": frozenset({"blob_id", "record_id", "is_active"}),
+    "reports": frozenset({"record_id", "report_id", "is_active"}),
+    "observations": frozenset({"record_id", "observation_id", "is_active"}),
+    "assertions": frozenset({"record_id", "assertion_id", "is_active"}),
+    "claims": frozenset({"record_id", "claim_id", "is_active"}),
+    "data_policies": frozenset({"record_id", "policy_id", "is_active"}),
+    "policy_lineage": frozenset({"parent_policy_id", "child_policy_id"}),
+    "derivation_runs": frozenset({"derivation_id", "review_state"}),
+    "derivation_io": frozenset({"derivation_id", "record_id", "role"}),
+    "audit_events": frozenset({"event_id", "event_kind", "occurred_at"}),
+    "deletion_requests": frozenset({"request_id", "status"}),
+    "deletion_plans": frozenset({"plan_id", "request_id", "status"}),
+    "deletion_receipts": frozenset({"receipt_id", "plan_id", "request_id"}),
+    "backup_manifests": frozenset({"manifest_id", "vault_id", "schema_version"}),
+    "export_manifests": frozenset({"manifest_id", "vault_id", "export_version"}),
+}
+
 
 @dataclass
 class ExportManifest:
@@ -1599,6 +1652,19 @@ class ExportBuilder:
         tables: list[str] | None = None,
     ) -> ExportManifest:
         """Export vault contents to a versioned, authenticated encrypted package."""
+        if tables is None:
+            all_tables = list(_DEFAULT_EXPORT_TABLES)
+        else:
+            if not tables:
+                raise ExportError("Export selection is empty")
+            if any(not isinstance(table, str) for table in tables):
+                raise ExportError("Export selection is invalid")
+            if len(set(tables)) != len(tables):
+                raise ExportError("Export selection contains duplicates")
+            if any(table not in _EXPORT_REQUIRED_COLUMNS for table in tables):
+                raise ExportError("Unsupported export source table")
+            all_tables = list(tables)
+
         manifest = ExportManifest(
             vault_id=self.vault_id,
             storage_dir=output_dir,
@@ -1608,42 +1674,99 @@ class ExportBuilder:
         if os.path.exists(output_dir) and os.listdir(output_dir):
             raise FileExistsError(f"Export directory exists and is not empty: {output_dir}")
 
-        os.makedirs(output_dir, exist_ok=True)
-
-        all_tables = tables or [
-            "vault_config",
-            "actors",
-            "subjects",
-            "source_artifacts",
-            "blobs",
-            "reports",
-            "observations",
-            "assertions",
-            "claims",
-            "data_policies",
-            "policy_lineage",
-            "derivation_runs",
-            "derivation_io",
-            "audit_events",
-        ]
-
         cur = connection.cursor()
         export_data: dict[str, list[dict[str, Any]]] = {}
+        selected_record_count = 0
+        snapshot_open = False
 
-        for table in all_tables:
+        try:
             try:
+                cur.execute("SAVEPOINT psyche_export_snapshot")
+                snapshot_open = True
+            except Exception as exc:
+                raise ExportError("Export source snapshot could not be acquired") from exc
+
+            try:
+                cur.execute(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+                )
+                existing_tables = frozenset(row[0] for row in cur.fetchall())
+            except Exception as exc:
+                raise ExportError("Export source inventory could not be read") from exc
+
+            if "schema_migrations" in existing_tables:
+                try:
+                    cur.execute("PRAGMA table_info(schema_migrations)")
+                    migration_columns = frozenset(row[1] for row in cur.fetchall())
+                    if not _EXPORT_REQUIRED_COLUMNS["schema_migrations"].issubset(
+                        migration_columns
+                    ):
+                        raise ExportError("Export source schema metadata is invalid")
+                    cur.execute("SELECT MAX(version) FROM schema_migrations")
+                    version_row = cur.fetchone()
+                    source_schema_version = version_row[0] if version_row else None
+                except ExportError:
+                    raise
+                except Exception as exc:
+                    raise ExportError("Export source schema metadata is invalid") from exc
+
+                if not isinstance(source_schema_version, int):
+                    raise ExportError("Export source schema metadata is invalid")
+                if source_schema_version != CURRENT_SCHEMA_VERSION:
+                    raise ExportError("Export source schema is unsupported")
+
+            for table in all_tables:
+                if table not in existing_tables:
+                    raise ExportError("Export source table is unavailable")
+
+                try:
+                    cur.execute(f"PRAGMA table_info({table})")
+                    source_columns = frozenset(row[1] for row in cur.fetchall())
+                except Exception as exc:
+                    raise ExportError("Export source schema could not be inspected") from exc
+
+                if not _EXPORT_REQUIRED_COLUMNS[table].issubset(source_columns):
+                    raise ExportError("Export source table is missing required columns")
+
                 if table == "vault_config":
-                    cur.execute(
+                    select_query = (
                         "SELECT vault_id, vault_name, data_mode, created_at, "
                         "key_state FROM vault_config"
                     )
+                    count_query = "SELECT COUNT(*) FROM vault_config"
+                elif _EXPORT_TABLE_HAS_IS_ACTIVE[table]:
+                    select_query = f"SELECT * FROM {table} WHERE is_active = 1"
+                    count_query = f"SELECT COUNT(*) FROM {table} WHERE is_active = 1"
                 else:
-                    cur.execute(f"SELECT * FROM {table} WHERE is_active = 1")
+                    select_query = f"SELECT * FROM {table}"
+                    count_query = f"SELECT COUNT(*) FROM {table}"
 
-                columns = [desc[0] for desc in cur.description] if cur.description else []
+                try:
+                    cur.execute(count_query)
+                    count_row = cur.fetchone()
+                    expected_count = count_row[0] if count_row else None
+                    if not isinstance(expected_count, int) or expected_count < 0:
+                        raise ExportError("Export source count is invalid")
+
+                    cur.execute(select_query)
+                    columns = (
+                        [desc[0] for desc in cur.description]
+                        if cur.description
+                        else []
+                    )
+                    source_rows = cur.fetchall()
+                except ExportError:
+                    raise
+                except Exception as exc:
+                    raise ExportError("Export source query failed") from exc
+
                 rows = []
-                for row in cur.fetchall():
-                    row_dict = dict(zip(columns, row))
+                for row in source_rows:
+                    try:
+                        row_dict = dict(zip(columns, row, strict=True))
+                    except (TypeError, ValueError) as exc:
+                        raise ExportError("Export source row shape is invalid") from exc
                     for key in (
                         "nonce",
                         "ciphertext",
@@ -1658,15 +1781,47 @@ class ExportBuilder:
                             row_dict[key] = row_dict[key].hex()
                     rows.append(row_dict)
 
+                if len(rows) != expected_count:
+                    raise ExportError("Export source count mismatch")
+
+                selected_record_count += expected_count
                 if rows:
                     export_data[table] = rows
                     manifest.record_count += len(rows)
+                    if table == "blobs":
+                        manifest.blob_count = len(rows)
                     manifest.schema_versions[table] = "1.0.0"
                     manifest.table_checksums[table] = hashlib.sha256(
                         json.dumps(rows, sort_keys=True, default=str).encode()
                     ).hexdigest()
-            except Exception:
-                pass
+
+            payload_record_count = sum(len(rows) for rows in export_data.values())
+            if payload_record_count != selected_record_count:
+                raise ExportError("Export record count mismatch")
+            if selected_record_count and not export_data:
+                raise ExportError(
+                    "Export source is non-empty but produced an empty package"
+                )
+            if manifest.record_count != payload_record_count:
+                raise ExportError("Export manifest record count mismatch")
+
+            try:
+                cur.execute("RELEASE SAVEPOINT psyche_export_snapshot")
+                snapshot_open = False
+            except Exception as exc:
+                raise ExportError("Export source snapshot could not be finalized") from exc
+        except Exception:
+            if snapshot_open:
+                try:
+                    cur.execute("ROLLBACK TO SAVEPOINT psyche_export_snapshot")
+                    cur.execute("RELEASE SAVEPOINT psyche_export_snapshot")
+                except Exception:
+                    pass
+            raise
+
+        # Source validation and serialization complete before any export artifact
+        # is created, so a rejected source cannot leave a plausible package.
+        os.makedirs(output_dir, exist_ok=True)
 
         canonical = json.dumps(export_data, sort_keys=True, default=str).encode()
         manifest.package_sha256 = hashlib.sha256(canonical).hexdigest()
@@ -1738,6 +1893,31 @@ def verify_export(
         encrypted = manifest_dict.get("encrypted", True)
         expected_sha256 = manifest_dict.get("package_sha256", "")
         table_checksums = manifest_dict.get("table_checksums", {})
+        schema_versions = manifest_dict.get("schema_versions", {})
+        expected_record_count = manifest_dict.get("record_count")
+        expected_blob_count = manifest_dict.get("blob_count")
+
+        if manifest_dict.get("export_version") != "1.0.0":
+            return False, "Unsupported export version"
+        if not isinstance(expected_record_count, int) or isinstance(
+            expected_record_count, bool
+        ) or expected_record_count < 0:
+            return False, "Export record count is invalid"
+        if not isinstance(expected_blob_count, int) or isinstance(
+            expected_blob_count, bool
+        ) or expected_blob_count < 0:
+            return False, "Export blob count is invalid"
+        if not isinstance(table_checksums, dict) or not isinstance(
+            schema_versions, dict
+        ):
+            return False, "Export table metadata is invalid"
+        if any(
+            table not in _EXPORT_REQUIRED_COLUMNS
+            for table in set(table_checksums) | set(schema_versions)
+        ):
+            return False, "Unsupported export table"
+        if any(version != "1.0.0" for version in schema_versions.values()):
+            return False, "Unsupported export table schema version"
 
         if encrypted:
             package_path = os.path.join(output_dir, "export.enc")
@@ -1751,8 +1931,10 @@ def verify_export(
             if magic != EXPORT_MAGIC.decode():
                 return False, f"Unknown export magic: {magic}"
             format_version = package.get("format_version", 0)
-            if format_version > EXPORT_FORMAT_VERSION:
+            if format_version != EXPORT_FORMAT_VERSION:
                 return False, f"Unsupported export format version: {format_version}"
+            if package.get("manifest") != manifest_dict:
+                return False, "Export manifest binding mismatch"
 
             export_nonce = bytes.fromhex(package["nonce_hex"])
             export_ciphertext = bytes.fromhex(package["ciphertext_hex"])
@@ -1784,6 +1966,20 @@ def verify_export(
             canonical = json.dumps(export_data, sort_keys=True, default=str).encode()
             actual_sha256 = hashlib.sha256(canonical).hexdigest()
 
+        if not isinstance(export_data, dict):
+            return False, "Export payload shape is invalid"
+        if any(
+            table not in _EXPORT_REQUIRED_COLUMNS for table in export_data
+        ):
+            return False, "Unsupported export table"
+        if any(
+            not isinstance(rows, list)
+            or any(not isinstance(row, dict) for row in rows)
+            or not rows
+            for rows in export_data.values()
+        ):
+            return False, "Export payload table shape is invalid"
+
         if actual_sha256 != expected_sha256:
             return (
                 False,
@@ -1791,15 +1987,29 @@ def verify_export(
                 f"got {actual_sha256[:16]}...",
             )
 
+        payload_tables = set(export_data)
+        if payload_tables != set(table_checksums) or payload_tables != set(
+            schema_versions
+        ):
+            return False, "Export table inventory mismatch"
+
+        actual_record_count = sum(len(rows) for rows in export_data.values())
+        if actual_record_count != expected_record_count:
+            return False, "Export record count mismatch"
+        actual_blob_count = len(export_data.get("blobs", []))
+        if actual_blob_count != expected_blob_count:
+            return False, "Export blob count mismatch"
+        if expected_record_count and not export_data:
+            return False, "Export payload unexpectedly empty"
+
         for table, expected_chk in table_checksums.items():
-            if table in export_data:
-                actual_chk = hashlib.sha256(
-                    json.dumps(export_data[table], sort_keys=True, default=str).encode()
-                ).hexdigest()
-                if actual_chk != expected_chk:
-                    return False, f"Table checksum mismatch for {table}"
+            actual_chk = hashlib.sha256(
+                json.dumps(export_data[table], sort_keys=True, default=str).encode()
+            ).hexdigest()
+            if actual_chk != expected_chk:
+                return False, f"Table checksum mismatch for {table}"
 
         return True, "Export verified"
 
-    except Exception as exc:
-        return False, f"Export verification failed: {exc}"
+    except Exception:
+        return False, "Export verification failed"

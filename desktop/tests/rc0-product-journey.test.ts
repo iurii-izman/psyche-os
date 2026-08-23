@@ -22,7 +22,7 @@ describe("RC0 first-user synthetic product journey", () => {
       turns: text ? [{ turn_id: `${id}-turn`, session_id: id, sequence: 1, actor: "USER" as const, created_at: "2026-08-23T00:00:00Z", content: text }] : []
     });
     const api = {
-      status: vi.fn(async () => ({ locked, data_mode: "SYNTHETIC_ONLY", real_data_gate: "CLOSED", network: "OFFLINE_NO_LISTENER", privacy: { processing_location: "LOCAL_ONLY", cloud: "DISABLED", telemetry: "OFF" } })),
+      status: vi.fn(async () => ({ locked, data_mode: "SYNTHETIC_ONLY", real_data_gate: "CLOSED", inbound_listener: "NONE", outbound_provider: "NOT_CONFIGURED", runtime_profile: "SYNTHETIC_LAB", build_version: "0.2.0", privacy: { processing_location: "LOCAL_ONLY", cloud_storage: "DISABLED", cloud_disclosure: "SYNTHETIC_EXPLICIT_E07_ONLY", telemetry: "OFF" } })),
       unlock: vi.fn(async () => { locked = false; return { session_token: "opaque" }; }),
       lock: vi.fn(async () => ({ locked: true })),
       reflectionList: vi.fn(async () => ({ sessions })),

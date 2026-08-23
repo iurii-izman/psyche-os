@@ -1,3 +1,7 @@
+mod command_manifest {
+    include!("src/command_manifest.rs");
+}
+
 fn main() {
     // `generate_context!` validates this path even for Rust-only tests.  The
     // production bundle still requires Vite to populate it before packaging.
@@ -16,44 +20,7 @@ fn main() {
             .expect("uv is required to build the fixed Python sidecar");
         assert!(status.success(), "fixed Python sidecar build failed");
     }
-    const COMMANDS: &[&str] = &[
-        "desktop_status",
-        "desktop_unlock",
-        "desktop_lock",
-        "desktop_correct",
-        "desktop_plan_deletion",
-        "desktop_execute_deletion",
-        "desktop_backup_status",
-        "desktop_verify_backup",
-        "desktop_validate_recovery",
-        "desktop_activate_recovery",
-        "desktop_preview_export",
-        "desktop_execute_export",
-        "desktop_archive_operate",
-        "desktop_archive_timeline",
-        "desktop_archive_explorer",
-        "desktop_archive_snapshot_diff",
-        "desktop_archive_execute_deletion",
-        "desktop_reflection_create",
-        "desktop_reflection_list",
-        "desktop_reflection_get",
-        "desktop_reflection_add_turn",
-        "desktop_reflection_close",
-        "desktop_reflection_delete",
-        "desktop_exploration_start",
-        "desktop_exploration_get",
-        "desktop_exploration_answer",
-        "desktop_exploration_skip",
-        "desktop_formulation_propose",
-        "desktop_formulation_correct",
-        "desktop_formulation_accept",
-        "desktop_formulation_reject",
-        "desktop_action_options",
-        "desktop_action_list",
-        "desktop_action_create",
-        "desktop_action_record_outcome",
-    ];
     let attributes = tauri_build::Attributes::new()
-        .app_manifest(tauri_build::AppManifest::new().commands(COMMANDS));
+        .app_manifest(tauri_build::AppManifest::new().commands(command_manifest::SHIPPED_COMMANDS));
     tauri_build::try_build(attributes).expect("failed to build Tauri command permissions");
 }

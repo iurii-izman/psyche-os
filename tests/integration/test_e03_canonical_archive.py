@@ -108,7 +108,9 @@ def test_e03_t5_t7_real_desktop_command_path_is_named_bounded_and_offline() -> N
         corrected = desktop.dispatch("archive.operate", {"operation":"CORRECT_LAMP_REPORT_TIME","choice":"corrected_reported_exact","idempotency_key":"desktop_correct"}, token)
         status = desktop.dispatch("status.get", {}, None)
         assert corrected["history_preserved"] is True
-        assert status["network"] == "OFFLINE_NO_LISTENER" and status["real_data_gate"] == "CLOSED"
+        assert status["inbound_listener"] == "NONE"
+        assert status["outbound_provider"] == "NOT_CONFIGURED"
+        assert status["real_data_gate"] == "CLOSED"
         with pytest.raises(Exception, match="INVALID_PAYLOAD"):
             desktop.dispatch("archive.explorer", {"sql":"SELECT *"}, token)
     finally:

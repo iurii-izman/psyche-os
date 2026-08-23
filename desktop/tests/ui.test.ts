@@ -11,10 +11,11 @@ function syntheticStatus(locked = false): StatusView {
     locked,
     data_mode: "SYNTHETIC_ONLY",
     real_data_gate: "CLOSED",
-    network: "OFFLINE_NO_LISTENER",
+    inbound_listener: "NONE",
+    outbound_provider: "NOT_CONFIGURED",
     runtime_profile: "SYNTHETIC_LAB",
     build_version: "0.2.0",
-    privacy: { processing_location: "LOCAL_ONLY", cloud: "DISABLED", telemetry: "OFF" }
+    privacy: { processing_location: "LOCAL_ONLY", cloud_storage: "DISABLED", cloud_disclosure: "SYNTHETIC_EXPLICIT_E07_ONLY", telemetry: "OFF" }
   };
 }
 
@@ -29,7 +30,7 @@ function mockApi(locked = false): DesktopApi {
       { record_id: "unknown-lamp", version_id: "unknown-lamp-v1", category: "unknown" as const, allowed_roles: ["unknown"] as AiRole[], display_text: "Синтетический вопрос" }
     ], notice: "Synthetic cloud-eligible records only; proposal only." })),
     aiPrepare: vi.fn(async (selected: { recordId: string; role: AiRole }[]) => ({ preview_id: "ai-preview", selected: selected.map((item) => ({ record_id: item.recordId, version_id: "v1", category: item.role === "unknown" ? "unknown" : "assertion", role: item.role })), provider: "OpenAI", model: "gpt-5.6-luna", purpose: "synthetic_evidence_grounded_reflection", retention: "ephemeral", notice: "proposal only" })),
-    aiAuthorizeExecute: vi.fn(async () => ({ proposal: { status: "PROPOSED", reflections: ["Синтетическое наблюдение."], counterevidence: ["assertion-counter"], unknowns: ["Синтетическая неопределённость."], questions: ["Какой синтетический источник мог бы это уточнить?"] } })),
+    aiAuthorizeExecute: vi.fn(async () => ({ proposal: { status: "PROPOSED", reflections: [{ statement_id: "statement-1", text: "Синтетическое наблюдение.", supporting_evidence_ids: ["assertion-lamp"], uncertainty: "Рабочая неопределённость.", claim_level: 1 }], counterevidence: ["assertion-counter"], unknowns: [{ unknown_id: "unknown-lamp", uncertainty: "Синтетическая неопределённость." }], questions: [{ question_id: "question-1", unknown_id: "unknown-lamp", text: "Какой синтетический источник мог бы это уточнить?" }] }, notice: "PROPOSED only; nothing was written back." })),
     unlock: vi.fn(async () => { stateLocked = false; return { session_token: "opaque-session" }; }),
     lock: vi.fn(async () => { stateLocked = true; return { locked: true }; }),
     correct: vi.fn(async () => ({ history_preserved: true, version_count: 2 })),
@@ -106,7 +107,8 @@ describe("E02 bounded desktop UI", () => {
     expect(api.aiPrepare).toHaveBeenCalledWith([{ recordId: "assertion-lamp", role: "supporting" }, { recordId: "assertion-counter", role: "counterevidence" }, { recordId: "unknown-lamp", role: "unknown" }]);
     await click(byText("Отправить выбранные синтетические данные"));
     const card = document.querySelector<HTMLElement>(".ai-proposal-card")!;
-    for (const text of ["AI-ПРЕДЛОЖЕНИЕ · LAB", "PROPOSED", "Наблюдение", "Синтетическое наблюдение.", "Неопределённость", "Контраргументы", "Что остаётся неизвестным", "Вопросы", "автоматически не сохраняется"]) expect(card.textContent).toContain(text);
+    for (const text of ["AI-ПРЕДЛОЖЕНИЕ · LAB", "PROPOSED", "Наблюдения / рабочие предложения", "Синтетическое наблюдение.", "уровень утверждения", "основания", "Контраргументы", "Что остаётся неизвестным", "Вопросы", "автоматически не сохраняется"]) expect(card.textContent).toContain(text);
+    expect(card.textContent?.match(/Синтетическая неопределённость\./g)).toHaveLength(1);
     expect(card.textContent).not.toContain("применить");
     expect(api.aiAuthorizeExecute).toHaveBeenCalledTimes(1);
   });

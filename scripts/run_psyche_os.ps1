@@ -1,6 +1,6 @@
 param()
 $root = Split-Path -Parent $PSScriptRoot
-$app = Join-Path $root "desktop\src-tauri\target\release\psyche-os.exe"
+$app = Join-Path $root "desktop\src-tauri\target\release\psyche-os-desktop.exe"
 $local = Join-Path $root ".env.local"
 if (-not (Test-Path -LiteralPath $app)) { Write-Error "Packaged app missing. Run: npm --prefix desktop run tauri:build"; exit 1 }
 if (Test-Path -LiteralPath $local) {
