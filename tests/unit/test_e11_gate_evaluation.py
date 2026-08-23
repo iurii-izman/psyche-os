@@ -270,18 +270,21 @@ def test_invalid_not_applicable_exclusion_closes_candidate() -> None:
     assert "invalid_exclusion:RDG-08" in _outcome(evaluation).reasons
 
 
-def test_fully_excluded_control_can_be_not_applicable_only_with_valid_proofs() -> None:
-    evaluation = _proved_sealed()
-    control = next(item for item in evaluation["rdg_controls"] if item["id"] == "RDG-11")
-    control.update(
-        {
-            "status": "NOT_APPLICABLE_EXCLUDED",
-            "excluded_boundary_ids": sorted(control["boundary_predicates"]),
-        }
-    )
-    evaluation = _reseal(evaluation)
+def test_always_applicable_controls_cannot_be_excluded_by_feature_boundaries() -> None:
+    for control_id in ("RDG-09", "RDG-10", "RDG-11", "RDG-12"):
+        evaluation = _proved_sealed()
+        control = next(item for item in evaluation["rdg_controls"] if item["id"] == control_id)
+        control.update(
+            {
+                "status": "NOT_APPLICABLE_EXCLUDED",
+                "excluded_boundary_ids": sorted(control["boundary_predicates"]),
+            }
+        )
+        evaluation = _reseal(evaluation)
+        outcome = _outcome(evaluation, _open_attestation(evaluation))
 
-    assert _outcome(evaluation, _open_attestation(evaluation)).state == "OPEN"
+        assert outcome.state == "CLOSED"
+        assert f"always_applicable_control_excluded:{control_id}" in outcome.reasons
 
 
 def test_exclusion_requires_exact_boundary_proof() -> None:

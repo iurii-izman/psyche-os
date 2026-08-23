@@ -141,3 +141,29 @@ def test_search_result_can_open_the_source_session(tmp_path: Path) -> None:
     opened = service.get_session(hit["session_id"])
     assert opened["session_id"] == first["session_id"]
     service.close()
+
+
+def test_search_excerpt_is_bounded_and_centres_late_unicode_match(tmp_path: Path) -> None:
+    service = ReflectionSessionService(tmp_path)
+    session = service.create_session("Excerpt")
+    content = ("начало " * 50) + "уникальный маяк" + (" хвост" * 50)
+    service.add_user_turn(session["session_id"], content)
+    result = service.search("маяк")
+    excerpt = result["results"][0]["excerpt"]
+    assert "маяк" in excerpt
+    assert len(excerpt) <= 200
+    assert excerpt.startswith("…") and excerpt.endswith("…")
+    service.close()
+
+
+def test_search_excerpt_keeps_escaped_like_query_and_early_match(tmp_path: Path) -> None:
+    service = ReflectionSessionService(tmp_path)
+    session = service.create_session("Escaped excerpt")
+    content = "100%_точно " + ("последующий текст " * 30)
+    service.add_user_turn(session["session_id"], content)
+    result = service.search("100%_точно")
+    excerpt = result["results"][0]["excerpt"]
+    assert excerpt.startswith("100%_точно")
+    assert excerpt.endswith("…")
+    assert len(excerpt) <= 200
+    service.close()

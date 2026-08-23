@@ -20,6 +20,17 @@ def test_t2_unknown_command_and_unknown_field_fail_closed() -> None:
         service.dispatch("session.unlock", {"secret": "demo", "shell": "cmd"}, None)
 
 
+def test_status_scopes_local_processing_to_core_and_discloses_e07() -> None:
+    service = DesktopApplicationService()
+    status = service.dispatch("status.get", {}, None)
+    assert status["privacy"] == {
+        "core_processing_location": "LOCAL",
+        "cloud_storage": "DISABLED",
+        "cloud_disclosure": "SYNTHETIC_EXPLICIT_E07_ONLY",
+        "telemetry": "OFF",
+    }
+
+
 def test_t2_state_change_requires_current_session() -> None:
     service = DesktopApplicationService()
     with pytest.raises(DesktopServiceError, match="SESSION_REQUIRED"):
@@ -28,6 +39,36 @@ def test_t2_state_change_requires_current_session() -> None:
     service.dispatch("session.lock", {}, token)
     with pytest.raises(DesktopServiceError, match="SESSION_REQUIRED"):
         service.dispatch("backup.verify", {}, token)
+
+
+def test_sensitive_reflection_reads_require_an_unlocked_session() -> None:
+    service = DesktopApplicationService()
+    locked_reads = (
+        ("reflection_exploration.get", {"session_id": "session-opaque"}),
+        ("reflection.search", {"query": "synthetic", "state": "ALL", "limit": 10, "offset": 0}),
+        ("reflection_session.list", {}),
+        ("reflection_session.get", {"session_id": "session-opaque"}),
+    )
+    for command, payload in locked_reads:
+        with pytest.raises(DesktopServiceError, match="SESSION_REQUIRED"):
+            service.dispatch(command, payload, None)
+
+
+def test_unlocked_reflection_reads_succeed_without_writes() -> None:
+    service = DesktopApplicationService()
+    token = _unlock(service)
+    created = service.dispatch("reflection_session.create", {"title": "Synthetic read proof"}, token)
+    session_id = str(created["session_id"])
+
+    before = service.dispatch("reflection_session.get", {"session_id": session_id}, token)
+    assert service.dispatch("reflection_session.list", {}, token)["sessions"]
+    assert service.dispatch(
+        "reflection.search",
+        {"query": "Synthetic", "state": "ALL", "limit": 10, "offset": 0},
+        token,
+    )["total_matches"] >= 1
+    after = service.dispatch("reflection_session.get", {"session_id": session_id}, token)
+    assert after["turns"] == before["turns"]
 
 
 def test_t4_correction_preserves_version_history() -> None:

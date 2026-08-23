@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 import os
 from pathlib import Path
@@ -43,28 +44,71 @@ def _text(value: Any, maximum: int) -> str:
     return result
 
 
+def _search_excerpt(content: str, query: str) -> str:
+    """Return a bounded excerpt centred on a SQLite-matched query when possible."""
+    if len(content) <= SEARCH_EXCERPT_LENGTH:
+        return content
+    match_start = content.casefold().find(query.casefold())
+    if match_start < 0:
+        # SQLite LIKE membership remains authoritative for Unicode edge cases.
+        return content[:SEARCH_EXCERPT_LENGTH]
+    match_end = match_start + len(query)
+    if len(query) >= SEARCH_EXCERPT_LENGTH:
+        return content[match_start:match_end]
+    body_length = SEARCH_EXCERPT_LENGTH - 2
+    start = max(0, match_start - max(0, (body_length - len(query)) // 2))
+    start = min(start, len(content) - body_length)
+    end = min(len(content), start + body_length)
+    prefix = "…" if start else ""
+    suffix = "…" if end < len(content) else ""
+    return f"{prefix}{content[start:end]}{suffix}"
+
+
 class ReflectionSessionService:
     """Repository-owned encrypted workspace; no audit or canonical writes occur here."""
 
-    def __init__(self, app_data: str | Path) -> None:
+    def __init__(
+        self,
+        app_data: str | Path,
+        *,
+        key_wrapper_factory: Callable[[], OSKeyWrapper] = OSKeyWrapper,
+    ) -> None:
         self._root = Path(app_data)
         self._root.mkdir(parents=True, exist_ok=True)
         self._key_path = self._root / "reflection-workspace.key.dpapi"
         self._database_path = self._root / "reflection-workspace.db"
+        self._key_wrapper_factory = key_wrapper_factory
         self._connection = self._open()
 
+    def _read_existing_key(self, wrapper: OSKeyWrapper) -> bytes:
+        value = wrapper.unprotect(self._key_path.read_bytes())
+        if len(value) != 32:
+            raise ReflectionSessionError("LOCAL_KEY_UNAVAILABLE")
+        return value
+
     def _key(self) -> bytes:
-        wrapper = OSKeyWrapper()
+        wrapper = self._key_wrapper_factory()
         if not wrapper.available:
             raise ReflectionSessionError("LOCAL_KEY_UNAVAILABLE")
         try:
             if self._key_path.exists():
-                value = wrapper.unprotect(self._key_path.read_bytes())
-                if len(value) != 32:
-                    raise ReflectionSessionError("LOCAL_KEY_UNAVAILABLE")
-                return value
+                return self._read_existing_key(wrapper)
             value = secrets.token_bytes(32)
-            self._key_path.write_bytes(wrapper.protect(value, "PSYCHE OS reflection workspace"))
+            protected = wrapper.protect(value, "PSYCHE OS reflection workspace")
+            try:
+                descriptor = os.open(
+                    self._key_path,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                    0o600,
+                )
+            except FileExistsError:
+                # Another process won publication. Never overwrite or remove its bytes.
+                value = b"\0" * len(value)
+                return self._read_existing_key(wrapper)
+            with os.fdopen(descriptor, "wb") as key_file:
+                key_file.write(protected)
+                key_file.flush()
+                os.fsync(key_file.fileno())
             return value
         except (OSError, OSKeyWrapError) as exc:
             raise ReflectionSessionError("LOCAL_KEY_UNAVAILABLE") from exc
@@ -194,7 +238,7 @@ class ReflectionSessionService:
                     "match_kind": "USER_TURN",
                     "turn_id": row[4],
                     "turn_sequence": row[5],
-                    "excerpt": content[:SEARCH_EXCERPT_LENGTH],
+                    "excerpt": _search_excerpt(content, query),
                 }
             )
         matches.sort(

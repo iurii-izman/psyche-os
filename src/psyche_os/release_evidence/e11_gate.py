@@ -35,6 +35,7 @@ _PASSING_PROOF_RESULT = "PASS"
 _CLOSED_RESIDUAL_RISK_STATUSES = {"RESOLVED"}
 _REQUIRED_REVIEW_STATE = "COMPLETE"
 _SHA256_LENGTH = 64
+_ALWAYS_APPLICABLE_RDGS = frozenset({"RDG-09", "RDG-10", "RDG-11", "RDG-12"})
 
 
 @dataclass(frozen=True)
@@ -489,6 +490,8 @@ def _control_results(
                 ):
                     reasons.append(f"control_evidence_mismatch:{control_id}")
         if status == "NOT_APPLICABLE_EXCLUDED":
+            if control_id in _ALWAYS_APPLICABLE_RDGS:
+                reasons.append(f"always_applicable_control_excluded:{control_id}")
             excluded = control.get("excluded_boundary_ids", [])
             if sorted(excluded) != expected_boundaries or not expected_boundaries:
                 reasons.append(f"invalid_exclusion:{control_id}")

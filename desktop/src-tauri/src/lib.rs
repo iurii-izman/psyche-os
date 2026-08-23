@@ -1,5 +1,8 @@
 #![deny(unsafe_code)]
 
+#[allow(dead_code)]
+mod command_manifest;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::io::{BufReader, Read, Write};
@@ -178,7 +181,7 @@ fn locate_sidecar() -> Option<PathBuf> {
 
 fn sanitize_code(code: &str) -> String {
     if !code.is_empty()
-        && code.len() <= 64
+        && code.chars().count() <= 64
         && code
             .chars()
             .all(|value| value.is_ascii_uppercase() || value == '_')
@@ -352,7 +355,7 @@ struct ReflectionSearchRequest { session_token: Option<String>, query: String, s
 fn bounded(values: &[&str]) -> Result<(), String> {
     if values
         .iter()
-        .all(|value| !value.trim().is_empty() && value.len() <= MAX_TEXT)
+        .all(|value| !value.trim().is_empty() && value.chars().count() <= MAX_TEXT)
     {
         Ok(())
     } else {
@@ -361,7 +364,11 @@ fn bounded(values: &[&str]) -> Result<(), String> {
 }
 
 fn bounded_turn(value: &str) -> Result<(), String> {
-    if !value.trim().is_empty() && value.len() <= MAX_TURN_TEXT { Ok(()) } else { Err("INVALID_PAYLOAD".to_string()) }
+    if !value.trim().is_empty() && value.chars().count() <= MAX_TURN_TEXT { Ok(()) } else { Err("INVALID_PAYLOAD".to_string()) }
+}
+
+fn bounded_search_query(query: &str) -> Result<(), String> {
+    if !query.trim().is_empty() && query.chars().count() <= 200 { Ok(()) } else { Err("INVALID_PAYLOAD".to_string()) }
 }
 
 #[tauri::command]
@@ -700,9 +707,7 @@ fn desktop_ai_authorize_execute(window: WebviewWindow, state: tauri::State<'_, D
 }
 #[tauri::command]
 fn desktop_reflection_search(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionSearchRequest) -> Result<Value, String> {
-    if request.query.trim().is_empty() || request.query.len() > 200 {
-        return Err("INVALID_PAYLOAD".to_string());
-    }
+    bounded_search_query(&request.query)?;
     if !matches!(request.state.as_str(), "ALL" | "ACTIVE" | "CLOSED") {
         return Err("INVALID_PAYLOAD".to_string());
     }
@@ -772,11 +777,21 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
 
     #[test]
     fn t2_strict_requests_reject_unknown_fields() {
         let value = json!({ "sessionToken": "opaque", "extra": "cmd.exe" });
         assert!(serde_json::from_value::<SessionRequest>(value).is_err());
+    }
+
+    #[test]
+    fn t2_nested_ai_selection_accepts_only_renderer_camel_case() {
+        let camel_case = json!({"sessionToken": "opaque", "selected": [{"recordId": "record-1", "role": "supporting"}]});
+        let request = serde_json::from_value::<AiPrepareRequest>(camel_case).expect("camelCase renderer request must deserialize");
+        assert_eq!(request.selected[0].record_id, "record-1");
+        let snake_case = json!({"sessionToken": "opaque", "selected": [{"record_id": "record-1", "role": "supporting"}]});
+        assert!(serde_json::from_value::<AiPrepareRequest>(snake_case).is_err());
     }
 
     #[test]
@@ -828,10 +843,36 @@ mod tests {
     }
 
     #[test]
+    fn t1_native_command_manifest_matches_handlers_capability_and_renderer_api() {
+        let library_source = include_str!("lib.rs");
+        let handler_block = library_source.split_once(".invoke_handler(tauri::generate_handler![").and_then(|(_, tail)| tail.split_once("])")).map(|(block, _)| block).expect("generate_handler block");
+        let capability: Value = serde_json::from_str(include_str!("../capabilities/main-local.json")).expect("valid capability JSON");
+        let actual_permissions: BTreeSet<String> = capability["permissions"].as_array().expect("capability permissions array").iter().map(|permission| permission.as_str().expect("string capability permission").to_string()).collect();
+        let expected_permissions: BTreeSet<String> = command_manifest::SHIPPED_COMMANDS.iter().map(|command| format!("allow-{}", command.replace('_', "-"))).collect();
+        assert_eq!(actual_permissions, expected_permissions);
+        let renderer_api = include_str!("../../src/api.ts");
+        for command in command_manifest::SHIPPED_COMMANDS {
+            assert!(handler_block.contains(command), "{command} is absent from generate_handler");
+            assert!(renderer_api.contains(&format!("\"{command}\"")), "{command} is absent from renderer API");
+        }
+        assert!(include_str!("../build.rs").contains("commands(command_manifest::SHIPPED_COMMANDS)"));
+    }
+
+    #[test]
     fn t2_payload_limit_rejects_oversized_text() {
         assert_eq!(
             bounded(&[&"x".repeat(MAX_TEXT + 1)]),
             Err("INVALID_PAYLOAD".to_string())
         );
+    }
+
+    #[test]
+    fn t2_user_text_limits_count_unicode_characters_not_utf8_bytes() {
+        let exact_cyrillic = "\u{044f}".repeat(MAX_TEXT);
+        assert_eq!(bounded(&[&exact_cyrillic]), Ok(()));
+        assert_eq!(bounded(&[&format!("{exact_cyrillic}\u{044f}")]), Err("INVALID_PAYLOAD".to_string()));
+        let exact_search = "\u{1f9ed}".repeat(200);
+        assert_eq!(bounded_search_query(&exact_search), Ok(()));
+        assert_eq!(bounded_search_query(&format!("{exact_search}\u{1f9ed}")), Err("INVALID_PAYLOAD".to_string()));
     }
 }

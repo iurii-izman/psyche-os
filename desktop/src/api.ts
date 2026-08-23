@@ -4,12 +4,18 @@ export interface StatusView {
   locked: boolean;
   data_mode: string;
   real_data_gate: string;
-  network: string;
+  inbound_listener: "NONE";
+  outbound_provider: "NOT_CONFIGURED" | "READY_EXPLICIT_E07";
   runtime_profile: string;
   build_version: string;
-  privacy: { processing_location: string; cloud: string; telemetry: string };
+  privacy: { core_processing_location: "LOCAL"; cloud_storage: "DISABLED"; cloud_disclosure: "SYNTHETIC_EXPLICIT_E07_ONLY"; telemetry: "OFF" };
 }
 export interface AiStatusView { runtime_profile: "SYNTHETIC_LAB"; local_personal: "NOT_ADMITTED"; ai: "READY_SYNTHETIC_LAB" | "NOT_CONFIGURED"; provider: string; model: string; }
+export interface AiReflection { statement_id: string; text: string; supporting_evidence_ids: string[]; uncertainty: string; claim_level: number; }
+export interface AiUnknown { unknown_id: string; uncertainty: string; }
+export interface AiQuestion { question_id: string; unknown_id: string; text: string; }
+export interface AiProposal { status: string; reflections: AiReflection[]; counterevidence: string[]; unknowns: AiUnknown[]; questions: AiQuestion[]; }
+export interface AiExecuteView { proposal: AiProposal; notice: string; }
 export type AiRole = "supporting" | "counterevidence" | "unknown";
 export interface AiEligibleRecord { record_id: string; version_id: string; category: "assertion" | "unknown"; allowed_roles: AiRole[]; display_text: string; }
 export interface AiSelectedRecord { record_id: string; version_id: string; category: string; role: AiRole; }
@@ -41,7 +47,7 @@ export const desktopApi = {
   aiStatus: (): Promise<AiStatusView> => call<AiStatusView>("desktop_ai_status"),
   aiListEligible: (): Promise<{ provider: string; model: string; records: AiEligibleRecord[]; notice: string }> => call("desktop_ai_list_eligible"),
   aiPrepare: (selected: { recordId: string; role: AiRole }[]): Promise<AiPrepareView> => call("desktop_ai_prepare", { selected }),
-  aiAuthorizeExecute: (previewId: string): Promise<Record<string, unknown>> => call("desktop_ai_authorize_execute", { previewId, optIn: true }),
+  aiAuthorizeExecute: (previewId: string): Promise<AiExecuteView> => call("desktop_ai_authorize_execute", { previewId, optIn: true }),
   async unlock(secret: string): Promise<Record<string, unknown>> {
     const result = await invoke<{ session_token: string }>("desktop_unlock", { request: { secret } });
     sessionToken = result.session_token;

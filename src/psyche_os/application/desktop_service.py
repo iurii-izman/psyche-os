@@ -9,6 +9,7 @@ REAL_DATA_GATE is closed.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 import secrets
 import sqlite3
@@ -90,7 +91,7 @@ ALLOWED_COMMANDS: Final = frozenset(
         "ai.status", "ai.list_eligible", "ai.prepare", "ai.authorize_execute",
     }
 )
-STATE_CHANGING_COMMANDS: Final = frozenset(
+SESSION_REQUIRED_COMMANDS: Final = frozenset(
     {
         "session.lock",
         "correction.apply",
@@ -114,6 +115,7 @@ STATE_CHANGING_COMMANDS: Final = frozenset(
         "reflection_session.delete",
         "reflection.search",
         "reflection_exploration.start",
+        "reflection_exploration.get",
         "reflection_exploration.answer",
         "reflection_exploration.skip",
         "reflection_exploration.formulation.propose",
@@ -127,7 +129,6 @@ STATE_CHANGING_COMMANDS: Final = frozenset(
         "ai.list_eligible", "ai.prepare", "ai.authorize_execute",
     }
 )
-
 
 class DesktopServiceError(Exception):
     """Stable content-free failure surfaced across the privileged boundary."""
@@ -310,7 +311,7 @@ class DesktopApplicationService:
             raise DesktopServiceError("UNKNOWN_COMMAND")
         if not isinstance(payload, dict):
             raise DesktopServiceError("INVALID_PAYLOAD")
-        if command in STATE_CHANGING_COMMANDS:
+        if command in SESSION_REQUIRED_COMMANDS:
             self._require_session(session_token)
 
         handlers = {
@@ -370,8 +371,13 @@ class DesktopApplicationService:
 
     def _ai_status(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, set())
-        import os
-        return {"runtime_profile": "SYNTHETIC_LAB", "local_personal": "NOT_ADMITTED", "ai": "READY_SYNTHETIC_LAB" if os.environ.get("OPENAI_API_KEY") else "NOT_CONFIGURED", "provider": "OpenAI", "model": "gpt-5.6-luna"}
+        return {
+            "runtime_profile": "SYNTHETIC_LAB",
+            "local_personal": "NOT_ADMITTED",
+            "ai": "READY_SYNTHETIC_LAB" if os.environ.get("OPENAI_API_KEY") else "NOT_CONFIGURED",
+            "provider": "OpenAI",
+            "model": "gpt-5.6-luna",
+        }
 
     def _ai_list_eligible(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, set())
@@ -432,7 +438,7 @@ class DesktopApplicationService:
 
     def _ai_authorize_execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"preview_id", "opt_in"})
-        import datetime as dt, os
+        import datetime as dt
         if not os.environ.get("OPENAI_API_KEY"):
             raise DesktopServiceError("AI_NOT_CONFIGURED")
         if self._ai_prepared is None or payload["preview_id"] != self._ai_prepared.preview.preview_id or payload["opt_in"] is not True: raise DesktopServiceError("AUTHORIZATION_MISMATCH")
@@ -441,7 +447,38 @@ class DesktopApplicationService:
             authorization = self._ai.authorize(self._ai_prepared, authorized_at=now, expires_at=now + dt.timedelta(minutes=2), opt_in=True)
             result = self._ai.execute(self._ai_prepared, authorization, now=now)
         except E07BoundaryError as exc: raise DesktopServiceError(exc.code) from exc
-        return {"proposal": {"status": result.proposal.status.value, "reflections": [item.text for item in result.proposal.reflections], "counterevidence": list(result.proposal.counterevidence_ids), "unknowns": [item.uncertainty for item in result.proposal.unknowns], "questions": [item.text for item in result.proposal.questions]}, "notice": "PROPOSED only; nothing was written back."}
+        return {
+            "proposal": {
+                "status": result.proposal.status.value,
+                "reflections": [
+                    {
+                        "statement_id": item.statement_id,
+                        "text": item.text,
+                        "supporting_evidence_ids": list(item.supporting_evidence_ids),
+                        "uncertainty": item.uncertainty,
+                        "claim_level": int(item.claim_level),
+                    }
+                    for item in result.proposal.reflections
+                ],
+                "counterevidence": list(result.proposal.counterevidence_ids),
+                "unknowns": [
+                    {
+                        "unknown_id": item.unknown_id,
+                        "uncertainty": item.uncertainty,
+                    }
+                    for item in result.proposal.unknowns
+                ],
+                "questions": [
+                    {
+                        "question_id": item.question_id,
+                        "unknown_id": item.unknown_id,
+                        "text": item.text,
+                    }
+                    for item in result.proposal.questions
+                ],
+            },
+            "notice": "PROPOSED only; nothing was written back.",
+        }
 
     def _reflection_create(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"title"})
@@ -617,12 +654,14 @@ class DesktopApplicationService:
             "locked": self._locked,
             "data_mode": "SYNTHETIC_ONLY",
             "real_data_gate": "CLOSED",
-            "network": "OFFLINE_NO_LISTENER",
+            "inbound_listener": "NONE",
+            "outbound_provider": "READY_EXPLICIT_E07" if os.environ.get("OPENAI_API_KEY") else "NOT_CONFIGURED",
             "runtime_profile": "SYNTHETIC_LAB",
             "build_version": BUILD_VERSION,
             "privacy": {
-                "processing_location": "LOCAL_ONLY",
-                "cloud": "DISABLED",
+                "core_processing_location": "LOCAL",
+                "cloud_storage": "DISABLED",
+                "cloud_disclosure": "SYNTHETIC_EXPLICIT_E07_ONLY",
                 "telemetry": "OFF",
             },
         }

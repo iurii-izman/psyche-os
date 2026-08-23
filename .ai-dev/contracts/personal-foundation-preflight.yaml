@@ -1,0 +1,91 @@
+task_id: PERSONAL-FOUNDATION-PREFLIGHT-PR27
+base_sha: d3205db3843bc6c589344d47035c22f87ef41fa3
+
+profile: quality
+risk: high
+
+goal:
+  - Harden the current SYNTHETIC_LAB field preview before any Personal admission architecture.
+
+non_goals:
+  - real_personal, Personal runtime, schema migration, and real-data writes
+  - Personal key/recovery, backup/restore/export lifecycle, Human Gate, or E11 sealing
+  - crypto algorithm or key-hierarchy change, new dependency, or network expansion
+
+authority:
+  - CONSTITUTION.md (C-20)
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md (\u00a725)
+  - docs/DECISION_LOG.md (ADR-023)
+
+expected_scope:
+  - src/psyche_os/interfaces/desktop_sidecar.py
+  - src/psyche_os/application/reflection_sessions.py
+  - src/psyche_os/application/desktop_service.py
+  - desktop/src/api.ts
+  - scripts/dev/test_e02_desktop.py
+  - tests/integration/test_e02_sidecar_protocol.py
+  - tests/unit/test_v3a0_reflection_sessions.py
+  - tests/unit/test_field_preview_search.py
+  - tests/unit/test_e02_desktop_service.py
+  - .ai-dev/contracts/personal-foundation-preflight.yaml
+  - docs/prompts/codex/PERSONAL_MODE_FOUNDATION_FINAL.md
+
+protected_scope:
+  - docs/sources/**
+  - docs/development/proposals/**
+
+acceptance:
+  - Product status truth is scoped to core processing, while E07 disclosure remains explicit.
+  - An oversized sidecar response returns content-free RESPONSE_TOO_LARGE with the request correlation ID and the sidecar continues.
+  - Concurrent first Reflection key publication cannot overwrite the winning durable DPAPI-wrapped key.
+  - Reflection search returns a bounded match-centred Unicode-safe excerpt without changing membership.
+  - RDG-09 through RDG-12 remain always applicable and existing PR fixes remain intact.
+  - All specified targeted and final gates pass.
+
+repository_required_gates:
+  - uv run pytest -q
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run python scripts/validate_research_foundation.py
+
+contract_required_proof:
+  - risk: sidecar protocol desynchronization after an oversized response
+    insufficiency_of_repository_gates: Generic tests do not prove a single live run handles overflow then a second request.
+    primary_oracle: tests/integration/test_e02_sidecar_protocol.py::test_t2_oversized_response_returns_error_and_sidecar_continues
+    failure_meaning: The IPC transport can terminate or leak response content on a bounded-output failure.
+    alternate_oracles: []
+    stop_or_escalation: Stop the candidate if the small error frame cannot be emitted within the protocol bound.
+  - risk: concurrent first-start key replacement
+    insufficiency_of_repository_gates: Ordinary persistence tests do not exercise competing first publication.
+    primary_oracle: tests/unit/test_v3a0_reflection_sessions.py::test_reflection_first_start_key_publication_is_exclusive
+    failure_meaning: Durable Reflection storage may be made unreadable by a competing process.
+    alternate_oracles: []
+    stop_or_escalation: Stop the candidate if a loser can overwrite a published key or trigger recreation.
+
+supplemental_evidence:
+  - Native smoke marker update is supplemental unless repository policy promotes it.
+
+proof_recovery_budget:
+  max_feature_local_repair_loops: 1
+
+oracle_failure_policy:
+  classify_as: product_defect
+  low_medium: Record bounded residuals after required evidence passes.
+  high_critical: Missing load-bearing IPC or persistence evidence blocks the candidate.
+
+stop_conditions:
+  - Any schema, migration, Personal admission, dependency, key hierarchy, or crypto-algorithm requirement.
+  - Any failure to preserve CLOSED / NOT_ADMITTED state.
+
+permissions:
+  network: false
+  dependencies: false
+  migrations: false
+  destructive: false
+
+routing:
+  initial: strong
+  max_grounded_retry: 1
+  escalation: strong
+
+assumptions:
+  - Owner approval in PR #27 final-closure instructions authorizes this contract correction and bounded key-publication repair.
