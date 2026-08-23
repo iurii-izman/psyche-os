@@ -96,6 +96,8 @@ describe("E02 bounded desktop UI", () => {
     for (const required of ["Текущая рабочая формулировка", "Как менялась формулировка", "Матрица контекста", "Поддерживает", "Противоречит / контрпример", "Остаётся неизвестным", "Пропущено / «не знаю»", "Противоречия / разные ответы", "Хронология сессии", "ваш ответ №1"]) expect(analytics.textContent).toContain(required);
     expect(analytics.querySelector("button, input, textarea, select")).toBeNull();
     expect(document.querySelector<HTMLTextAreaElement>("#reflection-turn")!.disabled).toBe(true);
+    expect(byText("Завершить сессию").disabled).toBe(true);
+    expect(byText("Удалить сессию").disabled).toBe(false);
   });
 
   it("presents the Russian local reflection-session entry point", async () => {

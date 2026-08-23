@@ -410,7 +410,6 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
       add.disabled = current.state === "CLOSED";
       const close = button("Завершить сессию", async () => { await api.reflectionClose(current.session_id); await showSession(current.session_id); }); close.disabled = current.state === "CLOSED";
       const remove = button("Удалить сессию", async () => { await api.reflectionDelete(current.session_id); await showList(); }, "danger");
-      remove.disabled = current.state === "CLOSED";
       const back = button("Назад к сессиям", async () => showList());
       record.append(label, content, add);
       sessionBody.append(exploration, close, remove, back);

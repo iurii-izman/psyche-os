@@ -1,4 +1,5 @@
 import type { ActionPlan, ExplorationView, ReflectionSessionView } from "./api";
+import { hasGuidedExploration } from "./longitudinal-workspace";
 
 export interface ProductJourney {
   has_turns: boolean;
@@ -16,7 +17,7 @@ export function buildProductJourney(
 ): ProductJourney {
   return {
     has_turns: session.turn_count > 0,
-    has_guided_exploration: Boolean(exploration && (exploration.context.length || exploration.hypotheses.length || exploration.formulations.length)),
+    has_guided_exploration: hasGuidedExploration(exploration),
     has_current_formulation: Boolean(exploration?.formulations.some((item) => item.status === "CURRENT")),
     has_action_plan: plans.length > 0,
     has_outcome: plans.some((item) => item.outcome !== null)
