@@ -10,11 +10,10 @@ from typing import Any, BinaryIO
 from sqlcipher3 import dbapi2 as _sqlcipher
 
 from psyche_os.application.desktop_service import (
+    PROTOCOL_VERSION,
     DesktopApplicationService,
     DesktopServiceError,
-    PROTOCOL_VERSION,
 )
-
 
 MAX_FRAME_BYTES = 65_536
 REQUEST_FIELDS = frozenset({"version", "command", "correlation_id", "session_token", "payload"})
@@ -52,6 +51,16 @@ def write_frame(stream: BinaryIO, value: dict[str, Any]) -> None:
     stream.write(struct.pack(">I", len(body)))
     stream.write(body)
     stream.flush()
+
+
+def _oversized_response(correlation_id: str) -> dict[str, Any]:
+    """Return the stable, content-free response used when normal output cannot fit."""
+    return {
+        "version": PROTOCOL_VERSION,
+        "correlation_id": correlation_id,
+        "status": "error",
+        "error": {"code": "RESPONSE_TOO_LARGE"},
+    }
 
 
 def handle_request(service: DesktopApplicationService, request: dict[str, Any]) -> dict[str, Any]:
@@ -105,7 +114,14 @@ def run(stdin: BinaryIO, stdout: BinaryIO) -> int:
                     "status": "error",
                     "error": {"code": "INTERNAL_ERROR"},
                 }
-            write_frame(stdout, response)
+            try:
+                write_frame(stdout, response)
+            except FrameError as exc:
+                if str(exc) != "RESPONSE_TOO_LARGE":
+                    return 2
+                # This frame is deliberately constructed from protocol metadata only.
+                # write_frame validates it before emitting any bytes.
+                write_frame(stdout, _oversized_response(correlation))
     finally:
         service.close()
 

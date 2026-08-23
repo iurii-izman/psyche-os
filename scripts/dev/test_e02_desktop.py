@@ -69,7 +69,7 @@ def _control_diagnostics(window: Any, request: dict[str, Any]) -> dict[str, Any]
     """Bounded, content-free context for a failed descendant lookup."""
     fresh = fresh_window(window)
     wrapper = fresh.wrapper_object()
-    markers = ("Локальный секрет сессии", "МОИ СЕССИИ", "Сессия завершена", "ДИНАМИКА ПО СЕССИЯМ")
+    markers = ("Локальный секрет сессии", "МОЁ ПРОСТРАНСТВО", "Сессия завершена", "ДИНАМИКА ПО СЕССИЯМ")
     try:
         descendants = fresh.descendants()
         text = "\n".join(control.window_text() for control in descendants)
@@ -453,7 +453,7 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         wait_for_text(window, "Локальный секрет сессии")
         edit_id(window, "unlock-secret", SECRET_CANARY)
         click(window, "Разблокировать локально")
-        wait_for_text(window, "МОИ СЕССИИ")
+        wait_for_text(window, "МОЁ ПРОСТРАНСТВО")
         window, _ = refresh_window(window, first.pid)
         edit(window, "Название", title)
         click(window, "Новая сессия")
@@ -539,7 +539,7 @@ def restart_persistence_proof(executable: Path, app_data: Path) -> dict[str, Any
         assert_absent_or_disabled(window, "Сохранить мой следующий шаг", "Button")
         assert_absent_or_disabled(window, "Сохранить отметку", "Button")
         click(window, "Удалить сессию")
-        wait_for_text(window, "МОИ СЕССИИ")
+        wait_for_text(window, "МОЁ ПРОСТРАНСТВО")
         if title in "\n".join(control.window_text() for control in fresh_window(window).descendants()):
             raise AssertionError("Deleted session remains in list")
         return {
@@ -681,7 +681,7 @@ def v3bc_longitudinal_proof(executable: Path, app_data: Path) -> dict[str, Any]:
         wait_for_text(window, "Локальный секрет сессии")
         edit_id(window, "unlock-secret", SECRET_CANARY)
         click(window, "Разблокировать локально")
-        wait_for_text(window, "МОИ СЕССИИ")
+        wait_for_text(window, "МОЁ ПРОСТРАНСТВО")
         window, _ = refresh_window(window, first.pid)
         _create_v3bc_session(window, "V3BC-SESSION-A", "V3BC-ONLY-A", "V3BC-FORMULATION-A", with_action=True)
         click(window, "Завершить сессию")

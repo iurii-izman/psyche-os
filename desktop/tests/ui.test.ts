@@ -15,7 +15,7 @@ function syntheticStatus(locked = false): StatusView {
     outbound_provider: "NOT_CONFIGURED",
     runtime_profile: "SYNTHETIC_LAB",
     build_version: "0.2.0",
-    privacy: { processing_location: "LOCAL_ONLY", cloud_storage: "DISABLED", cloud_disclosure: "SYNTHETIC_EXPLICIT_E07_ONLY", telemetry: "OFF" }
+    privacy: { core_processing_location: "LOCAL", cloud_storage: "DISABLED", cloud_disclosure: "SYNTHETIC_EXPLICIT_E07_ONLY", telemetry: "OFF" }
   };
 }
 

@@ -659,7 +659,7 @@ class DesktopApplicationService:
             "runtime_profile": "SYNTHETIC_LAB",
             "build_version": BUILD_VERSION,
             "privacy": {
-                "processing_location": "LOCAL_ONLY",
+                "core_processing_location": "LOCAL",
                 "cloud_storage": "DISABLED",
                 "cloud_disclosure": "SYNTHETIC_EXPLICIT_E07_ONLY",
                 "telemetry": "OFF",

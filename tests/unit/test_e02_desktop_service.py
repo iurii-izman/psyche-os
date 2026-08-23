@@ -20,6 +20,17 @@ def test_t2_unknown_command_and_unknown_field_fail_closed() -> None:
         service.dispatch("session.unlock", {"secret": "demo", "shell": "cmd"}, None)
 
 
+def test_status_scopes_local_processing_to_core_and_discloses_e07() -> None:
+    service = DesktopApplicationService()
+    status = service.dispatch("status.get", {}, None)
+    assert status["privacy"] == {
+        "core_processing_location": "LOCAL",
+        "cloud_storage": "DISABLED",
+        "cloud_disclosure": "SYNTHETIC_EXPLICIT_E07_ONLY",
+        "telemetry": "OFF",
+    }
+
+
 def test_t2_state_change_requires_current_session() -> None:
     service = DesktopApplicationService()
     with pytest.raises(DesktopServiceError, match="SESSION_REQUIRED"):

@@ -8,7 +8,7 @@ export interface StatusView {
   outbound_provider: "NOT_CONFIGURED" | "READY_EXPLICIT_E07";
   runtime_profile: string;
   build_version: string;
-  privacy: { processing_location: string; cloud_storage: "DISABLED"; cloud_disclosure: "SYNTHETIC_EXPLICIT_E07_ONLY"; telemetry: "OFF" };
+  privacy: { core_processing_location: "LOCAL"; cloud_storage: "DISABLED"; cloud_disclosure: "SYNTHETIC_EXPLICIT_E07_ONLY"; telemetry: "OFF" };
 }
 export interface AiStatusView { runtime_profile: "SYNTHETIC_LAB"; local_personal: "NOT_ADMITTED"; ai: "READY_SYNTHETIC_LAB" | "NOT_CONFIGURED"; provider: string; model: string; }
 export interface AiReflection { statement_id: string; text: string; supporting_evidence_ids: string[]; uncertainty: string; claim_level: number; }

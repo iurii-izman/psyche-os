@@ -1,10 +1,10 @@
-# PSYCHE OS — Personal Mode foundation and admission readiness
+# PSYCHE OS — PREPARE / FUTURE CRITICAL WORK: Personal Mode foundation and admission readiness
 
 **Repository:** `C:\Dev\psyche-os`
 **Canonical branch:** `main`
 **Expected orientation SHA:** `44129765e05cb6f6c69c115a3718e09efc1a58e2`
 **Candidate branch:** `codex/personal-mode-foundation`
-**Task Contract:** `.ai-dev/contracts/personal-mode-foundation.yaml`
+**Status:** Historical future-work preparation only; it is not evidence that Personal Mode work completed.
 **Risk:** `CRITICAL`
 **Current authorization mode:** `FOUNDATION_ONLY`
 **Current real-data state:** `CLOSED / LOCAL_PERSONAL NOT_ADMITTED`
