@@ -1,0 +1,23 @@
+# Personal Mode v1 data-byte map
+
+Status: **PROPOSED_FOR_INDEPENDENT_REVIEW**. This is an admission inventory, not permission to persist real data. `REAL_DATA_GATE` remains `CLOSED`.
+
+| Data class | Kind / owner | Durable location | Boundary / key | Backup, recovery, export, deletion | IPC / other copies | Profile |
+|---|---|---|---|---|---|---|
+| Vault/profile ID, schema/key format, salts, DPAPI wrap, RecoveryWrapHeader | bootstrap metadata / key lifecycle owner | sidecar-owned bootstrap file outside DB, ACL-scoped | non-secret metadata; DPAPI blob and recovery envelope are secret-bearing | included in encrypted backup manifest; recovery header enables RecoveryWrapper; no plaintext export; key retirement after backup expiry | Rust sees status only; never renderer/logs | allowed |
+| Reflection title, USER turns, timestamps/state | user-authored / interaction workspace | `reflection_sessions`, `reflection_turns` | SQLCipher DB key | complete V10 inventory; VMK recovery; encrypted portable export; cascade deletion + search rebuild + backup expiry | typed results only while unlocked; no logs/temp | allowed |
+| Exploration problem/context; known/unknown/contradiction anchors; questions/answers/skips | user-authored and derived proposal / workspace | `reflection_*` exploration tables | SQLCipher DB key | same as session; session cascade is deletion root | typed IPC, no renderer persistence | allowed |
+| WorkingFormulation proposal/history and corrections | derived proposal plus user correction / workspace | `reflection_formulations`, snapshots and references | SQLCipher DB key; provenance identifies method | same; deletion cascades from session | local view only | allowed only as proposal |
+| Action plans and outcomes | user-authored / workspace | `reflection_action_plans`, `reflection_action_outcomes` | SQLCipher DB key | same; deletion cascades from session | local view only | allowed |
+| Search excerpt/hit | derived disposable projection | in-memory query result only | inherits unlocked DB; no durable index in v1 | **DOES NOT PERSIST**; regenerated after delete/restore | bounded typed IPC response; no log/cache | allowed |
+| Session list, Review/Return/Follow-up display state | derived UI projection | in-memory renderer state only | n/a | **DOES NOT PERSIST**; no longitudinal scheduler/history | no disk/session storage | list allowed; richer cross-session workflow excluded |
+| Quick Capture draft | user-authored until committed | renderer memory; then a new USER turn | no durable write before explicit save | **DOES NOT PERSIST** if abandoned; committed content follows session lifecycle | no browser storage | allowed |
+| Canonical evidence records (Report, Observation, Assertion, Unknown) | user-authored / canonical store | existing canonical tables | SQLCipher DB key | V10 inventory only if notebook is later approved; recovery/export/delete through canonical lifecycle | no personal write in v1 | notebook deferred |
+| Deletion request/plan/receipt | derived lifecycle record / canonical store | deletion tables | SQLCipher DB key | backup/export include content-free receipt; recovery preserves state; receipt never contains content/hash | status only | allowed |
+| Backup manifest/package metadata | derived lifecycle record/file | `backup_manifests`, encrypted package | backup domain key | package verification and isolated restore; delete policy schedules expiry/key retirement | metadata-only IPC | allowed |
+| Export manifest/package | derived lifecycle record/file | `export_manifests`, encrypted package | export domain key | export is user-controlled external copy; receipt records limitation; cannot recall exported copies | no plaintext logger | allowed, local owner export only |
+| WAL/SHM, temporary restore/migration files | operational bytes | SQLCipher sidecars and private staging directory | same DB/backup key; restrictive ACL | inspected by RDG-06; removed on success/failure; no activation until verified | never IPC/logged | allowed only with proof |
+| Logs, telemetry, crash reports | operational | content-free local diagnostics | no sensitive content allowed | must contain no Personal bytes; scrub/deny paths | no provider telemetry | allowed only content-free |
+| AI prompts/results, provider credentials, imports, attachments, assessments, longitudinal/sensing, professional reports | excluded | none | n/a | **DOES NOT PERSIST** in Personal v1 because command/module/package boundary is unreachable | denial only | excluded |
+
+No future Personal write is admissible unless this map gains an explicit row with encryption, recovery, backup, export, deletion, projection and exposure semantics.

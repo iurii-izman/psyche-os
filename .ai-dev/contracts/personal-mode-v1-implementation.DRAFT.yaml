@@ -1,0 +1,77 @@
+task_id: PERSONAL-MODE-V1-IMPLEMENTATION-DRAFT
+status: DRAFT_NOT_AUTHORIZED_FOR_IMPLEMENTATION
+base_sha: 166832da18d913f591c3956346e41b7b5e742a5a
+profile: quality
+risk: critical
+goal:
+  - Implement the independently reviewed Personal Mode v1 architecture without opening REAL_DATA_GATE.
+non_goals:
+  - Real data admission or owner attestation
+  - Crypto algorithm changes, new dependencies, network/provider, Longitudinal, import, assessment, handoff, or blobs
+authority:
+  - CONSTITUTION.md
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md
+  - docs/DECISION_LOG.md#adr-008-key-and-recovery-design
+  - docs/DECISION_LOG.md#adr-009-deletion-semantics
+  - docs/DECISION_LOG.md#adr-022-e02-secure-desktop-shell-and-typed-python-boundary
+  - docs/DECISION_LOG.md#adr-023-profile-specific-real-data-gate-evaluation
+  - docs/architecture/REAL_DATA_GATE.yaml
+  - docs/architecture/REAL_DATA_GATE_PROFILE.yaml
+  - docs/development/personal-mode-v1/ARCHITECTURE.md
+current_verified_state:
+  - Reflection V9 accepts only synthetic_only in reflection_sessions.
+  - Gate is CLOSED; accepted primitives include VMK, DPAPI, Argon2id recovery, and domain KDF.
+expected_scope:
+  - src/psyche_os/storage/**
+  - src/psyche_os/application/**
+  - src/psyche_os/backup_export/**
+  - src/psyche_os/interfaces/**
+  - desktop/**
+  - scripts/**
+  - tests/**
+  - docs/development/personal-mode-v1/**
+protected_scope:
+  - .ai-dev/policy/**
+  - CONSTITUTION.md
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md
+acceptance:
+  - V10 exactly preserves synthetic records and is atomic, preflighted, fault-tested, and idempotent.
+  - Personal VMK lifecycle has independently verified DPAPI and RecoveryWrapper recovery paths.
+  - Backup/restore/export/delete cover the complete V10 inventory and no activation occurs before isolated verification.
+  - Effective profile is enforced beyond renderer and excluded capabilities are unreachable/unshipped as specified.
+  - All evidence remains synthetic and REAL_DATA_GATE stays CLOSED.
+repository_required_gates:
+  - uv run python scripts/dev/validate_orchestration.py
+contract_required_proof:
+  - risk: recovery and privacy boundary failure
+    insufficiency_of_repository_gates: static checks do not prove fault-safe lifecycle behavior
+    primary_oracle: candidate-bound synthetic RDG-01 through RDG-12 evidence
+    failure_meaning: a failed applicable control blocks implementation acceptance and gate opening
+    alternate_oracles: []
+    stop_or_escalation: stop affected work and return to independent architecture review for structural contradiction
+supplemental_evidence: []
+proof_recovery_budget:
+  max_feature_local_repair_loops: 1
+oracle_failure_policy:
+  classify_as: product_defect
+  low_medium: not applicable
+  high_critical: missing load-bearing lifecycle proof is blocking
+stop_conditions:
+  - Missing explicit owner approval for V10 migration or key-handling change.
+  - Any conflict with Constitution, gate profile, or accepted architecture.
+  - Any need for a crypto algorithm/dependency/network/REAL_DATA_GATE change.
+permissions:
+  network: false
+  dependencies: false
+  migrations: false
+  key_handling_change: false
+  destructive: false
+routing:
+  initial: strong
+  max_grounded_retry: 1
+  escalation: strong
+assumptions:
+  - This document is not an approval. The explicit approvals below are required before changing migrations or key handling.
+required_owner_approval_text:
+  migration: I explicitly approve V10 migration PMV1-V10-REFLECTION-DATA-MODE-REBUILD as described in docs/development/personal-mode-v1/ARCHITECTURE.md, with no destructive migration, no crypto-algorithm change and no REAL_DATA_GATE opening.
+  key_handling: I explicitly approve Personal VMK/recovery integration PMV1-VMK-RECOVERY-ENVELOPE-V1 as described in docs/development/personal-mode-v1/ARCHITECTURE.md, with no destructive migration, no crypto-algorithm change and no REAL_DATA_GATE opening.
