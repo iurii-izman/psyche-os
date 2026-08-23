@@ -20,6 +20,9 @@ function mockApi(locked = false): DesktopApi {
   let stateLocked = locked;
   return {
     status: vi.fn(async () => syntheticStatus(stateLocked)),
+    aiStatus: vi.fn(async () => ({ runtime_profile: "SYNTHETIC_LAB" as const, local_personal: "NOT_ADMITTED" as const, ai: "NOT_CONFIGURED" as const, provider: "OpenAI", model: "gpt-5.6-luna" })),
+    aiPrepare: vi.fn(async () => ({ preview_id: "ai-preview", selected: [["assertion-lamp", "v1", "assertion"]] as [string, string, string][], provider: "OpenAI", model: "gpt-5.6-luna", purpose: "synthetic_evidence_grounded_reflection", notice: "proposal only" })),
+    aiAuthorizeExecute: vi.fn(async () => ({ proposal: { status: "PROPOSED" } })),
     unlock: vi.fn(async () => { stateLocked = false; return { session_token: "opaque-session" }; }),
     lock: vi.fn(async () => { stateLocked = true; return { locked: true }; }),
     correct: vi.fn(async () => ({ history_preserved: true, version_count: 2 })),

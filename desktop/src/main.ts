@@ -669,6 +669,24 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   deleteExecuteButton.disabled = true;
   privacy.append(correctionForm, el("hr"), deletePlanButton, deleteExecuteButton);
 
+  const aiLab = el("section");
+  aiLab.className = "card";
+  aiLab.append(el("p", "AI-ПРЕДЛОЖЕНИЕ · LAB"), el("h2", "Ограниченное предложение AI"), el("p", "По желанию. В OpenAI отправляются только выбранные синтетические cloud-eligible записи. Результат — предложение, не факт, не диагноз и не совет; ничего не записывается автоматически."));
+  let aiPreview = "";
+  const aiSend = button("Отправить выбранные синтетические данные", async () => {
+    try { renderResult(operationStatus, await api.aiAuthorizeExecute(aiPreview), "Проверенное предложение получено. Оно не записано в архив."); aiSend.disabled = true; }
+    catch (error) { safeError(operationStatus, error); }
+  }, "primary");
+  aiSend.disabled = true;
+  const aiPrepare = button("Показать предварительное раскрытие", async () => {
+    try { const result = await api.aiPrepare(); aiPreview = result.preview_id; renderResult(operationStatus, result, "Проверьте ID, версии, категории, OpenAI и gpt-5.6-luna перед отправкой."); aiSend.disabled = false; aiSend.focus(); }
+    catch (error) { safeError(operationStatus, error); }
+  });
+  let aiState = "недоступен";
+  try { const value = await api.aiStatus(); aiState = `${value.ai} · ${value.provider} · ${value.model} · ${value.runtime_profile}`; } catch { /* content-free status only */ }
+  const aiStatus = el("p", `AI: ${aiState}`);
+  aiLab.append(aiStatus, aiPrepare, aiSend, el("p", "Режим личных данных пока не допущен."));
+
   const recovery = el("section");
   recovery.className = "card";
   recovery.append(el("p", t("recovery.kicker")), el("h2", t("recovery.heading")));
@@ -746,7 +764,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   });
   exports.append(exportForm);
 
-  grid.append(privacy, recovery, exports, archive, explore, canonicalDeletion);
+  grid.append(aiLab, privacy, recovery, exports, archive, explore, canonicalDeletion);
   const systemArea = el("section");
   systemArea.className = "system-area";
   systemArea.append(el("h2", "Локальные данные и приватность"), el("p", "Резервные копии, экспорт, исправления и другие операции с локальным хранилищем."), grid);

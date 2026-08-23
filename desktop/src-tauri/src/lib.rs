@@ -73,6 +73,9 @@ impl SidecarClient {
             .env("TEMP", &temp_directory)
             .env("TMP", &temp_directory)
             .env("PSYCHE_OS_APP_DATA", app_data)
+            // Deliberately forward only the provider credential; renderer input
+            // cannot influence the sidecar environment or destination.
+            .env("OPENAI_API_KEY", std::env::var("OPENAI_API_KEY").unwrap_or_default())
             .spawn()
             .map_err(|_| "SIDECAR_UNAVAILABLE".to_string())?;
         let stdin = child
@@ -333,6 +336,9 @@ struct ActionCreateRequest { session_token: Option<String>, session_id: String, 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ActionOutcomeRequest { session_token: Option<String>, plan_id: String, status: String, note_text: Option<String> }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AiExecuteRequest { session_token: Option<String>, preview_id: String, opt_in: bool }
 
 fn bounded(values: &[&str]) -> Result<(), String> {
     if values
@@ -658,6 +664,17 @@ fn desktop_execute_export(
     )
 }
 
+session_command!(desktop_ai_status, "ai.status");
+#[tauri::command]
+fn desktop_ai_prepare(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> {
+    invoke_python(&window, &state, "ai.prepare", request.session_token.as_deref(), json!({}))
+}
+#[tauri::command]
+fn desktop_ai_authorize_execute(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: AiExecuteRequest) -> Result<Value, String> {
+    bounded(&[&request.preview_id])?;
+    invoke_python(&window, &state, "ai.authorize_execute", request.session_token.as_deref(), json!({"preview_id": request.preview_id, "opt_in": request.opt_in}))
+}
+
 pub fn run() {
     tauri::Builder::default()
         .manage(DesktopState {
@@ -681,6 +698,7 @@ pub fn run() {
             desktop_archive_explorer,
             desktop_archive_snapshot_diff,
             desktop_archive_execute_deletion
+            ,desktop_ai_status, desktop_ai_prepare, desktop_ai_authorize_execute
             ,desktop_reflection_create, desktop_reflection_list, desktop_reflection_get,
             desktop_reflection_add_turn, desktop_reflection_close, desktop_reflection_delete,
             desktop_exploration_start, desktop_exploration_get, desktop_exploration_answer, desktop_exploration_skip,

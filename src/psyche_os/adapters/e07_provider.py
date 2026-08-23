@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import datetime as dt
+import json
+import os
 from typing import Any
+from urllib import error, request
 
 from psyche_os.application.e07_bounded_ai import (
     PURPOSE,
@@ -117,6 +120,55 @@ class SQLiteCanonicalRecordReader:
         if unknown is not None:
             return f"Unknown: {unknown['question']} State: {unknown['knowledge_state']}"
         raise KeyError("record/version not found")
+
+
+class OpenAIReflectionProvider:
+    """One bounded Responses API call for an already-authorized E07 request."""
+
+    host = "api.openai.com"
+    endpoint = "https://api.openai.com/v1/responses"
+    max_response_bytes = 256_000
+
+    def __init__(self, *, transport: Any = request.urlopen, api_key: str | None = None) -> None:
+        self._transport = transport
+        self._api_key = api_key
+        self.invocation_count = 0
+
+    def invoke(self, provider_request: ProviderRequest) -> Any:
+        key = self._api_key or os.environ.get("OPENAI_API_KEY")
+        if not key:
+            raise ProviderUnavailableError("AI_NOT_CONFIGURED")
+        if provider_request.provider_identity.provider != "openai" or provider_request.provider_identity.model_snapshot != "gpt-5.6-luna":
+            raise ProviderUnavailableError("MODEL_NOT_AVAILABLE")
+        self.invocation_count += 1
+        schema = {
+            "type": "json_schema", "name": "e07_reflection_proposal", "strict": True,
+            "schema": {"type": "object", "additionalProperties": False,
+                "required": ["schema_version", "proposal_id", "status", "reflections", "counterevidence", "unknowns", "questions"],
+                "properties": {"schema_version": {"const": "e07-reflection-proposal-v1"}, "proposal_id": {"type": "string"}, "status": {"const": "PROPOSED"}, "reflections": {"type": "array"}, "counterevidence": {"type": "array"}, "unknowns": {"type": "array"}, "questions": {"type": "array"}}},
+        }
+        payload = {"model": "gpt-5.6-luna", "store": False, "max_output_tokens": 900,
+            "text": {"format": schema}, "input": [{"role": "developer", "content": "Return only the requested bounded E07 proposal. It is a proposal, not evidence, fact, diagnosis, recommendation, or action."}, {"role": "user", "content": json.dumps({"purpose": provider_request.purpose, "records": [{"record_id": r.record_id, "version_id": r.version_id, "category": r.category, "role": r.role.value, "content": r.content} for r in provider_request.records]}, ensure_ascii=False)}]}
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        outbound = request.Request(self.endpoint, data=body, method="POST", headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+        try:
+            with self._transport(outbound, timeout=20) as response:
+                raw = response.read(self.max_response_bytes + 1)
+                if len(raw) > self.max_response_bytes:
+                    raise ProviderUnavailableError("PROVIDER_RESPONSE_TOO_LARGE")
+        except error.HTTPError as exc:
+            raise ProviderUnavailableError("PROVIDER_HTTP_ERROR") from exc
+        except (error.URLError, TimeoutError, OSError) as exc:
+            raise ProviderTimeoutError from exc
+        try:
+            decoded = json.loads(raw)
+            for item in decoded.get("output", []):
+                for content in item.get("content", []):
+                    if content.get("type") == "output_text":
+                        return json.loads(content["text"])
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise ProviderUnavailableError("PROVIDER_MALFORMED_RESPONSE") from exc
+        raise ProviderUnavailableError("PROVIDER_MALFORMED_RESPONSE")
 
 
 @dataclass(slots=True)
