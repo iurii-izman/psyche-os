@@ -33,6 +33,10 @@ PURPOSE = "synthetic_evidence_grounded_reflection"
 CONTEXT_BUILDER_VERSION = "e07-explicit-selection-v1"
 OUTPUT_SCHEMA = "e07-reflection-proposal-v1"
 TRANSFORMATIONS = ("role_tagging", "bounded_record_serialization")
+ALLOWED_ROLES_BY_CATEGORY: dict[str, tuple[EvidenceRole, ...]] = {
+    "assertion": (EvidenceRole.SUPPORTING, EvidenceRole.COUNTEREVIDENCE),
+    "unknown": (EvidenceRole.UNKNOWN,),
+}
 
 
 class E07ErrorCode(StrEnum):
@@ -272,6 +276,45 @@ class BoundedAIProposalService:
         self._interaction_ids.add(interaction_id)
         self._pending_prepared[interaction_id] = prepared
         return prepared
+
+    def list_eligible(self, *, cutoff: dt.datetime) -> list[dict[str, Any]]:
+        """Read-only enumeration of currently policy-eligible canonical records.
+
+        The backend owns eligibility; a renderer cannot decide cloud eligibility.
+        No network and no disclosure occur here.
+        """
+        if cutoff.tzinfo is None or cutoff.utcoffset() is None:
+            raise E07BoundaryError(E07ErrorCode.INVALID_SELECTION)
+        eligible: list[dict[str, Any]] = []
+        for record_id in self._reader.enumerate_ids():
+            metadata = self._reader.read_metadata(record_id)
+            if metadata is None:
+                continue
+            try:
+                self._resolve_policy(metadata, purpose=PURPOSE, at=cutoff)
+            except E07BoundaryError:
+                continue
+            try:
+                display_text = self._reader.read_content(record_id, metadata.version_id)
+            except KeyError:
+                continue
+            eligible.append(
+                {
+                    "record_id": metadata.record_id,
+                    "version_id": metadata.version_id,
+                    "category": metadata.category,
+                    "allowed_roles": [
+                        role.value
+                        for role in ALLOWED_ROLES_BY_CATEGORY.get(metadata.category, ())
+                    ],
+                    "display_text": display_text[:160],
+                }
+            )
+        return eligible
+
+    def category_for(self, record_id: str) -> str | None:
+        metadata = self._reader.read_metadata(record_id)
+        return metadata.category if metadata is not None else None
 
     def authorize(
         self,

@@ -1,0 +1,99 @@
+task_id: field-preview-v0.2
+base_sha: 24bb9087f24cca52b3b23fdfcbbef5829c5acb62
+profile: balanced
+risk: high
+goal:
+  - "Turn accumulated reflection sessions into a navigable local history: global local search over titles and user turns, a deterministic personal review hub, and user-controlled E07 AI evidence selection while keeping SYNTHETIC_LAB-only and REAL_DATA_GATE CLOSED."
+non_goals:
+  - "No real data admission"
+  - "No arbitrary network"
+  - "No storage schema or migration"
+  - "No new persistence model"
+  - "No new production dependency"
+  - "No crypto/key change"
+  - "No reflection-session disclosure to OpenAI"
+  - "No ranking/scoring/diagnosis/recommendation/importance inference"
+  - "No provider fallback"
+authority:
+  - "CONSTITUTION.md"
+  - "docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md"
+  - "docs/architecture/REAL_DATA_GATE.yaml"
+  - "docs/architecture/REAL_DATA_GATE_PROFILE.yaml"
+permissions:
+  network: false
+  dependencies: false
+  migrations: false
+  destructive: false
+protected_scope:
+  - "docs/architecture/REAL_DATA_GATE_PROFILE.yaml"
+  - "crypto/**"
+  - "storage/migrations/**"
+architecture_confirmation:
+  question_global_search_without_migration: "YES - read-only SELECT over existing reflection_sessions/reflection_turns"
+  question_review_hub_reuses_longitudinal: "YES - buildLongitudinalWorkspace plus exploration context states"
+  question_user_controlled_e07_selection: "YES - BoundedAIProposalService.prepare already accepts dynamic selected tuples and revalidates policy; backend owns eligibility"
+capabilities:
+  search:
+    route: "ПОИСК"
+    commands: ["reflection.search"]
+    search_fields: ["session title", "USER turn text"]
+    state_filter: ["ALL", "ACTIVE", "CLOSED"]
+    excludes: ["filesystem", "cloud", "provider", "hidden logs", "keys", "generated binaries"]
+    no_fts_no_embedding_no_vector_no_llm: true
+    no_ranking: true
+    truncation_machine_truth: true
+    privacy: ["no writes", "no AI", "no network", "no telemetry"]
+  review_hub:
+    route: "ОБЗОР"
+    heading: "МОЙ ОБЗОР"
+    sections:
+      - "АКТИВНЫЕ СЕССИИ"
+      - "ОТКРЫТЫЕ / ПРОПУЩЕННЫЕ ВОПРОСЫ"
+      - "ТЕКУЩИЕ РАБОЧИЕ ФОРМУЛИРОВКИ"
+      - "ПРОТИВОРЕЧИЯ"
+      - "СОХРАНЁННЫЕ ШАГИ"
+      - "ИСХОДЫ / OUTCOMES"
+      - "ПОСЛЕДНИЕ СЕССИИ"
+    semantic_floor: ["no priority", "no urgency", "no score", "no completion %", "no effectiveness label", "no recommendation", "no causality"]
+  ai_selection:
+    commands: ["ai.list_eligible", "ai.prepare"]
+    eligible_source: "E03 canonical synthetic archive only"
+    roles: ["SUPPORTING", "COUNTEREVIDENCE", "UNKNOWN"]
+    role_category_constraints:
+      assertion: ["SUPPORTING", "COUNTEREVIDENCE"]
+      unknown: ["UNKNOWN"]
+    max_records: 8
+    required_role_structure: ">=1 SUPPORTING, >=1 COUNTEREVIDENCE, >=1 UNKNOWN"
+    reflection_disclosure_blocked: true
+    backend_owns_eligibility: true
+    no_network_during_list_or_prepare: true
+  home:
+    primary_routes:
+      - "Быстрая запись"
+      - "Продолжить"
+      - "Поиск"
+      - "Обзор"
+      - "Сессии"
+      - "К чему вернуться"
+      - "Динамика"
+    ai_secondary: true
+  build_identity:
+    - "build_version"
+    - "runtime_profile"
+    - "REAL_DATA_GATE state"
+    - "AI provider/model status"
+acceptance:
+  - "Search finds title and USER-turn matches, never writes, never calls AI/network, truncates explicitly."
+  - "Review Hub shows only persisted descriptive states with source navigation and no score/priority/effectiveness semantics."
+  - "AI selection lists only policy-eligible canonical synthetic records; reflection IDs are rejected before any network; max 8; roles constrained by category; prepare revalidates policy/version."
+  - "Home keeps Quick Capture and makes Search/Review primary with AI secondary."
+  - "Build identity is visible in a technical area; REAL_DATA_GATE remains CLOSED; LOCAL_PERSONAL remains NOT_ADMITTED."
+repository_required_gates:
+  - "uv run pytest -q"
+  - "uv run python scripts/dev/validate_orchestration.py"
+  - "uv run python scripts/validate_research_foundation.py"
+  - "npm --prefix desktop run typecheck"
+  - "npm --prefix desktop run lint"
+  - "npm --prefix desktop run test:unit"
+  - "npm --prefix desktop run build"
+  - "cargo check"

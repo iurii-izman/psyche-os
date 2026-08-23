@@ -17,6 +17,11 @@ from psyche_os.storage.migrations import Migrator
 
 MAX_TITLE = 160
 MAX_CONTENT = 12_000
+MAX_SEARCH_QUERY = 200
+SEARCH_STATES = ("ALL", "ACTIVE", "CLOSED")
+SEARCH_DEFAULT_LIMIT = 20
+SEARCH_MAX_LIMIT = 50
+SEARCH_EXCERPT_LENGTH = 200
 
 
 class ReflectionSessionError(Exception):
@@ -118,6 +123,103 @@ class ReflectionSessionService:
             "FROM reflection_sessions ORDER BY updated_at DESC, session_id DESC"
         ).fetchall()
         return {"sessions": [self._session(row) for row in rows]}
+
+    def search(
+        self,
+        query: Any,
+        state: Any = "ALL",
+        limit: Any = SEARCH_DEFAULT_LIMIT,
+        offset: Any = 0,
+    ) -> dict[str, Any]:
+        """Read-only local search over session titles and USER turn text.
+
+        Deterministic chronological sort, no relevance/ranking, explicit
+        truncation truth. Never writes, never calls a provider, never opens
+        network/export/persistence paths.
+        """
+        if not isinstance(query, str):
+            raise ReflectionSessionError("INVALID_SEARCH")
+        query = query.strip()
+        if not query or len(query) > MAX_SEARCH_QUERY:
+            raise ReflectionSessionError("INVALID_SEARCH")
+        if state not in SEARCH_STATES:
+            raise ReflectionSessionError("INVALID_SEARCH")
+        if (
+            not isinstance(limit, int)
+            or not isinstance(offset, int)
+            or limit < 1
+            or limit > SEARCH_MAX_LIMIT
+            or offset < 0
+        ):
+            raise ReflectionSessionError("INVALID_SEARCH")
+        escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        state_clause = "" if state == "ALL" else "AND s.state = ?"
+        state_args = () if state == "ALL" else (state,)
+        title_rows = self._connection.execute(
+            "SELECT s.session_id, s.title, s.state, s.updated_at "
+            "FROM reflection_sessions s "
+            f"WHERE s.title LIKE ? ESCAPE '\\' {state_clause}",
+            (pattern, *state_args),
+        ).fetchall()
+        turn_rows = self._connection.execute(
+            "SELECT s.session_id, s.title, s.state, s.updated_at, t.turn_id, t.sequence, t.content "
+            "FROM reflection_sessions s "
+            "JOIN reflection_turns t ON t.session_id = s.session_id "
+            f"WHERE t.actor = 'USER' AND t.content LIKE ? ESCAPE '\\' {state_clause}",
+            (pattern, *state_args),
+        ).fetchall()
+        matches: list[dict[str, Any]] = []
+        for row in title_rows:
+            matches.append(
+                {
+                    "session_id": row[0],
+                    "session_title": row[1],
+                    "session_state": row[2],
+                    "session_updated_at": row[3],
+                    "match_kind": "TITLE",
+                    "turn_id": None,
+                    "turn_sequence": None,
+                    "excerpt": row[1][:SEARCH_EXCERPT_LENGTH],
+                }
+            )
+        for row in turn_rows:
+            content = row[6]
+            matches.append(
+                {
+                    "session_id": row[0],
+                    "session_title": row[1],
+                    "session_state": row[2],
+                    "session_updated_at": row[3],
+                    "match_kind": "USER_TURN",
+                    "turn_id": row[4],
+                    "turn_sequence": row[5],
+                    "excerpt": content[:SEARCH_EXCERPT_LENGTH],
+                }
+            )
+        matches.sort(
+            key=lambda item: (
+                item["session_updated_at"],
+                item["session_id"],
+                -(item["turn_sequence"] if item["turn_sequence"] is not None else 0),
+            ),
+            reverse=True,
+        )
+        total = len(matches)
+        window = matches[offset : offset + limit]
+        returned = len(window)
+        has_more = offset + returned < total
+        return {
+            "query": query,
+            "state": state,
+            "total_matches": total,
+            "returned_count": returned,
+            "offset": offset,
+            "limit": limit,
+            "truncated": has_more,
+            "has_more": has_more,
+            "results": window,
+        }
 
     def get_session(self, session_id: Any) -> dict[str, Any]:
         session_id = _text(session_id, 64)

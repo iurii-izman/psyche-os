@@ -5,9 +5,17 @@ export interface StatusView {
   data_mode: string;
   real_data_gate: string;
   network: string;
+  runtime_profile: string;
+  build_version: string;
   privacy: { processing_location: string; cloud: string; telemetry: string };
 }
 export interface AiStatusView { runtime_profile: "SYNTHETIC_LAB"; local_personal: "NOT_ADMITTED"; ai: "READY_SYNTHETIC_LAB" | "NOT_CONFIGURED"; provider: string; model: string; }
+export type AiRole = "supporting" | "counterevidence" | "unknown";
+export interface AiEligibleRecord { record_id: string; version_id: string; category: "assertion" | "unknown"; allowed_roles: AiRole[]; display_text: string; }
+export interface AiSelectedRecord { record_id: string; version_id: string; category: string; role: AiRole; }
+export interface AiPrepareView { preview_id: string; selected: AiSelectedRecord[]; provider: string; model: string; purpose: string; retention: string; notice: string; }
+export interface SearchResult { session_id: string; session_title: string; session_state: "ACTIVE" | "CLOSED"; session_updated_at: string; match_kind: "TITLE" | "USER_TURN"; turn_id: string | null; turn_sequence: number | null; excerpt: string; }
+export interface SearchView { query: string; state: "ALL" | "ACTIVE" | "CLOSED"; total_matches: number; returned_count: number; offset: number; limit: number; truncated: boolean; has_more: boolean; results: SearchResult[]; }
 export interface ReflectionSessionView { session_id: string; title: string; state: "ACTIVE" | "CLOSED"; retention: "ENCRYPTED_LOCAL"; created_at: string; updated_at: string; closed_at: string | null; turn_count: number; turns?: ReflectionTurnView[]; }
 export interface ReflectionTurnView { turn_id: string; session_id: string; sequence: number; actor: "USER"; created_at: string; content: string; }
 export interface ExplorationContextItem { context_item_id: string; dimension: string; kind: "KNOWN" | "UNKNOWN" | "CONTRADICTION"; text: string; state: string; source_turn_ids: string[]; created_at?: string; }
@@ -31,7 +39,8 @@ async function call<T>(command: string, args: Record<string, unknown> = {}): Pro
 export const desktopApi = {
   status: (): Promise<StatusView> => invoke<StatusView>("desktop_status"),
   aiStatus: (): Promise<AiStatusView> => call<AiStatusView>("desktop_ai_status"),
-  aiPrepare: (): Promise<{ preview_id: string; selected: [string, string, string][]; provider: string; model: string; purpose: string; notice: string }> => call("desktop_ai_prepare"),
+  aiListEligible: (): Promise<{ provider: string; model: string; records: AiEligibleRecord[]; notice: string }> => call("desktop_ai_list_eligible"),
+  aiPrepare: (selected: { recordId: string; role: AiRole }[]): Promise<AiPrepareView> => call("desktop_ai_prepare", { selected }),
   aiAuthorizeExecute: (previewId: string): Promise<Record<string, unknown>> => call("desktop_ai_authorize_execute", { previewId, optIn: true }),
   async unlock(secret: string): Promise<Record<string, unknown>> {
     const result = await invoke<{ session_token: string }>("desktop_unlock", { request: { secret } });
@@ -72,6 +81,7 @@ export const desktopApi = {
   reflectionAddTurn: (sessionId: string, content: string): Promise<ReflectionTurnView> => call("desktop_reflection_add_turn", { sessionId, content }),
   reflectionClose: (sessionId: string): Promise<Record<string, unknown>> => call("desktop_reflection_close", { sessionId }),
   reflectionDelete: (sessionId: string): Promise<Record<string, unknown>> => call("desktop_reflection_delete", { sessionId, confirmation: "DELETE REFLECTION SESSION" }),
+  reflectionSearch: (query: string, state: "ALL" | "ACTIVE" | "CLOSED", limit: number, offset: number): Promise<SearchView> => call("desktop_reflection_search", { query, state, limit, offset }),
   explorationStart: (sessionId: string): Promise<ExplorationView> => call("desktop_exploration_start", { sessionId }),
   explorationGet: (sessionId: string): Promise<ExplorationView> => call("desktop_exploration_get", { sessionId }),
   explorationAnswer: (questionId: string, answerText: string): Promise<ExplorationView> => call("desktop_exploration_answer", { questionId, answerText }),

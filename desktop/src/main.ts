@@ -1,10 +1,11 @@
-import { desktopApi, type ActionAnchorType, type ActionOption, type DesktopApi, type ExplorationView, type ReflectionSessionView, type StatusView } from "./api";
+import { desktopApi, type ActionAnchorType, type ActionOption, type AiEligibleRecord, type AiPrepareView, type AiRole, type DesktopApi, type ExplorationView, type ReflectionSessionView, type SearchView, type StatusView } from "./api";
 import { buildAnalyticalWorkspace, presentDimension, presentFormulationStatus, presentUnknownState } from "./analytical-workspace";
 import { buildSessionSynthesis } from "./synthesis-action-workspace";
 import { buildLongitudinalWorkspace, compareSessions, type LongitudinalSessionBundle } from "./longitudinal-workspace";
 import { buildReturnWorkspace, type ReturnCandidate, type ReturnCandidateCategory } from "./return-workspace";
 import { buildFollowUpWorkspace } from "./follow-up-workspace";
 import { buildProductJourney, presentJourneyState } from "./product-journey";
+import { buildReviewHub } from "./review-hub";
 import { presentKey, presentValue, t, type TranslationKey } from "./i18n";
 
 type Data = Record<string, unknown>;
@@ -88,6 +89,19 @@ function renderAiProposalCard(region: HTMLElement, value: Data): boolean {
   card.append(el("small", "Это предложение модели, а не факт, диагноз или рекомендация. Результат автоматически не сохраняется."));
   region.replaceChildren(card);
   return true;
+}
+
+function roleLabel(role: AiRole): string {
+  return ({ supporting: "Поддерживающее", counterevidence: "Контраргумент", unknown: "Неизвестное" } as Record<AiRole, string>)[role];
+}
+
+function renderAiPreview(region: HTMLElement, result: AiPrepareView): void {
+  const card = el("article");
+  card.className = "ai-preview-card";
+  card.append(el("strong", "ПРЕДВАРИТЕЛЬНОЕ РАСКРЫТИЕ"), el("p", `Провайдер: ${result.provider} · Модель: ${result.model} · Цель: ${result.purpose}`), el("p", `Хранение: ${result.retention} · store: false`));
+  for (const row of result.selected) card.append(el("p", `Запись: ${row.record_id} · версия: ${row.version_id} · категория: ${row.category} · роль: ${roleLabel(row.role)}`));
+  card.append(el("small", result.notice));
+  region.replaceChildren(card);
 }
 
 function renderAnalyticalWorkspace(session: ReflectionSessionView, exploration: ExplorationView): HTMLElement {
@@ -552,6 +566,114 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
     root.append(historical, source, form);
     if (viewEpoch === sessionViewEpoch) sessionBody.replaceChildren(root);
   };
+  const showSearch = async (): Promise<void> => {
+    const viewEpoch = ++sessionViewEpoch;
+    try {
+      const root = el("section");
+      root.className = "search-workspace";
+      root.append(el("h2", "ПОИСК"), el("p", "Локальный поиск по названиям сессий и вашим записям. Ничего не отправляется наружу и не изменяется."));
+      const [searchLabel, search] = field("Поиск", "search-query");
+      search.maxLength = 200;
+      const stateLabel = el("label", "Состояние"); stateLabel.htmlFor = "search-state";
+      const state = el("select"); state.id = "search-state";
+      for (const [value, label] of [["ALL", "Все"], ["ACTIVE", "Активные"], ["CLOSED", "Закрытые"]] as const) { const option = el("option", label); option.value = value; state.append(option); }
+      const meta = el("p"); meta.className = "search-meta";
+      const results = el("div"); results.className = "search-results";
+      const renderResults = (view: SearchView): void => {
+        results.replaceChildren();
+        meta.replaceChildren();
+        if (view.total_matches === 0) { results.append(el("p", "Совпадений нет.")); return; }
+        meta.textContent = `Совпадений: ${view.total_matches} · Показано: ${view.returned_count}${view.truncated ? " · Результат ограничен — показаны первые записи." : ""}`;
+        for (const item of view.results) {
+          const row = el("article"); row.className = "search-result";
+          row.append(el("strong", item.session_title), el("span", item.session_state === "ACTIVE" ? "Активна" : "Закрыта · только чтение"), el("span", `Обновлена: ${item.session_updated_at}`), el("p", item.excerpt), el("small", item.match_kind === "TITLE" ? "Совпадение в названии" : `Совпадение в вашей записи №${item.turn_sequence ?? ""}`));
+          row.append(button("Открыть сессию", async () => showSession(item.session_id)));
+          results.append(row);
+        }
+      };
+      const runSearch = async (): Promise<void> => {
+        const query = search.value.trim();
+        if (!query) { safeError(operationStatus, "INVALID_SEARCH"); return; }
+        try {
+          const view = await api.reflectionSearch(query, state.value as SearchView["state"], 50, 0);
+          if (viewEpoch !== sessionViewEpoch) return;
+          renderResults(view);
+        } catch (error) { safeError(operationStatus, error); }
+      };
+      root.append(searchLabel, search, stateLabel, state, button("Найти", runSearch, "primary"), meta, results, button("На главную", showHome));
+      if (viewEpoch === sessionViewEpoch) sessionBody.replaceChildren(root);
+      search.focus();
+    } catch (error) { safeError(operationStatus, error); }
+  };
+  const showReviewHub = async (): Promise<void> => {
+    const viewEpoch = ++sessionViewEpoch;
+    try {
+      const listed = await api.reflectionList();
+      if (viewEpoch !== sessionViewEpoch) return;
+      const bundles = await Promise.all(listed.sessions.map(async (listedSession): Promise<LongitudinalSessionBundle> => {
+        const session = await api.reflectionGet(listedSession.session_id);
+        const [exploration, actionHistory] = await Promise.all([api.explorationGet(session.session_id), api.actionList(session.session_id)]);
+        return { session, exploration, plans: actionHistory.plans };
+      }));
+      if (viewEpoch !== sessionViewEpoch) return;
+      const view = buildReviewHub(bundles);
+      const root = el("section"); root.className = "review-hub";
+      root.append(el("h2", "МОЙ ОБЗОР"), el("p", "Это только свод ранее сохранённых записей. Здесь нет оценок, приоритетов, срочности или рекомендаций."));
+      const section = (heading: string, note?: string): HTMLElement => { const node = el("section"); node.className = "review-section"; node.append(el("h3", heading)); if (note) node.append(el("p", note)); root.append(node); return node; };
+      const openButton = (sessionId: string): HTMLButtonElement => button("Открыть сессию", async () => showSession(sessionId));
+      const active = section("АКТИВНЫЕ СЕССИИ");
+      if (!view.active_sessions.length) active.append(el("p", "Активных сессий нет."));
+      for (const line of view.active_sessions) {
+        const item = el("article"); item.className = "review-item";
+        item.append(el("strong", line.session.title), el("span", `Дата: ${line.session.created_at} · Записей: ${line.session.turn_count}`), openButton(line.session.session_id));
+        active.append(item);
+      }
+      const questions = section("ОТКРЫТЫЕ / ПРОПУЩЕННЫЕ ВОПРОСЫ", "«Открыто» и «пропущено» — состояние записи, а не срочность или неудача.");
+      if (!view.open_questions.length) questions.append(el("p", "Открытых или пропущенных вопросов нет."));
+      for (const item of view.open_questions) {
+        const entry = el("article"); entry.className = "review-item";
+        entry.append(el("strong", item.text), el("span", item.state === "OPEN" ? "Открыт" : "Пропущен"), el("small", `Сессия: ${item.session_title}${item.anchors.length ? ` · источник: ${item.anchors.join(", ")}` : ""}`), openButton(item.session_id));
+        questions.append(entry);
+      }
+      const formulations = section("ТЕКУЩИЕ РАБОЧИЕ ФОРМУЛИРОВКИ", "Рабочая формулировка — производное представление сохранённых записей, не факт и не диагноз.");
+      if (!view.current_formulations.length) formulations.append(el("p", "Текущих рабочих формулировок нет."));
+      for (const item of view.current_formulations) {
+        const entry = el("article"); entry.className = "review-item";
+        entry.append(el("strong", item.summary), el("small", `Сессия: ${item.session_title} · Версия ${item.version} · происхождение: производное представление`), openButton(item.session_id));
+        formulations.append(entry);
+      }
+      const contradictions = section("ПРОТИВОРЕЧИЯ", "Записи показаны без автоматического разрешения; более поздняя запись не означает истинность.");
+      if (!view.contradictions.length) contradictions.append(el("p", "Зафиксированных противоречий нет."));
+      for (const item of view.contradictions) {
+        const entry = el("article"); entry.className = "review-item";
+        entry.append(el("strong", item.text), el("small", `Сессия: ${item.session_title}${item.anchors.length ? ` · источник: ${item.anchors.join(", ")}` : ""}`), openButton(item.session_id));
+        contradictions.append(entry);
+      }
+      const steps = section("СОХРАНЁННЫЕ ШАГИ");
+      if (!view.saved_steps.length) steps.append(el("p", "Сохранённых шагов нет."));
+      for (const item of view.saved_steps) {
+        const entry = el("article"); entry.className = "review-item";
+        entry.append(el("strong", item.plan.action_text), el("small", `Сессия: ${item.session_title} · статус: ${item.plan.status}`), openButton(item.plan.session_id));
+        steps.append(entry);
+      }
+      const outcomes = section("ИСХОДЫ / OUTCOMES", "«Сделано» — только о выполнении шага, а не о его эффективности.");
+      if (!view.outcomes.length) outcomes.append(el("p", "Пользовательских отметок о результате нет."));
+      for (const item of view.outcomes) {
+        const outcome = item.plan.outcome!;
+        const entry = el("article"); entry.className = "review-item";
+        entry.append(el("strong", item.plan.action_text), el("small", `Сессия: ${item.session_title} · ваша отметка: ${presentOutcome(outcome.status)}${outcome.note_text ? ` · ${outcome.note_text}` : ""}`), openButton(item.plan.session_id));
+        outcomes.append(entry);
+      }
+      const recent = section("ПОСЛЕДНИЕ СЕССИИ", "Только хронология записей.");
+      if (!view.recent_sessions.length) recent.append(el("p", "Сессий пока нет."));
+      for (const line of view.recent_sessions.slice(0, 10)) {
+        const entry = el("article"); entry.className = "review-item";
+        entry.append(el("strong", line.session.title), el("span", `Создана: ${line.session.created_at} · ${line.session.state === "ACTIVE" ? "Активна" : "Закрыта"}`), openButton(line.session.session_id));
+        recent.append(entry);
+      }
+      sessionBody.replaceChildren(root, button("К сессиям", showList), button("На главную", showHome));
+    } catch (error) { safeError(operationStatus, error); }
+  };
   const createForm = el("form");
   const [sessionTitleLabel, sessionTitle] = field("Название", "reflection-title"); sessionTitle.maxLength = 160; sessionTitle.required = true;
   const create = el("button", "Начать новую сессию"); create.type = "submit"; create.className = "primary";
@@ -589,6 +711,12 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
         })();
       });
       home.append(captureForm);
+      const routes = el("nav");
+      routes.className = "home-routes";
+      routes.setAttribute("aria-label", "Главные разделы");
+      routes.append(el("h2", "ГЛАВНЫЕ РАЗДЕЛЫ"));
+      routes.append(button("Поиск", showSearch), button("Обзор", showReviewHub), button("Сессии", showList), button("К чему вернуться", showReturn), button("Динамика", showLongitudinal));
+      home.append(routes);
       if (aiState.startsWith("READY_SYNTHETIC_LAB")) home.append(button("AI-ПРЕДЛОЖЕНИЕ · LAB", async () => { aiLab.scrollIntoView(); aiPrepare.focus(); }));
       if (!chronological.length) {
         home.append(el("p", "Здесь можно записать ситуацию, уточнить контекст, посмотреть рабочие объяснения и сохранить собственный следующий шаг."), button("Начать первую сессию", async () => { await showList(); sessionTitle.focus(); }, "primary"));
@@ -613,7 +741,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
       sessionBody.replaceChildren(home);
     } catch (error) { safeError(operationStatus, error); }
   };
-  productNav.append(button("Главная", showHome, "primary"), button("Сессии", showList), button("К чему вернуться", showReturn), button("Динамика", showLongitudinal));
+  productNav.append(button("Главная", showHome, "primary"), button("Поиск", showSearch), button("Обзор", showReviewHub), button("Сессии", showList), button("К чему вернуться", showReturn), button("Динамика", showLongitudinal));
 
   const grid = el("div");
   grid.className = "grid";
@@ -735,9 +863,14 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
 
   const aiLab = el("section");
   aiLab.className = "card";
-  aiLab.append(el("p", "AI-ПРЕДЛОЖЕНИЕ · LAB"), el("h2", "Ограниченное предложение AI"), el("p", "По желанию. В OpenAI отправляются только выбранные синтетические cloud-eligible записи. Результат — предложение, не факт, не диагноз и не совет; ничего не записывается автоматически."));
+  aiLab.append(el("p", "AI-ПРЕДЛОЖЕНИЕ · LAB"), el("h2", "Ограниченное предложение AI"), el("p", "По желанию. В OpenAI отправляются только выбранные вами синтетические cloud-eligible записи. Результат — предложение, не факт, не диагноз и не совет; ничего не записывается автоматически."));
   let aiPreview = "";
+  let aiEligible: AiEligibleRecord[] = [];
+  let aiSelected: { recordId: string; role: AiRole }[] = [];
   const aiProposalCard = el("section");
+  const aiPreviewCard = el("section");
+  const aiEligibleList = el("div");
+  const aiSelectionStatus = el("p");
   const aiSend = button("Отправить выбранные синтетические данные", async () => {
     try {
       const result = await api.aiAuthorizeExecute(aiPreview);
@@ -749,13 +882,61 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   }, "primary");
   aiSend.disabled = true;
   const aiPrepare = button("Показать предварительное раскрытие", async () => {
-    try { const result = await api.aiPrepare(); aiPreview = result.preview_id; renderResult(operationStatus, result, "Проверьте ID, версии, категории, OpenAI и gpt-5.6-luna перед отправкой."); aiSend.disabled = false; aiSend.focus(); }
+    if (!aiSelected.length) { safeError(operationStatus, "INVALID_SELECTION"); return; }
+    try {
+      const result = await api.aiPrepare(aiSelected);
+      aiPreview = result.preview_id;
+      renderAiPreview(aiPreviewCard, result);
+      operationStatus.textContent = "Проверьте записи, версии, категории, роли, OpenAI и gpt-5.6-luna перед отправкой.";
+      aiSend.disabled = false;
+      aiSend.focus();
+    }
     catch (error) { safeError(operationStatus, error); }
   });
+  aiPrepare.disabled = true;
+  const rebuildSelection = (): void => {
+    aiSelected = [];
+    for (const checkbox of aiEligibleList.querySelectorAll<HTMLInputElement>("input[type=checkbox]")) {
+      if (!checkbox.checked) continue;
+      const recordId = checkbox.dataset.recordId;
+      const select = aiEligibleList.querySelector<HTMLSelectElement>(`select[data-record-id="${recordId}"]`);
+      if (recordId && select) aiSelected.push({ recordId, role: select.value as AiRole });
+    }
+    const roles = new Set(aiSelected.map((item) => item.role));
+    const roleOk = ["supporting", "counterevidence", "unknown"].every((role) => roles.has(role as AiRole));
+    const overLimit = aiSelected.length > 8;
+    aiSelectionStatus.textContent = `Выбрано: ${aiSelected.length} (максимум 8). Нужна по одной записи каждого типа: Поддерживающее, Контраргумент, Неизвестное.`;
+    aiPrepare.disabled = aiSelected.length < 3 || !roleOk || overLimit;
+    for (const checkbox of aiEligibleList.querySelectorAll<HTMLInputElement>("input[type=checkbox]")) checkbox.disabled = !checkbox.checked && overLimit;
+  };
+  const renderEligible = (): void => {
+    aiEligibleList.replaceChildren(el("h3", "Доступные синтетические записи (выбор ограничен политикой)"));
+    if (!aiEligible.length) { aiEligibleList.append(el("p", "Политически допустимых записей нет.")); return; }
+    for (const record of aiEligible) {
+      const row = el("div"); row.className = "ai-eligible-row";
+      const checkbox = el("input"); checkbox.type = "checkbox"; checkbox.dataset.recordId = record.record_id;
+      checkbox.setAttribute("aria-label", `Выбрать запись ${record.record_id}`);
+      checkbox.addEventListener("change", rebuildSelection);
+      const select = el("select"); select.dataset.recordId = record.record_id;
+      select.setAttribute("aria-label", `Роль для ${record.record_id}`);
+      for (const role of record.allowed_roles) { const option = el("option", roleLabel(role)); option.value = role; select.append(option); }
+      select.addEventListener("change", rebuildSelection);
+      const label = el("span"); label.textContent = `${record.display_text} · ${record.category} · версия ${record.version_id}`;
+      row.append(checkbox, select, label);
+      aiEligibleList.append(row);
+    }
+    aiEligibleList.append(el("small", "Порядок записей не является ранжированием."));
+  };
   let aiState = "недоступен";
   try { const value = await api.aiStatus(); aiState = `${value.ai} · ${value.provider} · ${value.model} · ${value.runtime_profile}`; } catch { /* content-free status only */ }
   const aiStatus = el("p", `AI: ${aiState}`);
-  aiLab.append(aiStatus, aiPrepare, aiSend, aiProposalCard, el("p", "Режим личных данных пока не допущен."));
+  try {
+    const value = await api.aiListEligible();
+    aiEligible = value.records;
+    renderEligible();
+    rebuildSelection();
+  } catch { /* content-free status only */ }
+  aiLab.append(aiStatus, aiEligibleList, aiSelectionStatus, aiPrepare, aiSend, aiPreviewCard, aiProposalCard, el("p", "Режим личных данных пока не допущен."));
 
   const recovery = el("section");
   recovery.className = "card";
@@ -838,6 +1019,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   const systemArea = el("section");
   systemArea.className = "system-area";
   systemArea.append(el("h2", "Локальные данные и приватность"), el("p", "Резервные копии, экспорт, исправления и другие операции с локальным хранилищем."), grid);
+  systemArea.append(el("p", `Система: сборка ${status.build_version ?? "?"} · профиль: ${status.runtime_profile ?? "?"} · REAL_DATA_GATE: ${status.real_data_gate} · AI: ${aiState}`));
   main.append(statusRegion, title, sessions, systemArea, operationStatus);
   root.append(header, main);
   void showHome();

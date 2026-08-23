@@ -339,6 +339,15 @@ struct ActionOutcomeRequest { session_token: Option<String>, plan_id: String, st
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct AiExecuteRequest { session_token: Option<String>, preview_id: String, opt_in: bool }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AiSelectionItem { record_id: String, role: String }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AiPrepareRequest { session_token: Option<String>, selected: Vec<AiSelectionItem> }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReflectionSearchRequest { session_token: Option<String>, query: String, state: String, limit: u32, offset: u32 }
 
 fn bounded(values: &[&str]) -> Result<(), String> {
     if values
@@ -665,14 +674,42 @@ fn desktop_execute_export(
 }
 
 session_command!(desktop_ai_status, "ai.status");
+session_command!(desktop_ai_list_eligible, "ai.list_eligible");
 #[tauri::command]
-fn desktop_ai_prepare(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> {
-    invoke_python(&window, &state, "ai.prepare", request.session_token.as_deref(), json!({}))
+fn desktop_ai_prepare(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: AiPrepareRequest) -> Result<Value, String> {
+    if request.selected.is_empty() || request.selected.len() > 8 {
+        return Err("INVALID_PAYLOAD".to_string());
+    }
+    for item in &request.selected {
+        bounded(&[&item.record_id])?;
+        if !matches!(item.role.as_str(), "supporting" | "counterevidence" | "unknown") {
+            return Err("INVALID_PAYLOAD".to_string());
+        }
+    }
+    let selected: Vec<Value> = request
+        .selected
+        .iter()
+        .map(|item| json!({"record_id": item.record_id, "role": item.role}))
+        .collect();
+    invoke_python(&window, &state, "ai.prepare", request.session_token.as_deref(), json!({"selected": selected}))
 }
 #[tauri::command]
 fn desktop_ai_authorize_execute(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: AiExecuteRequest) -> Result<Value, String> {
     bounded(&[&request.preview_id])?;
     invoke_python(&window, &state, "ai.authorize_execute", request.session_token.as_deref(), json!({"preview_id": request.preview_id, "opt_in": request.opt_in}))
+}
+#[tauri::command]
+fn desktop_reflection_search(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionSearchRequest) -> Result<Value, String> {
+    if request.query.trim().is_empty() || request.query.len() > 200 {
+        return Err("INVALID_PAYLOAD".to_string());
+    }
+    if !matches!(request.state.as_str(), "ALL" | "ACTIVE" | "CLOSED") {
+        return Err("INVALID_PAYLOAD".to_string());
+    }
+    if !(1..=50).contains(&request.limit) {
+        return Err("INVALID_PAYLOAD".to_string());
+    }
+    invoke_python(&window, &state, "reflection.search", request.session_token.as_deref(), json!({"query": request.query, "state": request.state, "limit": request.limit, "offset": request.offset}))
 }
 
 pub fn run() {
@@ -698,9 +735,10 @@ pub fn run() {
             desktop_archive_explorer,
             desktop_archive_snapshot_diff,
             desktop_archive_execute_deletion
-            ,desktop_ai_status, desktop_ai_prepare, desktop_ai_authorize_execute
+            ,desktop_ai_status, desktop_ai_list_eligible, desktop_ai_prepare, desktop_ai_authorize_execute
             ,desktop_reflection_create, desktop_reflection_list, desktop_reflection_get,
             desktop_reflection_add_turn, desktop_reflection_close, desktop_reflection_delete,
+            desktop_reflection_search,
             desktop_exploration_start, desktop_exploration_get, desktop_exploration_answer, desktop_exploration_skip,
             desktop_formulation_propose, desktop_formulation_correct, desktop_formulation_accept, desktop_formulation_reject,
             desktop_action_options, desktop_action_list, desktop_action_create, desktop_action_record_outcome
