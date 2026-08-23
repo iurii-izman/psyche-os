@@ -86,6 +86,7 @@ describe("E02 bounded desktop UI", () => {
       formulations: [{ formulation_id: "formulation-1", version: 1, parent_formulation_id: null, status: "CURRENT", summary: "Синтетическая формулировка", correction_text: null, created_at: "2026-01-01T00:00:02Z", updated_at: "2026-01-01T00:00:02Z" }]
     });
     await mount(api);
+    await click(byText("Сессии"));
     const title = document.querySelector<HTMLInputElement>("#reflection-title")!;
     title.value = "Тест";
     title.form!.requestSubmit();
@@ -95,13 +96,16 @@ describe("E02 bounded desktop UI", () => {
     for (const required of ["Текущая рабочая формулировка", "Как менялась формулировка", "Матрица контекста", "Поддерживает", "Противоречит / контрпример", "Остаётся неизвестным", "Пропущено / «не знаю»", "Противоречия / разные ответы", "Хронология сессии", "ваш ответ №1"]) expect(analytics.textContent).toContain(required);
     expect(analytics.querySelector("button, input, textarea, select")).toBeNull();
     expect(document.querySelector<HTMLTextAreaElement>("#reflection-turn")!.disabled).toBe(true);
+    expect(byText("Завершить сессию").disabled).toBe(true);
+    expect(byText("Удалить сессию").disabled).toBe(false);
   });
 
   it("presents the Russian local reflection-session entry point", async () => {
     const api = mockApi(false);
     await mount(api);
-    expect(document.body.textContent).toContain("МОИ СЕССИИ");
-    expect(byText("Новая сессия")).toBeTruthy();
+    expect(document.body.textContent).toContain("МОЁ ПРОСТРАНСТВО");
+    expect(byText("Начать первую сессию")).toBeTruthy();
+    await click(byText("Сессии"));
     const title = document.querySelector<HTMLInputElement>("#reflection-title")!;
     title.value = "Синтетическая сессия";
     title.form!.requestSubmit();
@@ -115,11 +119,38 @@ describe("E02 bounded desktop UI", () => {
     expect(turn.maxLength).toBe(12000);
   });
 
+  it("V3-E makes first use and the product routes understandable without a completion claim", async () => {
+    const api = mockApi(false);
+    await mount(api);
+    expect(document.body.textContent).toContain("МОЁ ПРОСТРАНСТВО");
+    expect(document.body.textContent).toContain("Начать первую сессию");
+    expect(document.body.textContent).not.toMatch(/\b\d+%|прогресс|обязательно|сроч/i);
+    await click(byText("Начать первую сессию"));
+    expect(document.querySelector("#reflection-title")).not.toBeNull();
+    for (const label of ["Главная", "Сессии", "К чему вернуться", "Динамика"]) expect(byText(label)).toBeTruthy();
+  });
+
+  it("V3-E lists recorded sessions deterministically and continues the sole active one", async () => {
+    const api = mockApi(false);
+    const closed = { session_id: "a", title: "Закрытая", state: "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: "2026-01-01T00:00:00Z", turn_count: 2 };
+    const active = { session_id: "b", title: "Активная", state: "ACTIVE" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", closed_at: null, turn_count: 1 };
+    vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [closed, active] });
+    vi.mocked(api.reflectionGet).mockImplementation(async (id) => id === "b" ? { ...active, turns: [] } : { ...closed, turns: [] });
+    await mount(api);
+    const home = document.querySelector<HTMLElement>(".product-home")!;
+    expect(home.textContent).toContain("Закрыта · только чтение");
+    expect(home.textContent!.indexOf("Активная")).toBeLessThan(home.textContent!.indexOf("Закрытая"));
+    await click(byText("Продолжить текущую сессию"));
+    expect(api.reflectionGet).toHaveBeenLastCalledWith("b");
+    for (const label of ["1. Запись", "2. Исследование", "3. Обзор", "4. Итог и следующий шаг"]) expect(byText(label)).toBeTruthy();
+  });
+
   it("keeps a newer session view when the initial asynchronous list resolves late", async () => {
     const api = mockApi(false);
     let resolveList!: (result: { sessions: [] }) => void;
     vi.mocked(api.reflectionList).mockImplementationOnce(() => new Promise((resolve) => { resolveList = resolve; }));
     await mount(api);
+    await click(byText("Сессии"));
     const title = document.querySelector<HTMLInputElement>("#reflection-title")!;
     title.value = "Синтетическая сессия";
     title.form!.requestSubmit();
@@ -129,11 +160,28 @@ describe("E02 bounded desktop UI", () => {
     expect(byText("Добавить в сессию")).toBeTruthy();
   });
 
+  it("V3-E keeps a newer longitudinal route when an earlier Return load resolves late", async () => {
+    const api = mockApi(false);
+    let resolveReturn!: (result: { sessions: [] }) => void;
+    vi.mocked(api.reflectionList)
+      .mockResolvedValueOnce({ sessions: [] })
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveReturn = resolve; }))
+      .mockResolvedValueOnce({ sessions: [] });
+    await mount(api);
+    await click(byText("К чему вернуться"));
+    await click(byText("Динамика"));
+    expect(document.querySelector(".longitudinal-workspace")).not.toBeNull();
+    resolveReturn({ sessions: [] });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.querySelector(".longitudinal-workspace")).not.toBeNull();
+    expect(document.querySelector(".return-workspace")).toBeNull();
+  });
+
   it("V3-D opens a neutral empty Return workspace and preserves newer navigation", async () => {
     const api = mockApi(false);
     vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [] });
     await mount(api);
-    await click(byText("К ЧЕМУ ВЕРНУТЬСЯ"));
+    await click(byText("К чему вернуться"));
     const workspace = document.querySelector<HTMLElement>(".return-workspace")!;
     expect(workspace.textContent).toContain("К ЧЕМУ ВЕРНУТЬСЯ");
     expect(workspace.textContent).toContain("Таких сохранённых записей пока нет.");
@@ -149,13 +197,13 @@ describe("E02 bounded desktop UI", () => {
     vi.mocked(api.reflectionGet).mockResolvedValue(session);
     vi.mocked(api.explorationGet).mockResolvedValue({ context: [{ context_item_id: "unknown-return", dimension: "context", kind: "UNKNOWN", text: "Сохранённый вопрос", state: "OPEN", source_turn_ids: ["turn-return-a"], created_at: "2026-01-01T00:00:00Z" }], hypotheses: [], next_question: null, snapshots: [], formulations: [] });
     vi.mocked(api.actionList).mockResolvedValue({ session_id: "return-a", plans: [] });
-    await mount(api); await click(byText("К ЧЕМУ ВЕРНУТЬСЯ"));
+    await mount(api); await click(byText("К чему вернуться"));
     const workspace = document.querySelector<HTMLElement>(".return-workspace")!;
     expect(workspace.textContent).toContain("Записано ранее");
     expect(workspace.textContent).toContain("Источник: ваш ответ №1");
     await click(byText("Вернуться к этой записи"));
     expect(api.reflectionGet).toHaveBeenLastCalledWith("return-a");
-    expect(document.body.textContent).toContain("Сессия завершена. История доступна только для чтения.");
+    expect(document.body.textContent).toContain("ЗАКРЫТАЯ СЕССИЯ · ТОЛЬКО ЧТЕНИЕ");
     expect(document.body.textContent).toContain("Ваш текст");
     expect(document.body.textContent).not.toContain("Ваш новый текст");
   });
@@ -165,7 +213,7 @@ describe("E02 bounded desktop UI", () => {
     const sessions = ["a", "b"].map((id, index) => ({ session_id: id, title: `Сессия ${id}`, state: index ? "ACTIVE" as const : "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: `2026-01-0${index + 1}T00:00:00Z`, updated_at: `2026-01-0${index + 1}T00:00:00Z`, closed_at: index ? null : "2026-01-01T00:00:00Z", turn_count: 1, turns: [{ turn_id: `turn-${id}`, session_id: id, sequence: 1, actor: "USER" as const, created_at: `2026-01-0${index + 1}T00:00:00Z`, content: "синтетический" }] }));
     vi.mocked(api.reflectionList).mockResolvedValue({ sessions }); vi.mocked(api.reflectionGet).mockImplementation(async (id) => sessions.find((item) => item.session_id === id)!);
     vi.mocked(api.explorationGet).mockImplementation(async (id) => ({ context: [{ context_item_id: `known-${id}`, dimension: "context", kind: "KNOWN", text: "Точная запись", state: "RECORDED", source_turn_ids: [`turn-${id}`], created_at: "2026-01-01T00:00:00Z" }, { context_item_id: `unknown-${id}`, dimension: "context", kind: "UNKNOWN", text: "Открытый вопрос", state: "OPEN", source_turn_ids: [], created_at: "2026-01-01T00:00:00Z" }, { context_item_id: `contradiction-${id}`, dimension: "context", kind: "CONTRADICTION", text: "Разные ответы", state: "OPEN", source_turn_ids: [], created_at: "2026-01-01T00:00:00Z" }], hypotheses: [{ hypothesis_id: `h-${id}`, template_id: "contextual", proposal_text: "Вариант", uncertainty_text: "Неизвестно", discriminator_text: "Уточнить", context_refs: [] }], next_question: null, snapshots: [], formulations: [{ formulation_id: `f-${id}`, version: 1, status: "CURRENT", summary: `Формулировка ${id}`, correction_text: null, created_at: "2026-01-01T00:00:00Z" }] }));
-    vi.mocked(api.actionList).mockResolvedValue({ session_id: "a", plans: [] }); await mount(api); await click(byText("ДИНАМИКА ПО СЕССИЯМ"));
+    vi.mocked(api.actionList).mockResolvedValue({ session_id: "a", plans: [] }); await mount(api); await click(byText("Динамика"));
     const workspace = document.querySelector<HTMLElement>(".longitudinal-workspace")!; for (const text of ["Обзор записей", "История рабочих формулировок", "Что повторялось в записях", "Рабочие альтернативы", "Неизвестное и противоречия", "Мои следующие шаги и отметки", "Сравнить две сессии", "Хронология записанных событий продукта", "Точная запись"]) expect(workspace.textContent).toContain(text);
     expect(workspace.querySelector("button, textarea")).toBeNull(); expect(workspace.querySelectorAll("select")).toHaveLength(2);
   });
@@ -175,7 +223,7 @@ describe("E02 bounded desktop UI", () => {
     vi.mocked(api.reflectionList).mockResolvedValue({ sessions }); vi.mocked(api.reflectionGet).mockImplementation(async (id) => sessions.find((item) => item.session_id === id)!);
     vi.mocked(api.explorationGet).mockImplementation(async (id) => id === "b" ? ({ context: [], hypotheses: [], snapshots: [], formulations: [], next_question: null }) : ({ context: [{ context_item_id: "known-a", dimension: "context", kind: "KNOWN", text: "Точная связь", state: "RECORDED", source_turn_ids: ["turn-a"], created_at: "2026-01-01T00:00:00Z" }, { context_item_id: "unknown-a", dimension: "context", kind: "UNKNOWN", text: "Открытый вопрос", state: "OPEN", source_turn_ids: ["turn-a"], created_at: "2026-01-01T00:00:00Z" }, { context_item_id: "contradiction-a", dimension: "context", kind: "CONTRADICTION", text: "Разные ответы", state: "OPEN", source_turn_ids: ["turn-a"], created_at: "2026-01-01T00:00:00Z" }], hypotheses: [{ hypothesis_id: "h-a", template_id: "contextual", proposal_text: "Рабочая альтернатива", uncertainty_text: "Неопределённость", discriminator_text: "Уточнить", context_refs: [{ context_item_id: "known-a", relation: "SUPPORT", source_turn_ids: ["turn-a"] }] }], next_question: null, snapshots: [{ snapshot_id: "snapshot-a", version: 1 }], formulations: [{ formulation_id: "f-a", version: 1, status: "CURRENT", summary: "CURRENT A", correction_text: null }] }));
     vi.mocked(api.actionList).mockImplementation(async (id) => ({ session_id: id, plans: id === "a" ? [{ plan_id: "plan-a", session_id: "a", version: 2, supersedes_plan_id: null, status: "CURRENT" as const, basis_snapshot_id: "snapshot-a", basis_formulation_id: "f-a", anchor_type: "FORMULATION" as const, anchor_id: "f-a", user_goal: "V3BC-GOAL-A", template_id: "PAUSE" as const, template_version: "v1", action_text: "V3BC-ACTION-A", method_version: "v1", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", outcome: { outcome_id: "outcome-a", status: "DONE" as const, note_text: "V3BC-OUTCOME-A", created_at: "2026-01-01T00:00:00Z" } }] : [] }));
-    await mount(api); await click(byText("ДИНАМИКА ПО СЕССИЯМ")); const workspace = document.querySelector<HTMLElement>(".longitudinal-workspace")!;
+    await mount(api); await click(byText("Динамика")); const workspace = document.querySelector<HTMLElement>(".longitudinal-workspace")!;
     for (const text of ["Сессий с guided exploration: 1", "Открытый вопрос", "Открыто", "Разные ответы", "Точная связь", "V3BC-GOAL-A", "V3BC-ACTION-A", "V3BC-OUTCOME-A", "ваш ответ №1"]) expect(workspace.textContent).toContain(text);
     const b = document.querySelector<HTMLSelectElement>("#longitudinal-session-b")!; b.value = "b"; b.dispatchEvent(new Event("change")); await new Promise((resolve) => setTimeout(resolve, 0));
     for (const text of ["CURRENT A", "CURRENT формулировка не записана", "Не записано в этой сессии", "Гипотеза contextual", "Действие A"]) expect(workspace.textContent).toContain(text);

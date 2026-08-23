@@ -3,6 +3,7 @@ import { buildAnalyticalWorkspace, presentDimension, presentFormulationStatus, p
 import { buildSessionSynthesis } from "./synthesis-action-workspace";
 import { buildLongitudinalWorkspace, compareSessions, type LongitudinalSessionBundle } from "./longitudinal-workspace";
 import { buildReturnWorkspace, type ReturnCandidate, type ReturnCandidateCategory } from "./return-workspace";
+import { buildProductJourney, presentJourneyState } from "./product-journey";
 import { presentKey, presentValue, t, type TranslationKey } from "./i18n";
 
 type Data = Record<string, unknown>;
@@ -322,9 +323,12 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   title.append(el("p", t("hero.notice")));
 
   const sessions = el("section");
-  sessions.className = "card sessions-card";
-  sessions.append(el("p", "МОИ СЕССИИ"), el("h2", "Локальная рефлексия"), el("p", "Локально зашифровано · только синтетические данные"));
+  sessions.className = "card sessions-card product-shell";
+  const productNav = el("nav");
+  productNav.className = "product-nav";
+  productNav.setAttribute("aria-label", "Разделы продукта");
   const sessionBody = el("div");
+  sessions.append(productNav, sessionBody);
   let sessionViewEpoch = 0;
   const showSession = async (sessionId: string): Promise<void> => {
     const viewEpoch = ++sessionViewEpoch;
@@ -332,14 +336,35 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
       const current = await api.reflectionGet(sessionId);
       if (viewEpoch !== sessionViewEpoch) return;
       sessionBody.replaceChildren();
-      sessionBody.append(el("h3", current.title), el("p", current.state === "CLOSED" ? "Сессия завершена. История доступна только для чтения." : "Активная сессия"));
+      const sessionHeader = el("header");
+      sessionHeader.className = "session-header";
+      sessionHeader.append(el("p", current.state === "CLOSED" ? "ЗАКРЫТАЯ СЕССИЯ · ТОЛЬКО ЧТЕНИЕ" : "АКТИВНАЯ СЕССИЯ"), el("h2", current.title), el("p", `Создана: ${current.created_at}`));
+      const journeyNav = el("nav");
+      journeyNav.className = "journey-nav";
+      journeyNav.setAttribute("aria-label", "Разделы сессии");
+      const focusStage = async (id: string): Promise<void> => { document.querySelector<HTMLElement>(`#${id}`)?.focus(); };
+      journeyNav.append(
+        button("1. Запись", async () => focusStage("journey-record")),
+        button("2. Исследование", async () => focusStage("journey-explore")),
+        button("3. Обзор", async () => focusStage("journey-review")),
+        button("4. Итог и следующий шаг", async () => focusStage("journey-summary"))
+      );
+      sessionBody.append(sessionHeader, journeyNav);
+      const record = el("section");
+      record.id = "journey-record";
+      record.tabIndex = -1;
+      record.append(el("h3", "Запись"));
+      sessionBody.append(record);
       for (const turn of current.turns ?? []) {
-        const item = el("article"); item.className = "session-turn"; item.append(el("strong", "Ваш текст"), el("p", turn.content)); sessionBody.append(item);
+        const item = el("article"); item.className = "session-turn"; item.append(el("strong", "Ваш текст"), el("p", turn.content)); record.append(item);
       }
       const exploration = el("section"); exploration.className = "guided-exploration";
+      exploration.id = "journey-explore";
+      exploration.tabIndex = -1;
       const renderExploration = async (): Promise<void> => {
         exploration.replaceChildren();
-        if ((current.turns ?? []).length === 0) return;
+        exploration.append(el("h3", "Исследование"));
+        if ((current.turns ?? []).length === 0) { exploration.append(el("p", "Записей пока нет. Исследование можно открыть после сохранения текста.")); return; }
         const state = current.state === "CLOSED" ? await api.explorationGet(current.session_id) : await api.explorationStart(current.session_id);
         const block = (heading: string, values: string[]): void => { const section = el("div"); section.append(el("h4", heading), ...values.map((value) => el("p", value))); exploration.append(section); };
         block("Что уже известно", state.context.filter((item) => item.kind === "KNOWN").map((item) => `${item.text} · источник: ваш ответ`));
@@ -363,8 +388,21 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
           }
           exploration.append(item);
         }
-        exploration.append(renderAnalyticalWorkspace(current, state));
-        exploration.append(await renderSynthesisActionWorkspace(api, current, state, async () => showSession(current.session_id)));
+        const plans = (await api.actionList(current.session_id)).plans;
+        const journey = buildProductJourney(current, state, plans);
+        const states = el("p");
+        states.className = "journey-states";
+        states.textContent = [
+          presentJourneyState(journey.has_turns, "Есть записи", "Записей пока нет"),
+          presentJourneyState(journey.has_guided_exploration, "Есть исследование", "Исследование не создано"),
+          presentJourneyState(journey.has_current_formulation, "Есть рабочая формулировка", "Рабочая формулировка не создана"),
+          presentJourneyState(journey.has_action_plan, "Есть сохранённый шаг", "Сохранённого шага нет")
+        ].join(" · ");
+        exploration.prepend(states);
+        const analytical = renderAnalyticalWorkspace(current, state); analytical.id = "journey-review"; analytical.tabIndex = -1;
+        exploration.append(analytical);
+        const synthesis = await renderSynthesisActionWorkspace(api, current, state, async () => showSession(current.session_id)); synthesis.id = "journey-summary"; synthesis.tabIndex = -1;
+        exploration.append(synthesis);
       };
       const label = el("label", "Ваш текст"); label.htmlFor = "reflection-turn";
       const content = el("textarea"); content.id = "reflection-turn"; content.name = "reflection-turn"; content.setAttribute("aria-label", "Ваш текст"); content.maxLength = 12000; content.rows = 5; content.required = true; content.disabled = current.state === "CLOSED";
@@ -373,17 +411,18 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
       const close = button("Завершить сессию", async () => { await api.reflectionClose(current.session_id); await showSession(current.session_id); }); close.disabled = current.state === "CLOSED";
       const remove = button("Удалить сессию", async () => { await api.reflectionDelete(current.session_id); await showList(); }, "danger");
       const back = button("Назад к сессиям", async () => showList());
-      sessionBody.append(label, content, add, exploration, close, remove, back);
+      record.append(label, content, add);
+      sessionBody.append(exploration, close, remove, back);
       await renderExploration();
     } catch (error) { safeError(operationStatus, error); }
   };
   const showList = async (): Promise<void> => {
     const viewEpoch = ++sessionViewEpoch;
     try {
-      const result = await api.reflectionList(); if (viewEpoch !== sessionViewEpoch) return; sessionBody.replaceChildren();
-      for (const item of result.sessions) {
+      const result = await api.reflectionList(); if (viewEpoch !== sessionViewEpoch) return; sessionBody.replaceChildren(el("h2", "Сессии"), el("p", "Все сохранённые сессии. Закрытые сессии остаются только для чтения."), createForm);
+      for (const item of [...result.sessions].sort((left, right) => left.created_at.localeCompare(right.created_at) || left.session_id.localeCompare(right.session_id))) {
         const row = el("div"); row.className = "session-row";
-        row.append(el("strong", item.title), el("span", `Сообщений: ${item.turn_count}`), el("span", item.state === "ACTIVE" ? "Активна" : "Завершена"), button("Открыть", async () => showSession(item.session_id))); sessionBody.append(row);
+        row.append(el("strong", item.title), el("span", `Создана: ${item.created_at}`), el("span", `Записей: ${item.turn_count}`), el("span", item.state === "ACTIVE" ? "Активна" : "Закрыта · только чтение"), button("Открыть сессию", async () => showSession(item.session_id))); sessionBody.append(row);
       }
     } catch (error) { safeError(operationStatus, error); }
   };
@@ -398,7 +437,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
         return { session, exploration, plans: actionHistory.plans };
       }));
       if (viewEpoch !== sessionViewEpoch) return;
-      sessionBody.replaceChildren(renderLongitudinalWorkspace(bundles), button("Назад к сессиям", showList));
+      sessionBody.replaceChildren(el("h2", "Динамика по сессиям"), renderLongitudinalWorkspace(bundles), button("К сессиям", showList), button("На главную", showHome));
     } catch (error) { safeError(operationStatus, error); }
   };
   const showReturn = async (): Promise<void> => {
@@ -412,15 +451,45 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
         return { session, exploration, plans: actionHistory.plans };
       }));
       if (viewEpoch !== sessionViewEpoch) return;
-      sessionBody.replaceChildren(renderReturnWorkspace(bundles, async (candidate) => showSession(candidate.session_id)), button("Назад к сессиям", showList));
+      sessionBody.replaceChildren(el("h2", "К чему вернуться"), renderReturnWorkspace(bundles, async (candidate) => showSession(candidate.session_id)), button("К сессиям", showList), button("На главную", showHome));
     } catch (error) { safeError(operationStatus, error); }
   };
   const createForm = el("form");
   const [sessionTitleLabel, sessionTitle] = field("Название", "reflection-title"); sessionTitle.maxLength = 160; sessionTitle.required = true;
-  const create = el("button", "Новая сессия"); create.type = "submit"; create.className = "primary";
+  const create = el("button", "Начать новую сессию"); create.type = "submit"; create.className = "primary";
   createForm.append(sessionTitleLabel, sessionTitle, create);
   createForm.addEventListener("submit", (event) => { event.preventDefault(); void api.reflectionCreate(sessionTitle.value).then((created) => showSession(created.session_id)).catch((error: unknown) => safeError(operationStatus, error)); });
-  sessions.append(button("К ЧЕМУ ВЕРНУТЬСЯ", showReturn, "primary"), button("ДИНАМИКА ПО СЕССИЯМ", showLongitudinal), createForm, sessionBody);
+  const showHome = async (): Promise<void> => {
+    const viewEpoch = ++sessionViewEpoch;
+    try {
+      const result = await api.reflectionList();
+      if (viewEpoch !== sessionViewEpoch) return;
+      const chronological = [...result.sessions].sort((left, right) => right.created_at.localeCompare(left.created_at) || right.session_id.localeCompare(left.session_id));
+      const active = chronological.filter((item) => item.state === "ACTIVE");
+      const home = el("section"); home.className = "product-home";
+      home.append(el("p", "ЛОКАЛЬНОЕ ПРОСТРАНСТВО"), el("h1", "МОЁ ПРОСТРАНСТВО"));
+      if (!chronological.length) {
+        home.append(el("p", "Здесь можно записать ситуацию, уточнить контекст, посмотреть рабочие объяснения и сохранить собственный следующий шаг."), button("Начать первую сессию", async () => { await showList(); sessionTitle.focus(); }, "primary"));
+      } else {
+        home.append(el("p", "Начните новую запись или откройте сохранённую сессию в удобном для вас порядке."), button("Начать новую сессию", async () => { await showList(); sessionTitle.focus(); }, "primary"));
+        if (active.length === 1) home.append(button("Продолжить текущую сессию", async () => showSession(active[0]!.session_id), "primary"));
+        if (active.length > 1) {
+          const activeList = el("section"); activeList.append(el("h2", "Активные сессии"), el("p", "Сессии показаны по дате создания; здесь нет приоритета или рекомендации."));
+          for (const item of active) activeList.append(button(`${item.title} · ${item.created_at}`, async () => showSession(item.session_id)));
+          home.append(activeList);
+        }
+        const recent = el("section"); recent.append(el("h2", "Последние сессии"));
+        for (const item of chronological.slice(0, 6)) {
+          const row = el("div"); row.className = "session-row";
+          row.append(el("strong", item.title), el("span", `Дата: ${item.created_at}`), el("span", item.state === "ACTIVE" ? "Активна" : "Закрыта · только чтение"), el("span", `Записей: ${item.turn_count}`), button("Открыть сессию", async () => showSession(item.session_id)));
+          recent.append(row);
+        }
+        home.append(recent);
+      }
+      sessionBody.replaceChildren(home);
+    } catch (error) { safeError(operationStatus, error); }
+  };
+  productNav.append(button("Главная", showHome, "primary"), button("Сессии", showList), button("К чему вернуться", showReturn), button("Динамика", showLongitudinal));
 
   const grid = el("div");
   grid.className = "grid";
@@ -618,9 +687,12 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   exports.append(exportForm);
 
   grid.append(privacy, recovery, exports, archive, explore, canonicalDeletion);
-  main.append(statusRegion, title, sessions, grid, operationStatus);
+  const systemArea = el("section");
+  systemArea.className = "system-area";
+  systemArea.append(el("h2", "Локальные данные и приватность"), el("p", "Резервные копии, экспорт, исправления и другие операции с локальным хранилищем."), grid);
+  main.append(statusRegion, title, sessions, systemArea, operationStatus);
   root.append(header, main);
-  void showList();
+  void showHome();
 }
 
 if (!import.meta.env.VITEST) void mount();
