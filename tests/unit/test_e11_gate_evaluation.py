@@ -28,7 +28,7 @@ WRONG_EXCLUSION_PROOF_PATH = "tests/fixtures/e11/wrong-boundary-exclusion-proof.
 
 
 def _sha256(path: str) -> str:
-    return hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
+    return hashlib.sha256((ROOT / path).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 def _draft() -> dict[str, Any]:

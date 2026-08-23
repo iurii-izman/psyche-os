@@ -22,7 +22,7 @@ profile_binding:
 identities:
   lock:
     path: "uv.lock"
-    sha256: "b077ee9fe69e8945613c3dc5eb0dc782db1d3b7d66a4eaaa6a1fd410c2836120"
+    sha256: "82af2a0d7b995fb2c585de715133365d63d8f28c2827110746aeafcaa1fbd162"
   sbom:
     path: "artifacts/f0/sbom.cdx.json"
     sha256: "5fa16e8662dce850f2f814e30d57dd4a4bda66e341e6914e455d50123cadd43d"
