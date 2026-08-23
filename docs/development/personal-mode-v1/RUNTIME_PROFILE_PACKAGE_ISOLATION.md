@@ -1,0 +1,7 @@
+# Runtime and package isolation
+
+Rust accepts only trusted-launch `REQUESTED_SYNTHETIC` or `REQUESTED_PERSONAL`, never a renderer-selected path. Synthetic receives only its established root; Personal receives only the fixed Personal root after `PERSONAL_ADMISSION_GUARD` returns OPEN. An admission-only Personal sidecar receives the fixed repository gate root but no Personal root, key, DB, provider credential, or service before admission. Every Personal command invokes the guard before any Personal byte access; direct backend calls have no bypass.
+
+Personal allowlist is lock/unlock; capture/session/turn/list/get/search; exploration/formulation/correction; delete; backup/restore/recovery/export; and rotation/recovery status only as content-free state. Actions/outcomes, archive, AI, Longitudinal, Review/Return/Follow-up, import/parser/render, scoring, handoff, blobs, provider/network/telemetry/sync are absent or content-free denied. Rotation/recovery that unwraps/decrypts is guarded; pre-OPEN package inspection is bounded/header-only.
+
+The profile-specific Personal package uses an explicit entrypoint/module allowlist. Deterministic package tests inspect frozen modulegraph, executable inventory, Rust command table, fixed roots, and credential forwarding. They fail if a forbidden module/command/path or `OPENAI_API_KEY` forwarding appears. Existing Synthetic behavior remains independent.
