@@ -49,6 +49,8 @@ def test_request_is_exactly_pinned_and_schema_is_bounded():
     shape = body["text"]["format"]["schema"]["properties"]
     assert shape["reflections"]["items"]["additionalProperties"] is False
     assert shape["counterevidence"]["items"]["enum"] == ["counter-1"]
+    assert "minLength" not in shape["reflections"]["items"]["properties"]["text"]
+    assert "uniqueItems" not in shape["counterevidence"]
 
 
 @pytest.mark.parametrize("identity", [ProviderIdentity("other", "gpt-5.6-luna", "x"), ProviderIdentity("openai", "other", "x")])
@@ -66,6 +68,14 @@ def test_redirect_is_one_call_and_fails_closed(status):
         raise error.HTTPError("https://api.openai.com/v1/responses", status, "redirect", {}, BytesIO())
     with pytest.raises(ProviderUnavailableError): OpenAIReflectionProvider(api_key="test-key", transport=transport).invoke(request_for())
     assert len(calls) == 1 and calls[0].host == "api.openai.com"
+
+
+def test_http_error_keeps_only_bounded_safe_diagnostic_metadata():
+    def transport(*_, **__):
+        raise error.HTTPError("https://api.openai.com/v1/responses", 400, "bad", {}, BytesIO(b'{"error":{"type":"invalid_request_error","code":"unsupported_schema","param":"text.format.schema","message":"secret content"}}'))
+    provider = OpenAIReflectionProvider(api_key="test-key", transport=transport)
+    with pytest.raises(ProviderUnavailableError): provider.invoke(request_for())
+    assert provider.last_error_metadata == {"http_status": 400, "type": "invalid_request_error", "code": "unsupported_schema", "param": "text.format.schema"}
 
 
 @pytest.mark.parametrize("failure", [TimeoutError(), error.URLError("offline")])

@@ -133,6 +133,7 @@ class OpenAIReflectionProvider:
         self._transport = transport or request.build_opener(_RejectRedirects()).open
         self._api_key = api_key
         self.invocation_count = 0
+        self.last_error_metadata: dict[str, str | int] | None = None
 
     def invoke(self, provider_request: ProviderRequest) -> Any:
         key = self._api_key or os.environ.get("OPENAI_API_KEY")
@@ -144,12 +145,14 @@ class OpenAIReflectionProvider:
         supporting = [item.record_id for item in provider_request.records if item.role.value == "supporting"]
         counters = [item.record_id for item in provider_request.records if item.role.value == "counterevidence"]
         unknowns = [item.record_id for item in provider_request.records if item.role.value == "unknown"]
-        text = {"type": "string", "minLength": 1, "maxLength": 500}
-        identifier = {"type": "string", "minLength": 1, "maxLength": 128}
-        reflection = {"type": "object", "additionalProperties": False, "required": ["statement_id", "text", "supporting_evidence_ids", "uncertainty", "claim_level"], "properties": {"statement_id": identifier, "text": text, "supporting_evidence_ids": {"type": "array", "minItems": 1, "maxItems": len(supporting), "uniqueItems": True, "items": {"type": "string", "enum": supporting}}, "uncertainty": {"type": "string", "minLength": 1, "maxLength": 240}, "claim_level": {"type": "integer", "minimum": 0, "maximum": int(provider_request.claim_ceiling)}}}
-        unknown = {"type": "object", "additionalProperties": False, "required": ["unknown_id", "uncertainty"], "properties": {"unknown_id": {"type": "string", "enum": unknowns}, "uncertainty": {"type": "string", "minLength": 1, "maxLength": 240}}}
-        question = {"type": "object", "additionalProperties": False, "required": ["question_id", "unknown_id", "text"], "properties": {"question_id": identifier, "unknown_id": {"type": "string", "enum": unknowns}, "text": {"type": "string", "minLength": 1, "maxLength": 240}}}
-        shape = {"type": "object", "additionalProperties": False, "required": ["schema_version", "proposal_id", "status", "reflections", "counterevidence", "unknowns", "questions"], "properties": {"schema_version": {"const": "e07-reflection-proposal-v1"}, "proposal_id": identifier, "status": {"const": "PROPOSED"}, "reflections": {"type": "array", "minItems": 1, "maxItems": 4, "items": reflection}, "counterevidence": {"type": "array", "minItems": len(counters), "maxItems": len(counters), "uniqueItems": True, "items": {"type": "string", "enum": counters}}, "unknowns": {"type": "array", "minItems": len(unknowns), "maxItems": len(unknowns), "uniqueItems": True, "items": unknown}, "questions": {"type": "array", "maxItems": 3, "items": question}}}
+        # Strict Structured Outputs accepts a deliberately small schema subset.
+        # E07's local validator remains responsible for all bounds and semantics.
+        text = {"type": "string"}
+        identifier = {"type": "string"}
+        reflection = {"type": "object", "additionalProperties": False, "required": ["statement_id", "text", "supporting_evidence_ids", "uncertainty", "claim_level"], "properties": {"statement_id": identifier, "text": text, "supporting_evidence_ids": {"type": "array", "items": {"type": "string", "enum": supporting}}, "uncertainty": text, "claim_level": {"type": "integer"}}}
+        unknown = {"type": "object", "additionalProperties": False, "required": ["unknown_id", "uncertainty"], "properties": {"unknown_id": {"type": "string", "enum": unknowns}, "uncertainty": text}}
+        question = {"type": "object", "additionalProperties": False, "required": ["question_id", "unknown_id", "text"], "properties": {"question_id": identifier, "unknown_id": {"type": "string", "enum": unknowns}, "text": text}}
+        shape = {"type": "object", "additionalProperties": False, "required": ["schema_version", "proposal_id", "status", "reflections", "counterevidence", "unknowns", "questions"], "properties": {"schema_version": {"type": "string", "enum": ["e07-reflection-proposal-v1"]}, "proposal_id": identifier, "status": {"type": "string", "enum": ["PROPOSED"]}, "reflections": {"type": "array", "items": reflection}, "counterevidence": {"type": "array", "items": {"type": "string", "enum": counters}}, "unknowns": {"type": "array", "items": unknown}, "questions": {"type": "array", "items": question}}}
         schema = {"type": "json_schema", "name": "e07_reflection_proposal", "strict": True, "schema": shape}
         payload = {"model": "gpt-5.6-luna", "store": False, "max_output_tokens": 900,
             "text": {"format": schema}, "input": [{"role": "developer", "content": "Return only the requested bounded E07 proposal. It is a proposal, not evidence, fact, diagnosis, recommendation, or action."}, {"role": "user", "content": json.dumps({"purpose": provider_request.purpose, "records": [{"record_id": r.record_id, "version_id": r.version_id, "category": r.category, "role": r.role.value, "content": r.content} for r in provider_request.records]}, ensure_ascii=False)}]}
@@ -161,6 +164,7 @@ class OpenAIReflectionProvider:
                 if len(raw) > self.max_response_bytes:
                     raise ProviderUnavailableError("PROVIDER_RESPONSE_TOO_LARGE")
         except error.HTTPError as exc:
+            self.last_error_metadata = _safe_openai_error_metadata(exc)
             raise ProviderUnavailableError("PROVIDER_HTTP_ERROR") from exc
         except (error.URLError, TimeoutError, OSError) as exc:
             raise ProviderTimeoutError from exc
@@ -180,6 +184,20 @@ class _RejectRedirects(request.HTTPRedirectHandler):
 
     def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:
         return None
+
+
+def _safe_openai_error_metadata(exc: error.HTTPError) -> dict[str, str | int]:
+    """Bounded development-only metadata; never includes request or response content."""
+    metadata: dict[str, str | int] = {"http_status": exc.code}
+    try:
+        body = json.loads(exc.read(8_192))
+        value = body.get("error", {}) if isinstance(body, dict) else {}
+        for key in ("type", "code", "param"):
+            if isinstance(value.get(key), str):
+                metadata[key] = value[key][:128]
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        pass
+    return metadata
 
 
 @dataclass(slots=True)

@@ -148,6 +148,32 @@ describe("E02 bounded desktop UI", () => {
     for (const label of ["1. Запись", "2. Исследование", "3. Обзор", "4. Итог и следующий шаг"]) expect(byText(label)).toBeTruthy();
   });
 
+  it("shows the SYNTHETIC LAB boundary and Quick Capture writes exact text through an ordinary session", async () => {
+    const api = mockApi(false);
+    const created = { session_id: "quick", title: "Моя запись", state: "ACTIVE" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", closed_at: null, turn_count: 1, turns: [] };
+    vi.mocked(api.reflectionCreate).mockResolvedValue(created); vi.mocked(api.reflectionGet).mockResolvedValue(created);
+    await mount(api);
+    expect(document.body.textContent).toContain("SYNTHETIC LAB"); expect(document.body.textContent).toContain("Режим личных данных пока не допущен");
+    const title = document.querySelector<HTMLInputElement>("#quick-capture-title")!; const text = document.querySelector<HTMLTextAreaElement>("#quick-capture-text")!;
+    title.value = "Моя запись"; text.value = "Точный синтетический текст"; text.form!.requestSubmit(); await new Promise((resolve) => setTimeout(resolve, 0)); await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(api.reflectionCreate).toHaveBeenCalledWith("Моя запись"); expect(api.reflectionAddTurn).toHaveBeenCalledWith("quick", "Точный синтетический текст"); expect(api.reflectionGet).toHaveBeenCalledWith("quick");
+  });
+
+  it("Quick Capture ignores empty text and completes its authorized first turn despite navigation", async () => {
+    const api = mockApi(false); let resolveCreate!: (value: { session_id: string; title: string; state: "ACTIVE"; retention: "ENCRYPTED_LOCAL"; created_at: string; updated_at: string; closed_at: null; turn_count: number; turns: [] }) => void;
+    vi.mocked(api.reflectionCreate).mockImplementationOnce(() => new Promise((resolve) => { resolveCreate = resolve; })); await mount(api);
+    const text = document.querySelector<HTMLTextAreaElement>("#quick-capture-text")!; text.value = "   "; text.form!.requestSubmit(); expect(api.reflectionCreate).not.toHaveBeenCalled();
+    text.value = "Точный текст"; text.form!.requestSubmit(); await click(byText("Динамика")); resolveCreate({ session_id: "quick", title: "Запись", state: "ACTIVE", retention: "ENCRYPTED_LOCAL", created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", closed_at: null, turn_count: 0, turns: [] }); await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(api.reflectionAddTurn).toHaveBeenCalledWith("quick", "Точный текст"); expect(document.querySelector(".longitudinal-workspace")).not.toBeNull();
+  });
+
+  it("filters the Home session library without writes", async () => {
+    const api = mockApi(false); const active = { session_id: "a", title: "Лампа", state: "ACTIVE" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", closed_at: null, turn_count: 1 }; const closed = { ...active, session_id: "b", title: "Архив", state: "CLOSED" as const, created_at: "2026-01-01T00:00:00Z", closed_at: "2026-01-01T00:00:00Z" };
+    vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [active, closed] }); await mount(api);
+    const search = document.querySelector<HTMLInputElement>("#session-title-filter")!; search.value = "арх"; search.dispatchEvent(new Event("input")); expect(document.body.textContent).toContain("Архив"); expect(document.body.textContent).not.toContain("Лампа");
+    const state = document.querySelector<HTMLSelectElement>("#session-state-filter")!; state.value = "ACTIVE"; state.dispatchEvent(new Event("change")); expect(document.body.textContent).not.toContain("Архив"); expect(api.reflectionCreate).not.toHaveBeenCalled(); expect(api.reflectionAddTurn).not.toHaveBeenCalled();
+  });
+
   it("keeps a newer session view when the initial asynchronous list resolves late", async () => {
     const api = mockApi(false);
     let resolveList!: (result: { sessions: [] }) => void;
@@ -390,7 +416,7 @@ describe("E03 bounded archive UI", () => {
   it("E03-T1/T6 exposes only fixed capture choices and focus-safe deletion confirmation", async () => {
     const api = mockApi(false);
     await mount(api);
-    expect(document.querySelector("textarea")).toBeNull();
+    expect(document.querySelector("#quick-capture-text")).not.toBeNull();
     expect(document.querySelector('input[type="file"]')).toBeNull();
     await click(byText(t("archive.captureReport")));
     expect(api.archiveOperate).toHaveBeenCalledWith("CAPTURE_LAMP_REPORT", "occurred_summer_2042", "desktop_001");
