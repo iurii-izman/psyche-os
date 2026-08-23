@@ -1,0 +1,77 @@
+task_id: RC0-first-user-product-completion
+base_sha: 16b39576cf3c0c5e4bb9a0cf99b9bf742e533a07
+
+profile: balanced
+risk: medium
+
+goal:
+  - Package the accepted synthetic-only desktop capabilities as one truthful Russian-first first-user release candidate.
+
+non_goals:
+  - No successor epic, storage or schema change, Tauri/Rust/IPC change, dependency, network/provider, crypto, recovery-architecture, or REAL_DATA_GATE change.
+
+authority:
+  - CONSTITUTION.md
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md §§20–22
+  - docs/DECISION_LOG.md
+  - docs/development/STATE.yaml
+
+expected_scope:
+  - desktop/src/main.ts
+  - desktop/tests/rc0-product-journey.test.ts
+  - .ai-dev/contracts/rc0-first-user-product-completion.yaml
+
+protected_scope:
+  - .ai-dev/policy/**
+
+acceptance:
+  - A synthetic user can unlock, start, record, explore, close, return, follow up, inspect longitudinal history, control/export/delete, and restart without false product claims.
+  - User, recorded, derived, unknown, contradiction, hypothesis, action, and outcome boundaries remain explicit.
+  - CLOSED stays read-only while user-controlled deletion remains reachable.
+  - No recommendation, effectiveness, urgency, progress, or real-data claim is introduced.
+
+repository_required_gates:
+  - npm --prefix desktop run typecheck
+  - npm --prefix desktop run lint
+  - npm --prefix desktop run test:unit
+  - uv run pytest -q
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run python scripts/validate_research_foundation.py
+
+contract_required_proof:
+  - risk: integrated renderer navigation could hide provenance, permit a CLOSED write, leave deleted content visible, or make a false capability claim.
+    insufficiency_of_repository_gates: policy gates do not exercise the first-user workflow across the accepted product surfaces.
+    primary_oracle: desktop/tests/rc0-product-journey.test.ts
+    failure_meaning: a failure is a material product-semantic or renderer defect unless a deterministic test defect is demonstrated.
+    alternate_oracles: []
+    stop_or_escalation: at most two coherent renderer repair passes; stop if a fix needs a HIGH boundary.
+
+supplemental_evidence:
+  - npm --prefix desktop run build
+  - npm --prefix desktop run test:desktop
+
+proof_recovery_budget:
+  max_feature_local_repair_loops: 2
+
+oracle_failure_policy:
+  classify_as: product_defect
+  low_medium: Record a supplemental native-smoke limitation if deterministic product proof and repository gates pass; do not redesign the harness.
+  high_critical: Stop for independent review if a storage, recovery, privacy, or trust-boundary defect is found.
+
+stop_conditions:
+  - Stop if lifecycle completion requires persistence, a migration, a security/privacy/recovery change, or a new trust boundary.
+  - Stop after the bounded repair budget on a remaining material product blocker.
+
+permissions:
+  network: true
+  dependencies: false
+  migrations: false
+  destructive: false
+
+routing:
+  initial: cheap
+  max_grounded_retry: 1
+  escalation: strong
+
+assumptions:
+  - The existing accepted typed DesktopApi and synthetic fixtures expose every enabled RC0 lifecycle operation.

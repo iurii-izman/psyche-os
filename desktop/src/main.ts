@@ -407,9 +407,25 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
       };
       const label = el("label", "Ваш текст"); label.htmlFor = "reflection-turn";
       const content = el("textarea"); content.id = "reflection-turn"; content.name = "reflection-turn"; content.setAttribute("aria-label", "Ваш текст"); content.maxLength = 12000; content.rows = 5; content.required = true; content.disabled = current.state === "CLOSED";
-      const add = button("Добавить в сессию", async () => { await api.reflectionAddTurn(current.session_id, content.value); await showSession(current.session_id); }, "primary");
+      const add = button("Добавить в сессию", async () => {
+        try {
+          await api.reflectionAddTurn(current.session_id, content.value);
+          await showSession(current.session_id);
+        } catch (error) {
+          safeError(operationStatus, error);
+          content.focus();
+        }
+      }, "primary");
       add.disabled = current.state === "CLOSED";
-      const close = button("Завершить сессию", async () => { await api.reflectionClose(current.session_id); await showSession(current.session_id); }); close.disabled = current.state === "CLOSED";
+      const close = button("Завершить сессию", async () => {
+        try {
+          await api.reflectionClose(current.session_id);
+          await showSession(current.session_id);
+        } catch (error) {
+          safeError(operationStatus, error);
+          close.focus();
+        }
+      }); close.disabled = current.state === "CLOSED";
       const remove = button("Удалить сессию", async () => { await api.reflectionDelete(current.session_id); await showList(); }, "danger");
       const back = button("Назад к сессиям", async () => showList());
       record.append(label, content, add);
