@@ -1,0 +1,61 @@
+task_id: V3-E-coherent-product-journey
+base_sha: 6df83fdef9b25786cc797332c44091d5544a8951
+profile: balanced
+risk: medium
+goal:
+  - Make the accepted reflection capabilities understandable as one Russian-first product journey after unlock.
+non_goals:
+  - No storage, migration, Tauri/IPC, Rust, dependency, network, provider, ranking, recommendation, or new semantic record.
+authority:
+  - CONSTITUTION.md C-01, C-02, C-03, C-08, C-16, C-20
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md §§9, 15.1, 21, 22.4
+  - docs/DECISION_LOG.md ADR-013, ADR-018, ADR-022
+expected_scope:
+  - desktop/src/main.ts
+  - desktop/src/product-journey.ts
+  - desktop/src/styles.css
+  - desktop/tests/product-journey.test.ts
+  - desktop/tests/ui.test.ts
+  - .ai-dev/contracts/v3e-coherent-product-journey.yaml
+protected_scope:
+  - .ai-dev/**
+acceptance:
+  - Home exposes Start, Continue, Return, History and a deterministic recent-session list without ranking.
+  - Session navigation uses neutral stages over persisted state and keeps CLOSED sessions read-only.
+  - Existing Return and longitudinal projections remain reachable and stale requests cannot replace newer navigation.
+repository_required_gates:
+  - npm --prefix desktop run typecheck
+  - npm --prefix desktop run lint
+  - npm --prefix desktop run test:unit
+  - uv run pytest -q
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run python scripts/validate_research_foundation.py
+contract_required_proof:
+  - risk: product navigation could imply completion, urgency, authorship, effectiveness, or allow a stale view to replace a newer choice
+    insufficiency_of_repository_gates: repository gates do not establish the new renderer semantics or cross-workspace race behavior
+    primary_oracle: desktop/tests/product-journey.test.ts and desktop/tests/ui.test.ts
+    failure_meaning: a failed assertion is a product-semantic or renderer defect until proven otherwise
+    alternate_oracles: []
+    stop_or_escalation: one coherent product repair plus one correction; then stop for independent review
+supplemental_evidence:
+  - npm --prefix desktop run build
+proof_recovery_budget:
+  max_feature_local_repair_loops: 1
+oracle_failure_policy:
+  classify_as: product_defect
+  low_medium: stop verifier expansion when policy gates and deterministic product evidence pass; record bounded residual
+  high_critical: not applicable
+stop_conditions:
+  - Stop if a useful flow requires persistence or any new HIGH boundary.
+  - Stop verifier expansion after the bounded recovery budget.
+permissions:
+  network: false
+  dependencies: false
+  migrations: false
+  destructive: false
+routing:
+  initial: cheap
+  max_grounded_retry: 1
+  escalation: strong
+assumptions:
+  - Existing session metadata and accepted projections are sufficient to construct a truthful local navigation view.
