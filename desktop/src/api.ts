@@ -7,6 +7,7 @@ export interface StatusView {
   network: string;
   privacy: { processing_location: string; cloud: string; telemetry: string };
 }
+export interface AiStatusView { runtime_profile: "SYNTHETIC_LAB"; local_personal: "NOT_ADMITTED"; ai: "READY_SYNTHETIC_LAB" | "NOT_CONFIGURED"; provider: string; model: string; }
 export interface ReflectionSessionView { session_id: string; title: string; state: "ACTIVE" | "CLOSED"; retention: "ENCRYPTED_LOCAL"; created_at: string; updated_at: string; closed_at: string | null; turn_count: number; turns?: ReflectionTurnView[]; }
 export interface ReflectionTurnView { turn_id: string; session_id: string; sequence: number; actor: "USER"; created_at: string; content: string; }
 export interface ExplorationContextItem { context_item_id: string; dimension: string; kind: "KNOWN" | "UNKNOWN" | "CONTRADICTION"; text: string; state: string; source_turn_ids: string[]; created_at?: string; }
@@ -29,6 +30,9 @@ async function call<T>(command: string, args: Record<string, unknown> = {}): Pro
 
 export const desktopApi = {
   status: (): Promise<StatusView> => invoke<StatusView>("desktop_status"),
+  aiStatus: (): Promise<AiStatusView> => call<AiStatusView>("desktop_ai_status"),
+  aiPrepare: (): Promise<{ preview_id: string; selected: [string, string, string][]; provider: string; model: string; purpose: string; notice: string }> => call("desktop_ai_prepare"),
+  aiAuthorizeExecute: (previewId: string): Promise<Record<string, unknown>> => call("desktop_ai_authorize_execute", { previewId, optIn: true }),
   async unlock(secret: string): Promise<Record<string, unknown>> {
     const result = await invoke<{ session_token: string }>("desktop_unlock", { request: { secret } });
     sessionToken = result.session_token;

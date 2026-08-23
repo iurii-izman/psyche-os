@@ -52,6 +52,44 @@ function safeError(region: HTMLElement, error: unknown): void {
   region.focus();
 }
 
+type AiProposalView = {
+  status: string;
+  reflections: string[];
+  counterevidence: string[];
+  unknowns: string[];
+  questions: string[];
+};
+
+function aiProposal(value: Data): AiProposalView | null {
+  const proposal = value.proposal;
+  if (!proposal || typeof proposal !== "object" || Array.isArray(proposal)) return null;
+  const fields = proposal as Record<string, unknown>;
+  const array = (key: string): string[] | null => Array.isArray(fields[key]) && fields[key].every((item) => typeof item === "string") ? fields[key] as string[] : null;
+  const reflections = array("reflections"), counterevidence = array("counterevidence"), unknowns = array("unknowns"), questions = array("questions");
+  if (typeof fields.status !== "string" || !reflections || !counterevidence || !unknowns || !questions) return null;
+  return { status: fields.status, reflections, counterevidence, unknowns, questions };
+}
+
+function renderAiProposalCard(region: HTMLElement, value: Data): boolean {
+  const proposal = aiProposal(value);
+  if (!proposal) return false;
+  const card = el("article");
+  card.className = "ai-proposal-card";
+  card.append(el("strong", "AI-ПРЕДЛОЖЕНИЕ · LAB"), el("p", proposal.status));
+  const section = (heading: string, values: string[], empty: string): void => {
+    card.append(el("h3", heading));
+    card.append(...(values.length ? values : [empty]).map((item) => el("p", item)));
+  };
+  section("Наблюдение", proposal.reflections, "Наблюдение не возвращено.");
+  section("Неопределённость", proposal.unknowns, "Неопределённость не возвращена.");
+  section("Контраргументы", proposal.counterevidence, "Контраргументы не возвращены.");
+  section("Что остаётся неизвестным", proposal.unknowns, "Неизвестное не возвращено.");
+  section("Вопросы", proposal.questions, "Вопросы не возвращены.");
+  card.append(el("small", "Это предложение модели, а не факт, диагноз или рекомендация. Результат автоматически не сохраняется."));
+  region.replaceChildren(card);
+  return true;
+}
+
 function renderAnalyticalWorkspace(session: ReflectionSessionView, exploration: ExplorationView): HTMLElement {
   const view = buildAnalyticalWorkspace(session, exploration);
   const workspace = el("section");
@@ -527,7 +565,31 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
       const chronological = [...result.sessions].sort((left, right) => right.created_at.localeCompare(left.created_at) || right.session_id.localeCompare(left.session_id));
       const active = chronological.filter((item) => item.state === "ACTIVE");
       const home = el("section"); home.className = "product-home";
-      home.append(el("p", "ЛОКАЛЬНОЕ ПРОСТРАНСТВО"), el("h1", "МОЁ ПРОСТРАНСТВО"));
+      home.append(el("p", "SYNTHETIC LAB"), el("p", "Тестовый режим. Используйте только вымышленные или синтетические данные. Режим личных данных пока не допущен."), el("h1", "МОЁ ПРОСТРАНСТВО"));
+      const captureForm = el("form"); captureForm.className = "quick-capture";
+      const [captureTitleLabel, captureTitle] = field("Название — по желанию", "quick-capture-title"); captureTitle.maxLength = 160;
+      const captureTextLabel = el("label", "Текст записи"); captureTextLabel.htmlFor = "quick-capture-text";
+      const captureText = el("textarea"); captureText.id = "quick-capture-text"; captureText.name = "quick-capture-text"; captureText.maxLength = 12000; captureText.rows = 4; captureText.required = true;
+      const captureSubmit = el("button", "Записать"); captureSubmit.type = "submit"; captureSubmit.className = "primary";
+      captureForm.append(el("h2", "БЫСТРАЯ ЗАПИСЬ"), captureTitleLabel, captureTitle, captureTextLabel, captureText, captureSubmit);
+      captureForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const submittedText = captureText.value;
+        if (!submittedText.trim()) return;
+        const submittedTitle = captureTitle.value || `Запись · ${new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "short" }).format(new Date())}`;
+        captureSubmit.disabled = true;
+        void (async () => {
+          try {
+            const created = await api.reflectionCreate(submittedTitle);
+            await api.reflectionAddTurn(created.session_id, submittedText);
+            if (viewEpoch === sessionViewEpoch) await showSession(created.session_id);
+          } catch (error) {
+            if (viewEpoch === sessionViewEpoch) { captureSubmit.disabled = false; safeError(operationStatus, error); }
+          }
+        })();
+      });
+      home.append(captureForm);
+      if (aiState.startsWith("READY_SYNTHETIC_LAB")) home.append(button("AI-ПРЕДЛОЖЕНИЕ · LAB", async () => { aiLab.scrollIntoView(); aiPrepare.focus(); }));
       if (!chronological.length) {
         home.append(el("p", "Здесь можно записать ситуацию, уточнить контекст, посмотреть рабочие объяснения и сохранить собственный следующий шаг."), button("Начать первую сессию", async () => { await showList(); sessionTitle.focus(); }, "primary"));
       } else {
@@ -538,12 +600,14 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
           for (const item of active) activeList.append(button(`${item.title} · ${item.created_at}`, async () => showSession(item.session_id)));
           home.append(activeList);
         }
-        const recent = el("section"); recent.append(el("h2", "Последние сессии"));
-        for (const item of chronological.slice(0, 6)) {
-          const row = el("div"); row.className = "session-row";
-          row.append(el("strong", item.title), el("span", `Дата: ${item.created_at}`), el("span", item.state === "ACTIVE" ? "Активна" : "Закрыта · только чтение"), el("span", `Записей: ${item.turn_count}`), button("Открыть сессию", async () => showSession(item.session_id)));
-          recent.append(row);
-        }
+        const recent = el("section"); recent.append(el("h2", "Сессии"));
+        const [searchLabel, search] = field("Поиск по названию", "session-title-filter");
+        const stateLabel = el("label", "Состояние"); stateLabel.htmlFor = "session-state-filter";
+        const state = el("select"); state.id = "session-state-filter";
+        for (const [value, label] of [["ALL", "Все"], ["ACTIVE", "Активные"], ["CLOSED", "Закрытые"]] as const) { const option = el("option", label); option.value = value; state.append(option); }
+        const rows = el("div");
+        const renderRows = () => { rows.replaceChildren(); for (const item of chronological.filter((item) => item.title.toLocaleLowerCase().includes(search.value.toLocaleLowerCase()) && (state.value === "ALL" || item.state === state.value))) { const row = el("div"); row.className = "session-row"; row.append(el("strong", item.title), el("span", `Дата: ${item.created_at}`), el("span", item.state === "ACTIVE" ? "Активна" : "Закрыта · только чтение"), el("span", `Записей: ${item.turn_count}`), button("Открыть сессию", async () => showSession(item.session_id))); rows.append(row); } };
+        search.addEventListener("input", renderRows); state.addEventListener("change", renderRows); renderRows(); recent.append(searchLabel, search, stateLabel, state, rows);
         home.append(recent);
       }
       sessionBody.replaceChildren(home);
@@ -669,6 +733,30 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   deleteExecuteButton.disabled = true;
   privacy.append(correctionForm, el("hr"), deletePlanButton, deleteExecuteButton);
 
+  const aiLab = el("section");
+  aiLab.className = "card";
+  aiLab.append(el("p", "AI-ПРЕДЛОЖЕНИЕ · LAB"), el("h2", "Ограниченное предложение AI"), el("p", "По желанию. В OpenAI отправляются только выбранные синтетические cloud-eligible записи. Результат — предложение, не факт, не диагноз и не совет; ничего не записывается автоматически."));
+  let aiPreview = "";
+  const aiProposalCard = el("section");
+  const aiSend = button("Отправить выбранные синтетические данные", async () => {
+    try {
+      const result = await api.aiAuthorizeExecute(aiPreview);
+      if (!renderAiProposalCard(aiProposalCard, result)) throw "OPERATION_FAILED";
+      operationStatus.textContent = "Проверенное предложение получено. Оно не записано в архив.";
+      aiSend.disabled = true;
+    }
+    catch (error) { safeError(operationStatus, error); }
+  }, "primary");
+  aiSend.disabled = true;
+  const aiPrepare = button("Показать предварительное раскрытие", async () => {
+    try { const result = await api.aiPrepare(); aiPreview = result.preview_id; renderResult(operationStatus, result, "Проверьте ID, версии, категории, OpenAI и gpt-5.6-luna перед отправкой."); aiSend.disabled = false; aiSend.focus(); }
+    catch (error) { safeError(operationStatus, error); }
+  });
+  let aiState = "недоступен";
+  try { const value = await api.aiStatus(); aiState = `${value.ai} · ${value.provider} · ${value.model} · ${value.runtime_profile}`; } catch { /* content-free status only */ }
+  const aiStatus = el("p", `AI: ${aiState}`);
+  aiLab.append(aiStatus, aiPrepare, aiSend, aiProposalCard, el("p", "Режим личных данных пока не допущен."));
+
   const recovery = el("section");
   recovery.className = "card";
   recovery.append(el("p", t("recovery.kicker")), el("h2", t("recovery.heading")));
@@ -746,7 +834,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   });
   exports.append(exportForm);
 
-  grid.append(privacy, recovery, exports, archive, explore, canonicalDeletion);
+  grid.append(aiLab, privacy, recovery, exports, archive, explore, canonicalDeletion);
   const systemArea = el("section");
   systemArea.className = "system-area";
   systemArea.append(el("h2", "Локальные данные и приватность"), el("p", "Резервные копии, экспорт, исправления и другие операции с локальным хранилищем."), grid);

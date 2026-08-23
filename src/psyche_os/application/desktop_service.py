@@ -19,6 +19,10 @@ from sqlcipher3 import dbapi2
 
 from psyche_os.application.action_planning import ActionPlanningService
 from psyche_os.application.e03_archive import E03ArchiveError, E03ArchiveService
+from psyche_os.application.e07_bounded_ai import (PURPOSE, BoundedAIProposalService, E07BoundaryError, ProviderRegistry, ProviderRegistryEntry)
+from psyche_os.adapters.e07_provider import OpenAIReflectionProvider, SQLiteCanonicalRecordReader
+from psyche_os.domain.ai_proposal import EvidenceRole, ProviderIdentity
+from psyche_os.policy.engine import CloudPolicy, ExportRule, PolicyAxes, ProcessingLocation, Sensitivity, ThirdPartyScope
 from psyche_os.application.guided_exploration import GuidedExplorationService
 from psyche_os.application.reflection_sessions import (
     ReflectionSessionError,
@@ -81,6 +85,7 @@ ALLOWED_COMMANDS: Final = frozenset(
         "reflection_action.list",
         "reflection_action.create",
         "reflection_action.record_outcome",
+        "ai.status", "ai.prepare", "ai.authorize_execute",
     }
 )
 STATE_CHANGING_COMMANDS: Final = frozenset(
@@ -116,6 +121,7 @@ STATE_CHANGING_COMMANDS: Final = frozenset(
         "reflection_action.list",
         "reflection_action.create",
         "reflection_action.record_outcome",
+        "ai.prepare", "ai.authorize_execute",
     }
 )
 
@@ -277,6 +283,8 @@ class DesktopApplicationService:
     _reflection_sessions: ReflectionSessionService = field(init=False, repr=False)
     _guided_exploration: GuidedExplorationService = field(init=False, repr=False)
     _action_planning: ActionPlanningService = field(init=False, repr=False)
+    _ai: BoundedAIProposalService = field(init=False, repr=False)
+    _ai_prepared: Any = field(init=False, default=None, repr=False)
 
     def __post_init__(self) -> None:
         self._archive_connection = sqlite3.connect(":memory:")
@@ -285,6 +293,7 @@ class DesktopApplicationService:
             self._reflection_sessions = ReflectionSessionService(default_app_data())
             self._guided_exploration = GuidedExplorationService(self._reflection_sessions)
             self._action_planning = ActionPlanningService(self._reflection_sessions)
+            self._seed_ai_lab()
         except ReflectionSessionError as exc:
             raise DesktopServiceError(exc.code) from exc
 
@@ -337,8 +346,51 @@ class DesktopApplicationService:
             "reflection_action.list": self._action_list,
             "reflection_action.create": self._action_create,
             "reflection_action.record_outcome": self._action_record_outcome,
+            "ai.status": self._ai_status, "ai.prepare": self._ai_prepare, "ai.authorize_execute": self._ai_authorize_execute,
         }
         return handlers[command](payload)
+
+    def _seed_ai_lab(self) -> None:
+        self._archive.operate("CAPTURE_LAMP_REPORT", "reported_exact", "ai-lab-lamp")
+        self._archive.operate("CAPTURE_COUNTERREPORT", "reported_exact", "ai-lab-counter")
+        self._archive.operate("ASSEMBLE_EPISTEMIC_SET", "descriptive_proposed", "ai-lab-unknown")
+        fixture = {"assertion-lamp": "The fictional east-bench console appeared amber.", "assertion-counter": "The fictional maintenance ledger records a green console state in an unresolved window.", "unknown-lamp": "Which fictional controller state applied at the same clock?"}
+        self._archive_connection.execute("UPDATE assertions SET object_value=? WHERE record_id='assertion-lamp' AND is_active=1", (fixture["assertion-lamp"],))
+        self._archive_connection.execute("UPDATE assertions SET object_value=? WHERE record_id='assertion-counter' AND is_active=1", (fixture["assertion-counter"],))
+        self._archive_connection.execute("UPDATE unknowns SET question=? WHERE record_id='unknown-lamp' AND is_active=1", (fixture["unknown-lamp"],))
+        now = __import__('datetime').datetime.now(__import__('datetime').UTC)
+        for record_id in fixture:
+            self._archive_connection.execute("INSERT INTO data_policies(record_id,policy_id,version_id,previous_version_id,target_record_id,sensitivity,processing_location,cloud_policy,purpose,purpose_expiry,third_party_scope,retention_policy_id,retention_review,export_rule,export_audience,lineage_rule,tx_from,tx_to,is_active,created_at,closure_marker) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (f"record-policy-{record_id}", f"policy-{record_id}", f"policy-{record_id}-v1", "", record_id, "sensitive", "approved_cloud", "ask_each_time", PURPOSE, (now + __import__('datetime').timedelta(days=1)).isoformat(), "none", "ephemeral-e07", (now + __import__('datetime').timedelta(days=1)).isoformat(), "block", "e07-openai-evaluation", "most_restrictive_parent", now.isoformat(), None, 1, now.isoformat(), ""))
+        identity = ProviderIdentity("openai", "gpt-5.6-luna", "responses-v1-store-false")
+        self._ai = BoundedAIProposalService(SQLiteCanonicalRecordReader(self._archive_connection), ProviderRegistry((ProviderRegistryEntry(identity, "e07-synthetic-disclosure-v1", "knowledge-synthetic-v1", "2.0.0-research-final", True, identity.digest),)), OpenAIReflectionProvider())
+
+    def _ai_status(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, set())
+        import os
+        return {"runtime_profile": "SYNTHETIC_LAB", "local_personal": "NOT_ADMITTED", "ai": "READY_SYNTHETIC_LAB" if os.environ.get("OPENAI_API_KEY") else "NOT_CONFIGURED", "provider": "OpenAI", "model": "gpt-5.6-luna"}
+
+    def _ai_prepare(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, set())
+        import datetime as dt, uuid
+        identity = ProviderIdentity("openai", "gpt-5.6-luna", "responses-v1-store-false")
+        try:
+            self._ai_prepared = self._ai.prepare(interaction_id=f"ai-lab-{uuid.uuid4()}", purpose=PURPOSE, selected=(("assertion-lamp", EvidenceRole.SUPPORTING), ("assertion-counter", EvidenceRole.COUNTEREVIDENCE), ("unknown-lamp", EvidenceRole.UNKNOWN)), provider_identity=identity, cutoff=dt.datetime.now(dt.UTC))
+        except E07BoundaryError as exc: raise DesktopServiceError(exc.code) from exc
+        preview = self._ai_prepared.preview
+        return {"preview_id": preview.preview_id, "selected": preview.selected, "provider": "OpenAI", "model": "gpt-5.6-luna", "purpose": preview.purpose, "notice": "Synthetic cloud-eligible records only; proposal only."}
+
+    def _ai_authorize_execute(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _require_exact(payload, {"preview_id", "opt_in"})
+        import datetime as dt, os
+        if not os.environ.get("OPENAI_API_KEY"):
+            raise DesktopServiceError("AI_NOT_CONFIGURED")
+        if self._ai_prepared is None or payload["preview_id"] != self._ai_prepared.preview.preview_id or payload["opt_in"] is not True: raise DesktopServiceError("AUTHORIZATION_MISMATCH")
+        now = dt.datetime.now(dt.UTC)
+        try:
+            authorization = self._ai.authorize(self._ai_prepared, authorized_at=now, expires_at=now + dt.timedelta(minutes=2), opt_in=True)
+            result = self._ai.execute(self._ai_prepared, authorization, now=now)
+        except E07BoundaryError as exc: raise DesktopServiceError(exc.code) from exc
+        return {"proposal": {"status": result.proposal.status.value, "reflections": [item.text for item in result.proposal.reflections], "counterevidence": list(result.proposal.counterevidence_ids), "unknowns": [item.uncertainty for item in result.proposal.unknowns], "questions": [item.text for item in result.proposal.questions]}, "notice": "PROPOSED only; nothing was written back."}
 
     def _reflection_create(self, payload: dict[str, Any]) -> dict[str, Any]:
         _require_exact(payload, {"title"})

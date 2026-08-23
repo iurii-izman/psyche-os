@@ -1,0 +1,11 @@
+task_id: practical-preview-v0.1
+base_sha: 7b1f1b93307183a5810b4ec69553aaaf67a8178c
+profile: balanced
+risk: high
+goal: ["Enable one bounded OpenAI Responses proposal call in SYNTHETIC_LAB and renderer-only Quick Capture/session-library usability while keeping real-data admission CLOSED."]
+non_goals: ["No real data admission", "No arbitrary network", "No storage schema, migration, crypto, key, or gate-policy change."]
+authority: ["CONSTITUTION.md", "docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md", "docs/architecture/REAL_DATA_GATE.yaml"]
+permissions: { network: true, dependencies: false, migrations: false, destructive: false }
+protected_scope: ["docs/architecture/REAL_DATA_GATE_PROFILE.yaml", "crypto/**", "storage/migrations/**"]
+acceptance: ["Only SYNTHETIC_LAB can invoke OpenAI", "Explicit E07 preview and authorization precede one call", "Provider output is validated and never persisted raw", "Quick Capture uses ordinary reflection session APIs", "Session filters are renderer-only", "LOCAL_PERSONAL remains NOT_ADMITTED."]
+repository_required_gates: ["uv run pytest -q", "uv run python scripts/dev/validate_orchestration.py", "uv run python scripts/validate_research_foundation.py", "npm --prefix desktop run typecheck", "npm --prefix desktop run lint", "npm --prefix desktop run test:unit"]

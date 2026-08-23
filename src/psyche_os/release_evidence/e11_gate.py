@@ -143,7 +143,7 @@ def _matches_sha256(path: Path, expected: Any) -> bool:
     return (
         isinstance(expected, str)
         and len(expected) == _SHA256_LENGTH
-        and (hashlib.sha256(path.read_bytes()).hexdigest() == expected)
+        and (hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest() == expected)
     )
 
 
