@@ -52,6 +52,44 @@ function safeError(region: HTMLElement, error: unknown): void {
   region.focus();
 }
 
+type AiProposalView = {
+  status: string;
+  reflections: string[];
+  counterevidence: string[];
+  unknowns: string[];
+  questions: string[];
+};
+
+function aiProposal(value: Data): AiProposalView | null {
+  const proposal = value.proposal;
+  if (!proposal || typeof proposal !== "object" || Array.isArray(proposal)) return null;
+  const fields = proposal as Record<string, unknown>;
+  const array = (key: string): string[] | null => Array.isArray(fields[key]) && fields[key].every((item) => typeof item === "string") ? fields[key] as string[] : null;
+  const reflections = array("reflections"), counterevidence = array("counterevidence"), unknowns = array("unknowns"), questions = array("questions");
+  if (typeof fields.status !== "string" || !reflections || !counterevidence || !unknowns || !questions) return null;
+  return { status: fields.status, reflections, counterevidence, unknowns, questions };
+}
+
+function renderAiProposalCard(region: HTMLElement, value: Data): boolean {
+  const proposal = aiProposal(value);
+  if (!proposal) return false;
+  const card = el("article");
+  card.className = "ai-proposal-card";
+  card.append(el("strong", "AI-ПРЕДЛОЖЕНИЕ · LAB"), el("p", proposal.status));
+  const section = (heading: string, values: string[], empty: string): void => {
+    card.append(el("h3", heading));
+    card.append(...(values.length ? values : [empty]).map((item) => el("p", item)));
+  };
+  section("Наблюдение", proposal.reflections, "Наблюдение не возвращено.");
+  section("Неопределённость", proposal.unknowns, "Неопределённость не возвращена.");
+  section("Контраргументы", proposal.counterevidence, "Контраргументы не возвращены.");
+  section("Что остаётся неизвестным", proposal.unknowns, "Неизвестное не возвращено.");
+  section("Вопросы", proposal.questions, "Вопросы не возвращены.");
+  card.append(el("small", "Это предложение модели, а не факт, диагноз или рекомендация. Результат автоматически не сохраняется."));
+  region.replaceChildren(card);
+  return true;
+}
+
 function renderAnalyticalWorkspace(session: ReflectionSessionView, exploration: ExplorationView): HTMLElement {
   const view = buildAnalyticalWorkspace(session, exploration);
   const workspace = el("section");
@@ -699,8 +737,14 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   aiLab.className = "card";
   aiLab.append(el("p", "AI-ПРЕДЛОЖЕНИЕ · LAB"), el("h2", "Ограниченное предложение AI"), el("p", "По желанию. В OpenAI отправляются только выбранные синтетические cloud-eligible записи. Результат — предложение, не факт, не диагноз и не совет; ничего не записывается автоматически."));
   let aiPreview = "";
+  const aiProposalCard = el("section");
   const aiSend = button("Отправить выбранные синтетические данные", async () => {
-    try { renderResult(operationStatus, await api.aiAuthorizeExecute(aiPreview), "Проверенное предложение получено. Оно не записано в архив."); aiSend.disabled = true; }
+    try {
+      const result = await api.aiAuthorizeExecute(aiPreview);
+      if (!renderAiProposalCard(aiProposalCard, result)) throw "OPERATION_FAILED";
+      operationStatus.textContent = "Проверенное предложение получено. Оно не записано в архив.";
+      aiSend.disabled = true;
+    }
     catch (error) { safeError(operationStatus, error); }
   }, "primary");
   aiSend.disabled = true;
@@ -711,7 +755,7 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
   let aiState = "недоступен";
   try { const value = await api.aiStatus(); aiState = `${value.ai} · ${value.provider} · ${value.model} · ${value.runtime_profile}`; } catch { /* content-free status only */ }
   const aiStatus = el("p", `AI: ${aiState}`);
-  aiLab.append(aiStatus, aiPrepare, aiSend, el("p", "Режим личных данных пока не допущен."));
+  aiLab.append(aiStatus, aiPrepare, aiSend, aiProposalCard, el("p", "Режим личных данных пока не допущен."));
 
   const recovery = el("section");
   recovery.className = "card";

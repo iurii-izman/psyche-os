@@ -22,7 +22,7 @@ function mockApi(locked = false): DesktopApi {
     status: vi.fn(async () => syntheticStatus(stateLocked)),
     aiStatus: vi.fn(async () => ({ runtime_profile: "SYNTHETIC_LAB" as const, local_personal: "NOT_ADMITTED" as const, ai: "NOT_CONFIGURED" as const, provider: "OpenAI", model: "gpt-5.6-luna" })),
     aiPrepare: vi.fn(async () => ({ preview_id: "ai-preview", selected: [["assertion-lamp", "v1", "assertion"]] as [string, string, string][], provider: "OpenAI", model: "gpt-5.6-luna", purpose: "synthetic_evidence_grounded_reflection", notice: "proposal only" })),
-    aiAuthorizeExecute: vi.fn(async () => ({ proposal: { status: "PROPOSED" } })),
+    aiAuthorizeExecute: vi.fn(async () => ({ proposal: { status: "PROPOSED", reflections: ["Синтетическое наблюдение."], counterevidence: ["assertion-counter"], unknowns: ["Синтетическая неопределённость."], questions: ["Какой синтетический источник мог бы это уточнить?"] } })),
     unlock: vi.fn(async () => { stateLocked = false; return { session_token: "opaque-session" }; }),
     lock: vi.fn(async () => { stateLocked = true; return { locked: true }; }),
     correct: vi.fn(async () => ({ history_preserved: true, version_count: 2 })),
@@ -72,6 +72,17 @@ async function click(node: HTMLElement): Promise<void> {
 }
 
 describe("E02 bounded desktop UI", () => {
+  it("E07 renders a validated AI proposal as a Russian-first proposal-only card", async () => {
+    const api = mockApi(false);
+    await mount(api);
+    await click(byText("Показать предварительное раскрытие"));
+    await click(byText("Отправить выбранные синтетические данные"));
+    const card = document.querySelector<HTMLElement>(".ai-proposal-card")!;
+    for (const text of ["AI-ПРЕДЛОЖЕНИЕ · LAB", "PROPOSED", "Наблюдение", "Синтетическое наблюдение.", "Неопределённость", "Контраргументы", "Что остаётся неизвестным", "Вопросы", "автоматически не сохраняется"]) expect(card.textContent).toContain(text);
+    expect(card.textContent).not.toContain("применить");
+    expect(api.aiAuthorizeExecute).toHaveBeenCalledTimes(1);
+  });
+
   it("V3-A2 renders a closed analytical workspace without analytics write controls", async () => {
     const api = mockApi(false);
     const session = { session_id: "reflection-1", title: "Тест", state: "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:02:00Z", closed_at: "2026-01-01T00:02:00Z", turn_count: 1, turns: [{ turn_id: "turn-1", session_id: "reflection-1", sequence: 1, actor: "USER" as const, created_at: "2026-01-01T00:00:01Z", content: "Синтетический ответ" }] };

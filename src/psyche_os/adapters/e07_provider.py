@@ -135,29 +135,159 @@ class OpenAIReflectionProvider:
         self.invocation_count = 0
         self.last_error_metadata: dict[str, str | int] | None = None
 
+    @staticmethod
+    def _developer_instruction(provider_request: ProviderRequest) -> str:
+        """State E07's semantic contract without making it provider schema."""
+        supporting = [
+            item.record_id for item in provider_request.records if item.role.value == "supporting"
+        ]
+        counters = [
+            item.record_id
+            for item in provider_request.records
+            if item.role.value == "counterevidence"
+        ]
+        unknowns = [
+            item.record_id for item in provider_request.records if item.role.value == "unknown"
+        ]
+        return "\n".join(
+            (
+                "Produce exactly one E07 PROPOSED reflection proposal.",
+                "Use only supplied records; include at least one reflection and explicit uncertainty.",
+                f"supporting_evidence_ids may contain only: {', '.join(supporting)}.",
+                f"counterevidence must contain exactly: {', '.join(counters)}.",
+                f"unknowns must contain exactly: {', '.join(unknowns)}.",
+                "questions may reference only those unknown IDs and every question must end with '?'.",
+                f"claim_level must be exactly: {int(provider_request.claim_ceiling)}.",
+                "Do not diagnose, recommend, direct the user, claim causality, use treatment, therapy, or triage language, or invent evidence.",
+                "Output remains a proposal only, never evidence or fact.",
+            )
+        )
+
     def invoke(self, provider_request: ProviderRequest) -> Any:
         key = self._api_key or os.environ.get("OPENAI_API_KEY")
         if not key:
             raise ProviderUnavailableError("AI_NOT_CONFIGURED")
-        if provider_request.provider_identity.provider != "openai" or provider_request.provider_identity.model_snapshot != "gpt-5.6-luna":
+        if (
+            provider_request.provider_identity.provider != "openai"
+            or provider_request.provider_identity.model_snapshot != "gpt-5.6-luna"
+        ):
             raise ProviderUnavailableError("MODEL_NOT_AVAILABLE")
         self.invocation_count += 1
-        supporting = [item.record_id for item in provider_request.records if item.role.value == "supporting"]
-        counters = [item.record_id for item in provider_request.records if item.role.value == "counterevidence"]
-        unknowns = [item.record_id for item in provider_request.records if item.role.value == "unknown"]
+        supporting = [
+            item.record_id for item in provider_request.records if item.role.value == "supporting"
+        ]
+        counters = [
+            item.record_id
+            for item in provider_request.records
+            if item.role.value == "counterevidence"
+        ]
+        unknowns = [
+            item.record_id for item in provider_request.records if item.role.value == "unknown"
+        ]
         # Strict Structured Outputs accepts a deliberately small schema subset.
         # E07's local validator remains responsible for all bounds and semantics.
         text = {"type": "string"}
         identifier = {"type": "string"}
-        reflection = {"type": "object", "additionalProperties": False, "required": ["statement_id", "text", "supporting_evidence_ids", "uncertainty", "claim_level"], "properties": {"statement_id": identifier, "text": text, "supporting_evidence_ids": {"type": "array", "items": {"type": "string", "enum": supporting}}, "uncertainty": text, "claim_level": {"type": "integer"}}}
-        unknown = {"type": "object", "additionalProperties": False, "required": ["unknown_id", "uncertainty"], "properties": {"unknown_id": {"type": "string", "enum": unknowns}, "uncertainty": text}}
-        question = {"type": "object", "additionalProperties": False, "required": ["question_id", "unknown_id", "text"], "properties": {"question_id": identifier, "unknown_id": {"type": "string", "enum": unknowns}, "text": text}}
-        shape = {"type": "object", "additionalProperties": False, "required": ["schema_version", "proposal_id", "status", "reflections", "counterevidence", "unknowns", "questions"], "properties": {"schema_version": {"type": "string", "enum": ["e07-reflection-proposal-v1"]}, "proposal_id": identifier, "status": {"type": "string", "enum": ["PROPOSED"]}, "reflections": {"type": "array", "items": reflection}, "counterevidence": {"type": "array", "items": {"type": "string", "enum": counters}}, "unknowns": {"type": "array", "items": unknown}, "questions": {"type": "array", "items": question}}}
-        schema = {"type": "json_schema", "name": "e07_reflection_proposal", "strict": True, "schema": shape}
-        payload = {"model": "gpt-5.6-luna", "store": False, "max_output_tokens": 900,
-            "text": {"format": schema}, "input": [{"role": "developer", "content": "Return only the requested bounded E07 proposal. It is a proposal, not evidence, fact, diagnosis, recommendation, or action."}, {"role": "user", "content": json.dumps({"purpose": provider_request.purpose, "records": [{"record_id": r.record_id, "version_id": r.version_id, "category": r.category, "role": r.role.value, "content": r.content} for r in provider_request.records]}, ensure_ascii=False)}]}
+        reflection = {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "statement_id",
+                "text",
+                "supporting_evidence_ids",
+                "uncertainty",
+                "claim_level",
+            ],
+            "properties": {
+                "statement_id": identifier,
+                "text": text,
+                "supporting_evidence_ids": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": supporting},
+                },
+                "uncertainty": text,
+                "claim_level": {"type": "integer"},
+            },
+        }
+        unknown = {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["unknown_id", "uncertainty"],
+            "properties": {"unknown_id": {"type": "string", "enum": unknowns}, "uncertainty": text},
+        }
+        question = {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["question_id", "unknown_id", "text"],
+            "properties": {
+                "question_id": identifier,
+                "unknown_id": {"type": "string", "enum": unknowns},
+                "text": text,
+            },
+        }
+        shape = {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "schema_version",
+                "proposal_id",
+                "status",
+                "reflections",
+                "counterevidence",
+                "unknowns",
+                "questions",
+            ],
+            "properties": {
+                "schema_version": {"type": "string", "enum": ["e07-reflection-proposal-v1"]},
+                "proposal_id": identifier,
+                "status": {"type": "string", "enum": ["PROPOSED"]},
+                "reflections": {"type": "array", "items": reflection},
+                "counterevidence": {"type": "array", "items": {"type": "string", "enum": counters}},
+                "unknowns": {"type": "array", "items": unknown},
+                "questions": {"type": "array", "items": question},
+            },
+        }
+        schema = {
+            "type": "json_schema",
+            "name": "e07_reflection_proposal",
+            "strict": True,
+            "schema": shape,
+        }
+        payload = {
+            "model": "gpt-5.6-luna",
+            "store": False,
+            "max_output_tokens": 900,
+            "text": {"format": schema},
+            "input": [
+                {"role": "developer", "content": self._developer_instruction(provider_request)},
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "purpose": provider_request.purpose,
+                            "records": [
+                                {
+                                    "record_id": r.record_id,
+                                    "version_id": r.version_id,
+                                    "category": r.category,
+                                    "role": r.role.value,
+                                    "content": r.content,
+                                }
+                                for r in provider_request.records
+                            ],
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+        }
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        outbound = request.Request(self.endpoint, data=body, method="POST", headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+        outbound = request.Request(
+            self.endpoint,
+            data=body,
+            method="POST",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        )
         try:
             with self._transport(outbound, timeout=20) as response:
                 raw = response.read(self.max_response_bytes + 1)
@@ -182,7 +312,9 @@ class OpenAIReflectionProvider:
 class _RejectRedirects(request.HTTPRedirectHandler):
     """A credential-bearing request must fail at the first redirect response."""
 
-    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:
+    def redirect_request(
+        self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str
+    ) -> None:
         return None
 
 
