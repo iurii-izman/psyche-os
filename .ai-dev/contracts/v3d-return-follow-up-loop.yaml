@@ -1,0 +1,59 @@
+task_id: V3-D-return-follow-up-loop
+base_sha: 83f3092c582905c6c0ad754c3f21a3af41efc880
+profile: balanced
+risk: medium
+goal:
+  - Provide a user-initiated, deterministic Return workspace over recorded reflection state.
+non_goals:
+  - No persistence relationship, schema, migration, IPC command, dependency, network, provider, or recommendation behavior.
+authority:
+  - CONSTITUTION.md C-01, C-02, C-03, C-08, C-16, C-20
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md §§9, 15.1, 21, 22.4
+  - docs/DECISION_LOG.md ADR-013 and ADR-018
+expected_scope:
+  - desktop/src/main.ts
+  - desktop/src/return-workspace.ts
+  - desktop/src/styles.css
+  - desktop/tests/return-workspace.test.ts
+  - desktop/tests/ui.test.ts
+  - .ai-dev/contracts/v3d-return-follow-up-loop.yaml
+protected_scope:
+  - .ai-dev/**
+acceptance:
+  - Recorded candidates are organized only by fixed category and chronology, never priority or score.
+  - Each candidate preserves source-session, timestamp, state, and source-anchor provenance where available.
+  - Choosing a candidate opens its existing source session without converting historical derived material into new user text.
+  - Closed sessions remain read-only and empty history has a neutral useful state.
+repository_required_gates:
+  - uv run pytest -q
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run python scripts/validate_research_foundation.py
+contract_required_proof:
+  - risk: renderer projection could imply urgency, resolution, effectiveness, or user authorship that was not recorded
+    insufficiency_of_repository_gates: repository gates do not exercise the new deterministic product semantics
+    primary_oracle: desktop/tests/return-workspace.test.ts and desktop/tests/ui.test.ts
+    failure_meaning: a failed assertion is a product-semantic or renderer defect until proven otherwise
+    alternate_oracles: []
+    stop_or_escalation: one coherent product repair plus one correction; then stop for review
+supplemental_evidence:
+  - npm --prefix desktop run build
+proof_recovery_budget:
+  max_feature_local_repair_loops: 1
+oracle_failure_policy:
+  classify_as: product_defect
+  low_medium: stop verifier expansion when gates and deterministic product evidence pass; record bounded residual
+  high_critical: not applicable
+stop_conditions:
+  - Stop if a useful flow requires a persistent follow-up edge or any new HIGH boundary.
+  - Stop verifier expansion after the bounded recovery budget.
+permissions:
+  network: false
+  dependencies: false
+  migrations: false
+  destructive: false
+routing:
+  initial: cheap
+  max_grounded_retry: 1
+  escalation: strong
+assumptions:
+  - Existing source-session navigation is a truthful initial follow-up action; it does not claim a persisted follow-up relationship.

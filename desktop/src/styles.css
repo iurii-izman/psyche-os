@@ -59,6 +59,13 @@ hr { border: 0; border-top: 1px solid #e0e4dd; margin: 1.2rem 0; }
 .longitudinal-workspace > section, .longitudinal-workspace > ul { background: #fafbf8; border: 1px solid #d9ded6; border-radius: 10px; padding: .9rem; margin: 0; }
 .longitudinal-workspace p, .longitudinal-workspace li { overflow-wrap: anywhere; }
 .comparison { display: grid; gap: .55rem; }
+.return-workspace { display: grid; gap: .85rem; margin-top: 1.2rem; border-top: 2px solid #164f3c; padding-top: 1.2rem; }
+.return-workspace > section { background: #fafbf8; border: 1px solid #d9ded6; border-radius: 10px; padding: .9rem; }
+.return-workspace h3, .return-workspace p { margin: 0 0 .6rem; }
+.return-candidate { display: grid; gap: .35rem; border-top: 1px solid #d9ded6; padding: .8rem 0; }
+.return-candidate:first-of-type { border-top: 0; }
+.return-candidate small { color: #526258; overflow-wrap: anywhere; }
+.return-candidate button { justify-self: start; }
 
 @media (max-width: 800px) {
   .grid { grid-template-columns: 1fr; }

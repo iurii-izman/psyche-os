@@ -129,6 +129,37 @@ describe("E02 bounded desktop UI", () => {
     expect(byText("Добавить в сессию")).toBeTruthy();
   });
 
+  it("V3-D opens a neutral empty Return workspace and preserves newer navigation", async () => {
+    const api = mockApi(false);
+    vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [] });
+    await mount(api);
+    await click(byText("К ЧЕМУ ВЕРНУТЬСЯ"));
+    const workspace = document.querySelector<HTMLElement>(".return-workspace")!;
+    expect(workspace.textContent).toContain("К ЧЕМУ ВЕРНУТЬСЯ");
+    expect(workspace.textContent).toContain("Таких сохранённых записей пока нет.");
+    expect(workspace.textContent).toContain("не означают срочность");
+    expect(workspace.textContent).toContain("не означает разрешение");
+    expect(workspace.textContent).toContain("не означает эффективность");
+  });
+
+  it("V3-D displays provenance and opens only the chosen source session", async () => {
+    const api = mockApi(false);
+    const session = { session_id: "return-a", title: "Исходная сессия", state: "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", closed_at: "2026-01-01T00:00:00Z", turn_count: 1, turns: [{ turn_id: "turn-return-a", session_id: "return-a", sequence: 1, actor: "USER" as const, created_at: "2026-01-01T00:00:00Z", content: "Синтетический исходный текст" }] };
+    vi.mocked(api.reflectionList).mockResolvedValue({ sessions: [session] });
+    vi.mocked(api.reflectionGet).mockResolvedValue(session);
+    vi.mocked(api.explorationGet).mockResolvedValue({ context: [{ context_item_id: "unknown-return", dimension: "context", kind: "UNKNOWN", text: "Сохранённый вопрос", state: "OPEN", source_turn_ids: ["turn-return-a"], created_at: "2026-01-01T00:00:00Z" }], hypotheses: [], next_question: null, snapshots: [], formulations: [] });
+    vi.mocked(api.actionList).mockResolvedValue({ session_id: "return-a", plans: [] });
+    await mount(api); await click(byText("К ЧЕМУ ВЕРНУТЬСЯ"));
+    const workspace = document.querySelector<HTMLElement>(".return-workspace")!;
+    expect(workspace.textContent).toContain("Записано ранее");
+    expect(workspace.textContent).toContain("Источник: ваш ответ №1");
+    await click(byText("Вернуться к этой записи"));
+    expect(api.reflectionGet).toHaveBeenLastCalledWith("return-a");
+    expect(document.body.textContent).toContain("Сессия завершена. История доступна только для чтения.");
+    expect(document.body.textContent).toContain("Ваш текст");
+    expect(document.body.textContent).not.toContain("Ваш новый текст");
+  });
+
   it("V3-B/C opens the global read-only longitudinal workspace for two synthetic sessions", async () => {
     const api = mockApi(false);
     const sessions = ["a", "b"].map((id, index) => ({ session_id: id, title: `Сессия ${id}`, state: index ? "ACTIVE" as const : "CLOSED" as const, retention: "ENCRYPTED_LOCAL" as const, created_at: `2026-01-0${index + 1}T00:00:00Z`, updated_at: `2026-01-0${index + 1}T00:00:00Z`, closed_at: index ? null : "2026-01-01T00:00:00Z", turn_count: 1, turns: [{ turn_id: `turn-${id}`, session_id: id, sequence: 1, actor: "USER" as const, created_at: `2026-01-0${index + 1}T00:00:00Z`, content: "синтетический" }] }));
