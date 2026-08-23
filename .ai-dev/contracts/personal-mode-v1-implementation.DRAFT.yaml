@@ -44,6 +44,7 @@ acceptance:
   - V10 generalized rebuild preserves descendants, indexes/FKs, fault safety, and idempotency.
   - Separate roots prevent cross-profile open/fallback; CLOSED Personal creates no root, DB, or envelope.
   - PMV1-ROTATION-ISOLATED-REENCRYPTION-V1 safely changes SQLCipher database encryption; every crash stage preserves recoverable N or N+1, and no active DB lacks a durable matching recovery envelope.
+  - Active envelope N is not replaced until retained protected N key material required by retention policy is atomically published and reopen-verified.
   - Old backup N remains independently recoverable after active N+1; retained keys cannot write and are destroyed only after all dependent backup expiry.
   - PMV1-RECOVERY-BOOTSTRAP-V1 rejects cross-bundle/vault/version swaps and bounded-parser violations.
   - PERSONAL_ADMISSION_GUARD blocks every Personal read and write after expiry or identity change.
@@ -66,6 +67,7 @@ contract_required_proof:
   - targeted migration tests
   - targeted SQLCipher rotation tests and key-envelope/journal parser-state tests
   - rotation fault matrix, including N backup to active N+1 to isolated restore N
+  - crash immediately after active N+1 envelope promotion proves journal authentication, active N+1 reopen, and old-backup N recovery
   - independent recovery and retained-key expiry/destruction tests
   - admission-expiry read tests and profile isolation tests
   - backup/restore, export/delete, package inventory, and plaintext sentinel/leak tests
@@ -87,4 +89,4 @@ activation_instructions:
   - "The ACTIVE contract must retain destructive: false, dependencies: false, and network: false."
 required_owner_approval_text:
   migration: I explicitly approve V10 migration PMV1-V10-SQLITE-GENERALIZED-REBUILD exactly as described in the independently reviewed Personal Mode v1 architecture, with foreign_keys disabled only outside the migration transaction. This does not authorize destructive migration, crypto-algorithm change, a new dependency, network, REAL_DATA_GATE opening, or real personal data.
-  key_handling: I explicitly approve PMV1-KEY-ENVELOPE-V1, PMV1-ROTATION-ISOLATED-REENCRYPTION-V1, PMV1-RECOVERY-BOOTSTRAP-V1, and the retained-key lifecycle exactly as described in the independently reviewed Personal Mode v1 architecture. This does not authorize crypto-algorithm change, destructive migration, a new dependency, network, REAL_DATA_GATE opening, or real personal data.
+  key_handling: I explicitly approve PMV1-KEY-ENVELOPE-V1, PMV1-ROTATION-ISOLATED-REENCRYPTION-V1, PMV1-RECOVERY-BOOTSTRAP-V1, the retained-key lifecycle, and the retained-N-before-active-promotion durability invariant exactly as described in the independently reviewed Personal Mode v1 architecture. This does not authorize crypto-algorithm change, destructive migration, a new dependency, network, REAL_DATA_GATE opening, or real personal data.
