@@ -1,13 +1,15 @@
 # Personal byte map
 
-| Class | Durable Personal location | Boundary/lifecycle | Exposure |
-|---|---|---|---|
-| VMK wraps, four salts, IDs, recovery header | Personal key envelope and backup outer bootstrap | ACL; no plaintext VMK; RecoveryWrapper then manifest binding | status only |
-| Session/turn/exploration/formulation/correction | Personal V10 SQLCipher DB | `real_personal`; backup/recovery/export/delete | typed local IPC while unlocked |
-| Search results and Quick Capture draft | memory only until explicit save | regenerated/discarded; no browser storage | bounded IPC only |
-| backup/export manifests and packages | Personal backups/exports only | distinct backup/export domain keys; owner-only export | metadata/receipt only |
-| WAL/SHM/staging | Personal root private paths | scanned, private, removed/quarantined on failure | never IPC/logged |
-| logs/crash/telemetry | content-free diagnostics only | Personal process has no telemetry/provider | no Personal bytes |
-| actions/outcomes, archive, AI, imports, attachments, assessment, longitudinal, handoff | none | package/command denied | denial only |
+| Durable bytes | Location | Secret/encrypted/ACL | Backup/export/deletion/crash rule | Owner |
+|---|---|---|---|---|
+| active protected VMK, salts, IDs, recovery header | `key-envelope.pmv1.json` | secret-bearing wraps; ACL; no plaintext VMK | backup bootstrap copy; never export plaintext; atomic replacement/reopen | Personal |
+| pending protected N+1 envelope and transition metadata | `rotation-journal.pmv1.json` | AES-GCM under Kmanifest(N), ACL, no plaintext keys | journal is not a backup/export item; parsed at crash and retired only deterministically | Personal |
+| retained protected historical envelope and dates | `retained-keys\key-envelope-v<N>.pmv1.json` | secret-bearing wraps, immutable ACL | supports only old backup restore; destroy at retention expiry; no active writes | Personal |
+| active/candidate/previous encrypted DB plus WAL/SHM | `vault.sqlite`, `staging\rotation-*` | SQLCipher, private ACL | backup includes validated active store; staging never exports; cleanup after durable state recovery | Personal |
+| bootstrap, encrypted payload, manifests | `backups\` | bootstrap is authenticated after recovery unwrap; payload encrypted | retained under recorded key version and expiry | Personal |
+| encrypted OWNER_ONLY export | `exports\` | Kexport/current key, ACL | external copies have declared deletion limitation | Personal |
+| session/turn/exploration/formulation/history/search | SQLCipher DB | encrypted, no logs/telemetry | backup/export/delete according to lifecycle | Personal |
+| logs, crash diagnostics, UI drafts | content-free / memory only | no Personal content or keys | no backup/export; discard on lock/crash | process memory |
+| actions, archive, AI, imports, attachments, scoring, longitudinal, handoff | none | command/package denied | none | none |
 
-Any additional Personal byte requires an explicit map row with encryption, recovery, backup, export, deletion, projection and exposure semantics.
+No durable Personal bytes may be added without a row defining encryption, ACL, owner, backup/export/deletion, and crash-remnant behavior.

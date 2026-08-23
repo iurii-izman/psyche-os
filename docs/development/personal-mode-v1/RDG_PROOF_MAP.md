@@ -1,20 +1,13 @@
-# RDG proof map for physically isolated Personal v1
+# RDG proof map for Personal Mode v1
 
-Every proof is synthetic, exact-candidate/build/profile bound, and current. A failed applicable proof blocks opening.
+All evidence is synthetic, current, exact-candidate/build/profile bound, and expires. A failed applicable proof blocks opening.
 
-| RDG | Required deterministic proof | Required review |
+| RDG | Deterministic proof | Required review |
 |---|---|---|
-| 01 | Personal root is physically separate; SQLCipher DB/WAL cannot open without key; `data_mode` enforced. | independent crypto/key, privacy/deletion |
-| 02 | Bounded crash-safe rotation plus DPAPI-loss independent recovery; non-circular bootstrap. | independent crypto/key/recovery |
-| 03 | Only bundle + recovery secret restores through isolated staging; wrong/swap header/payload fails. | independent recovery, privacy/deletion |
-| 04 | Personal-only cascade/delete/search/export absence and declared backup expiry. | independent privacy/deletion |
-| 05 | 0→10 and V9→10 generalized rebuild, preconditions/faults/idempotency; V10 export round trip. | independent privacy/deletion, recovery |
-| 06 | Sentinel scan DB/WAL/SHM/staging/logs/package/export and outer bootstrap proves no plaintext Personal content/key. | desktop/IPC, privacy/deletion |
-| 07 | Synthetic process cannot open Personal root; Personal has no provider credential, adapter or transport. | technical security, qualified privacy/safety |
-| 08 | Personal package modulegraph/command/artifact inventory excludes importer/parser/render. | technical security, independent import/parser |
-| 09 | lock/SBOM/license/provenance/hashes/secret scan. | independent technical |
-| 10 | exact SHA/build/profile independent review resolves all Critical/High. | crypto, recovery, privacy/deletion, desktop/IPC |
-| 11 | exact qualified human packets below, always applicable. | human reviewers |
-| 12 | CLOSED Personal request creates no Personal directory/DB/envelope; OPEN synthetic acceptance/recovery/delete/export faults. | usability and owner decision |
+| 01 | separate root, SQLCipher/WAL wrong-key rejection, `data_mode` enforcement | `independent_crypto_key_recovery`, `independent_privacy_deletion` |
+| 02 | separate proofs: independent recovery; N→N+1 active rotation; faulted/interrupted rotation restart; N backup restore after rotation; retained-key destruction only after expiry | `independent_crypto_key_recovery`, `independent_recovery` |
+| 03 | bundle+secret isolated restore, N and N+1 restore, no active-N+1 corruption, bootstrap tamper/swap rejection | `independent_recovery`, `independent_privacy_deletion` |
+| 04–07 | deletion/projection/backup expiry, migration/export, plaintext scan, root/provider isolation | exact classes in profile |
+| 08–12 | package exclusion, provenance/secret gates, independent security, always-applicable RDG-11, synthetic usability/fault suite | exact classes in profile |
 
-Self-falsification includes: unfiltered Synthetic `session.list` has no Personal DB; forgotten Personal AI/action commands absent/denied; recovery-only-new-device succeeds; another-vault and mixed bootstrap/payload fail; the old V9 rename cascades descendants while selected procedure preserves them; Personal CLOSED writes nothing; Synthetic cannot locate Personal after records exist; expired attestation locks on next privileged operation.
+RDG-02 fault matrix injects after pending envelope, journal publication, during encrypted export, after candidate DB, before/after candidate verification, before/after active-envelope promotion, and before journal cleanup. After every restart it asserts the expected N/N+1 database/key state, exactly readable synthetic rows, absence of data loss, and no retained-key active write. It additionally tests corrupt/missing journal/envelopes, both/neither key opening, stale journal, DPAPI loss, wrong recovery secret, disk-full, file-lock activation, retention expiry, and attempted premature destruction. RDG-03 proves backup N → active N+1 → isolated restore N and independently restores N+1.

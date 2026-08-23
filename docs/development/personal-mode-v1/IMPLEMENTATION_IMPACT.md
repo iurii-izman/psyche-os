@@ -1,12 +1,5 @@
 # Bounded implementation impact (not authorization)
 
-| Workstream | Exact expected surfaces |
-|---|---|
-| V10 | `src/psyche_os/storage/migrations.py`, new `personal_mode_v10_schema.py`, reflection schema tests |
-| Personal roots/envelope | new focused `src/psyche_os/personal_mode/` package, storage connection factory, envelope/recovery tests |
-| backup/export | `src/psyche_os/backup_export/operations.py`, `versioned.py`, focused lifecycle tests |
-| profile/admission | `src/psyche_os/application/desktop_service.py`, `interfaces/desktop_sidecar.py`, `release_evidence/e11_gate.py`, `desktop/src-tauri/src/**` |
-| package | `scripts/build_desktop_sidecar.py`, desktop packaging config, package inventory test |
-| Personal UI | only profile capability/status and allowed routes under `desktop/src/**` |
+The future, separately authorized implementation requires focused Personal modules: `src/psyche_os/personal_mode/key_envelope.py`, `key_rotation.py`, `admission.py`, and `runtime_profile.py`; V10 migration surfaces; storage connection handling; backup/export operations and versioning; desktop service/sidecar/E11 admission integration; Tauri/profile allowlists; packaging; and focused synthetic tests. The expected scope is enumerated in the DRAFT contract.
 
-No production path is authorized until a separately ACTIVE contract exists after independent review and owner approval.
+Required acceptance includes safe SQLCipher key rotation, recoverable N or N+1 at every crash stage, no active DB without recoverable matching envelope, recoverable old backup after rotation, all Personal reads/writes blocked on expired admission, bootstrap swap/tamper rejection, and exact E11 review-ID compatibility. No production path is authorized until an independently reviewed architecture and explicitly approved ACTIVE contract exist.

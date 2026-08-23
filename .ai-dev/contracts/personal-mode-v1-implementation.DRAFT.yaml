@@ -18,9 +18,14 @@ authority:
   - docs/architecture/REAL_DATA_GATE.yaml
   - docs/architecture/REAL_DATA_GATE_PROFILE.yaml
   - docs/development/personal-mode-v1/ARCHITECTURE.md
+  - docs/development/personal-mode-v1/PERSONAL_KEY_RECOVERY_DESIGN.md
 expected_scope:
   - src/psyche_os/storage/migrations.py
   - src/psyche_os/storage/personal_mode_v10_schema.py
+  - src/psyche_os/personal_mode/key_envelope.py
+  - src/psyche_os/personal_mode/key_rotation.py
+  - src/psyche_os/personal_mode/admission.py
+  - src/psyche_os/personal_mode/runtime_profile.py
   - src/psyche_os/personal_mode/**
   - src/psyche_os/backup_export/operations.py
   - src/psyche_os/backup_export/versioned.py
@@ -36,11 +41,13 @@ protected_scope:
   - CONSTITUTION.md
   - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md
 acceptance:
-  - V10 generalized rebuild preserves all descendants, indexes/FKs, fault safety and idempotency.
-  - Separate roots make cross-profile open/fallback impossible; closed Personal creates no root, database or envelope.
-  - Personal envelope, bounded crash-safe rotation, bundle-plus-secret recovery and isolated restore pass synthetic proofs.
-  - Personal package and dispatcher expose only allowed capability; provider, actions, importer/parser/render are absent or denied as required.
-  - Personal backup/export/delete are root-scoped; export is OWNER_ONLY.
+  - V10 generalized rebuild preserves descendants, indexes/FKs, fault safety, and idempotency.
+  - Separate roots prevent cross-profile open/fallback; CLOSED Personal creates no root, DB, or envelope.
+  - PMV1-ROTATION-ISOLATED-REENCRYPTION-V1 safely changes SQLCipher database encryption; every crash stage preserves recoverable N or N+1, and no active DB lacks a durable matching recovery envelope.
+  - Old backup N remains independently recoverable after active N+1; retained keys cannot write and are destroyed only after all dependent backup expiry.
+  - PMV1-RECOVERY-BOOTSTRAP-V1 rejects cross-bundle/vault/version swaps and bounded-parser violations.
+  - PERSONAL_ADMISSION_GUARD blocks every Personal read and write after expiry or identity change.
+  - Exact E11 review IDs bind to the profile/evaluator; package/dispatcher expose only allowed capability.
   - REAL_DATA_GATE remains CLOSED and all fixtures remain synthetic.
 repository_required_gates:
   - uv run pytest -q
@@ -57,12 +64,12 @@ repository_required_gates:
   - git diff --check
 contract_required_proof:
   - targeted migration tests
-  - targeted key/recovery and rotation tests
-  - backup/restore tests
-  - export/delete tests
-  - profile isolation tests
-  - package inventory tests
-  - plaintext sentinel/leak tests
+  - targeted SQLCipher rotation tests and key-envelope/journal parser-state tests
+  - rotation fault matrix, including N backup to active N+1 to isolated restore N
+  - independent recovery and retained-key expiry/destruction tests
+  - admission-expiry read tests and profile isolation tests
+  - backup/restore, export/delete, package inventory, and plaintext sentinel/leak tests
+  - E11 review-ID schema/evaluator tests
   - fresh independent CRITICAL reviewer
 stop_conditions:
   - Missing fresh base SHA resolution, independent architecture review, or explicit owner approval.
@@ -79,5 +86,5 @@ activation_instructions:
   - "After exact human approval, create or finalize a separate ACTIVE Task Contract with migrations: true and key_handling_change: true."
   - "The ACTIVE contract must retain destructive: false, dependencies: false, and network: false."
 required_owner_approval_text:
-  migration: I explicitly approve V10 migration PMV1-V10-SQLITE-GENERALIZED-REBUILD as described in docs/development/personal-mode-v1/ARCHITECTURE.md, with foreign_keys disabled only outside the migration transaction, no destructive migration, no crypto-algorithm change and no REAL_DATA_GATE opening.
-  key_handling: I explicitly approve Personal key-envelope, bootstrap recovery, and bounded key rotation PMV1-KEY-ENVELOPE-V1 as described in docs/development/personal-mode-v1/ARCHITECTURE.md, with no crypto-algorithm change and no REAL_DATA_GATE opening.
+  migration: I explicitly approve V10 migration PMV1-V10-SQLITE-GENERALIZED-REBUILD exactly as described in the independently reviewed Personal Mode v1 architecture, with foreign_keys disabled only outside the migration transaction. This does not authorize destructive migration, crypto-algorithm change, a new dependency, network, REAL_DATA_GATE opening, or real personal data.
+  key_handling: I explicitly approve PMV1-KEY-ENVELOPE-V1, PMV1-ROTATION-ISOLATED-REENCRYPTION-V1, PMV1-RECOVERY-BOOTSTRAP-V1, and the retained-key lifecycle exactly as described in the independently reviewed Personal Mode v1 architecture. This does not authorize crypto-algorithm change, destructive migration, a new dependency, network, REAL_DATA_GATE opening, or real personal data.
