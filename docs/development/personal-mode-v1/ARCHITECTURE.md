@@ -1,49 +1,48 @@
 # Personal Mode v1 admission architecture
 
-Status: **PROPOSED_FOR_INDEPENDENT_REVIEW**. Base: `166832da18d913f591c3956346e41b7b5e742a5a`. No production code changed; `REAL_DATA_GATE` is `CLOSED`.
+Status: **PROPOSED_FOR_INDEPENDENT_REVIEW**. Architecture candidate base: `166832da18d913f591c3956346e41b7b5e742a5a`. `REAL_DATA_GATE` remains **CLOSED**. This is a selected design, not implementation authority.
 
-## Problem, authority, and constraints
+## Selected topology and invariant
 
-V9 Reflection physically accepts only `synthetic_only`; its direct DB key plus DPAPI does not prove independent recovery. Personal admission must satisfy Constitution C-10–C-14/C-20, master-spec migration/recovery/deletion/export rules, ADR-008/009/010/022/023, and the exact E11 profile. Imported data, providers/network, diagnosis/scoring, longitudinal activity, professional handoff and blobs remain outside the profile.
+There is one repository-owned V10 schema and one Python service implementation, instantiated in physically separate roots:
 
-## Selected Personal v1 scope
+| Profile | Owned root and database | Other owned locations |
+|---|---|---|
+| `SYNTHETIC_LAB` | Existing accepted Synthetic workspace and its existing database path remain supported without movement. | Its existing sibling staging, backup and export locations remain Synthetic-only. |
+| `LOCAL_PERSONAL` | `%LOCALAPPDATA%\\PSYCHE OS\\Personal\\vault.sqlite` | `%LOCALAPPDATA%\\PSYCHE OS\\Personal\\key-envelope.pmv1.json`; `staging\\`; `backups\\`; `exports\\` beneath that same Personal root. |
 
-Allowed: unlock/lock; Quick Capture to an explicit user save; Reflection sessions/USER turns; bounded local search; session-scoped Guided Exploration and Working Formulation as revisable proposals; action/outcome; correction/history; deletion; encrypted backup/recovery/export; restart persistence. Excluded: Review Hub, Return, Follow-up, cross-session longitudinal workflow, Longitudinal/N-of-1, AI Lab/provider/network, import/rendering, assessment/scoring, professional handoff, arbitrary attachment/blob writes. The manual Evidence Notebook is **DEFERRED**: existing canonical schema has evidence types, but admitting Personal notebook writes needs a separate explicit data-mode/trust/lifecycle decision and must not delay Reflection.
+The Personal root is new, fixed by trusted Rust/Python code, private to the current Windows user, and has never contained Synthetic data. The renderer supplies none of these paths. A Synthetic process is constructed without a Personal-root path and must not open, enumerate, or fall back to it; a Personal process is constructed without the Synthetic workspace path. `data_mode` remains a row-integrity invariant, not the isolation boundary.
 
-The byte inventory is [PERSONAL_DATA_BYTE_MAP.md](PERSONAL_DATA_BYTE_MAP.md). Sensitive bytes are canonical encrypted store or interaction workspace; derived UI/search values do not persist. Unknown or uncovered bytes are admission blockers.
+## Personal v1 scope
 
-## Chosen designs
+Allowed only after a legitimate Personal admission: unlock/lock; explicit-save Quick Capture; Reflection sessions and USER turns; local bounded search; session-scoped Guided Exploration and Working Formulation as revisable proposals; correction/history; session deletion; encrypted backup, independent recovery, owner-only encrypted export; and restart persistence.
 
-V10 is `PMV1-V10-REFLECTION-DATA-MODE-REBUILD`, a transactionally rebuilt common `reflection_sessions` table with exact two-value check constraint; it preserves all V9 synthetic rows and requires verified backup/export, recognized inventory/checksum, integrity/FK checks, capacity and exclusive writer. See [MIGRATION_V10_DESIGN.md](MIGRATION_V10_DESIGN.md). Separate personal tables and separate database/schema paths were rejected for duplicated deletion/inventory and compatibility risk.
+Excluded: provider/model/network/telemetry/sync; Action Planning and Outcomes; Longitudinal/N-of-1 and intervention workflows; Review Hub, Return and Follow-up; import/parser/untrusted rendering; assessments; professional/external handoff; arbitrary blobs/attachments; Evidence Notebook. A Personal action command is absent/denied at the Rust allowlist and Python dispatcher. Existing Synthetic behavior, including actions, remains unchanged.
 
-Key design is `PMV1-VMK-RECOVERY-ENVELOPE-V1`: CSPRNG VMK, DPAPI convenience wrap, Argon2id RecoveryWrapper, and existing domain-separated KDF for DB/backup/export. Bootstrap is Python-owned ACL-scoped metadata; renderer never sees keys. Exact salt compatibility and bootstrap format are review-critical. See [PERSONAL_KEY_RECOVERY_DESIGN.md](PERSONAL_KEY_RECOVERY_DESIGN.md).
+## V10 and migration policy
 
-Backup enumerates V10 rather than legacy V1 inventory, restores only into isolated staging and activates atomically after verification. Export is encrypted/local/owner-controlled. Deletion closes session and canonical dependencies, rebuilds projections, and declares backup expiry/external-copy limits. See [LIFECYCLE_DESIGN.md](LIFECYCLE_DESIGN.md).
+V10 adds `synthetic_only | real_personal` to `reflection_sessions`. A newly admitted Personal vault is created directly at V10 and writes `real_personal` solely from the effective admitted Personal profile. Existing Synthetic V9 workspaces can remain V9; their conversion is not a Personal-admission prerequisite. The 0→10 and V9→10 chains remain supported, but V10 never changes an existing `synthetic_only` row and roots never merge automatically. The rejected and selected procedures, exact probes, and Migrator ownership change are in [MIGRATION_V10_DESIGN.md](MIGRATION_V10_DESIGN.md).
 
-Requested profile is not authority: Rust and typed Python calculate/enforce an effective profile; renderer is untrusted. Denial exists at command, dispatcher, package and artifact boundaries. See [RUNTIME_PROFILE_PACKAGE_ISOLATION.md](RUNTIME_PROFILE_PACKAGE_ISOLATION.md).
+## Keys, recovery, backup and export
 
-## Gate and review strategy
+`PMV1-KEY-ENVELOPE-V1` uses existing `RecoveryWrapper`, `OSKeyWrapper`, and `derive_domain_key` unchanged. It specifies the Personal envelope and a portable outer recovery bootstrap; the recovery package plus recovery secret suffices on a different Windows profile. See [PERSONAL_KEY_RECOVERY_DESIGN.md](PERSONAL_KEY_RECOVERY_DESIGN.md). Backup is Personal-root-only and includes only Personal V10 store, Personal bootstrap and Personal manifests; Synthetic backup never contains Personal bytes. Export is encrypted and `OWNER_ONLY` enforced in the backend. Restore decrypts into Personal staging, verifies before activation, and never mutates an active vault. [LIFECYCLE_DESIGN.md](LIFECYCLE_DESIGN.md) defines this lifecycle.
 
-RDG-01 through RDG-12 are candidate-bound synthetic proofs in [RDG_PROOF_MAP.md](RDG_PROOF_MAP.md). Required independent review covers crypto/key/recovery, backup/restore, privacy/deletion and desktop/IPC; qualified review covers intended-use, privacy, legal/regulatory, safety and applicable rights/scientific issues. Seal only after exact source/build/profile proof and clean reviews; only the human repository owner can attest OPEN. See [HUMAN_GATE_PLAN.md](HUMAN_GATE_PLAN.md).
+## Admission and runtime gate
 
-## Self-falsification and residual risks
+Personal v1 is deliberately repository-bound. The trusted launch context supplies a fixed build-time repository root; Rust passes it to an admission-only sidecar, never the renderer. That root contains `docs/architecture/REAL_DATA_GATE.yaml`, `docs/architecture/REAL_DATA_GATE_PROFILE.yaml`, `artifacts/e11/gate-evaluations/<evaluation-id>.yaml`, `artifacts/e11/human-attestations/<evaluation-id>.yaml`, and the source/build identity required by `evaluate_evaluation()`. The selected sealed evaluation must bind the exact profile bytes, source commit, build identity, platform, evidence and current owner attestation. Missing/moved/tampered evidence, digest mismatch, expiry or a non-OPEN result is CLOSED.
 
-| Counterexample | Expected safe state / future proof |
-|---|---|
-| V9 synthetic DB or second V10 run | unchanged synthetic semantics; fixture + idempotency test |
-| migration crash, integrity/pending deletion, disk full | pre-V10 valid DB; preflight/fault tests |
-| lost DPAPI; wrong/corrupt recovery envelope | fail closed or independently recover/re-wrap; negative lifecycle tests |
-| corrupt backup/restore interruption | active vault unchanged; isolated restore tests |
-| closed gate or forged renderer profile/AI/import/longitudinal request | denial before write/transport; backend and package tests |
-| deletion search/projection/export/old backup residue | no active/query copy; backup expiry explicitly reported and tested |
-| evidence/review/attestation mismatches or later code change | evaluator rejects/must create successor; schema/evaluator tests |
+Startup states are `REQUESTED_SYNTHETIC → SYNTHETIC_ACTIVE`, or `REQUESTED_PERSONAL → PERSONAL_ADMISSION_CHECKING → PERSONAL_NOT_ADMITTED | PERSONAL_ADMITTED → PERSONAL_ACTIVE`. The admission-only process initializes no Reflection service, archive, provider, Personal DB, key envelope, directory, or credential. CLOSED returns only a content-free `NOT_ADMITTED` capability/status DTO and has no Synthetic fallback. OPEN selects the fixed Personal root, publishes/verifies the key envelope, opens the V10 Personal store, then initializes only allowed services. Personal never receives `OPENAI_API_KEY`; only Synthetic may receive it when configured.
 
-Residual risks include endpoint malware, coercion, screen/clipboard exposure, forgotten recovery material, filesystem remnants, old exported/backup copies until expiry, and future cryptographic/platform defects. None is hidden or cured by an OPEN decision.
+Attestation expiry while stopped closes the next Personal startup. While unlocked, expiry closes the session at the next privileged operation (write, search, backup, export, delete, or unlock renewal); it locks and returns `NOT_ADMITTED`, avoiding continued privileged use under an expired decision.
 
-## Handoff and approvals
+## Evidence and review
 
-Expected work surfaces are in [IMPLEMENTATION_IMPACT.md](IMPLEMENTATION_IMPACT.md); the next-run contract is [.ai-dev/contracts/personal-mode-v1-implementation.DRAFT.yaml](../../../.ai-dev/contracts/personal-mode-v1-implementation.DRAFT.yaml). It is **DRAFT, NOT AUTHORIZED FOR IMPLEMENTATION**. Required owner text after independent review:
+[PERSONAL_DATA_BYTE_MAP.md](PERSONAL_DATA_BYTE_MAP.md), [RUNTIME_PROFILE_PACKAGE_ISOLATION.md](RUNTIME_PROFILE_PACKAGE_ISOLATION.md), and [RDG_PROOF_MAP.md](RDG_PROOF_MAP.md) are load-bearing. The current authority requires rotation before initial opening: `REAL_DATA_GATE.yaml` RDG-02 says `key_rotation_and_independent_recovery_verified`, and the master spec requires versioned generation/rotation/retirement/destruction. The bounded rotation design is in the key document.
 
-> I explicitly approve V10 migration PMV1-V10-REFLECTION-DATA-MODE-REBUILD as described in docs/development/personal-mode-v1/ARCHITECTURE.md, with no destructive migration, no crypto-algorithm change and no REAL_DATA_GATE opening.
+All required review classes are listed in [HUMAN_GATE_PLAN.md](HUMAN_GATE_PLAN.md). No coding-model output satisfies them. The implementation contract remains DRAFT and unauthorized.
 
-> I explicitly approve Personal VMK/recovery integration PMV1-VMK-RECOVERY-ENVELOPE-V1 as described in docs/development/personal-mode-v1/ARCHITECTURE.md, with no destructive migration, no crypto-algorithm change and no REAL_DATA_GATE opening.
+## Approval text after independent review
+
+> I explicitly approve V10 migration PMV1-V10-SQLITE-GENERALIZED-REBUILD as described in docs/development/personal-mode-v1/ARCHITECTURE.md, with foreign_keys disabled only outside the migration transaction, no destructive migration, no crypto-algorithm change and no REAL_DATA_GATE opening.
+
+> I explicitly approve Personal key-envelope, bootstrap recovery, and bounded key rotation PMV1-KEY-ENVELOPE-V1 as described in docs/development/personal-mode-v1/ARCHITECTURE.md, with no crypto-algorithm change and no REAL_DATA_GATE opening.

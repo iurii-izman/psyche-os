@@ -1,20 +1,20 @@
-# RDG-01…RDG-12 proof map
+# RDG proof map for physically isolated Personal v1
 
-Every row is candidate/build/profile-bound synthetic evidence. `NOT_APPLICABLE_EXCLUDED` is allowed only when the complete control predicate is proven unreachable; RDG-09–12 always apply.
+Every proof is synthetic, exact-candidate/build/profile bound, and current. A failed applicable proof blocks opening.
 
-| RDG | Machine proof | Independent/qualified requirement |
+| RDG | Required deterministic proof | Required review |
 |---|---|---|
-| 01 encryption | SQLCipher/open-without-key denial; encrypted DB/WAL inventory; V10 bootstrap and no blob-write reachability | crypto/key recovery and privacy/deletion review |
-| 02 recovery | DPAPI loss, wrong/corrupt recovery secret/header, recovery rewrap, key-state/rotation tests | independent crypto/key/recovery review |
-| 03 backup/restore | authenticated encrypted package; corrupt/wrong-key denial; clean isolated restore and no activation on fault | independent recovery and privacy/deletion review |
-| 04 deletion | session/canonical lineage closure, projection rebuild, search/export absence and backup-expiry lifecycle | independent privacy/deletion review |
-| 05 migration/export | V9→V10 fixture, checksums/precondition denials, faults/idempotency, open export round trip | independent privacy/deletion and recovery review |
-| 06 leaks | synthetic sentinel scan of DB/WAL/SHM/staging/logs/sidecar/backups/exports/projections/package; content-free errors | desktop/IPC and privacy/deletion review |
-| 07 NEVER_CLOUD | provider construction, credentials, transport, telemetry and sync all unreachable under Personal process tests | technical security plus qualified privacy/safety review |
-| 08 package boundaries | exact Personal installer/sidecar command/module inventory proves importer/parser/render path absent/unreachable | independent technical security and import/parser class as required by profile |
-| 09 supply chain | lock, SBOM, license, provenance, reproducibility, executable/sidecar/installer hash, secret scan | independent technical review |
-| 10 technical reviews | review artifacts bind candidate SHA/build/profile and resolve all Critical/High | independent crypto, recovery, privacy/deletion, desktop/IPC reviewers |
-| 11 human review | intended-use/privacy/legal/regulatory packet and qualified review, no boundary N/A | qualified privacy, safety, legal/regulatory and rights/scientific reviewers required by profile |
-| 12 field acceptance | synthetic TEST-admission setup/create/restart/search/correct/backup/restore/recover/delete/export/fault flows plus CLOSED denial/exclusion tests | usability/qualified human review and owner decision |
+| 01 | Personal root is physically separate; SQLCipher DB/WAL cannot open without key; `data_mode` enforced. | independent crypto/key, privacy/deletion |
+| 02 | Bounded crash-safe rotation plus DPAPI-loss independent recovery; non-circular bootstrap. | independent crypto/key/recovery |
+| 03 | Only bundle + recovery secret restores through isolated staging; wrong/swap header/payload fails. | independent recovery, privacy/deletion |
+| 04 | Personal-only cascade/delete/search/export absence and declared backup expiry. | independent privacy/deletion |
+| 05 | 0→10 and V9→10 generalized rebuild, preconditions/faults/idempotency; V10 export round trip. | independent privacy/deletion, recovery |
+| 06 | Sentinel scan DB/WAL/SHM/staging/logs/package/export and outer bootstrap proves no plaintext Personal content/key. | desktop/IPC, privacy/deletion |
+| 07 | Synthetic process cannot open Personal root; Personal has no provider credential, adapter or transport. | technical security, qualified privacy/safety |
+| 08 | Personal package modulegraph/command/artifact inventory excludes importer/parser/render. | technical security, independent import/parser |
+| 09 | lock/SBOM/license/provenance/hashes/secret scan. | independent technical |
+| 10 | exact SHA/build/profile independent review resolves all Critical/High. | crypto, recovery, privacy/deletion, desktop/IPC |
+| 11 | exact qualified human packets below, always applicable. | human reviewers |
+| 12 | CLOSED Personal request creates no Personal directory/DB/envelope; OPEN synthetic acceptance/recovery/delete/export faults. | usability and owner decision |
 
-Failure of any load-bearing proof blocks opening; a coding-model review is pre-review only and cannot satisfy RDG-10 or RDG-11.
+Self-falsification includes: unfiltered Synthetic `session.list` has no Personal DB; forgotten Personal AI/action commands absent/denied; recovery-only-new-device succeeds; another-vault and mixed bootstrap/payload fail; the old V9 rename cascades descendants while selected procedure preserves them; Personal CLOSED writes nothing; Synthetic cannot locate Personal after records exist; expired attestation locks on next privileged operation.

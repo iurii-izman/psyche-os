@@ -1,30 +1,25 @@
-# V10 data-mode migration design
+# V10 SQLite-safe reflection rebuild
 
-Status: **PROPOSED_FOR_INDEPENDENT_REVIEW; implementation human-gated.** Design ID: `PMV1-V10-REFLECTION-DATA-MODE-REBUILD`.
+Status: **PROPOSED_FOR_INDEPENDENT_REVIEW**. Design ID: `PMV1-V10-SQLITE-GENERALIZED-REBUILD`.
 
-## Selection
+## Falsified prior sequence
 
-Select **Option A: transactional rebuild of `reflection_sessions` in the common V10 database**. Add `10: personal_mode_data_mode_v10` to `SCHEMA_VERSIONS`, set `LATEST_SCHEMA_VERSION = 10`, add `src/psyche_os/storage/personal_mode_v10_schema.py`, import its `V10_MIGRATION_{STATEMENTS,CHECKSUM}` in `migrations.py`, and register `Migration(version=10, label="personal_mode_data_mode_v10", ...)`. Callers that intentionally request V9 remain V9; Personal admission explicitly requests V10 only after gate admission and migration preflight.
+Disposable synthetic probe, run with the repository runtime (`sqlite3` **3.49.1**), created one `reflection_sessions` row, two turns, exploration state, one action plan and one outcome, with `PRAGMA foreign_keys=ON`. Before: `sessions=1, turns=2, explorations=1, plans=1, outcomes=1`; child FKs targeted `reflection_sessions`. After the old parent rename, each child FK targeted `reflection_sessions_v9_old`. After old-table drop: `sessions=1, turns=0, explorations=0, plans=0, outcomes=0`; `foreign_key_check=[]`. The former V10 sequence is therefore **REJECTED**: clean FK check did not detect the cascaded data loss.
 
-Option B duplicates workspace semantics and deletion/search/backup contracts. Option C creates two incompatible stores and leaves canonical inventory/recovery ambiguous. Both are rejected. Existing Synthetic V9 workspaces **migrate to V10 only through the explicit verified migration flow**; every copied row remains `synthetic_only` forever.
+## Selected exact procedure
 
-## SQL transaction
+Before any transaction: exclusively quiesce the application/writer; verify recognized V9 inventory/checksum, `integrity_check=ok`, `foreign_key_check=[]`, no pending deletion, capacity, and verified backup/export. Do `PRAGMA foreign_keys=OFF` **outside a transaction** and verify it returns 0. The Migrator must own a V10-special prelude and epilogue; generic per-migration transaction ownership cannot toggle that pragma after its `BEGIN IMMEDIATE`.
 
-The exact migration statement list is checksum-bound and executes inside the existing `BEGIN IMMEDIATE` transaction, with `PRAGMA foreign_keys=ON` verified before start (never turned off):
+1. `BEGIN IMMEDIATE`.
+2. Create `reflection_sessions_v10_new` with the V6 columns and `CHECK(data_mode IN ('synthetic_only','real_personal'))`.
+3. Copy all explicit V6 columns. Require source/new counts equal, exact content equality, and every copied value `synthetic_only`.
+4. Drop `reflection_sessions` while FK enforcement is off.
+5. Rename `reflection_sessions_v10_new` to `reflection_sessions`; recreate `idx_reflection_sessions_updated` and every table-local trigger/index recorded in the V10 inventory.
+6. Verify the full inventory, copied rows, required indexes, and `PRAGMA foreign_key_list` targets while still in the transaction. Insert the V10 migration record. Commit.
+7. Re-enable `PRAGMA foreign_keys=ON` outside a transaction; require `foreign_key_check=[]`, integrity check, and a reopening test before activation. Any failure means the candidate is not used and a verified pre-migration backup is restored to an isolated target.
 
-1. `CREATE TABLE reflection_sessions_v10_new` with the V6 columns and exact `data_mode TEXT NOT NULL CHECK(data_mode IN ('synthetic_only','real_personal'))`.
-2. `INSERT INTO reflection_sessions_v10_new (all columns) SELECT (all columns) FROM reflection_sessions WHERE data_mode='synthetic_only';` Then require source/new row counts equal and reject any non-synthetic source value.
-3. Run `PRAGMA foreign_key_check`; recreate `idx_reflection_sessions_updated` on the new table.
-4. Rename old `reflection_sessions` to `reflection_sessions_v9_old`; rename new table to `reflection_sessions`; recreate/verify the index; run `foreign_key_check` and content/count checks; drop only `reflection_sessions_v9_old` immediately before the transaction’s migration record and commit.
+No `writable_schema`, `legacy_alter_table`, SQL-text edits, or parent rename is allowed. A process crash before commit rolls back. Post-commit FK failure is an activation failure, not a repair-on-live-data opportunity. A recorded V10 skips the second apply.
 
-SQLite’s supported table-rebuild technique may require dependent foreign keys to reference the renamed table during the operation. The implementer must prove this exact sequence against V9 fixtures with `foreign_keys=ON`; if SQLite cannot preserve those references without disabling it, this design is blocked and must return for architecture review rather than use `PRAGMA foreign_keys=OFF`.
+## Selected-procedure proof
 
-## Preconditions and failure semantics
-
-Mandatory: exact recognized V9 checksum/inventory; `integrity_check=ok`; empty pending deletion state; `foreign_key_check` clean; exclusive writer lock; verified encrypted backup and verified open export; sufficient free staging capacity (at least DB size plus WAL and rebuild headroom); no Personal gate opening. The migration captures those checks before `BEGIN IMMEDIATE`.
-
-Create/copy/index/rename/drop/record failures, process crash, I/O error, or disk full roll back the single transaction to the valid V9 database. A crash after commit leaves a valid V10 database and migration record. No intermediate state activates. The record makes reruns idempotent: current V10 is skipped, and partial work has rolled back. Downgrade is deliberately unsupported; restore the verified pre-migration backup into an isolated target.
-
-## Required future tests
-
-Synthetic V9 fixture: exact inventory/checksum, surviving sessions/turns/exploration/actions, no value reinterpretation; double apply; each precondition denial; injected failure at each step; `integrity_check`/`foreign_key_check`; V10 backup/restore/export round trip; and direct attempted `real_personal` insert denied while gate/profile admission is closed.
+The same disposable fixture used steps 1–7. After rebuild: `sessions=1, turns=2, explorations=1, plans=1, outcomes=1`; all inspected child FK targets were `reflection_sessions`; `foreign_key_check=[]`. Deleting the rebuilt parent then cascaded to `0` for every descendant. This proves descendant survival and post-migration cascade semantics on the actual runtime, not documentation alone. Future candidate tests additionally cover full V7/V8/V9 graph, content/index inventory, fault points, no-op second apply, and 0→10.

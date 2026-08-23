@@ -1,14 +1,12 @@
-# Implementation impact map (not authorization)
+# Bounded implementation impact (not authorization)
 
-| Workstream | Expected surfaces / tests |
+| Workstream | Exact expected surfaces |
 |---|---|
-| Migration | new `src/psyche_os/storage/personal_mode_v10_schema.py`; `schema.py`; `migrations.py`; V9 fixture and failure/idempotency tests |
-| Key lifecycle | a small Python-owned Personal bootstrap/lifecycle module; reuse `crypto/envelope.py` without algorithm edits; recovery/DPAPI negative tests |
-| Reflection | `application/reflection_sessions.py`, storage connection/admission, exploration/action query filtering and deletion/search tests |
-| Backup/restore/export | `backup_export/operations.py`, `versioned.py`, schemas/tests to enumerate exact V10 inventory and isolated activation |
-| Runtime profile | `application/runtime_profile.py` (new if necessary), `desktop_service.py`, `interfaces/desktop_sidecar.py`, Rust commands and renderer capability UI |
-| Packaging | `scripts/build_desktop_sidecar.py`, Tauri/PyInstaller configuration, artifact inventory/SBOM/provenance checks |
-| Gate evidence | `release_evidence/**`, `schemas/e11/**`, `scripts/dev/**` only if a frozen contract requires it |
-| Tests | schema, migration fault injection, key/recovery, backup/restore/export/delete, IPC/profile/exclusion, sentinel leak, package, and synthetic E11 acceptance |
+| V10 | `src/psyche_os/storage/migrations.py`, new `personal_mode_v10_schema.py`, reflection schema tests |
+| Personal roots/envelope | new focused `src/psyche_os/personal_mode/` package, storage connection factory, envelope/recovery tests |
+| backup/export | `src/psyche_os/backup_export/operations.py`, `versioned.py`, focused lifecycle tests |
+| profile/admission | `src/psyche_os/application/desktop_service.py`, `interfaces/desktop_sidecar.py`, `release_evidence/e11_gate.py`, `desktop/src-tauri/src/**` |
+| package | `scripts/build_desktop_sidecar.py`, desktop packaging config, package inventory test |
+| Personal UI | only profile capability/status and allowed routes under `desktop/src/**` |
 
-All listed production paths remain protected until the owner explicitly approves the selected V10 and key-recovery designs after independent architecture review.
+No production path is authorized until a separately ACTIVE contract exists after independent review and owner approval.
