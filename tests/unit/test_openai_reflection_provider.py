@@ -75,7 +75,7 @@ def test_network_failure_has_no_retry(failure):
     assert len(calls) == 1
 
 
-@pytest.mark.parametrize("body", [b"{", json.dumps({"output": []}).encode(), b"x" * 300_000])
+@pytest.mark.parametrize("body", [b"{", json.dumps({"output": []}).encode(), b"x" * 300_000], ids=["malformed-json", "missing-output", "oversized"])
 def test_malformed_or_oversized_response_fails_closed(body):
     with pytest.raises(ProviderUnavailableError): OpenAIReflectionProvider(api_key="test-key", transport=lambda *_, **__: Response(body)).invoke(request_for())
 
