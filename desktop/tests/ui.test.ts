@@ -65,7 +65,12 @@ function mockApi(locked = false): DesktopApi {
     actionOptions: vi.fn(async () => ({ session_id: "reflection-1", anchor_type: null, anchor_id: null, options: [{ template_id: "PAUSE" as const, template_version: "v1", text: "Ничего не предпринимать сейчас и оставить вопрос открытым." }] })),
     actionList: vi.fn(async () => ({ session_id: "reflection-1", plans: [] })),
     actionCreate: vi.fn(async () => ({ plan_id: "plan-1", session_id: "reflection-1", version: 1, supersedes_plan_id: null, status: "CURRENT" as const, basis_snapshot_id: null, basis_formulation_id: null, anchor_type: null, anchor_id: null, user_goal: "Цель", template_id: "PAUSE" as const, template_version: "v1", action_text: "Пауза", method_version: "v1", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", outcome: null })),
-    actionRecordOutcome: vi.fn(async () => ({ outcome_id: "outcome-1", status: "DONE" as const, note_text: null, created_at: "2026-01-01T00:00:00Z" }))
+    actionRecordOutcome: vi.fn(async () => ({ outcome_id: "outcome-1", status: "DONE" as const, note_text: null, created_at: "2026-01-01T00:00:00Z" })),
+    personalBackup: vi.fn(async () => ({ backup_id: "personal-backup", key_version: "1" })),
+    personalRestoreIsolated: vi.fn(async () => ({ candidate_id: "personal-restore", key_version: "1" })),
+    personalExportOwner: vi.fn(async () => ({ export_id: "personal-export", audience: "OWNER_ONLY" })),
+    personalRotate: vi.fn(async () => ({ from_key_version: "1", to_key_version: "2" })),
+    personalRecoveryStatus: vi.fn(async () => ({ local_personal: "ADMITTED", rotation: "READY" }))
   };
 }
 
@@ -90,6 +95,15 @@ function selectSyntheticEvidence(recordId: string, role: string): void {
 }
 
 describe("E02 bounded desktop UI", () => {
+  it("Personal CLOSED renders a content-free not-admitted state without synthetic fallback", async () => {
+    const api = mockApi(false);
+    api.status = vi.fn(async () => ({ ...syntheticStatus(true), runtime_profile: "LOCAL_PERSONAL", local_personal: "NOT_ADMITTED" as const }));
+    await mount(api);
+    expect(document.body.textContent).toContain("Личный режим пока недоступен");
+    expect(document.body.textContent).not.toContain("Внешний AI-провайдер");
+    expect(api.reflectionList).not.toHaveBeenCalled();
+  });
+
   it("E07 renders a validated AI proposal as a Russian-first proposal-only card", async () => {
     const api = mockApi(false);
     await mount(api);

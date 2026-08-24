@@ -1,0 +1,27 @@
+// The Personal executable owns exactly these renderer-facing commands.
+// Keep in lock-step with personal_product.rs and capabilities/personal-local.json.
+pub const SHIPPED_COMMANDS: &[&str] = &[
+    "desktop_status",
+    "desktop_unlock",
+    "desktop_lock",
+    "desktop_reflection_create",
+    "desktop_reflection_list",
+    "desktop_reflection_get",
+    "desktop_reflection_add_turn",
+    "desktop_reflection_close",
+    "desktop_reflection_delete",
+    "desktop_reflection_search",
+    "desktop_exploration_start",
+    "desktop_exploration_get",
+    "desktop_exploration_answer",
+    "desktop_exploration_skip",
+    "desktop_formulation_propose",
+    "desktop_formulation_correct",
+    "desktop_formulation_accept",
+    "desktop_formulation_reject",
+    "desktop_personal_backup",
+    "desktop_personal_restore_isolated",
+    "desktop_personal_export_owner",
+    "desktop_personal_rotate",
+    "desktop_personal_recovery_status",
+];

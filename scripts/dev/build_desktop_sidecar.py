@@ -10,18 +10,26 @@ import struct
 import subprocess
 import sys
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DESKTOP = ROOT / "desktop"
 OUTPUT = DESKTOP / "src-tauri" / "binaries"
 BUILD = DESKTOP / "build" / "sidecar"
 NAME = "psyche-os-sidecar-x86_64-pc-windows-msvc"
+PERSONAL_NAME = "psyche-os-personal-sidecar-x86_64-pc-windows-msvc"
+PERSONAL_FORBIDDEN_MODULES = (
+    "psyche_os.adapters",
+    "psyche_os.application.action_planning",
+    "psyche_os.backup_export",
+    "psyche_os.interfaces.cli",
+    "psyche_os.storage.migrations",
+    "psyche_os.domain.assessments",
+    "psyche_os.storage.v3a3_action_schema",
+)
+SYNTHETIC_FIXTURE = "psyche_os/fixtures/e03_orchid_station_v1.json"
 
 
-def main() -> int:
-    OUTPUT.mkdir(parents=True, exist_ok=True)
-    BUILD.mkdir(parents=True, exist_ok=True)
-    executable = OUTPUT / f"{NAME}.exe"
+def _build(name: str, entrypoint: Path, *, synthetic: bool) -> Path:
+    executable = OUTPUT / f"{name}.exe"
     if executable.exists():
         executable.unlink()
     command = [
@@ -33,23 +41,101 @@ def main() -> int:
         "--onefile",
         "--console",
         "--name",
-        NAME,
+        name,
         "--distpath",
         str(OUTPUT),
         "--workpath",
-        str(BUILD / "work"),
+        str(BUILD / name / "work"),
         "--specpath",
-        str(BUILD),
+        str(BUILD / name),
         "--paths",
         str(ROOT / "src"),
         "--hidden-import",
         "sqlcipher3",
-        "--add-data",
-        f"{ROOT / 'src' / 'psyche_os' / 'fixtures' / 'e03_orchid_station_v1.json'}{os.pathsep}psyche_os/fixtures",
-        str(ROOT / "src" / "psyche_os" / "interfaces" / "desktop_sidecar.py"),
+        str(entrypoint),
     ]
+    if synthetic:
+        command[-1:-1] = [
+            "--hidden-import",
+            "psyche_os.storage.migrations",
+            "--add-data",
+            f"{ROOT / 'src' / 'psyche_os' / 'fixtures' / 'e03_orchid_station_v1.json'}"
+            f"{os.pathsep}psyche_os/fixtures",
+        ]
     completed = subprocess.run(command, cwd=ROOT, check=False)
     if completed.returncode != 0 or not executable.is_file():
+        raise RuntimeError(name)
+    return executable
+
+
+def _verify_personal_inventory(executable: Path) -> None:
+    """Inspect the emitted PyInstaller module graph, not source-string matches."""
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "PyInstaller.utils.cliutils.archive_viewer",
+            "-r",
+            "-b",
+            str(executable),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    names = result.stdout.splitlines()
+    if result.returncode != 0 or any(
+        name.strip() == forbidden or name.strip().startswith(f"{forbidden}.")
+        for name in names
+        for forbidden in PERSONAL_FORBIDDEN_MODULES
+    ):
+        raise RuntimeError("personal-modulegraph")
+    actual = {path.name for path in OUTPUT.glob("psyche-os*sidecar*.exe")}
+    expected = {f"{NAME}.exe", f"{PERSONAL_NAME}.exe"}
+    if actual != expected:
+        raise RuntimeError("sidecar-executable-inventory")
+
+
+def _verify_synthetic_resource(executable: Path) -> None:
+    """Fail if the frozen Synthetic sidecar lacks its owned E03 fixture."""
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "PyInstaller.utils.cliutils.archive_viewer",
+            "-r",
+            "-b",
+            str(executable),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    normalized = result.stdout.replace("\\", "/")
+    if result.returncode != 0 or SYNTHETIC_FIXTURE not in normalized:
+        raise RuntimeError("synthetic-fixture-resource")
+
+
+def main() -> int:
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    BUILD.mkdir(parents=True, exist_ok=True)
+    try:
+        executable = _build(
+            NAME,
+            ROOT / "src" / "psyche_os" / "interfaces" / "desktop_sidecar.py",
+            synthetic=True,
+        )
+        personal = _build(
+            PERSONAL_NAME,
+            ROOT / "src" / "psyche_os" / "interfaces" / "personal_desktop_sidecar.py",
+            synthetic=False,
+        )
+        _verify_personal_inventory(personal)
+        _verify_synthetic_resource(executable)
+    except RuntimeError as error:
+        print(f"FAIL: {error}", file=sys.stderr)
         return 1
 
     request = {
@@ -74,15 +160,14 @@ def main() -> int:
     if (
         response.get("status") != "ok"
         or response.get("data", {}).get("real_data_gate") != "CLOSED"
-        or response.get("data", {}).get("network") != "OFFLINE_NO_LISTENER"
+        or response.get("data", {}).get("inbound_listener") != "NONE"
     ):
         return 3
-    # PyInstaller spec is a generated build input, not a durable source file.
-    spec = BUILD / f"{NAME}.spec"
-    if spec.exists():
-        spec.unlink()
-    shutil.rmtree(BUILD / "work", ignore_errors=True)
-    print(f"PASS: fixed Python/SQLCipher sidecar built and probed: {executable}")
+    # PyInstaller specs are generated inputs, not durable source files.
+    shutil.rmtree(BUILD, ignore_errors=True)
+    print(
+        f"PASS: profile-specific Python/SQLCipher sidecars built and synthetic probe passed: {executable}"
+    )
     return 0
 
 

@@ -625,6 +625,29 @@ class UnitOfWorkManager:
                 if op.table not in ALLOWED_TABLES:
                     raise UnitOfWorkError(f"Table '{op.table}' is not in the storage allowlist")
 
+            # V10 owns policy identity internally. A first version establishes
+            # its immutable mapping; later versions must prove the same pair
+            # before any active version is closed or a new row is inserted.
+            has_policy_registry = cur.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='policy_identities'"
+            ).fetchone()
+            if has_policy_registry:
+                for op in uow.operations:
+                    if op.table != "data_policies":
+                        continue
+                    policy_id = str(op.data["policy_id"])
+                    record_id = str(op.record_id)
+                    cur.execute(
+                        "INSERT OR IGNORE INTO policy_identities(policy_id, record_id) VALUES (?, ?)",
+                        (policy_id, record_id),
+                    )
+                    pair = cur.execute(
+                        "SELECT record_id FROM policy_identities WHERE policy_id=?",
+                        (policy_id,),
+                    ).fetchone()
+                    if pair != (record_id,):
+                        raise UnitOfWorkError("POLICY_IDENTITY_MISMATCH")
+
             # 1. Close previous active versions — preserve closure_marker
             for op in uow.operations:
                 if op.table in VERSIONED_TABLES:

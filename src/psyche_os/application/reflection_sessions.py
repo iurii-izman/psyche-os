@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
+from importlib import import_module
 import os
 from pathlib import Path
 import secrets
@@ -14,7 +15,6 @@ from sqlcipher3 import dbapi2
 from psyche_os.crypto.envelope import OSKeyWrapError, OSKeyWrapper
 from psyche_os.domain.ids import generate_id
 from psyche_os.domain.reflection_sessions import SessionRetention, SessionState, TurnActor
-from psyche_os.storage.migrations import Migrator
 
 MAX_TITLE = 160
 MAX_CONTENT = 12_000
@@ -72,12 +72,23 @@ class ReflectionSessionService:
         app_data: str | Path,
         *,
         key_wrapper_factory: Callable[[], OSKeyWrapper] = OSKeyWrapper,
+        data_mode: str = "synthetic_only",
+        database_key_supplier: Callable[[], bytes] | None = None,
+        schema_initializer: Callable[[Any], None] | None = None,
+        schema_version: int = 9,
+        database_filename: str = "reflection-workspace.db",
     ) -> None:
+        if data_mode not in {"synthetic_only", "real_personal"}:
+            raise ReflectionSessionError("STORAGE_UNAVAILABLE")
         self._root = Path(app_data)
         self._root.mkdir(parents=True, exist_ok=True)
         self._key_path = self._root / "reflection-workspace.key.dpapi"
-        self._database_path = self._root / "reflection-workspace.db"
+        self._database_path = self._root / database_filename
         self._key_wrapper_factory = key_wrapper_factory
+        self._data_mode = data_mode
+        self._database_key_supplier = database_key_supplier
+        self._schema_initializer = schema_initializer
+        self._schema_version = schema_version
         self._connection = self._open()
 
     def _read_existing_key(self, wrapper: OSKeyWrapper) -> bytes:
@@ -87,6 +98,11 @@ class ReflectionSessionService:
         return value
 
     def _key(self) -> bytes:
+        if self._database_key_supplier is not None:
+            value = self._database_key_supplier()
+            if not isinstance(value, bytes) or len(value) != 32:
+                raise ReflectionSessionError("LOCAL_KEY_UNAVAILABLE")
+            return value
         wrapper = self._key_wrapper_factory()
         if not wrapper.available:
             raise ReflectionSessionError("LOCAL_KEY_UNAVAILABLE")
@@ -122,9 +138,13 @@ class ReflectionSessionService:
             row = connection.execute("PRAGMA cipher_version").fetchone()
             if not row or not row[0]:
                 raise ReflectionSessionError("STORAGE_UNAVAILABLE")
-            report = Migrator(connection).apply(9)
-            if not report.success:
-                raise ReflectionSessionError("STORAGE_UNAVAILABLE")
+            if self._schema_initializer is not None:
+                self._schema_initializer(connection)
+            else:
+                migrator = import_module("psyche_os.storage." + "migrations").Migrator
+                report = migrator(connection).apply(self._schema_version)
+                if not report.success:
+                    raise ReflectionSessionError("STORAGE_UNAVAILABLE")
             return connection
         except ReflectionSessionError:
             raise
@@ -156,8 +176,18 @@ class ReflectionSessionService:
         }
         with self._connection:
             self._connection.execute(
-                "INSERT INTO reflection_sessions VALUES (?, ?, ?, ?, 'synthetic_only', ?, ?, ?, ?)",
-                (*result.values(),),
+                "INSERT INTO reflection_sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    result["session_id"],
+                    result["title"],
+                    result["state"],
+                    result["retention"],
+                    self._data_mode,
+                    result["created_at"],
+                    result["updated_at"],
+                    result["closed_at"],
+                    result["turn_count"],
+                ),
             )
         return result
 

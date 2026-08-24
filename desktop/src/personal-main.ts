@@ -1,0 +1,12 @@
+import { personalApi, type ReflectionSession } from "./personal-api";
+
+const app = document.querySelector<HTMLDivElement>("#app");
+if (!app) throw new Error("Personal application root is missing");
+const root = app;
+let sessions: ReflectionSession[] = [];
+const safe = (value: unknown) => String(value ?? "").replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character] ?? character);
+async function refresh() { try { sessions = (await personalApi.reflectionList()).sessions; } catch { sessions = []; } render(); }
+function render() { root.innerHTML = `<main><h1>PSYCHE OS Personal</h1><p id="status">Local Personal Mode. Real Data Gate: CLOSED.</p><section><label>Unlock secret <input id="secret" type="password" /></label><button id="unlock">Unlock</button><button id="lock">Lock</button></section><section><label>Reflection title <input id="title" /></label><button id="create">Create reflection</button></section><section><label>Search reflections <input id="search" /></label><button id="searchButton">Search</button></section><section><h2>Reflections</h2><ul>${sessions.map((session) => `<li>${safe(session.title)} — ${safe(session.state)} (${session.turn_count} turns)</li>`).join("")}</ul></section><pre id="message"></pre></main>`; bind(); }
+function message(value: unknown) { const target = document.querySelector("#message"); if (target) target.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2); }
+function bind() { document.querySelector<HTMLButtonElement>("#unlock")?.addEventListener("click", async () => { try { const secret = (document.querySelector<HTMLInputElement>("#secret")?.value ?? ""); message(await personalApi.unlock(secret)); await refresh(); } catch (error) { message(error); } }); document.querySelector<HTMLButtonElement>("#lock")?.addEventListener("click", async () => { try { message(await personalApi.lock()); } catch (error) { message(error); } }); document.querySelector<HTMLButtonElement>("#create")?.addEventListener("click", async () => { try { const title = document.querySelector<HTMLInputElement>("#title")?.value ?? ""; message(await personalApi.reflectionCreate(title)); await refresh(); } catch (error) { message(error); } }); document.querySelector<HTMLButtonElement>("#searchButton")?.addEventListener("click", async () => { try { const query = document.querySelector<HTMLInputElement>("#search")?.value ?? ""; message(await personalApi.reflectionSearch(query)); } catch (error) { message(error); } }); }
+void refresh();

@@ -334,6 +334,20 @@ export async function mount(api: DesktopApi = desktopApi): Promise<void> {
     statusRegion.append(item);
   }
 
+  if (status.runtime_profile === "LOCAL_PERSONAL" && status.local_personal === "NOT_ADMITTED") {
+    lockButton.hidden = true;
+    const unavailable = el("section");
+    unavailable.className = "unlock card";
+    unavailable.append(
+      el("h1", "Личный режим пока недоступен"),
+      el("p", "Доступ к личному локальному хранилищу не разрешён. Содержимое, пути и ключи не загружены."),
+      el("p", "REAL_DATA_GATE остаётся закрытым. Синтетический режим не подменяет личный режим.")
+    );
+    main.append(statusRegion, unavailable);
+    root.append(header, main, operationStatus);
+    return;
+  }
+
   if (status.locked) {
     lockButton.hidden = true;
     const unlock = el("section");

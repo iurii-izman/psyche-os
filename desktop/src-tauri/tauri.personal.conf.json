@@ -1,0 +1,9 @@
+{
+  "productName": "PSYCHE OS Personal",
+  "build": {
+    "beforeBuildCommand": "npm run build:personal",
+    "frontendDist": "../dist-personal"
+  },
+  "app": { "security": { "capabilities": ["personal-local"] } },
+  "bundle": { "externalBin": ["binaries/psyche-os-personal-sidecar"] }
+}

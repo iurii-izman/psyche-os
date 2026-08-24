@@ -1,10 +1,18 @@
 #![deny(unsafe_code)]
 
+// The synthetic product remains source-compatible, but is deliberately not
+// compiled into the Personal package.  Personal is a separate Cargo feature
+// selected only by the Personal packaging command.
+#[cfg(not(feature = "personal-product"))]
+mod synthetic_product {
+
 #[allow(dead_code)]
+#[path = "../command_manifest.rs"]
 mod command_manifest;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::ffi::OsString;
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -17,6 +25,31 @@ const MAX_FRAME_BYTES: usize = 65_536;
 const MAX_TEXT: usize = 512;
 const MAX_TURN_TEXT: usize = 12_000;
 const ALLOWED_ORIGINS: &[(&str, &str)] = &[("tauri", "localhost"), ("http", "tauri.localhost")];
+const PERSONAL_SIDECAR_COMMANDS: &[&str] = &[
+    "status.get", "session.unlock", "session.lock",
+    "reflection_session.create", "reflection_session.list", "reflection_session.get",
+    "reflection_session.add_turn", "reflection_session.close", "reflection_session.delete",
+    "reflection.search", "reflection_exploration.start", "reflection_exploration.get",
+    "reflection_exploration.answer", "reflection_exploration.skip",
+    "reflection_exploration.formulation.propose", "reflection_exploration.formulation.correct",
+    "reflection_exploration.formulation.accept", "reflection_exploration.formulation.reject",
+    "backup.create", "recovery.restore_isolated", "recovery.status", "export.owner", "rotation.rotate",
+];
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum TrustedLaunchProfile {
+    RequestedSynthetic,
+    RequestedPersonal,
+}
+
+fn trusted_profile_for_build() -> TrustedLaunchProfile {
+    // Build-time composition is host-owned. There is intentionally no IPC,
+    // config file, or runtime environment switch that can select a profile.
+    match option_env!("PSYCHE_OS_TRUSTED_PROFILE") {
+        Some("PERSONAL") => TrustedLaunchProfile::RequestedPersonal,
+        _ => TrustedLaunchProfile::RequestedSynthetic,
+    }
+}
 
 #[derive(Debug, Serialize)]
 struct SidecarRequest<'a> {
@@ -52,33 +85,27 @@ struct SidecarClient {
 }
 
 impl SidecarClient {
-    fn spawn() -> Result<Self, String> {
-        let path = locate_sidecar().ok_or_else(|| "SIDECAR_UNAVAILABLE".to_string())?;
+    fn spawn(profile: TrustedLaunchProfile) -> Result<Self, String> {
+        let path = locate_sidecar(profile).ok_or_else(|| "SIDECAR_UNAVAILABLE".to_string())?;
         let temp_directory = std::env::temp_dir();
-        let app_data = std::env::var_os("PSYCHE_OS_APP_DATA")
+        let local_app_data = std::env::var_os("LOCALAPPDATA")
             .map(PathBuf::from)
-            .or_else(|| std::env::var_os("LOCALAPPDATA").map(|base| PathBuf::from(base).join("PSYCHE OS")))
             .ok_or_else(|| "SIDECAR_UNAVAILABLE".to_string())?;
-        std::fs::create_dir_all(&app_data).map_err(|_| "SIDECAR_UNAVAILABLE".to_string())?;
+        let synthetic_root = if profile == TrustedLaunchProfile::RequestedSynthetic {
+            let app_data = std::env::var_os("PSYCHE_OS_APP_DATA")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| local_app_data.join("PSYCHE OS"));
+            std::fs::create_dir_all(&app_data).map_err(|_| "SIDECAR_UNAVAILABLE".to_string())?;
+            Some(app_data)
+        } else {
+            None
+        };
         let mut child = Command::new(path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .env_clear()
-            .env(
-                "SYSTEMROOT",
-                std::env::var("SYSTEMROOT").unwrap_or_default(),
-            )
-            .env("WINDIR", std::env::var("WINDIR").unwrap_or_default())
-            // The single-file Python sidecar must unpack before it can start.
-            // These host-owned values are fixed by the Rust boundary and are
-            // never accepted from renderer request data.
-            .env("TEMP", &temp_directory)
-            .env("TMP", &temp_directory)
-            .env("PSYCHE_OS_APP_DATA", app_data)
-            // Deliberately forward only the provider credential; renderer input
-            // cannot influence the sidecar environment or destination.
-            .env("OPENAI_API_KEY", std::env::var("OPENAI_API_KEY").unwrap_or_default())
+            .envs(sidecar_environment(profile, &temp_directory, &local_app_data, synthetic_root.as_deref()))
             .spawn()
             .map_err(|_| "SIDECAR_UNAVAILABLE".to_string())?;
         let stdin = child
@@ -150,6 +177,33 @@ impl SidecarClient {
     }
 }
 
+fn sidecar_environment(
+    profile: TrustedLaunchProfile,
+    temp_directory: &Path,
+    local_app_data: &Path,
+    synthetic_root: Option<&Path>,
+) -> Vec<(OsString, OsString)> {
+    let mut values = vec![
+        (OsString::from("SYSTEMROOT"), std::env::var_os("SYSTEMROOT").unwrap_or_default()),
+        (OsString::from("WINDIR"), std::env::var_os("WINDIR").unwrap_or_default()),
+        (OsString::from("TEMP"), temp_directory.as_os_str().to_owned()),
+        (OsString::from("TMP"), temp_directory.as_os_str().to_owned()),
+    ];
+    match profile {
+        TrustedLaunchProfile::RequestedSynthetic => {
+            let root = synthetic_root.expect("Synthetic composition requires its trusted root");
+            values.push((OsString::from("PSYCHE_OS_APP_DATA"), root.as_os_str().to_owned()));
+            // Synthetic E07 behavior stays unchanged; Personal never receives
+            // this credential or any provider configuration.
+            values.push((OsString::from("OPENAI_API_KEY"), std::env::var_os("OPENAI_API_KEY").unwrap_or_default()));
+        }
+        TrustedLaunchProfile::RequestedPersonal => {
+            values.push((OsString::from("PSYCHE_OS_LOCAL_APP_DATA"), local_app_data.as_os_str().to_owned()));
+        }
+    }
+    values
+}
+
 impl Drop for SidecarClient {
     fn drop(&mut self) {
         let _ = self._child.kill();
@@ -159,14 +213,24 @@ impl Drop for SidecarClient {
 
 struct DesktopState {
     sidecar: Mutex<Option<SidecarClient>>,
+    profile: TrustedLaunchProfile,
 }
 
-fn locate_sidecar() -> Option<PathBuf> {
-    let suffix = "psyche-os-sidecar-x86_64-pc-windows-msvc.exe";
+fn locate_sidecar(profile: TrustedLaunchProfile) -> Option<PathBuf> {
+    let (plain_name, suffix) = match profile {
+        TrustedLaunchProfile::RequestedSynthetic => (
+            "psyche-os-sidecar.exe",
+            "psyche-os-sidecar-x86_64-pc-windows-msvc.exe",
+        ),
+        TrustedLaunchProfile::RequestedPersonal => (
+            "psyche-os-personal-sidecar.exe",
+            "psyche-os-personal-sidecar-x86_64-pc-windows-msvc.exe",
+        ),
+    };
     let mut candidates = Vec::new();
     if let Ok(executable) = std::env::current_exe() {
         if let Some(directory) = executable.parent() {
-            candidates.push(directory.join("psyche-os-sidecar.exe"));
+            candidates.push(directory.join(plain_name));
             candidates.push(directory.join(suffix));
             candidates.push(directory.join("binaries").join(suffix));
         }
@@ -214,12 +278,17 @@ fn invoke_python(
     if !allowed_origin(window) {
         return Err("ORIGIN_REJECTED".to_string());
     }
+    if state.profile == TrustedLaunchProfile::RequestedPersonal
+        && !PERSONAL_SIDECAR_COMMANDS.contains(&command)
+    {
+        return Err("UNKNOWN_COMMAND".to_string());
+    }
     let mut guard = state
         .sidecar
         .lock()
         .map_err(|_| "SIDECAR_UNAVAILABLE".to_string())?;
     if guard.is_none() {
-        *guard = Some(SidecarClient::spawn()?);
+        *guard = Some(SidecarClient::spawn(state.profile)?);
     }
     guard
         .as_mut()
@@ -351,6 +420,14 @@ struct AiPrepareRequest { session_token: Option<String>, selected: Vec<AiSelecti
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ReflectionSearchRequest { session_token: Option<String>, query: String, state: String, limit: u32, offset: u32 }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PersonalSecretRequest { session_token: Option<String>, secret: String }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PersonalRestoreRequest { session_token: Option<String>, backup_id: String, secret: String }
 
 fn bounded(values: &[&str]) -> Result<(), String> {
     if values
@@ -717,10 +794,39 @@ fn desktop_reflection_search(window: WebviewWindow, state: tauri::State<'_, Desk
     invoke_python(&window, &state, "reflection.search", request.session_token.as_deref(), json!({"query": request.query, "state": request.state, "limit": request.limit, "offset": request.offset}))
 }
 
+#[tauri::command]
+fn desktop_personal_backup(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: PersonalSecretRequest) -> Result<Value, String> {
+    bounded(&[&request.secret])?;
+    invoke_python(&window, &state, "backup.create", request.session_token.as_deref(), json!({"secret": request.secret}))
+}
+
+#[tauri::command]
+fn desktop_personal_restore_isolated(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: PersonalRestoreRequest) -> Result<Value, String> {
+    bounded(&[&request.backup_id, &request.secret])?;
+    invoke_python(&window, &state, "recovery.restore_isolated", request.session_token.as_deref(), json!({"backup_id": request.backup_id, "secret": request.secret}))
+}
+
+#[tauri::command]
+fn desktop_personal_export_owner(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: PersonalSecretRequest) -> Result<Value, String> {
+    bounded(&[&request.secret])?;
+    invoke_python(&window, &state, "export.owner", request.session_token.as_deref(), json!({"secret": request.secret}))
+}
+
+#[tauri::command]
+fn desktop_personal_rotate(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: PersonalSecretRequest) -> Result<Value, String> {
+    bounded(&[&request.secret])?;
+    invoke_python(&window, &state, "rotation.rotate", request.session_token.as_deref(), json!({"secret": request.secret}))
+}
+
+session_command!(desktop_personal_recovery_status, "recovery.status");
+
 pub fn run() {
     tauri::Builder::default()
         .manage(DesktopState {
             sidecar: Mutex::new(None),
+            // This is trusted host composition, not a renderer argument. The
+            // Personal variant is selected only by a future admitted launch.
+            profile: trusted_profile_for_build(),
         })
         .invoke_handler(tauri::generate_handler![
             desktop_status,
@@ -747,6 +853,8 @@ pub fn run() {
             desktop_exploration_start, desktop_exploration_get, desktop_exploration_answer, desktop_exploration_skip,
             desktop_formulation_propose, desktop_formulation_correct, desktop_formulation_accept, desktop_formulation_reject,
             desktop_action_options, desktop_action_list, desktop_action_create, desktop_action_record_outcome
+            ,desktop_personal_backup, desktop_personal_restore_isolated, desktop_personal_export_owner,
+            desktop_personal_rotate, desktop_personal_recovery_status
         ])
         .setup(|app| {
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
@@ -805,12 +913,47 @@ mod tests {
 
     #[test]
     fn t2_sidecar_path_is_fixed_and_not_renderer_supplied() {
-        let path = locate_sidecar();
+        let path = locate_sidecar(TrustedLaunchProfile::RequestedSynthetic);
         if let Some(path) = path {
             assert!(path
                 .file_name()
                 .is_some_and(|name| name.to_string_lossy().starts_with("psyche-os-sidecar")));
         }
+    }
+
+    #[test]
+    fn t1_trusted_profile_selection_has_exact_sidecar_values() {
+        assert!(matches!(
+            trusted_profile_for_build(),
+            TrustedLaunchProfile::RequestedSynthetic | TrustedLaunchProfile::RequestedPersonal
+        ));
+    }
+
+    #[test]
+    fn t1_personal_child_environment_excludes_provider_and_synthetic_root() {
+        let temp = Path::new("C:/synthetic-temp");
+        let local = Path::new("C:/trusted-local-app-data");
+        let synthetic = Path::new("C:/synthetic-root");
+        let personal: BTreeSet<OsString> = sidecar_environment(
+            TrustedLaunchProfile::RequestedPersonal,
+            temp,
+            local,
+            Some(synthetic),
+        )
+        .into_iter()
+        .map(|(key, _)| key)
+        .collect();
+        assert!(personal.contains(&OsString::from("PSYCHE_OS_LOCAL_APP_DATA")));
+        assert!(!personal.contains(&OsString::from("PSYCHE_OS_APP_DATA")));
+        assert!(!personal.contains(&OsString::from("OPENAI_API_KEY")));
+    }
+
+    #[test]
+    fn t1_personal_rust_dispatch_allowlist_excludes_provider_and_actions() {
+        assert!(PERSONAL_SIDECAR_COMMANDS.contains(&"reflection.search"));
+        assert!(!PERSONAL_SIDECAR_COMMANDS.contains(&"ai.prepare"));
+        assert!(!PERSONAL_SIDECAR_COMMANDS.contains(&"reflection_action.create"));
+        assert!(!PERSONAL_SIDECAR_COMMANDS.contains(&"archive.operate"));
     }
 
     #[test]
@@ -876,3 +1019,17 @@ mod tests {
         assert_eq!(bounded_search_query(&format!("{exact_search}\u{1f9ed}")), Err("INVALID_PAYLOAD".to_string()));
     }
 }
+
+}
+
+#[cfg(not(feature = "personal-product"))]
+pub use synthetic_product::run;
+
+#[cfg(feature = "personal-product")]
+mod personal_product;
+#[cfg(feature = "personal-product")]
+#[allow(dead_code)]
+#[path = "personal_command_manifest.rs"]
+mod personal_command_manifest;
+#[cfg(feature = "personal-product")]
+pub use personal_product::run;

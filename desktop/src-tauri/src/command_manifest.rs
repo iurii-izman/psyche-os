@@ -42,4 +42,9 @@ pub const SHIPPED_COMMANDS: &[&str] = &[
     "desktop_action_list",
     "desktop_action_create",
     "desktop_action_record_outcome",
+    "desktop_personal_backup",
+    "desktop_personal_restore_isolated",
+    "desktop_personal_export_owner",
+    "desktop_personal_rotate",
+    "desktop_personal_recovery_status",
 ];
