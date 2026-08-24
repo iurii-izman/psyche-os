@@ -4,6 +4,9 @@
 
 version: 1
 
+# Risk classification selects verification depth; it never independently creates a
+# human-approval requirement. The action below is the operative approval owner.
+
 require_explicit_approval:
   - new production dependency
   - removing a dependency or security control

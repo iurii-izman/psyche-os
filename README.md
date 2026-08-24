@@ -1,34 +1,25 @@
-# PSYCHE OS — F0 Minimal Irreversible Secure Core
+# PSYCHE OS
 
 Personal Evidence & Reflection System.
 
-**Status:** Pre-Alpha / Synthetic Only
-**REAL_DATA_GATE:** CLOSED
+**Status:** Product development / synthetic fixtures only
+**REAL_DATA_GATE:** `CLOSED`
 
-## Overview
+The completed E00–E11 foundation and Personal Mode v1 provide a local,
+evidence-preserving product base. Real personal data is not admitted. The next work
+is a bounded, user-facing product increment selected from current value and evidence;
+there is no active epic or automatic successor prompt.
 
-PSYCHE OS is a hybrid bitemporal relational canonical store for evidence management.
-The F0 release implements the minimal irreversible secure core:
+## Safety boundary
 
-- Opaque 128-bit UUID identifiers
-- Versioned rows with half-open transaction intervals
-- Orthogonal data policy with NEVER_CLOUD transitive inheritance
-- 256-bit Vault Master Key with domain-separated derivation
-- Windows DPAPI convenience wrapping + independent Argon2id recovery
-- SQLCipher encrypted storage (8-probe gate)
-- Independently authenticated encrypted blob envelopes
-- Content-free allowlisted audit
-- Hard deletion with dependency graph traversal
-- Authenticated encrypted backup and isolated restore
+- Synthetic fixtures only.
+- `NEVER_CLOUD` data and reconstructive derivatives never enter cloud context.
+- LLM output is a proposal, never evidence; imported content is untrusted.
+- This is not a diagnostic, treatment, or crisis service.
 
-## Quick Start
-
-```bash
-pip install -e .
-psyche-os version
-psyche-os gate status
-psyche-os vault create
-```
+See [the current development state](docs/development/STATE.yaml),
+[development strategy](docs/development/DEVELOPMENT_STRATEGY.md), and
+[the real-data gate](docs/architecture/REAL_DATA_GATE.yaml).
 
 ## License
 

@@ -1,4 +1,4 @@
-# QUALITY — strong model earlier, stronger final verification, fresh review on high risk.
+# QUALITY — strong model earlier, stronger final verification, fresh review on a concrete trigger.
 # Source: docs/AI_DEV_OS_V1.md §55. Not "enable every MCP/graph/memory".
 
 version: 1
@@ -20,7 +20,7 @@ verification:
   final_gate: full_risk_gate
   extra: property_and_security_checks
 
-review: fresh_reviewer_on_high_risk
+review: fresh_reviewer_on_concrete_trigger
 mcp: minimal_or_temporary
 security: standard_policy_worktree_plus_sandbox_when_relevant
 telemetry: full

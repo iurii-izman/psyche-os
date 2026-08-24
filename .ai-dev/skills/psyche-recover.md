@@ -12,8 +12,10 @@ STEPS:
 2. Write a Task Snapshot (`.ai-dev/recovery/task-snapshot.template.yaml`).
 3. Build a Recovery Packet (`.ai-dev/recovery/recovery-packet.template.md`):
    contract + snapshot + diff + exact failure + relevant source + attempt summary.
-4. Respect circuit breakers (`.ai-dev/routing/routing.yaml`): one grounded retry,
-   then escalate; provider failure → snapshot then explicit fallback/pause.
+4. For a normal in-scope deterministic failure, localize it, make the smallest
+   repair, rerun the failed oracle plus directly coupled regressions, and continue
+   inside the same Task Contract. Respect circuit breakers for repeated failure;
+   provider failure → snapshot then explicit fallback/pause.
 5. On repeated verifier failure, preserve known-good product work and stop
    feature-local infrastructure expansion. For supplemental evidence, record separate
    verifier debt or escalate the verifier as its own task if future product work
@@ -24,7 +26,9 @@ STEPS:
 
 OUTPUT: a Recovery Packet (bounded, no raw transcript) and a next action.
 
-STOP CONDITIONS: same deterministic failure twice → stop or escalate. Do not
+STOP CONDITIONS: stop only for a changed architecture/trust model, a new protected
+action/approval, destructive or network/permission expansion, crypto or real-data-gate
+change, or repeated evidence that the accepted design is structurally wrong. Do not
 retry-until-green or turn a bounded product repair into an unbounded harness project.
 Do not pass giant logs or the full transcript to the strong model.
 

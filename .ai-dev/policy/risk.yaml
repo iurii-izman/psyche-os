@@ -2,15 +2,30 @@
 # Determines: profile, initial model, verifier depth, review, human approval.
 # Source: docs/AI_DEV_OS_V1.md §9. HIGH/CRITICAL MUST NOT use economy profile.
 
-version: 1
+version: 2
+
+classification:
+  primary_rule: >-
+    Classify the delta: what changed, which invariant changed, and which trust
+    boundary became enabled or materially different. A sensitive path or domain
+    alone does not determine risk.
+  conservative_unknowns: Material semantics that remain unknown escalate to the higher level.
+  examples:
+    historical_crypto_wording: low
+    isolated_regression_test: low
+    bounded_control_plane_bugfix: low_or_medium
+    ordinary_cross_module_product_behavior: medium
+    accepted_architecture_storage_fix: high
+    migration_or_recovery_integrity_change: high_or_critical
+    crypto_key_lifecycle_or_trust_model_change: critical
 
 levels:
   low:
     triggers:
-      - docs-only change
+      - docs-only or status-only change with no semantic policy/design change
       - comment change
       - isolated new test (no production behavior change)
-      - small local fix in a single module
+      - bounded validator/control-plane bugfix that preserves policy semantics
       - safe local edit
     default_profile: economy_or_balanced
     initial_model: cheap
@@ -31,31 +46,23 @@ levels:
 
   high:
     triggers:
-      - persistence or storage behavior
-      - schema migration
-      - export or backup path
-      - filesystem behavior
-      - Tauri IPC
-      - permissions expansion
-      - security-sensitive source
-      - dependency trust boundary
+      - bounded fix that exercises a load-bearing storage, security, privacy, or filesystem invariant
+      - changed export, backup, filesystem, Tauri IPC, or dependency-boundary behavior without a new trust model
     default_profile: quality
     initial_model: strong_after_recon
-    review: fresh_reviewer_on_policy
+    review: concrete_trigger_only
     human_approval: required_for_listed_actions
 
   critical:
     triggers:
-      - crypto or key management
-      - privacy boundary
-      - recovery integrity
-      - irreversible migration
-      - trust-model change
-      - security architecture change
+      - changed crypto algorithm or key lifecycle
+      - new or materially changed privacy/trust boundary
+      - changed recovery-integrity architecture or irreversible migration semantics
+      - materially changed security architecture
     default_profile: quality
     initial_model: strong_frontier
-    review: independent_reviewer_required
-    human_approval: required
+    review: concrete_trigger_only
+    human_approval: required_for_listed_actions
 
-# Rule: a HIGH/CRITICAL task cannot be auto-downgraded to economy.
-# Rule: if classification is ambiguous, choose the higher level.
+# Rule: HIGH/CRITICAL tasks cannot use economy. Human approval follows approvals.yaml
+# actions, not the risk label. Ambiguous material semantics choose the higher level.

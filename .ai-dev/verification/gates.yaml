@@ -1,7 +1,15 @@
 # Verification ladder → gate mapping.
 # V0 edit-local, V1 module, V2 affected system, V3 final risk gate, V4 independent review.
 
-version: 1
+version: 2
+
+selection:
+  docs_or_status_only: relevant_syntax_schema_link_or_orchestration_checks_only
+  control_plane_config: focused_policy_schema_tests_and_orchestration_validator
+  ordinary_product: targeted_tests_then_one_risk_appropriate_final_gate
+  boundary_or_security_change: full_appropriate_deterministic_gate
+  accepted_narrow_repair: invalidated_components_and_directly_coupled_regressions_only
+  independent_review: only_when_routing_review_trigger_is_true
 
 gates:
   python_changed:
@@ -37,7 +45,7 @@ gates:
       - uv run python scripts/dev/validate_orchestration.py
       - uv run python scripts/validate_research_foundation.py
     v4:
-      # Independent fresh-context review — triggered only on HIGH/CRITICAL risk.
+      # Independent fresh-context review is trigger-based, never label-based.
       reviewer: fresh
 
 # pytest markers used for selection (from pyproject.toml):

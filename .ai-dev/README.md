@@ -29,7 +29,8 @@ Source of truth order (from `AGENTS.md`): `CONSTITUTION.md` → v2 master spec �
 accepted ADR / `docs/DECISION_LOG.md` → `docs/ROADMAP.md` + `docs/development/EPIC_MAP.md`
 → Task Contract → code + tests → operational memory → transcript.
 
-Canonical AI Dev OS spec: `docs/AI_DEV_OS_V1.md` (READ-ONLY).
+Canonical AI Dev OS spec: `docs/AI_DEV_OS_V1.md` (READ-ONLY). Current operating
+mode is product development; the historical state snapshot is not a work queue.
 Research/decision catalog: `docs/AI_DEV_OS_RESEARCH_CATALOG_V1.docx` (READ-ONLY).
 
 ## Product-first delivery
