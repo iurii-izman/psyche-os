@@ -363,6 +363,7 @@ def main() -> int:
 
     current = state.get("current_epic", {})
     next_epic = state.get("next_epic")
+    next_epic_mapping = next_epic if isinstance(next_epic, dict) else {}
     result.check(state.get("research", {}).get("converged") is True, "research is converged")
     validate_stable_gate_architecture(result, state, gate, profile)
     result.check(current.get("status") in ALLOWED_STATUS, "current epic status is valid")

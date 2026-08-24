@@ -1,6 +1,6 @@
 # Personal Mode v1 admission architecture
 
-Status: **ACCEPTED**. Accepted architecture candidate: `79bf063902ab4c1106fdfb420edcf905dfa42f43`. Architecture merge: `e8bfb83211fb424d09fa9a272066d5c6232cc0dd`. Independent review verdict: **ACCEPT**. Accepted/recorded: 2026-08-24. Implementation authorization: [IMPLEMENTATION_AUTHORIZATION.md](IMPLEMENTATION_AUTHORIZATION.md). `REAL_DATA_GATE` remains **CLOSED** and `LOCAL_PERSONAL` remains **NOT_ADMITTED**.
+Status: **ACCEPTED_AND_MERGED**. Accepted architecture candidate: `79bf063902ab4c1106fdfb420edcf905dfa42f43`. Architecture merge: `e8bfb83211fb424d09fa9a272066d5c6232cc0dd`. Independent review verdict: **ACCEPT**. Implementation commit: `e9fec09b23e27a04bd300452963675e653671313`; canonical merge: `f397c949812cfc82749a9a5a49d5458e53ea36af`. Accepted/recorded: 2026-08-24. Historical implementation authorization: [IMPLEMENTATION_AUTHORIZATION.md](IMPLEMENTATION_AUTHORIZATION.md). `REAL_DATA_GATE` remains **CLOSED** and `LOCAL_PERSONAL` remains **NOT_ADMITTED**.
 
 `SYNTHETIC_LAB` owns only the existing Synthetic root. `LOCAL_PERSONAL` owns only `%LOCALAPPDATA%\\PSYCHE OS\\Personal\\vault.sqlite` and fixed siblings for envelopes, rotation staging, backups, and exports. A Synthetic process has no Personal path; a Personal process has no Synthetic path. `data_mode` is an integrity invariant, not the security boundary. V10 supports `synthetic_only` and `real_personal` without changing existing Synthetic rows; its selected generalized rebuild remains `PMV1-V10-SQLITE-GENERALIZED-REBUILD`.
 
@@ -20,6 +20,6 @@ Keys, bootstrap, backup, rotation, pending-state handling, and recovery are exac
 
 ## Implementation authorization
 
-The exact active `HUMAN_REPOSITORY_OWNER` approvals are recorded in
+The exact historical `HUMAN_REPOSITORY_OWNER` approvals are recorded in
 [IMPLEMENTATION_AUTHORIZATION.md](IMPLEMENTATION_AUTHORIZATION.md). Historical
 prompt templates are not themselves authority.

@@ -1,6 +1,9 @@
 task_id: PERSONAL-MODE-V1-IMPLEMENTATION
-status: ACTIVE
+status: CLOSED_ACCEPTED_MERGED
 base_sha: e8bfb83211fb424d09fa9a272066d5c6232cc0dd
+implementation_commit: e9fec09b23e27a04bd300452963675e653671313
+merge_commit: f397c949812cfc82749a9a5a49d5458e53ea36af
+closed_at: 2026-08-24
 profile: quality
 risk: critical
 goal:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import yaml
 
+from scripts.dev import validate_orchestration
 from scripts.dev.validate_orchestration import (
     GATE_PATH,
     PROFILE_PATH,
@@ -77,3 +78,19 @@ def test_pre_terminal_wrong_branch_and_detached_or_empty_branch_fail() -> None:
     terminal_state = _yaml_mapping(STATE_PATH)
     assert not branch_matches_workflow(terminal_state, epic_ids, "", None)
     assert not branch_matches_workflow(terminal_state, epic_ids, "codex/", None)
+
+
+def test_main_handles_a_non_terminal_successor_mapping_without_name_error(
+    tmp_path, monkeypatch
+) -> None:
+    state = _yaml_mapping(STATE_PATH)
+    state["current_epic"]["id"] = "E10"
+    state["current_epic"]["status"] = "IMPLEMENTED"
+    state["next_epic"] = {"id": "E11", "status": "PLANNED"}
+    state_path = tmp_path / "STATE.yaml"
+    state_path.write_text(yaml.safe_dump(state), encoding="utf-8")
+    monkeypatch.setattr(validate_orchestration, "STATE_PATH", state_path)
+
+    # The E11 prompt mismatch makes this synthetic state invalid, but the
+    # validator must report that deterministically instead of crashing.
+    assert validate_orchestration.main() == 1
