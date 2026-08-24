@@ -1,7 +1,11 @@
 decision_id: AI-DEV-002
 title: Product-development default after completed foundation
 date: 2026-08-24
-status: accepted_by_task_contract_pending_independent_review
+status: ACCEPTED_MERGED
+lifecycle:
+  accepted_candidate: ab812676a6996ae0565e6e9b18df3d8abe1e0cc4
+  independent_review_verdict: ACCEPT
+  merge_commit: f43ac341b4aa912b248109f81fed6eddbb01df8e
 authority:
   - CONSTITUTION.md
   - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md

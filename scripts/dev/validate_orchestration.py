@@ -18,6 +18,7 @@ RISK_PATH = ROOT / ".ai-dev/policy/risk.yaml"
 APPROVALS_PATH = ROOT / ".ai-dev/policy/approvals.yaml"
 ROUTING_PATH = ROOT / ".ai-dev/routing/routing.yaml"
 GATES_PATH = ROOT / ".ai-dev/verification/gates.yaml"
+COMMANDS_PATH = ROOT / ".ai-dev/verification/commands.yaml"
 
 REQUIRED_PATHS = (
     "AGENTS.md",
@@ -35,6 +36,7 @@ REQUIRED_PATHS = (
     ".ai-dev/policy/approvals.yaml",
     ".ai-dev/routing/routing.yaml",
     ".ai-dev/verification/gates.yaml",
+    ".ai-dev/verification/commands.yaml",
 )
 RDG_IDS = [f"RDG-{index:02d}" for index in range(1, 13)]
 RDG_STATUSES = {
@@ -144,7 +146,7 @@ def validate_product_state(result: Validation, state: dict[str, Any]) -> None:
 
 
 def validate_product_mode_policy(
-    result: Validation, risk: dict[str, Any], approvals: dict[str, Any], routing: dict[str, Any], gates: dict[str, Any]
+    result: Validation, risk: dict[str, Any], approvals: dict[str, Any], routing: dict[str, Any], gates: dict[str, Any], commands: dict[str, Any]
 ) -> None:
     classification = risk.get("classification", {})
     examples = classification.get("examples", {})
@@ -169,6 +171,11 @@ def validate_product_mode_policy(
     selection = gates.get("selection", {})
     result.check(selection.get("docs_or_status_only") == "relevant_syntax_schema_link_or_orchestration_checks_only", "docs/status verification is focused")
     result.check(selection.get("independent_review") == "only_when_routing_review_trigger_is_true", "review gate is trigger based")
+    python_v1 = gates.get("gates", {}).get("python_changed", {}).get("v1", [])
+    result.check("uv run ruff check {paths}" in python_v1, "changed Python paths receive hard scoped linting")
+    result.check("uv run mypy src" not in python_v1, "repository-wide mypy is not a default Python hard gate")
+    result.check(commands.get("python", {}).get("typecheck") == "uv run mypy src", "mypy remains a canonical diagnostic command")
+    result.check("uv run mypy src" in commands.get("diagnostics", {}).get("optional_non_gating", []), "repository-wide mypy debt is explicitly optional and non-gating")
 
 
 def branch_matches_workflow(branch: str) -> bool:
@@ -187,13 +194,14 @@ def main() -> int:
         approvals = load_yaml(APPROVALS_PATH)
         routing = load_yaml(ROUTING_PATH)
         gates = load_yaml(GATES_PATH)
+        commands = load_yaml(COMMANDS_PATH)
         result.check(True, "current YAML owners parse")
     except Exception as exc:
         result.failures.append(f"YAML parse failed: {exc}")
-        state = gate = profile = risk = approvals = routing = gates = {}
+        state = gate = profile = risk = approvals = routing = gates = commands = {}
     validate_stable_gate_architecture(result, state, gate, profile)
     validate_product_state(result, state)
-    validate_product_mode_policy(result, risk, approvals, routing, gates)
+    validate_product_mode_policy(result, risk, approvals, routing, gates, commands)
     branch = subprocess.run(["git", "branch", "--show-current"], cwd=ROOT, check=False, capture_output=True, text=True).stdout.strip()
     result.check(branch_matches_workflow(branch), "Git branch matches product workflow")
     for message in result.passes:
