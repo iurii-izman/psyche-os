@@ -42,9 +42,17 @@ def main() -> int:
     cases = []
     # (name, payload, expected_exit)
     cases.append(("protected path edit blocked", pre_tool("Edit", file_path=".ai-dev/policy/risk.yaml"), 2))
+    cases.append(("protected state file blocked", pre_tool("Edit", file_path=".ai-dev/state.yaml"), 2))
     cases.append(("protected AGENTS.md edit blocked", pre_tool("Write", file_path="AGENTS.md"), 2))
     cases.append(("normal source edit allowed", pre_tool("Edit", file_path="src/psyche_os/__main__.py"), 0))
     cases.append(("absolute protected path edit blocked", pre_tool("Edit", file_path=os.path.join(_REPO, ".ai-dev", "state.yaml")), 2))
+    case_variant_exit = 2 if os.path.normcase("A") != "A" else 0
+    cases.append(("Windows protected-path case variant follows filesystem semantics", pre_tool("Edit", file_path=".AI-DEV/STATE.YAML"), case_variant_exit))
+    cases.append(("protected path traversal blocked", pre_tool("Edit", file_path="tmp/../.ai-dev/state.yaml"), 2))
+    cases.append(("protected path mixed separators blocked", pre_tool("Edit", file_path=r"tmp\..\.ai-dev\state.yaml"), 2))
+    cases.append(("protected directory descendant blocked", pre_tool("Edit", file_path=".ai-dev/policy/risk.yaml"), 2))
+    cases.append(("protected file near-prefix allowed", pre_tool("Edit", file_path=".ai-dev/state.yaml.backup"), 0))
+    cases.append(("protected directory near-prefix allowed", pre_tool("Edit", file_path=".ai-dev/policy-notes/example.yaml"), 0))
     cases.append(("absolute normal source edit allowed", pre_tool("Edit", file_path=os.path.join(_REPO, "src", "psyche_os", "__main__.py")), 0))
     cases.append(("git force push blocked", pre_tool("Bash", command="git push --force origin main"), 2))
     cases.append(("git reset --hard blocked", pre_tool("Bash", command="git reset --hard HEAD~1"), 2))

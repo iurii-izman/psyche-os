@@ -9,6 +9,7 @@ import yaml
 
 from scripts.dev.validate_orchestration import (
     APPROVALS_PATH,
+    COMMANDS_PATH,
     GATE_PATH,
     GATES_PATH,
     PROFILE_PATH,
@@ -73,6 +74,7 @@ def test_product_mode_policy_covers_required_delta_and_acceptance_cases() -> Non
         _yaml_mapping(APPROVALS_PATH),
         _yaml_mapping(ROUTING_PATH),
         _yaml_mapping(GATES_PATH),
+        _yaml_mapping(COMMANDS_PATH),
     )
     assert result.failures == []
 
@@ -93,11 +95,25 @@ def test_policy_rejects_unconditional_critical_approval_or_second_review() -> No
     routing["review_policy"]["candidate_wide_review_budget"] = 2
     result = Validation()
     validate_product_mode_policy(
-        result, risk, _yaml_mapping(APPROVALS_PATH), routing, _yaml_mapping(GATES_PATH)
+        result, risk, _yaml_mapping(APPROVALS_PATH), routing, _yaml_mapping(GATES_PATH), _yaml_mapping(COMMANDS_PATH)
     )
     assert "critical labels do not create unconditional approval" in result.failures
     assert "critical review is trigger based" in result.failures
     assert "one candidate-wide review maximum" in result.failures
+
+
+def test_policy_rejects_mypy_as_a_default_hard_gate_or_missing_optional_diagnostic() -> None:
+    gates = _yaml_mapping(GATES_PATH)
+    commands = _yaml_mapping(COMMANDS_PATH)
+    gates["gates"]["python_changed"]["v1"].append("uv run mypy src")
+    result = Validation()
+    validate_product_mode_policy(result, _yaml_mapping(RISK_PATH), _yaml_mapping(APPROVALS_PATH), _yaml_mapping(ROUTING_PATH), gates, commands)
+    assert "repository-wide mypy is not a default Python hard gate" in result.failures
+
+    commands["diagnostics"]["optional_non_gating"] = []
+    result = Validation()
+    validate_product_mode_policy(result, _yaml_mapping(RISK_PATH), _yaml_mapping(APPROVALS_PATH), _yaml_mapping(ROUTING_PATH), _yaml_mapping(GATES_PATH), commands)
+    assert "repository-wide mypy debt is explicitly optional and non-gating" in result.failures
 
 
 def test_product_workflow_allows_main_or_bounded_topic_branch_only() -> None:

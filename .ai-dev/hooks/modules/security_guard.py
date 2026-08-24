@@ -52,10 +52,15 @@ def _load_protected(repo: str) -> list:
 
 
 def _norm(p: str) -> str:
-    p = p.replace("\\", "/")
+    p = os.path.normpath(p).replace("\\", "/")
     while p.startswith("./"):
         p = p[2:]
     return p
+
+
+def _path_key(p: str) -> str:
+    """Return the filesystem-appropriate comparison form for a normalized path."""
+    return os.path.normcase(_norm(p)).replace("\\", "/")
 
 
 def _relativize(target: str, repo: str) -> str:
@@ -67,18 +72,18 @@ def _relativize(target: str, repo: str) -> str:
     """
     t = _norm(target)
     r = _norm(os.path.abspath(repo)).rstrip("/")
-    if t.lower() == r.lower():
+    if _path_key(t) == _path_key(r):
         return ""
-    prefix = r.lower() + "/"
-    if t.lower().startswith(prefix):
+    prefix = _path_key(r) + "/"
+    if _path_key(t).startswith(prefix):
         return t[len(r) + 1:]
     return t
 
 
 def _is_protected(target: str, repo: str, protected: list) -> bool:
-    t = _relativize(target, repo)
+    t = _path_key(_relativize(target, repo))
     for p in protected:
-        pn = _norm(p)
+        pn = _path_key(p)
         if t == pn or (pn and t.startswith(pn.rstrip("/") + "/")):
             return True
     return False

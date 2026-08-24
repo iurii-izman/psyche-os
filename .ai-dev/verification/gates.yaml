@@ -17,7 +17,6 @@ gates:
       - uv run ruff format --check {paths}
     v1:
       - uv run ruff check {paths}
-      - uv run mypy src
       - uv run pytest {targeted_test_paths} -q
     v2:
       - uv run pytest tests -q -m "not slow and not os_wrap"

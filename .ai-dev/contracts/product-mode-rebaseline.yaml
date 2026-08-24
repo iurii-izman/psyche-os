@@ -1,4 +1,9 @@
 task_id: product-mode-rebaseline
+status: CLOSED_ACCEPTED_MERGED
+lifecycle:
+  accepted_candidate: ab812676a6996ae0565e6e9b18df3d8abe1e0cc4
+  independent_review_verdict: ACCEPT
+  merge_commit: f43ac341b4aa912b248109f81fed6eddbb01df8e
 base_sha: 970fb276635b89c258ea090f56f522c3a30887f4
 profile: quality
 risk: high

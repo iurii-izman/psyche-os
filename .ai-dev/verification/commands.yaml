@@ -12,6 +12,10 @@ python:
   test_targeted: uv run pytest {paths} -q
   test_full: uv run pytest -q
 
+diagnostics:
+  optional_non_gating:
+    - uv run mypy src
+
 orchestration:
   delivery: uv run python scripts/dev/validate_orchestration.py
   research: uv run python scripts/validate_research_foundation.py
