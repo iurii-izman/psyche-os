@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -182,6 +183,13 @@ def branch_matches_workflow(branch: str) -> bool:
     return branch == "main" or re.fullmatch(r"[a-z0-9-]+/[a-z0-9][a-z0-9-]*", branch) is not None
 
 
+def checkout_matches_workflow(branch: str) -> bool:
+    """Accept Actions' exact-SHA detached checkout without relaxing local policy."""
+    return branch_matches_workflow(branch) or (
+        branch == "" and os.environ.get("GITHUB_ACTIONS") == "true"
+    )
+
+
 def main() -> int:
     result = Validation()
     for relative in REQUIRED_PATHS:
@@ -203,7 +211,7 @@ def main() -> int:
     validate_product_state(result, state)
     validate_product_mode_policy(result, risk, approvals, routing, gates, commands)
     branch = subprocess.run(["git", "branch", "--show-current"], cwd=ROOT, check=False, capture_output=True, text=True).stdout.strip()
-    result.check(branch_matches_workflow(branch), "Git branch matches product workflow")
+    result.check(checkout_matches_workflow(branch), "Git branch matches product workflow")
     for message in result.passes:
         print(f"PASS: {message}")
     for message in result.failures:

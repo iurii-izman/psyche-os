@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 import yaml
 
 from scripts.dev.validate_orchestration import (
@@ -18,6 +19,7 @@ from scripts.dev.validate_orchestration import (
     STATE_PATH,
     Validation,
     branch_matches_workflow,
+    checkout_matches_workflow,
     validate_product_mode_policy,
     validate_product_state,
     validate_stable_gate_architecture,
@@ -121,3 +123,12 @@ def test_product_workflow_allows_main_or_bounded_topic_branch_only() -> None:
     assert branch_matches_workflow("codex/product-mode-reorientation")
     assert not branch_matches_workflow("")
     assert not branch_matches_workflow("codex/")
+
+
+def test_github_actions_allows_only_a_detached_exact_sha_checkout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert checkout_matches_workflow("")
+    monkeypatch.setenv("GITHUB_ACTIONS", "false")
+    assert not checkout_matches_workflow("")
