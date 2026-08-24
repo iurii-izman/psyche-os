@@ -49,6 +49,22 @@ def test_stable_owners_reject_candidate_state_and_evaluation_fields() -> None:
     assert "stable profile has no exact evaluation fields" in result.failures
 
 
+def test_stable_gate_rejects_relaxed_human_attestation_or_evaluation_lifecycle() -> None:
+    state = _yaml_mapping(STATE_PATH)
+    gate = _yaml_mapping(GATE_PATH)
+    profile = _yaml_mapping(PROFILE_PATH)
+    gate["opening_rule"]["attestation_method"] = "model_attestation"
+    gate["evaluation_records"]["draft_can_support_open"] = True
+    gate["scope"]["profiles"] = "all"
+    profile.pop("profile_version")
+    result = Validation()
+    validate_stable_gate_architecture(result, state, gate, profile)
+    assert "policy names the human attestation method" in result.failures
+    assert "stable policy has no profile-all scope" in result.failures
+    assert "policy requires DRAFT-to-SEALED fail-closed lifecycle" in result.failures
+    assert "stable profile has versioned identity" in result.failures
+
+
 def test_product_mode_policy_covers_required_delta_and_acceptance_cases() -> None:
     result = Validation()
     validate_product_mode_policy(
