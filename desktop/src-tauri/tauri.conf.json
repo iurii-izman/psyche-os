@@ -19,7 +19,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "externalBin": ["binaries/psyche-os-sidecar"],
+    "externalBin": ["binaries/psyche-os-sidecar", "binaries/psyche-os-personal-sidecar"],
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"],
     "windows": {
       "webviewInstallMode": { "type": "skip" }

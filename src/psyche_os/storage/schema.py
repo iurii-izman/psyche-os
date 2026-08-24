@@ -27,12 +27,13 @@ SCHEMA_VERSIONS: dict[int, str] = {
     7: "v3a1_guided_exploration_v7",
     8: "v3a1_guided_exploration_v8",
     9: "v3a3_action_workspace_v9",
+    10: "pmv1_policy_identity_repair_v10",
 }
 
 # Accepted V1 callers keep their frozen default. E03 requests version 2
 # explicitly through Migrator/apply_schema and exposes it as the latest schema.
 CURRENT_SCHEMA_VERSION = 1
-LATEST_SCHEMA_VERSION = 9
+LATEST_SCHEMA_VERSION = 10
 
 # ---------------------------------------------------------------------------
 # Deletion closure constants
@@ -625,7 +626,7 @@ def apply_schema(connection: Any, schema_version: int = 1) -> None:
     """
     cur = connection.cursor()
     cur.execute("PRAGMA foreign_keys = ON;")
-    if schema_version not in (1, 2, 3, 4, 5, 6, 7, 8, 9):
+    if schema_version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
         raise ValueError("Unsupported schema version")
     full_ddl = SCHEMA_MIGRATIONS_DDL
     for _name, ddl in ALL_DDL:
@@ -671,4 +672,11 @@ def apply_schema(connection: Any, schema_version: int = 1) -> None:
 
         for statement in V9_MIGRATION_STATEMENTS:
             connection.execute(statement)
+    if schema_version >= 10:
+        from psyche_os.storage.personal_mode_v10_schema import apply_v10_rebuild, preflight_exact_v9
+
+        preflight_exact_v9(connection)
+        connection.execute("PRAGMA foreign_keys = OFF")
+        apply_v10_rebuild(connection)
+        connection.execute("PRAGMA foreign_keys = ON")
     connection.commit()

@@ -5,13 +5,17 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "build:synthetic": "vite build",
+    "build:personal": "vite build --config vite.personal.config.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src tests vite.config.ts",
+    "lint": "eslint src tests vite.config.ts vite.personal.config.ts",
     "test:unit": "vitest run",
     "test:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-desktop.ps1",
     "sidecar:build": "uv run python ../scripts/dev/build_desktop_sidecar.py",
     "tauri": "tauri",
-    "tauri:build": "npm run sidecar:build && tauri build"
+    "tauri:build": "npm run tauri:build:synthetic",
+    "tauri:build:synthetic": "npm run sidecar:build && tauri build",
+    "tauri:build:personal": "npm run sidecar:build && tauri build --features personal-product --config src-tauri/tauri.personal.conf.json"
   },
   "dependencies": {
     "@tauri-apps/api": "2.11.1"

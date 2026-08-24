@@ -10,6 +10,10 @@ license = "MIT"
 name = "psyche_os_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+default = []
+personal-product = []
+
 [build-dependencies]
 tauri-build = { version = "2.6.1", features = [] }
 

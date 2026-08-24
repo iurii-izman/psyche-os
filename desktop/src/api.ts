@@ -7,6 +7,7 @@ export interface StatusView {
   inbound_listener: "NONE";
   outbound_provider: "NOT_CONFIGURED" | "READY_EXPLICIT_E07";
   runtime_profile: string;
+  local_personal?: "NOT_ADMITTED" | "ADMISSION_AVAILABLE" | "ADMITTED";
   build_version: string;
   privacy: { core_processing_location: "LOCAL"; cloud_storage: "DISABLED"; cloud_disclosure: "SYNTHETIC_EXPLICIT_E07_ONLY"; telemetry: "OFF" };
 }
@@ -100,6 +101,11 @@ export const desktopApi = {
   ,actionList: (sessionId: string): Promise<{ session_id: string; plans: ActionPlan[] }> => call("desktop_action_list", { sessionId })
   ,actionCreate: (input: { sessionId: string; userGoal: string; templateId: ActionOption["template_id"]; actionText: string; anchorType: ActionAnchorType; anchorId: string | null }): Promise<ActionPlan> => call("desktop_action_create", input)
   ,actionRecordOutcome: (planId: string, status: ActionOutcomeStatus, noteText: string | null): Promise<ActionOutcome> => call("desktop_action_record_outcome", { planId, status, noteText })
+  ,personalBackup: (secret: string): Promise<Record<string, unknown>> => call("desktop_personal_backup", { secret })
+  ,personalRestoreIsolated: (backupId: string, secret: string): Promise<Record<string, unknown>> => call("desktop_personal_restore_isolated", { backupId, secret })
+  ,personalExportOwner: (secret: string): Promise<Record<string, unknown>> => call("desktop_personal_export_owner", { secret })
+  ,personalRotate: (secret: string): Promise<Record<string, unknown>> => call("desktop_personal_rotate", { secret })
+  ,personalRecoveryStatus: (): Promise<Record<string, unknown>> => call("desktop_personal_recovery_status")
 };
 
 export type DesktopApi = typeof desktopApi;

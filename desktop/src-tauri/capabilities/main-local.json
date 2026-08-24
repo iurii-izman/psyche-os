@@ -45,6 +45,11 @@
     "allow-desktop-action-options",
     "allow-desktop-action-list",
     "allow-desktop-action-create",
-    "allow-desktop-action-record-outcome"
+    "allow-desktop-action-record-outcome",
+    "allow-desktop-personal-backup",
+    "allow-desktop-personal-restore-isolated",
+    "allow-desktop-personal-export-owner",
+    "allow-desktop-personal-rotate",
+    "allow-desktop-personal-recovery-status"
   ]
 }

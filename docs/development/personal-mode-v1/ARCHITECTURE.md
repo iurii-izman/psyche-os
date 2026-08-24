@@ -1,6 +1,6 @@
 # Personal Mode v1 admission architecture
 
-Status: **PROPOSED_FOR_INDEPENDENT_REVIEW**. Architecture candidate base: `166832da18d913f591c3956346e41b7b5e742a5a`. `REAL_DATA_GATE` remains **CLOSED** and `LOCAL_PERSONAL` remains **NOT_ADMITTED**.
+Status: **ACCEPTED**. Accepted architecture candidate: `79bf063902ab4c1106fdfb420edcf905dfa42f43`. Architecture merge: `e8bfb83211fb424d09fa9a272066d5c6232cc0dd`. Independent review verdict: **ACCEPT**. Accepted/recorded: 2026-08-24. Implementation authorization: [IMPLEMENTATION_AUTHORIZATION.md](IMPLEMENTATION_AUTHORIZATION.md). `REAL_DATA_GATE` remains **CLOSED** and `LOCAL_PERSONAL` remains **NOT_ADMITTED**.
 
 `SYNTHETIC_LAB` owns only the existing Synthetic root. `LOCAL_PERSONAL` owns only `%LOCALAPPDATA%\\PSYCHE OS\\Personal\\vault.sqlite` and fixed siblings for envelopes, rotation staging, backups, and exports. A Synthetic process has no Personal path; a Personal process has no Synthetic path. `data_mode` is an integrity invariant, not the security boundary. V10 supports `synthetic_only` and `real_personal` without changing existing Synthetic rows; its selected generalized rebuild remains `PMV1-V10-SQLITE-GENERALIZED-REBUILD`.
 
@@ -18,8 +18,8 @@ Recovery/restore may inspect only bounded, encrypted, content-free package heade
 
 Keys, bootstrap, backup, rotation, pending-state handling, and recovery are exactly `PERSONAL_KEY_RECOVERY_DESIGN.md`; lifecycle and byte ownership are its companion documents. Human classes use exact profile machine IDs in `HUMAN_GATE_PLAN.md`. `UNRESOLVED_CRITICAL_ARCHITECTURE_QUESTIONS = 0`.
 
-## Approval templates only
+## Implementation authorization
 
-> I explicitly approve V10 migration `PMV1-V10-SQLITE-GENERALIZED-REBUILD` exactly as described in the independently reviewed Personal Mode v1 architecture, with foreign keys disabled only outside the migration transaction. This does not authorize destructive migration, crypto-algorithm change, a new dependency, network, REAL_DATA_GATE opening, or real personal data.
-
-> I explicitly approve `PMV1-KEY-ENVELOPE-V1`, `PMV1-ROTATION-ISOLATED-REENCRYPTION-V1`, `PMV1-RECOVERY-BOOTSTRAP-V1`, the retained-key lifecycle, and the retained-N-before-active-promotion durability invariant exactly as described in the independently reviewed Personal Mode v1 architecture. This does not authorize crypto-algorithm change, destructive migration, a new dependency, network, REAL_DATA_GATE opening, or real personal data.
+The exact active `HUMAN_REPOSITORY_OWNER` approvals are recorded in
+[IMPLEMENTATION_AUTHORIZATION.md](IMPLEMENTATION_AUTHORIZATION.md). Historical
+prompt templates are not themselves authority.

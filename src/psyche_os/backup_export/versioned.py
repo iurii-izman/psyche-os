@@ -1,10 +1,11 @@
-"""Explicit schema-versioned V1/V2/V3 logical portability and export helpers.
+"""Explicit schema-versioned legacy and Personal-V10 portability helpers.
 
 The accepted encrypted E01 V1 package reader remains unchanged.  E03 uses this
 small dispatch layer for exact-inventory semantic portability proofs and for
-open, per-table checksummed logical export.  This module does not claim E01's
-authenticated encrypted recovery, clean-device recovery, or atomic activation
-guarantees for V2.
+open, per-table checksummed logical export. Legacy format-2 packages retain
+their historical inventory; Personal V10 uses the distinct format-3 spec.
+This module does not claim E01's authenticated encrypted recovery,
+clean-device recovery, or atomic activation guarantees for legacy packages.
 """
 
 from __future__ import annotations
@@ -12,19 +13,58 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from dataclasses import dataclass
 from typing import Any
 
-from psyche_os.storage.e03_schema import inventory_for_schema
+from psyche_os.storage.e03_schema import inventory_for_schema as _legacy_inventory_for_schema
 from psyche_os.storage.schema import apply_schema
+from psyche_os.storage.personal_mode_v10_schema import V10_INVENTORY
 
 
 class VersionedPackageError(Exception):
     pass
 
 
+@dataclass(frozen=True)
+class ArchiveSpec:
+    """Immutable, explicit archive contract for one supported schema."""
+
+    format_version: int
+    schema_version: int
+    inventory: tuple[str, ...]
+    restore_order: tuple[str, ...]
+
+
+def _legacy_spec(schema_version: int) -> ArchiveSpec:
+    inventory = _legacy_inventory_for_schema(schema_version)
+    return ArchiveSpec(2, schema_version, inventory, inventory)
+
+
+# This is deliberately separate from legacy V1/V2 package semantics.  It is
+# the exact V10 relational graph, not a runtime discovery of whatever tables
+# happen to be present.
+PERSONAL_V10_SPEC = ArchiveSpec(
+    format_version=3,
+    schema_version=10,
+    inventory=V10_INVENTORY,
+    restore_order=tuple(
+        table for table in V10_INVENTORY
+        if table not in {"policy_identities", "data_policies", "policy_lineage", "schema_migrations"}
+    ) + ("policy_identities", "data_policies", "policy_lineage", "schema_migrations"),
+)
+
+
+def archive_spec_for_schema(schema_version: int) -> ArchiveSpec:
+    if schema_version == 10:
+        return PERSONAL_V10_SPEC
+    if schema_version in (1, 2, 3, 4, 5):
+        return _legacy_spec(schema_version)
+    raise ValueError("Unsupported schema version")
+
+
 def _schema_version(connection: Any) -> int:
     row = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()
-    if not row or row[0] not in (1, 2, 3, 4, 5):
+    if not row or row[0] not in (1, 2, 3, 4, 5, 10):
         raise VersionedPackageError("Schema migration evidence is missing")
     return int(row[0])
 
@@ -39,7 +79,7 @@ def _expected_schemas(schema_version: int) -> dict[str, list[str]]:
         apply_schema(reference, schema_version)
         return {
             table: [row[1] for row in reference.execute(f"PRAGMA table_info({table})")]
-            for table in inventory_for_schema(schema_version)
+            for table in archive_spec_for_schema(schema_version).inventory
         }
     finally:
         reference.close()
@@ -47,7 +87,8 @@ def _expected_schemas(schema_version: int) -> dict[str, list[str]]:
 
 def create_versioned_package(connection: Any) -> dict[str, Any]:
     schema_version = _schema_version(connection)
-    inventory = inventory_for_schema(schema_version)
+    spec = archive_spec_for_schema(schema_version)
+    inventory = spec.inventory
     actual = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
     if actual != set(inventory):
         raise VersionedPackageError("Exact schema inventory mismatch")
@@ -61,7 +102,7 @@ def create_versioned_package(connection: Any) -> dict[str, Any]:
         tables[table] = rows
         schemas[table] = columns
         checksums[table] = hashlib.sha256(json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    package = {"format":"psyche-os-logical-portability-package","format_version":2,"schema_version":schema_version,"inventory":list(inventory),"schemas":schemas,"checksums":checksums,"tables":tables}
+    package = {"format":"psyche-os-logical-portability-package","format_version":spec.format_version,"schema_version":schema_version,"inventory":list(inventory),"schemas":schemas,"checksums":checksums,"tables":tables}
     package["package_checksum"] = hashlib.sha256(json.dumps(package, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return package
 
@@ -70,9 +111,12 @@ def verify_versioned_package(package: dict[str, Any]) -> bool:
     try:
         if set(package) != {"format","format_version","schema_version","inventory","schemas","checksums","tables","package_checksum"}:
             return False
-        if package["format"] != "psyche-os-logical-portability-package" or package["format_version"] != 2:
+        if package["format"] != "psyche-os-logical-portability-package":
             return False
-        expected = inventory_for_schema(package["schema_version"])
+        spec = archive_spec_for_schema(int(package["schema_version"]))
+        if package["format_version"] != spec.format_version:
+            return False
+        expected = spec.inventory
         expected_schemas = _expected_schemas(int(package["schema_version"]))
         inventory = package["inventory"]
         if not isinstance(inventory, list) or len(inventory) != len(set(inventory)) or tuple(inventory) != expected:
@@ -117,7 +161,7 @@ def restore_versioned_package(package: dict[str, Any], connection: Any) -> None:
     apply_schema(connection, schema_version)
     try:
         connection.execute("BEGIN IMMEDIATE")
-        for table in inventory_for_schema(schema_version):
+        for table in archive_spec_for_schema(schema_version).restore_order:
             rows = package["tables"][table]
             for row in rows:
                 columns = list(row)

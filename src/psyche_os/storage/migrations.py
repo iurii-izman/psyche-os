@@ -32,6 +32,11 @@ from psyche_os.storage.v3a1_exploration_v8_schema import (
     V8_MIGRATION_STATEMENTS,
 )
 from psyche_os.storage.v3a3_action_schema import V9_MIGRATION_CHECKSUM, V9_MIGRATION_STATEMENTS
+from psyche_os.storage.personal_mode_v10_schema import (
+    V10_LABEL,
+    V10_MIGRATION_CHECKSUM,
+    V10_MIGRATION_STATEMENTS,
+)
 
 # The accepted default reader remains V1.  E03 calls target_version=2
 # explicitly; this prevents legacy callers from silently migrating a vault.
@@ -165,6 +170,12 @@ MIGRATIONS: dict[int, Migration] = {
         label="v3a3_action_workspace_v9",
         statements=list(V9_MIGRATION_STATEMENTS),
         checksum=V9_MIGRATION_CHECKSUM,
+    ),
+    10: Migration(
+        version=10,
+        label=V10_LABEL,
+        statements=list(V10_MIGRATION_STATEMENTS),
+        checksum=V10_MIGRATION_CHECKSUM,
     ),
 }
 
@@ -423,6 +434,20 @@ class Migrator:
                 report.errors.append(str(exc))
                 return report
 
+        v10_prelude = current < 10 and target_version >= 10
+        if v10_prelude:
+            try:
+                from psyche_os.storage.personal_mode_v10_schema import preflight_exact_v9
+
+                if current == 9:
+                    preflight_exact_v9(self._con)
+                self._con.execute("PRAGMA foreign_keys = OFF")
+                if self._con.execute("PRAGMA foreign_keys").fetchone() != (0,):
+                    raise MigrationError("V10 could not disable foreign keys before transaction")
+            except Exception as exc:
+                report.errors.append(str(exc))
+                return report
+
         try:
             chain = get_migration_chain(target_version)
             cur = self._con.cursor()
@@ -462,8 +487,19 @@ class Migrator:
                 try:
                     # Apply each explicit complete statement without
                     # executescript(), whose implicit commit breaks atomicity.
-                    for stmt in m.statements:
-                        cur.execute(stmt)
+                    if m.version == 10:
+                        from psyche_os.storage.personal_mode_v10_schema import (
+                            apply_v10_rebuild,
+                            preflight_exact_v9,
+                        )
+
+                        preflight_exact_v9(self._con)
+                        apply_v10_rebuild(self._con)
+                        for stmt in m.statements:
+                            cur.execute(stmt)
+                    else:
+                        for stmt in m.statements:
+                            cur.execute(stmt)
 
                     # Record the migration in the same transaction
                     now = datetime.datetime.now(datetime.UTC).isoformat()
@@ -482,12 +518,23 @@ class Migrator:
                     return report
 
             self._con.commit()
+            if v10_prelude:
+                self._con.execute("PRAGMA foreign_keys = ON")
+                if self._con.execute("PRAGMA foreign_keys").fetchone() != (1,):
+                    raise MigrationError("V10 could not re-enable foreign keys after commit")
+                if self._con.execute("PRAGMA foreign_key_check").fetchall():
+                    raise MigrationError("V10 post-migration foreign key check failed")
+                if self._con.execute("PRAGMA integrity_check").fetchone() != ("ok",):
+                    raise MigrationError("V10 post-migration integrity check failed")
             report.completed_at = datetime.datetime.now(datetime.UTC).isoformat()
 
         except Exception as exc:
             report.errors.append(str(exc))
             with suppress(Exception):
                 self._con.rollback()
+            if v10_prelude:
+                with suppress(Exception):
+                    self._con.execute("PRAGMA foreign_keys = ON")
 
         return report
 

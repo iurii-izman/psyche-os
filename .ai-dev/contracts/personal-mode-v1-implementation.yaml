@@ -1,0 +1,100 @@
+task_id: PERSONAL-MODE-V1-IMPLEMENTATION
+status: ACTIVE
+base_sha: e8bfb83211fb424d09fa9a272066d5c6232cc0dd
+profile: quality
+risk: critical
+goal:
+  - Implement the independently reviewed Personal Mode v1 architecture without opening REAL_DATA_GATE.
+non_goals:
+  - Real-data admission, owner attestation, crypto algorithm change, new dependency, network/provider, actions/outcomes, Longitudinal, import, assessment, handoff, or blobs.
+authority:
+  - CONSTITUTION.md
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md
+  - docs/DECISION_LOG.md#adr-008-key-and-recovery-design
+  - docs/DECISION_LOG.md#adr-009-deletion-semantics
+  - docs/DECISION_LOG.md#adr-010-export-and-preservation
+  - docs/DECISION_LOG.md#adr-022-e02-secure-desktop-shell-and-typed-python-boundary
+  - docs/DECISION_LOG.md#adr-023-profile-specific-real-data-gate-evaluation
+  - docs/architecture/REAL_DATA_GATE.yaml
+  - docs/architecture/REAL_DATA_GATE_PROFILE.yaml
+  - docs/development/personal-mode-v1/ARCHITECTURE.md
+  - docs/development/personal-mode-v1/IMPLEMENTATION_AUTHORIZATION.md
+  - docs/development/personal-mode-v1/MIGRATION_V10_DESIGN.md
+  - docs/development/personal-mode-v1/PERSONAL_KEY_RECOVERY_DESIGN.md
+  - docs/development/personal-mode-v1/LIFECYCLE_DESIGN.md
+  - docs/development/personal-mode-v1/PERSONAL_DATA_BYTE_MAP.md
+  - docs/development/personal-mode-v1/RUNTIME_PROFILE_PACKAGE_ISOLATION.md
+  - docs/development/personal-mode-v1/RDG_PROOF_MAP.md
+  - docs/development/personal-mode-v1/HUMAN_GATE_PLAN.md
+  - docs/development/personal-mode-v1/IMPLEMENTATION_IMPACT.md
+expected_scope:
+  - src/psyche_os/storage/migrations.py
+  - src/psyche_os/storage/personal_mode_v10_schema.py
+  - src/psyche_os/personal_mode/**
+  - src/psyche_os/application/reflection_sessions.py
+  - src/psyche_os/backup_export/**
+  - src/psyche_os/application/desktop_service.py
+  - src/psyche_os/interfaces/desktop_sidecar.py
+  - src/psyche_os/release_evidence/**
+  - desktop/src-tauri/**
+  - desktop/src/**
+  - scripts/build_desktop_sidecar.py
+  - tests/**
+protected_scope:
+  - .ai-dev/policy/**
+  - CONSTITUTION.md
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md
+acceptance:
+  - V10 generalized rebuild preserves descendants, indexes/FKs, fault safety, and idempotency.
+  - PMV1-V10-POLICY-IDENTITY-REPAIR-A1 establishes a system-owned one-to-one policy_id/record_id registry; version rows bind to that exact pair, lineage remains identity-to-identity, exact V9 preflight fails closed on drift, ambiguity, or orphan endpoints, and the post-V10 global foreign_key_check is empty.
+  - Separate roots prevent cross-profile open/fallback; CLOSED Personal creates no root, DB, or envelope.
+  - PMV1-KEY-ENVELOPE-V1, independent recovery bootstrap, and retained-key lifecycle are implemented without changing approved cryptographic designs.
+  - PMV1-ROTATION-ISOLATED-REENCRYPTION-V1 safely changes SQLCipher database encryption; every crash stage preserves recoverable N or N+1, and no active DB lacks a durable matching recovery envelope.
+  - Active envelope N is not replaced until retained protected N key material required by retention policy is atomically published and reopen-verified.
+  - PERSONAL_ADMISSION_GUARD blocks every Personal read and write after expiry or identity change.
+  - Exact E11 review IDs bind to the profile/evaluator; package/dispatcher expose only allowed capability.
+  - REAL_DATA_GATE remains CLOSED and all fixtures remain synthetic.
+repository_required_gates:
+  - uv run pytest -q
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run python scripts/validate_research_foundation.py
+  - npm --prefix desktop run typecheck
+  - npm --prefix desktop run lint
+  - npm --prefix desktop run test:unit
+  - npm --prefix desktop run build
+  - cargo check --manifest-path desktop/src-tauri/Cargo.toml
+  - cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
+  - cargo test --manifest-path desktop/src-tauri/Cargo.toml
+  - gitleaks / current repository security secret scan
+  - git diff --check
+contract_required_proof:
+  - targeted migration tests
+  - targeted SQLCipher rotation tests and key-envelope/journal parser-state tests
+  - rotation fault matrix, including N backup to active N+1 to isolated restore N
+  - crash immediately after active N+1 envelope promotion proves journal authentication, active N+1 reopen, and old-backup N recovery
+  - independent recovery and retained-key expiry/destruction tests
+  - admission-expiry read tests and profile isolation tests
+  - backup/restore, export/delete, package inventory, and plaintext sentinel/leak tests
+  - E11 review-ID schema/evaluator tests
+  - fresh independent CRITICAL reviewer
+stop_conditions:
+  - Any conflict with Constitution, gate profile, or accepted architecture.
+  - Any need for crypto algorithm/dependency/network/REAL_DATA_GATE change.
+permissions:
+  network: false
+  dependencies: false
+  migrations: true
+  key_handling_change: true
+  destructive: false
+required_owner_approval_text:
+  migration: "I explicitly approve V10 migration PMV1-V10-SQLITE-GENERALIZED-REBUILD exactly as described in the independently reviewed Personal Mode v1 architecture, with foreign_keys disabled only outside the migration transaction. This does not authorize destructive migration, crypto-algorithm change, a new dependency, network, REAL_DATA_GATE opening, or real personal data."
+  key_handling: "I explicitly approve PMV1-KEY-ENVELOPE-V1, PMV1-ROTATION-ISOLATED-REENCRYPTION-V1, PMV1-RECOVERY-BOOTSTRAP-V1, the retained-key lifecycle, and the retained-N-before-active-promotion durability invariant exactly as described in the independently reviewed Personal Mode v1 architecture. This does not authorize crypto-algorithm change, destructive migration, a new dependency, network, REAL_DATA_GATE opening, or real personal data."
+  policy_identity_repair: "I explicitly approve schema amendment PMV1-V10-POLICY-IDENTITY-REPAIR-A1 as part of the already approved V10 migration: introduce the non-versioned system-owned policy_identities registry for stable Policy identity, require a one-to-one policy_id-record_id mapping, rebuild data_policies to bind version rows to that stable identity, and rebuild policy_lineage foreign keys to reference policy_identities. I also approve replacing the impossible pre-migration global foreign_key_check on the known malformed V9 schema with exact-schema recognition and bounded policy-identity/orphan preflight checks; the post-migration global foreign_key_check remains mandatory and must be empty. Fail closed on ambiguous legacy mappings. This does not authorize destructive data loss, semantic policy rewriting, crypto changes, new dependencies, network exposure, REAL_DATA_GATE opening, or real personal data."
+approval_record:
+  path: docs/development/personal-mode-v1/IMPLEMENTATION_AUTHORIZATION.md
+  approvals:
+    - PMV1-V10-SQLITE-GENERALIZED-REBUILD
+    - PMV1-KEY-ENVELOPE-V1
+    - PMV1-ROTATION-ISOLATED-REENCRYPTION-V1
+    - PMV1-RECOVERY-BOOTSTRAP-V1
+    - PMV1-V10-POLICY-IDENTITY-REPAIR-A1
