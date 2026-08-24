@@ -1,6 +1,6 @@
 # Personal key, recovery, and database-rotation design
 
-Status: **ACCEPTED**. Design IDs: `PMV1-KEY-ENVELOPE-V1`, `PMV1-ROTATION-ISOLATED-REENCRYPTION-V1`, and `PMV1-RECOVERY-BOOTSTRAP-V1`. Active implementation authority is recorded in [IMPLEMENTATION_AUTHORIZATION.md](IMPLEMENTATION_AUTHORIZATION.md); it does not open `REAL_DATA_GATE`.
+Status: **ACCEPTED**. Design IDs: `PMV1-KEY-ENVELOPE-V1`, `PMV1-ROTATION-ISOLATED-REENCRYPTION-V1`, and `PMV1-RECOVERY-BOOTSTRAP-V1`. Implementation was completed and merged under the historical authorization recorded in [IMPLEMENTATION_AUTHORIZATION.md](IMPLEMENTATION_AUTHORIZATION.md); `REAL_DATA_GATE` remains **CLOSED**.
 
 ## Cryptographic profile and key versions
 
