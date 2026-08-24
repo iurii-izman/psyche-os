@@ -2,7 +2,7 @@
 # Roles (CHEAP/STRONG) map to concrete models via provider config; roles are stable,
 # model names are version-sensitive and re-checked before major changes.
 
-version: 1
+version: 2
 
 roles:
   cheap: deepseek-v4-flash      # verify actual model id before use
@@ -18,13 +18,72 @@ routing:
     - cheap_recon_if_useful
     - strong_implementation
     - full_deterministic_gate
-    - fresh_reviewer_on_policy
+    - review_if_concrete_trigger
   critical:
     - architecture_confirmation
     - strong_frontier_implementation
     - full_deterministic_verification
-    - independent_reviewer
-    - human_acceptance
+    - independent_reviewer_if_concrete_trigger
+    - human_approval_if_listed_action
+
+execution_lanes:
+  product_default:
+    use_for: ordinary user-facing work, bounded bug fixes, and deterministic local features
+    flow: orient -> contract -> implement -> targeted_verify -> final_gate_once -> review_if_triggered -> merge -> stop
+  boundary_change:
+    use_for: materially changed trust boundaries, crypto/key behavior, recovery integrity, irreversible migrations, permissions, network, real-data admission, or core privacy/security architecture
+    flow: architecture_confirmation -> strong_implementation -> full_deterministic_proof -> independent_review_if_triggered -> action_based_approval -> merge
+  packaging_closeout:
+    use_for: accepted candidates, commits, pushes, PRs, merges, and bounded post-merge checks
+    flow: exact_accepted_candidate -> package -> bounded_post_merge_check -> stop
+
+review_policy:
+  triggers:
+    - new_or_materially_changed_trust_boundary
+    - changed_crypto_or_key_behavior
+    - changed_recovery_integrity
+    - irreversible_migration
+    - changed_real_data_admission
+    - material_security_or_privacy_invariant_change
+    - high_risk_change_where_independent_falsification_materially_improves_confidence
+    - task_contract_requires_review
+    - repaired_invariant_requires_independent_delta_recheck
+  not_triggers:
+    - sensitive_directory_or_domain_name
+    - docs_mentioning_crypto_or_privacy
+    - authorized_candidate_or_packaging_identity_change
+    - evidence_or_status_metadata_change
+    - optional_lint_or_type_backlog
+    - implementer_report_is_a_claim
+  candidate_wide_review_budget: 1
+  bounded_repair: rerun_failed_oracle_and_directly_coupled_regressions_then_recheck_only_repair_delta
+
+acceptance_firewall:
+  accepted_closes_core_implementation: true
+  optional_items: record_and_stop
+  docs_or_status_cleanup: targeted_verification_only
+  narrow_proven_regression: targeted_fix_and_invalidated_proof_only
+  packaging_or_commit_identity_change: not_a_product_regression
+  reopen_only_for:
+    - direct_regression_evidence
+    - materially_changed_relevant_code
+    - invalidated_load_bearing_proof
+    - changed_authority
+    - materially_expanded_scope_or_risk
+
+candidate_identity:
+  default_review_target: local_candidate_commit_sha
+  dirty_digest: fallback_when_commit_before_review_is_undesirable
+  packaging_preserves_acceptance_when_scoped_bytes_preserved: true
+
+repair_continuity:
+  normal_deterministic_failure: localize_repair_targeted_regression_continue_within_task_contract
+  stop_for:
+    - architecture_or_trust_model_change
+    - new_approval_or_protected_action
+    - destructive_action_dependency_network_or_permission_expansion
+    - crypto_algorithm_or_real_data_gate_change
+    - repeated_evidence_of_structurally_wrong_accepted_design
 
 max_grounded_retry: 1
 

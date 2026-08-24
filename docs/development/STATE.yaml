@@ -8,21 +8,20 @@ real_data_gate:
   state: "CLOSED"
   authority: "docs/architecture/REAL_DATA_GATE.yaml"
 
-current_epic:
-  id: "E11"
-  name: "Lifetime Operations, Release Evidence, and Gate Decision"
-  status: "ACCEPTED"
-  implementation_status: "ACCEPTED"
-  review_verdict: "ACCEPT"
-  risk: "RISK-H"
-  expected_final_gate: "FULL"
-  prompt: "docs/prompts/deepseek/E11_LIFETIME_OPERATIONS_RELEASE_EVIDENCE_GATE_DECISION.md"
-  report: "docs/development/reports/E11.md"
-  depends_on_epic: "E10"
-  depends_on_commit: "6c2ccf75637ef85db42bc62caf206c1c0e736d21"
-  codex_review_required: true
-  independent_review_required: true
-  human_gate_decider_required: "REPOSITORY_OWNER via local_human_attestation_v1"
+foundation:
+  status: "COMPLETE"
+  completed_epics: "E00-E11"
+
+operating_mode: "PRODUCT_DEVELOPMENT"
+infrastructure: "CLOSED_EXCEPTION_ONLY"
+
+current_implementation:
+  task: null
+  next_epic: null
+  next_action: "DEFINE_NEXT_PRODUCT_INCREMENT"
+
+personal_mode:
+  v1_status: "CLOSED_ACCEPTED_MERGED"
 
 accepted_epics:
   - id: "E00"
@@ -74,8 +73,6 @@ accepted_epics:
     report: "docs/implementation/E11_ACCEPTANCE_REPORT.md"
     commit: "3b5f9f6d657989c2dc7c24f7f0d2ad3f9549a835"
 
-next_epic: null
-
 architecture:
   constitution: "CONSTITUTION.md"
   master_spec: "docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md"
@@ -84,10 +81,5 @@ architecture:
   epic_map: "docs/development/EPIC_MAP.md"
 
 git:
-  branch: "main"
-  prepared_from_commit: "c2718c77b17ec5577cf85283b8340d787e2afe41"
-  accepted_commit: "3b5f9f6d657989c2dc7c24f7f0d2ad3f9549a835"
-
-next_action:
-  prompt: null
-  instruction: "Run the bounded R0 runtime bootstrap and Russian UX workflow; keep REAL_DATA_GATE CLOSED and do not create a successor epic."
+  canonical_branch: "main"
+  last_accepted_epic_commit: "3b5f9f6d657989c2dc7c24f7f0d2ad3f9549a835"

@@ -1,0 +1,33 @@
+decision_id: AI-DEV-002
+title: Product-development default after completed foundation
+date: 2026-08-24
+status: accepted_by_task_contract_pending_independent_review
+authority:
+  - CONSTITUTION.md
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md
+  - docs/AI_DEV_OS_V1.md
+scope:
+  - derived control-plane policy
+  - current-state and onboarding documentation
+reason: >-
+  Repeated proof loops made routine repairs, packaging, and historical status edits
+  behave like fresh boundary work despite unchanged product safety semantics.
+decision:
+  - Classify risk from the changed invariant and enabled boundary, not directory names.
+  - Make the product lane the default; trigger independent review only when concrete evidence warrants it.
+  - Close accepted implementation against optional backlog, status cleanup, and packaging identity changes.
+  - Preserve action-based approvals, protected paths, and all real-data/privacy/security invariants.
+affected_invariants:
+  - C-01
+  - C-02
+  - C-10
+  - C-11
+  - C-13
+  - C-14
+  - C-15
+  - C-20
+rollback: >-
+  Revert this candidate as one commit. It changes no application data, runtime,
+  cryptography, storage, or real-data-gate behavior.
+review_trigger:
+  - Independent review of this exact protected control-plane candidate is required.

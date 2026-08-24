@@ -1,0 +1,79 @@
+task_id: product-mode-rebaseline
+base_sha: 970fb276635b89c258ea090f56f522c3a30887f4
+profile: quality
+risk: high
+goal:
+  - Align the derived control plane and current-state documents with product-development defaults.
+  - Preserve the closed real-data gate and all security, privacy, and protected-action controls.
+non_goals:
+  - Change product, crypto, storage, recovery, or REAL_DATA_GATE behavior.
+  - Add an epic, process framework, dependency, network exposure, or tooling platform.
+authority:
+  - CONSTITUTION.md
+  - docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md
+  - docs/AI_DEV_OS_V1.md
+  - AGENTS.md
+expected_scope:
+  - AGENTS.md
+  - .ai-dev/policy/**
+  - .ai-dev/routing/**
+  - .ai-dev/verification/**
+  - .ai-dev/profiles/**
+  - .ai-dev/skills/**
+  - .ai-dev/state.yaml
+  - docs/development/STATE.yaml
+  - docs/development/EPIC_MAP.md
+  - docs/development/DEVELOPMENT_STRATEGY.md
+  - docs/development/ORCHESTRATION_REPORT.md
+  - docs/ROADMAP.md
+  - scripts/dev/validate_orchestration.py
+  - tests/unit/test_orchestration_gate_architecture.py
+protected_scope:
+  - .ai-dev/policy/**
+  - .ai-dev/routing/**
+  - .ai-dev/verification/**
+  - .ai-dev/state.yaml
+  - AGENTS.md
+acceptance:
+  - Risk and review policy are based on the changed invariant/boundary, not sensitive directory names.
+  - Product work has a single final gate and reviews occur only on concrete triggers.
+  - Current-state documents show completed E00-E11 foundation work, no active epic, and PRODUCT_DEVELOPMENT mode.
+  - REAL_DATA_GATE remains CLOSED and protected action approvals remain action based.
+repository_required_gates:
+  - uv run python scripts/dev/validate_orchestration.py
+  - uv run pytest -q tests/unit/test_orchestration_gate_architecture.py
+  - uv run python scripts/validate_research_foundation.py
+  - git diff --check
+contract_required_proof:
+  - risk: protected control-plane policy could weaken a safety or approval invariant
+    insufficiency_of_repository_gates: deterministic checks do not independently assess policy meaning
+    primary_oracle: fresh read-only review of the exact local candidate commit
+    failure_meaning: a material policy defect requires one bounded repair or stop
+    alternate_oracles: []
+    stop_or_escalation: a second material structural blocker stops the task for redesign
+supplemental_evidence:
+  - scoped secret scan of the task diff
+proof_recovery_budget:
+  max_feature_local_repair_loops: 1
+oracle_failure_policy:
+  classify_as: tool_harness_defect
+  low_medium: focused policy and documentation checks are sufficient after required gates pass
+  high_critical: independent review is load-bearing for this protected policy change
+stop_conditions:
+  - A required change would weaken a constitutional or real-data-gate invariant.
+  - A second independent material structural reviewer finding requires redesign.
+permissions:
+  network: true
+  dependencies: false
+  migrations: false
+  destructive: false
+  protected_control_plane: true
+  push: true
+  pull_request: true
+  merge: true
+routing:
+  initial: strong
+  max_grounded_retry: 1
+  escalation: strong
+assumptions:
+  - The task contract's explicit protected-path and publication authorization satisfies approvals.yaml.

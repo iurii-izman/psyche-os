@@ -1,5 +1,7 @@
 # PSYCHE OS DeepSeek development-system preparation report
 
+> **Historical record (2026-08-10).** This report describes the original E00 preparation and is not current operational authority. Current direction is `docs/development/STATE.yaml`: completed foundation, `PRODUCT_DEVELOPMENT`, no active implementation task, and `REAL_DATA_GATE = CLOSED`.
+
 **Prepared:** 2026-08-10
 **Ready for implementation:** yes
 **Branch:** `codex/deepseek-development-system`
@@ -113,8 +115,8 @@ Completed results:
 - `git diff --cached --check` for all new delivery artifacts: passed. The separately preserved user master prompt retains its intentional Markdown hard-break whitespace; its SHA-256 remains `cc7dc528d26ca16de7d1dace3fedebd95ce02ab12a674f85b3712bedb6d31083`.
 - Manual prompt scan found only prohibitions/review references to real data, never authorization.
 
-## Git state and exact next action
+## Historical Git state and superseded next action
 
 This development system was prepared on `codex/deepseek-development-system` from `eff1a97`. `STATE.yaml.git.accepted_commit` is intentionally `null`: no implementation epic is accepted. The orchestration commit/dirty state is reported in the final handoff; no push occurs.
 
-**Exact next action:** run DeepSeek V4 Pro with `C:\Dev\psyche-os\docs\prompts\deepseek\E00_F0_IMPLEMENTATION.md`. The next task is implementation, not another planning session.
+**Historical next action (superseded):** run DeepSeek V4 Pro with `C:\Dev\psyche-os\docs\prompts\deepseek\E00_F0_IMPLEMENTATION.md`. It is retained as evidence of the original preparation only.

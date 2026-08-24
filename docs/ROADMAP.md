@@ -1,8 +1,8 @@
 # PSYCHE OS research-driven roadmap
 
-**Snapshot:** 2026-08-11
+**Snapshot:** 2026-08-24
 **Planning unit:** evidence gates, not calendar promises  
-**Current state:** E00 rebaselined to the minimal synthetic-only irreversible core; `REAL_DATA_GATE = CLOSED`
+**Current state:** E00–E11 foundation work and Personal Mode v1 are accepted and merged; `REAL_DATA_GATE = CLOSED` and no real data is admitted.
 
 ## Roadmap principles
 
@@ -18,7 +18,17 @@
 
 **Exit evidence:** all required research artifacts exist and validate, 153 unique serious sources are registered, four adversarial passes are documented, and the F0 prompt is exact. `RESEARCH_CONVERGED = true` does not open the data gate.
 
-## Phase 1 — Minimal irreversible secure core (current)
+## Completed foundation
+
+The E00–E11 sequence is complete and retained below as historical product strategy and capability context, not an active implementation queue. Material Personal/infrastructure debt is closed. The control plane is stable and exception-only.
+
+## Product development now
+
+The default is a bounded, user-facing product increment selected from current user value and evidence. No successor epic is pre-authorized or scheduled. Define the next product increment, use the product-default delivery lane, and keep `REAL_DATA_GATE = CLOSED`.
+
+## Historical foundation and conditional capability map
+
+### Phase 1 — Minimal irreversible secure core
 
 **Purpose:** prove the semantics that are impossible or costly to retrofit before sensitive bytes exist.
 
@@ -154,9 +164,3 @@ Success is a smaller trustworthy system that remains interpretable and exit-frie
 - public plaintext hashes/content-addressed filenames for sensitive artefacts;
 - surveillance by default and shame/streak mechanics;
 - real data before gates pass.
-
-## Exact next action
-
-Run the one final bounded implementation pass using
-`docs/prompts/deepseek/E00_FINAL_MINIMUM_CLOSURE.md`. Do not expand it with
-deferred backup/blob/filesystem hardening, broad audit work, E01, or real data.

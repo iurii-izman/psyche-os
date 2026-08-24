@@ -1,10 +1,10 @@
 # PSYCHE OS implementation epic map
 
-**Planning basis:** `docs/ROADMAP.md`, snapshot 2026-08-10
-**Plan:** 7 milestones, 12 epics
-**Risk distribution:** 8 × `RISK-H`, 4 × `RISK-M`, 0 × `RISK-L`
-**Mandatory Codex checkpoints:** 8, one for each `RISK-H` epic
-**Current:** `E00 IMPLEMENTED / FIX_REQUIRED` under the approved minimal rebaseline; all later epics are `PLANNED` and prepared just in time
+**Planning basis:** `docs/ROADMAP.md`, historical research snapshot 2026-08-10
+**Map:** 7 milestones, 12 epics
+**Historical risk distribution:** 8 × `RISK-H`, 4 × `RISK-M`, 0 × `RISK-L`
+**Historical focused-review boundaries:** 8
+**Current:** E00–E11 are completed and accepted. This is a historical capability architecture, not a current work queue; no next epic is active.
 
 This is a capability map, not a release calendar. A later epic can be narrowed, deferred, or rejected when its entry evidence is unfavorable. No epic authorizes real data while `docs/architecture/REAL_DATA_GATE.yaml` is `CLOSED`.
 
@@ -227,6 +227,6 @@ E03, E04, E05, and E09 use objective `EPIC` gates and DeepSeek self-review witho
 **REAL_DATA_GATE impact:** This is the only planned epic that may prepare an explicit profile-specific open/keep-closed decision. Opening is never automatic and is not authorized by this map.
 **Estimated implementation complexity:** `L`; prompt/context cost `HIGH`.
 
-## Just-in-time rule
+## Historical just-in-time rule
 
-Only E00 has a materialized implementation prompt. E01 is deliberately `PLANNED`: its exact commands, target profile, independent review inputs, and evidence gaps depend on the accepted E00 implementation. Prepare it after E00 acceptance with `docs/prompts/codex/PREPARE_NEXT_EPIC.md`. Apply the same rule to E02–E11 so prompts describe the actual accepted code rather than a stale imagined repository.
+The original E00–E11 delivery sequence materialized implementation prompts only when accepted dependencies justified them. That historical rule explains the retained map; it does not authorize an automatic successor prompt or create active work after the completed foundation.
