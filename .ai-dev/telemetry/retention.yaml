@@ -1,23 +1,31 @@
-# Telemetry retention — bounded, documented, no shadow database.
+# Telemetry retention — optional local observability, no shadow database.
+#
+# The current writer only appends redacted, schema-valid JSONL records. It does
+# not enforce rotation, byte caps, or age pruning. The limits below are future
+# declarative policy, not current machine enforcement or acceptance evidence.
 
 version: 1
 
 jsonl:
   location: .ai-dev/telemetry/data/events.jsonl
   append_only: true
-  max_bytes: 104857600          # 100 MiB soft cap; rotate + warn when exceeded
+  max_bytes: 104857600          # 100 MiB declarative target; not enforced
+  rotation: not_implemented
 
 sqlite:
   location: .ai-dev/telemetry/data/derived.sqlite
-  derived: true                  # always rebuildable from JSONL
-  regenerate_on_start: true
+  derived: true                  # rebuildable from JSONL by derive_sqlite.py
+  regenerate_on_start: false     # no automatic regeneration is implemented
 
 retention:
-  default_days: 90
-  policy: prune_oldest_on_exceed
+  default_days: 90               # declarative target; not enforced
+  policy: prune_oldest_on_exceed # declarative target; not implemented
 
 privacy:
   store_raw_prompts: false
   store_tool_outputs: false
   store_chain_of_thought: false
   redaction: required            # see redaction.yaml
+
+role: optional_local_observability
+acceptance_authority: false

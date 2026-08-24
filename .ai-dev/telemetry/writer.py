@@ -1,36 +1,60 @@
 #!/usr/bin/env python3
-"""Append-only JSONL telemetry writer with redaction (stdlib only).
+"""Append-only JSONL telemetry writer with redaction and schema validation.
 
 Usage:
-  python writer.py --dir <telemetry-dir> --event '<json>'
-  python writer.py --dir <telemetry-dir> --stdin
-  python writer.py --dir <telemetry-dir> --self-test
+  uv run python .ai-dev/telemetry/writer.py --dir <telemetry-dir> --event '<json>'
+  uv run python .ai-dev/telemetry/writer.py --dir <telemetry-dir> --stdin
+  uv run python .ai-dev/telemetry/writer.py --dir <telemetry-dir> --self-test
 
 Never persists secrets, tokens, credentials, raw prompts/tool outputs, or private
 chain-of-thought. Unobservable fields are written as null/unknown, never inferred.
 """
+
 from __future__ import annotations
 
 import argparse
 import datetime
 import json
 import os
+from pathlib import Path
 import re
 import sys
 import uuid
 
+from jsonschema import Draft7Validator
+
 REDACT = "[REDACTED]"
+SCHEMA_PATH = Path(__file__).with_name("schema.json")
 
 DEFAULT_REDACT_VALUE_KEYS = [
-    "api_key", "apikey", "token", "secret", "password", "passwd",
-    "authorization", "auth", "cookie", "credential", "private_key",
-    "client_secret", "access_key", "session_key",
+    "api_key",
+    "apikey",
+    "token",
+    "secret",
+    "password",
+    "passwd",
+    "authorization",
+    "auth",
+    "cookie",
+    "credential",
+    "private_key",
+    "client_secret",
+    "access_key",
+    "session_key",
 ]
 
 DEFAULT_DROP_FIELDS = [
-    "raw_prompt", "prompt", "messages", "tool_output", "tool_input",
-    "transcript", "chain_of_thought", "reasoning", "cot",
-    "source_code_dump", "full_diff",
+    "raw_prompt",
+    "prompt",
+    "messages",
+    "tool_output",
+    "tool_input",
+    "transcript",
+    "chain_of_thought",
+    "reasoning",
+    "cot",
+    "source_code_dump",
+    "full_diff",
 ]
 
 DEFAULT_REDACT_PATTERNS = [
@@ -105,6 +129,17 @@ def _default_event(event: dict) -> dict:
     return event
 
 
+class TelemetryValidationError(ValueError):
+    """A persisted telemetry event does not satisfy the shipped schema."""
+
+
+def validate_event(event: dict) -> None:
+    """Validate the exact redacted event that is about to be persisted."""
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    if next(Draft7Validator(schema).iter_errors(event), None) is not None:
+        raise TelemetryValidationError("telemetry event failed schema validation")
+
+
 def write_event(event: dict, data_dir: str) -> str:
     os.makedirs(data_dir, exist_ok=True)
     path = os.path.join(data_dir, "events.jsonl")
@@ -117,6 +152,7 @@ def run(telemetry_dir: str, event: dict) -> dict:
     cfg = load_config(telemetry_dir)
     event = _default_event(event)
     redacted = redact(event, cfg)
+    validate_event(redacted)
     data_dir = os.path.join(telemetry_dir, "data")
     path = write_event(redacted, data_dir)
     return {"path": path, "event": redacted}
@@ -170,7 +206,11 @@ def main(argv=None) -> int:
     else:
         ap.error("provide --event, --stdin, or --self-test")
 
-    result = run(telemetry_dir, event)
+    try:
+        result = run(telemetry_dir, event)
+    except TelemetryValidationError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     print(json.dumps(result["event"], ensure_ascii=False, sort_keys=True))
     return 0
 

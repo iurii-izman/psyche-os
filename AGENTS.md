@@ -29,6 +29,7 @@
 - Protected control-plane paths require the control-plane-change flow and explicit task authorization. Do not weaken tests, scanners, verifiers, or acceptance criteria for green.
 - Use `rg` → `ast-grep` → exact ranges. Use targeted checks while iterating and the final risk gate once. Validate orchestration with `uv run python scripts/dev/validate_orchestration.py`; validate the frozen research foundation when its owners are touched.
 - Do not push automatically unless the active Task Contract authorizes it. Preserve unrelated user changes; record only accepted epic commits in `STATE.yaml`.
+- When repository CI exists for a PR, inspect the exact PR-head checks and require them green before merge.
 
 ## AI Dev OS
 
