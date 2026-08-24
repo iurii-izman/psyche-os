@@ -120,12 +120,25 @@ def test_codex_metrics_reads_turn_completed_usage(tmp_path: Path) -> None:
     assert out["model_turns"] == 1
 
 
-def test_harness_bin_resolves_real_entries() -> None:
-    # These resolve from the npm-global root; on machines without the tools the
-    # assertion would fail, so only assert the three entries return non-empty lists.
+def test_harness_bin_resolves_optional_installed_entries() -> None:
+    # Harness CLIs are optional developer-global tools, not repository dependencies.
+    # When installed, their native entry points must resolve to a runnable command.
     for name in ("claude-code", "reasonix", "opencode", "codex"):
-        cmd = ai_dev_harness._harness_bin(name)
+        try:
+            cmd = ai_dev_harness._harness_bin(name)
+        except ai_dev_harness.HarnessError:
+            continue
         assert isinstance(cmd, list) and cmd
+
+
+def test_harness_bin_fails_closed_when_optional_installation_is_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ai_dev_harness, "NPM_ROOT", tmp_path)
+
+    for name in ("claude-code", "reasonix", "opencode", "codex"):
+        with pytest.raises(ai_dev_harness.HarnessError):
+            ai_dev_harness._harness_bin(name)
 
 
 # --------------------------------------------------------------------------- A7 minimal harness environment
