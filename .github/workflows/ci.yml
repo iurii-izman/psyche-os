@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  core:
+    name: Core
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.9.30"
+      - name: Show candidate identity
+        shell: pwsh
+        run: |
+          Write-Host "event=$env:GITHUB_EVENT_NAME"
+          Write-Host "GITHUB_SHA=$env:GITHUB_SHA"
+          Write-Host "candidate_sha=$(git rev-parse HEAD)"
+          if ($env:GITHUB_EVENT_NAME -eq "pull_request") {
+            $event = Get-Content -Raw $env:GITHUB_EVENT_PATH | ConvertFrom-Json
+            Write-Host "base_sha=$($event.pull_request.base.sha)"
+          }
+      - name: Check candidate whitespace
+        shell: pwsh
+        run: |
+          $event = Get-Content -Raw $env:GITHUB_EVENT_PATH | ConvertFrom-Json
+          if ($env:GITHUB_EVENT_NAME -eq "pull_request") {
+            git diff --check "$($event.pull_request.base.sha)...$($event.pull_request.head.sha)"
+          } elseif ($env:GITHUB_EVENT_NAME -eq "push" -and $event.before -ne "0000000000000000000000000000000000000000") {
+            git diff --check "$($event.before)..$($event.after)"
+          } else {
+            git show --check --format= HEAD
+          }
+      - run: uv sync --frozen
+      - run: uv run pytest -q
+      - run: uv run python scripts/dev/validate_orchestration.py
+      - run: uv run python scripts/validate_research_foundation.py
+
+  desktop:
+    name: Desktop
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.9.30"
+      - name: Show candidate identity
+        shell: pwsh
+        run: |
+          Write-Host "event=$env:GITHUB_EVENT_NAME"
+          Write-Host "GITHUB_SHA=$env:GITHUB_SHA"
+          Write-Host "candidate_sha=$(git rev-parse HEAD)"
+          if ($env:GITHUB_EVENT_NAME -eq "pull_request") {
+            $event = Get-Content -Raw $env:GITHUB_EVENT_PATH | ConvertFrom-Json
+            Write-Host "base_sha=$($event.pull_request.base.sha)"
+          }
+      - run: npm --prefix desktop ci
+      - run: npm --prefix desktop run typecheck
+      - run: npm --prefix desktop run lint
+      - run: npm --prefix desktop run test:unit
+      - run: cargo check --manifest-path desktop/src-tauri/Cargo.toml --locked
+      - run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked
