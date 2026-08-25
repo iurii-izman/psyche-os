@@ -6,6 +6,9 @@ mod command_manifest {
 mod command_manifest {
     include!("src/command_manifest.rs");
 }
+#[cfg(feature = "personal-product")]
+#[path = "src/command_manifest.rs"]
+mod full_command_manifest;
 
 fn main() {
     // `generate_context!` validates this path even for Rust-only tests.  The
@@ -34,7 +37,22 @@ fn main() {
             .expect("uv is required to build the fixed Python sidecar");
         assert!(status.success(), "fixed Python sidecar build failed");
     }
+    // Tauri validates every checked-in capability file at build time, including
+    // the main-product capability that is not granted by the Personal config.
+    // Define its permissions here without granting them to the Personal binary.
+    let commands: &'static [&'static str] = if cfg!(feature = "personal-product") {
+        Box::leak(
+            [
+            command_manifest::SHIPPED_COMMANDS,
+            full_command_manifest::SHIPPED_COMMANDS,
+            ]
+            .concat()
+            .into_boxed_slice(),
+        )
+    } else {
+        command_manifest::SHIPPED_COMMANDS
+    };
     let attributes = tauri_build::Attributes::new()
-        .app_manifest(tauri_build::AppManifest::new().commands(command_manifest::SHIPPED_COMMANDS));
+        .app_manifest(tauri_build::AppManifest::new().commands(&commands));
     tauri_build::try_build(attributes).expect("failed to build Tauri command permissions");
 }
