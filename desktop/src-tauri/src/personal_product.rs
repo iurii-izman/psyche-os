@@ -94,10 +94,10 @@ fn locate_personal_sidecar() -> Option<PathBuf> {
     candidates.into_iter().find(|candidate| candidate.is_file())
 }
 fn sanitize_code(code: &str) -> String { if !code.is_empty() && code.chars().count() <= 64 && code.chars().all(|value| value.is_ascii_uppercase() || value == '_') { code.to_string() } else { "OPERATION_FAILED".to_string() } }
-fn allowed_origin(window: &WebviewWindow) -> bool { window.label() == "main" && window.url().is_ok_and(|url| ALLOWED_ORIGINS.iter().any(|(scheme, host)| url.scheme() == *scheme && url.host_str().unwrap_or_default() == *host)) }
+fn allowed_origin<R: tauri::Runtime>(window: &WebviewWindow<R>) -> bool { window.label() == "main" && window.url().is_ok_and(|url| ALLOWED_ORIGINS.iter().any(|(scheme, host)| url.scheme() == *scheme && url.host_str().unwrap_or_default() == *host)) }
 
 struct DesktopState { sidecar: Mutex<Option<PersonalSidecar>> }
-fn personal_call(window: &WebviewWindow, state: &tauri::State<'_, DesktopState>, command: &'static str, token: Option<&str>, payload: Value) -> Result<Value, String> {
+fn personal_call<R: tauri::Runtime>(window: &WebviewWindow<R>, state: &tauri::State<'_, DesktopState>, command: &'static str, token: Option<&str>, payload: Value) -> Result<Value, String> {
     if !allowed_origin(window) { return Err("ORIGIN_REJECTED".to_string()); }
     let mut sidecar = state.sidecar.lock().map_err(|_| "SIDECAR_UNAVAILABLE".to_string())?;
     if sidecar.is_none() { *sidecar = Some(PersonalSidecar::spawn()?); }
@@ -121,9 +121,9 @@ fn bounded_turn(value: &str) -> Result<(), String> { if !value.trim().is_empty()
 #[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct PersonalRestoreRequest { session_token: Option<String>, backup_id: String, secret: String }
 
 #[tauri::command] fn desktop_status(window: WebviewWindow, state: tauri::State<'_, DesktopState>) -> Result<Value, String> { personal_call(&window, &state, "status.get", None, json!({})) }
-#[tauri::command] fn desktop_unlock(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: UnlockRequest) -> Result<Value, String> { if request.secret.is_empty() || request.secret.len() > 256 { return Err("UNLOCK_REJECTED".to_string()); } personal_call(&window, &state, "session.unlock", None, json!({"secret": request.secret})) }
+#[tauri::command] fn desktop_unlock<R: tauri::Runtime>(window: WebviewWindow<R>, state: tauri::State<'_, DesktopState>, request: UnlockRequest) -> Result<Value, String> { if request.secret.is_empty() || request.secret.len() > 256 { return Err("UNLOCK_REJECTED".to_string()); } personal_call(&window, &state, "session.unlock", None, json!({"secret": request.secret})) }
 #[tauri::command] fn desktop_lock(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> { personal_call(&window, &state, "session.lock", request.session_token.as_deref(), json!({})) }
-#[tauri::command] fn desktop_reflection_create(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionCreateRequest) -> Result<Value, String> { bounded(&[&request.title])?; personal_call(&window, &state, "reflection_session.create", request.session_token.as_deref(), json!({"title": request.title})) }
+#[tauri::command] fn desktop_reflection_create<R: tauri::Runtime>(window: WebviewWindow<R>, state: tauri::State<'_, DesktopState>, request: ReflectionCreateRequest) -> Result<Value, String> { bounded(&[&request.title])?; personal_call(&window, &state, "reflection_session.create", request.session_token.as_deref(), json!({"title": request.title})) }
 #[tauri::command] fn desktop_reflection_list(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> { personal_call(&window, &state, "reflection_session.list", request.session_token.as_deref(), json!({})) }
 macro_rules! session_id_command { ($name:ident, $command:literal) => { #[tauri::command] fn $name(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionSessionRequest) -> Result<Value, String> { bounded(&[&request.session_id])?; personal_call(&window, &state, $command, request.session_token.as_deref(), json!({"session_id": request.session_id})) } }; }
 session_id_command!(desktop_reflection_get, "reflection_session.get"); session_id_command!(desktop_reflection_close, "reflection_session.close"); session_id_command!(desktop_exploration_start, "reflection_exploration.start"); session_id_command!(desktop_exploration_get, "reflection_exploration.get"); session_id_command!(desktop_formulation_propose, "reflection_exploration.formulation.propose");
@@ -153,6 +153,12 @@ pub fn run() {
 mod tests {
     use super::*;
     use std::collections::BTreeSet;
+    #[cfg(feature = "personal-ipc-test")]
+    use tauri::{
+        ipc::{CallbackFn, InvokeBody},
+        test::{get_ipc_response, mock_builder, mock_context, noop_assets, INVOKE_KEY},
+        webview::InvokeRequest,
+    };
     #[test]
     fn personal_manifest_matches_only_personal_handler_and_renderer() {
         let source = include_str!("personal_product.rs");
@@ -199,6 +205,34 @@ mod tests {
         assert_eq!(sidecar.invoke("reflection_session.list", Some(&token), json!({})), Err("SESSION_REQUIRED".to_string()));
         assert_eq!(sidecar.invoke("ai.status", Some(&token), json!({})), Err("UNKNOWN_COMMAND".to_string()));
         drop(sidecar);
+        std::fs::remove_dir_all(base).expect("remove isolated test base");
+    }
+    #[cfg(feature = "personal-ipc-test")]
+    #[test]
+    fn personal_ipc_dispatch_uses_renderer_request_shape_and_admitted_sidecar() {
+        let base = std::env::temp_dir().join(format!("psyche-os-personal-ipc-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&base).expect("test base");
+        {
+            let sidecar = PersonalSidecar::spawn_admitted_test_fixture(base.clone()).expect("test-admitted fixture starts");
+            let app = mock_builder()
+                .manage(DesktopState { sidecar: Mutex::new(Some(sidecar)) })
+                .invoke_handler(tauri::generate_handler![
+                    desktop_unlock, desktop_reflection_create
+                ])
+                .build(mock_context(noop_assets()))
+                .expect("Tauri IPC app");
+            let webview = WebviewWindowBuilder::new(&app, "main", WebviewUrl::App("index.html".into())).build().expect("main webview");
+            let dispatch = |command: &str, request: Value| get_ipc_response(&webview, InvokeRequest {
+                cmd: command.to_string(), callback: CallbackFn(0), error: CallbackFn(1),
+                url: "http://tauri.localhost".parse().expect("local Tauri origin"),
+                body: InvokeBody::from(request), headers: Default::default(), invoke_key: INVOKE_KEY.to_string(),
+            }).expect("registered IPC command").deserialize::<Value>().expect("typed IPC response");
+
+            let token = dispatch("desktop_unlock", json!({"request": {"secret": "synthetic-only"}}))["session_token"].as_str().expect("session token").to_string();
+            let created = dispatch("desktop_reflection_create", json!({"request": {"title": "Synthetic IPC capture", "sessionToken": token}}));
+            assert_eq!(created["title"], "Synthetic IPC capture");
+            assert!(created["session_id"].as_str().is_some_and(|id| !id.is_empty()));
+        }
         std::fs::remove_dir_all(base).expect("remove isolated test base");
     }
 }
