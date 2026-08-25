@@ -1,6 +1,6 @@
 # Risk engine — deterministic classification.
 # Determines: profile, initial model, verifier depth, review, human approval.
-# Source: docs/AI_DEV_OS_V1.md §9. HIGH/CRITICAL MUST NOT use economy profile.
+# HIGH/CRITICAL are reserved for a materially changed protected invariant/boundary.
 
 version: 2
 
@@ -14,10 +14,11 @@ classification:
     historical_crypto_wording: low
     isolated_regression_test: low
     bounded_control_plane_bugfix: low_or_medium
+    accepted_storage_ipc_filesystem_or_permission_model_use: low_or_medium
     ordinary_cross_module_product_behavior: medium
-    accepted_architecture_storage_fix: high
-    migration_or_recovery_integrity_change: high_or_critical
-    crypto_key_lifecycle_or_trust_model_change: critical
+    material_storage_or_recovery_integrity_change: high
+    material_permission_or_network_exposure_change: high
+    irreversible_migration_or_crypto_key_lifecycle_change: critical
 
 levels:
   low:
@@ -27,8 +28,8 @@ levels:
       - isolated new test (no production behavior change)
       - bounded validator/control-plane bugfix that preserves policy semantics
       - safe local edit
-    default_profile: economy_or_balanced
-    initial_model: cheap
+    default_profile: current_capable_agent
+    initial_model: currently_selected_capable_coding_agent
     review: none
     human_approval: none
 
@@ -40,29 +41,31 @@ levels:
       - frontend/backend interaction
       - cross-module behavior change
     default_profile: balanced
-    initial_model: cheap
+    initial_model: currently_selected_capable_coding_agent
     review: risk_triggered
     human_approval: by_approval_matrix
 
   high:
     triggers:
-      - bounded fix that exercises a load-bearing storage, security, privacy, or filesystem invariant
-      - changed export, backup, filesystem, Tauri IPC, or dependency-boundary behavior without a new trust model
+      - material storage or recovery-integrity invariant change
+      - material permissions or network-exposure change
+      - material real privacy or trust-boundary change
+      - material security-architecture change
     default_profile: quality
-    initial_model: strong_after_recon
+    initial_model: strong_or_different_model_when_explicitly_needed
     review: concrete_trigger_only
     human_approval: required_for_listed_actions
 
   critical:
     triggers:
-      - changed crypto algorithm or key lifecycle
-      - new or materially changed privacy/trust boundary
-      - changed recovery-integrity architecture or irreversible migration semantics
-      - materially changed security architecture
+      - crypto algorithm or key-lifecycle change
+      - irreversible migration semantics
+      - REAL_DATA_GATE or real-data admission change
     default_profile: quality
-    initial_model: strong_frontier
+    initial_model: strong_or_different_model_when_explicitly_needed
     review: concrete_trigger_only
     human_approval: required_for_listed_actions
 
-# Rule: HIGH/CRITICAL tasks cannot use economy. Human approval follows approvals.yaml
-# actions, not the risk label. Ambiguous material semantics choose the higher level.
+# Using accepted storage, IPC, filesystem, security, or permission mechanisms does
+# not elevate risk alone. Human approval follows approvals.yaml actions, not labels.
+# Ambiguous material semantics choose the higher level.

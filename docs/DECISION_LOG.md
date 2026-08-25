@@ -272,6 +272,15 @@ Each decision records: `decision → research question → evidence → alternat
 - **Supersedes:** No prior ADR. It operationalizes, and does not weaken, ADR-020 and ADR-021.
 - **Confidence:** high for the local policy/evidence ownership boundary; candidate enforcement and any real-data decision remain unproved pending E11 evidence and human review.
 
+### ADR-024 — Solo product-development control-plane simplification
+
+- **Decision:** For local synthetic-only solo development, LOW/MEDIUM product work uses the current capable coding agent, autonomous in-scope repair, targeted verification, and one final gate. Relevant exact-SHA PR CI may supply that final gate; normal topic-branch push and draft PR are pre-authorized. HIGH/CRITICAL are reserved for a material change to crypto/key lifecycle, storage/recovery integrity, irreversible migration, permissions/network exposure, a real privacy/trust boundary, real-data admission, or material security architecture. Independent review is trigger-based only.
+- **Rationale:** Accepted storage, IPC, filesystem, security, and permission mechanisms are not new boundaries by themselves. Requiring model-switch rituals, duplicate full suites, or routine review for ordinary work slows Daily Use progress without adding discriminating assurance.
+- **Safety floor:** `REAL_DATA_GATE` remains `CLOSED`; synthetic-only, `NEVER_CLOUD`, provenance, deletion/recovery/crypto invariants, valid-test integrity, and action-based approval for protected actions remain unchanged.
+- **Rollback:** Revert this entry's control-plane commit to restore the prior routing and verification defaults; no product behavior or real-data state is changed.
+- **Review trigger:** Any material protected-boundary change, or concrete evidence that an independent review or additional proof can alter readiness.
+- **Confidence:** high for workflow simplification; safety invariants are unchanged.
+
 ## Supersession
 
 ADR-021 partially supersedes ADR-020 only for epic allocation; it does not alter
