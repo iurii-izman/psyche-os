@@ -15,7 +15,7 @@
     "tauri": "tauri",
     "tauri:build": "npm run tauri:build:synthetic",
     "tauri:build:synthetic": "npm run sidecar:build && tauri build",
-    "tauri:build:personal": "npm run sidecar:build && tauri build --features personal-product --config src-tauri/tauri.personal.conf.json",
+    "tauri:build:personal": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-personal.ps1",
     "tauri:dev:personal": "npm run sidecar:build && tauri dev --features personal-product --config src-tauri/tauri.personal.conf.json"
   },
   "dependencies": {

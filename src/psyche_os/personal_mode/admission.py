@@ -113,9 +113,16 @@ class PersonalAdmissionGuard:
         """Content-free admission status; never opens Personal storage."""
         decision = self._evaluator()
         available = decision.currently_open(self._clock())
+        if not available and not self._locked:
+            self.lock()
         if self._locked:
-            return {"local_personal": "ADMISSION_AVAILABLE" if available else "NOT_ADMITTED"}
-        return {"local_personal": "ADMITTED" if available else "NOT_ADMITTED"}
+            if not available:
+                return {"local_personal": "NOT_ADMITTED"}
+            return {"local_personal": "ADMISSION_AVAILABLE", "admission_expires_at": decision.expires_at.isoformat().replace("+00:00", "Z") if decision.expires_at else None}
+        return {
+            "local_personal": "ADMITTED",
+            "admission_expires_at": decision.expires_at.isoformat().replace("+00:00", "Z") if decision.expires_at else None,
+        }
 
 
 PersonalNotAdmitted = PersonalNotAdmittedError

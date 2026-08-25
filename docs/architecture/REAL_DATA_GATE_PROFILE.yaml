@@ -21,7 +21,17 @@ intended_use:
     Single-user, local personal evidence and reflection management. It is not
     diagnosis, treatment, triage, clinical decision support, cloud service,
     research deployment, clinician portal, or shared/multi-user service.
-  real_data_admission: "PROHIBITED_UNTIL_EXACT_EVALUATION_HAS_VALID_HUMAN_OPEN_DECISION"
+  real_data_admission: "PROHIBITED_UNTIL_EXACT_EVALUATION_HAS_VALID_HUMAN_OPEN_DECISION_AND_UNEXPIRED_RUNTIME_TOKEN"
+
+solo_local_admission:
+  architecture: "SOLO_LOCAL_ADMISSION_V1"
+  external_review_records_required: false
+  replacement_requirements:
+    - "deterministic_exact_candidate_rdg_evidence"
+    - "zero_unresolved_critical_or_high_findings"
+    - "sealed_exact_evaluation"
+    - "human_repository_owner_open_attestation"
+    - "dpapi_protected_exact_build_runtime_token"
 
 supported_platform_envelope:
   operating_systems: ["Windows"]
@@ -88,8 +98,8 @@ rdg_applicability_rules:
 
 required_review_classes:
   coding_model_output: "NON_AUTHORITATIVE_PROPOSAL_ONLY"
-  independent_technical_review: "REQUIRED_FOR_APPLICABLE_BOUNDARIES"
-  qualified_review: "REQUIRED_WHEN_PROFILE_BOUNDARY_OR_DEPLOYMENT_REQUIRES_IT"
+  independent_technical_review: "ADVISORY_FOR_SOLO_LOCAL_ADMISSION_V1; REQUIRED_FOR_OTHER_PROFILES"
+  qualified_review: "ADVISORY_FOR_SOLO_LOCAL_ADMISSION_V1; REQUIRED_FOR_OTHER_PROFILES"
   gate_decider: "REPOSITORY_OWNER"
   human_attestation_method: "local_human_attestation_v1"
 

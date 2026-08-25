@@ -160,11 +160,13 @@ class PersonalDesktopApplicationService:
 
     def _status(self, payload: Any) -> dict[str, Any]:
         _exact(payload, set())
+        admission = self._guard.status()
         return {
             "locked": self._guard.locked,
             "runtime_profile": "LOCAL_PERSONAL",
-            "local_personal": self._guard.status()["local_personal"],
-            "real_data_gate": "CLOSED",
+            "local_personal": admission["local_personal"],
+            "real_data_gate": "OPEN" if admission["local_personal"] != "NOT_ADMITTED" else "CLOSED",
+            "admission_expires_at": admission.get("admission_expires_at"),
             "inbound_listener": "NONE",
             "outbound_provider": "NOT_CONFIGURED",
             "network": "OFFLINE_NO_LISTENER",

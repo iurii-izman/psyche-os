@@ -523,6 +523,10 @@ def _required_reviews(
     reviews: Mapping[str, Mapping[str, Any]],
     reasons: list[str],
 ) -> None:
+    if profile.get("solo_local_admission", {}).get("external_review_records_required") is False:
+        # This exception is profile-scoped.  Review records are still parsed,
+        # expiry-checked, and can still close a candidate on Critical/High risk.
+        return
     inventory = profile.get("boundary_inventory", {}) if isinstance(profile, dict) else {}
     for boundary_id, boundary in inventory.items():
         assessment = assessments.get(boundary_id)

@@ -48,6 +48,10 @@ opening_rule:
   automatic_opening_forbidden: true
   exact_build_and_profile_required: true
   independent_review_required: true
+  solo_local_profile_exception: >-
+    local_personal_evidence_reflection_windows_v1 may substitute deterministic,
+    exact-candidate RDG evidence and a HUMAN_REPOSITORY_OWNER OPEN attestation
+    for external review records. All other profiles retain the strict default.
   unresolved_critical_or_high_findings_allowed: false
   evidence_expiry_required: true
   human_decision_required: true

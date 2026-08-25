@@ -83,6 +83,10 @@ fn personal_environment(temp: &Path, local_data: &Path) -> Vec<(OsString, OsStri
         (OsString::from("TEMP"), temp.as_os_str().to_owned()),
         (OsString::from("TMP"), temp.as_os_str().to_owned()),
         (OsString::from("PSYCHE_OS_LOCAL_APP_DATA"), local_data.as_os_str().to_owned()),
+        (OsString::from("PSYCHE_OS_PERSONAL_ADMISSION_ROOT"), local_data.join("PSYCHE OS").join("Personal").into_os_string()),
+        (OsString::from("PSYCHE_OS_PERSONAL_BUILD_ID"), OsString::from(option_env!("PSYCHE_OS_PERSONAL_BUILD_ID").unwrap_or("UNBOUND"))),
+        (OsString::from("PSYCHE_OS_PERSONAL_PROFILE_ID"), OsString::from("local_personal_evidence_reflection_windows_v1")),
+        (OsString::from("PSYCHE_OS_PERSONAL_PROFILE_DIGEST"), OsString::from(option_env!("PSYCHE_OS_PERSONAL_PROFILE_DIGEST").unwrap_or("UNBOUND"))),
     ]
 }
 
@@ -166,6 +170,10 @@ mod tests {
         for forbidden in ["desktop_ai_", "desktop_archive_", "desktop_action_"] { assert!(!handler.0.contains(forbidden)); }
     }
     #[test] fn personal_environment_has_no_provider_credential() { assert!(!personal_environment(Path::new("C:\\temp"), Path::new("C:\\local")).iter().any(|(key, _)| key == "OPENAI_API_KEY")); }
+    #[test] fn personal_environment_has_only_launcher_bound_admission_identity() {
+        let values: BTreeSet<OsString> = personal_environment(Path::new("C:\\temp"), Path::new("C:\\local")).into_iter().map(|(key, _)| key).collect();
+        for required in ["PSYCHE_OS_PERSONAL_ADMISSION_ROOT", "PSYCHE_OS_PERSONAL_BUILD_ID", "PSYCHE_OS_PERSONAL_PROFILE_ID", "PSYCHE_OS_PERSONAL_PROFILE_DIGEST"] { assert!(values.contains(&OsString::from(required))); }
+    }
     #[test]
     fn personal_rust_to_sidecar_closed_boundary_is_content_free_and_rejects_ai() {
         let base = std::env::temp_dir().join(format!("psyche-os-personal-rust-e2e-{}", Uuid::new_v4()));
