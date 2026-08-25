@@ -1,0 +1,34 @@
+task_id: DAILY-USE-CANDIDATE-SENSEMAKING
+base_sha: cda47c0e5a63a549ba2e3ce3ee9bd7beb984b970
+profile: balanced
+risk: medium
+goal:
+  - Deliver the final ordinary Personal daily-use increment without opening REAL_DATA_GATE.
+non_goals:
+  - No backend commands, schema/migration, crypto/recovery semantic, network, capability, or dependency changes.
+authority:
+  - CONSTITUTION.md
+  - docs/architecture/REAL_DATA_GATE.yaml
+  - docs/development/personal-mode-v1/ARCHITECTURE.md
+expected_scope:
+  - desktop/package.json
+  - desktop/src/personal-api.ts
+  - desktop/src/personal-main.ts
+  - desktop/src/styles.css
+  - desktop/tests/personal-reflection-workspace.test.ts
+protected_scope:
+  - .ai-dev/policy/**
+acceptance:
+  - Saved exploration data is rendered as derived, source-linked sensemaking and daily review.
+  - Status and recovery facts already returned by Personal APIs are displayed without new backend surface.
+  - Personal development launch command, renderer tests, typecheck, lint, and Personal build pass.
+repository_required_gates:
+  - npm --prefix desktop run typecheck
+  - npm --prefix desktop run lint
+  - npm --prefix desktop run test:unit
+  - npm --prefix desktop run tauri:build:personal
+permissions:
+  network: false
+  dependencies: false
+  migrations: false
+  destructive: false

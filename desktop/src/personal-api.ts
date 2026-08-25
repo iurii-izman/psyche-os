@@ -1,11 +1,26 @@
 import { invoke } from "@tauri-apps/api/core";
 
-export interface PersonalStatus { data_mode: "LOCAL_PERSONAL"; real_data_gate: "CLOSED"; local_personal: "NOT_ADMITTED" | "ADMISSION_AVAILABLE" | "ADMITTED"; locked: boolean; }
+export interface PersonalStatus {
+  runtime_profile: "LOCAL_PERSONAL";
+  local_personal: "NOT_ADMITTED" | "ADMISSION_AVAILABLE" | "ADMITTED";
+  real_data_gate: "CLOSED";
+  locked: boolean;
+  inbound_listener: "NONE";
+  outbound_provider: "NOT_CONFIGURED";
+  network: "OFFLINE_NO_LISTENER";
+  privacy: { core_processing_location: "LOCAL"; cloud_storage: "DISABLED"; cloud_disclosure: "NEVER_CLOUD"; telemetry: "OFF" };
+}
 export interface ReflectionTurn { turn_id: string; session_id: string; sequence: number; actor: "USER"; created_at: string; content: string; }
 export interface ReflectionSession { session_id: string; title: string; state: "ACTIVE" | "CLOSED"; turn_count: number; created_at?: string; updated_at?: string; closed_at?: string | null; turns?: ReflectionTurn[]; }
 export interface SearchResult { session_id: string; session_title: string; session_state: "ACTIVE" | "CLOSED"; turn_id: string | null; turn_sequence: number | null; excerpt: string; }
 export interface SearchView { query: string; state: "ALL" | "ACTIVE" | "CLOSED"; total_matches: number; returned_count: number; offset: number; limit: number; truncated: boolean; has_more: boolean; results: SearchResult[]; }
-export interface ExplorationView { context: { context_item_id: string; kind: "KNOWN" | "UNKNOWN" | "CONTRADICTION"; text: string; state: string }[]; hypotheses: { hypothesis_id: string; proposal_text: string; uncertainty_text: string; discriminator_text: string }[]; next_question: { question_id: string; text: string } | null; snapshots: unknown[]; formulations: { formulation_id: string; version: number; status: "PROPOSED" | "CURRENT" | "REJECTED" | "SUPERSEDED"; summary: string; correction_text: string | null }[]; }
+export interface ExplorationView {
+  context: { context_item_id: string; kind: "KNOWN" | "UNKNOWN" | "CONTRADICTION"; text: string; state: string; source_turn_ids?: string[]; created_at?: string }[];
+  hypotheses: { hypothesis_id: string; proposal_text: string; uncertainty_text: string; discriminator_text: string; context_refs?: { context_item_id: string; relation: string; source_turn_ids: string[] }[]; created_at?: string }[];
+  next_question: { question_id: string; text: string } | null;
+  snapshots: unknown[];
+  formulations: { formulation_id: string; version: number; status: "PROPOSED" | "CURRENT" | "REJECTED" | "SUPERSEDED"; summary: string; correction_text: string | null; created_at?: string; updated_at?: string }[];
+}
 
 let sessionToken: string | null = null;
 const call = <T>(command: string, args: Record<string, unknown> = {}) => invoke<T>(command, { request: { ...args, sessionToken } });
