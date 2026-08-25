@@ -1,0 +1,12 @@
+schema_version: "1.0"
+proof_class: "boundary_exclusion_proof_v1"
+proof_result: "PASS"
+validator_id: "personal_package_inventory_2026-08-25"
+candidate_source_commit: "29169262b1d9d71f1c1eb6c2e193069abd70d816"
+candidate_build_id: "29169262b1d9d71f1c1eb6c2e193069abd70d816"
+candidate_platform:
+  operating_system: "Windows"
+  architecture: "x86_64"
+  runtime: "python-3.12.10"
+  packaging: "nsis"
+boundary_ids: ["general_blob_or_attachment_writes", "importer_parser_or_untrusted_rendering", "provider_model_or_network", "assessment_scoring", "longitudinal_or_n_of_1", "professional_report_or_external_handoff"]

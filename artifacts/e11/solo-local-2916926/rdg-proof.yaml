@@ -1,0 +1,12 @@
+schema_version: "1.0"
+proof_class: "deterministic_validator_result_v1"
+proof_result: "PASS"
+validator_id: "solo_local_final_verification_2026-08-25"
+candidate_source_commit: "29169262b1d9d71f1c1eb6c2e193069abd70d816"
+candidate_build_id: "29169262b1d9d71f1c1eb6c2e193069abd70d816"
+candidate_platform:
+  operating_system: "Windows"
+  architecture: "x86_64"
+  runtime: "python-3.12.10"
+  packaging: "nsis"
+rdg_ids: ["RDG-01", "RDG-02", "RDG-03", "RDG-04", "RDG-05", "RDG-06", "RDG-07", "RDG-08", "RDG-09", "RDG-10", "RDG-11", "RDG-12"]
