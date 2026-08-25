@@ -28,6 +28,11 @@ export const personalApi = {
   formulationPropose: (sessionId: string) => call("desktop_formulation_propose", { sessionId }),
   formulationCorrect: (formulationId: string, correctionText: string) => call("desktop_formulation_correct", { formulationId, correctionText }),
   formulationAccept: (formulationId: string) => call("desktop_formulation_accept", { formulationId }),
-  formulationReject: (formulationId: string) => call("desktop_formulation_reject", { formulationId })
+  formulationReject: (formulationId: string) => call("desktop_formulation_reject", { formulationId }),
+  personalBackup: (secret: string) => call("desktop_personal_backup", { secret }),
+  personalRestoreIsolated: (backupId: string, secret: string) => call("desktop_personal_restore_isolated", { backupId, secret }),
+  personalExportOwner: (secret: string) => call("desktop_personal_export_owner", { secret }),
+  personalRotate: (secret: string) => call("desktop_personal_rotate", { secret }),
+  personalRecoveryStatus: () => call("desktop_personal_recovery_status")
 };
 export type PersonalApi = typeof personalApi;

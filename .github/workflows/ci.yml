@@ -85,3 +85,5 @@ jobs:
       - run: npm --prefix desktop run test:unit
       - run: cargo check --manifest-path desktop/src-tauri/Cargo.toml --locked
       - run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked
+      - name: Verify Personal Tauri IPC boundary
+        run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --features personal-product,personal-ipc-test personal_
