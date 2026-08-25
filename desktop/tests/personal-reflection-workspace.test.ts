@@ -10,9 +10,9 @@ describe("Personal daily-use renderer", () => {
   it("supports unlock, quick capture, history, search, and the bounded recovery journey", async () => {
     document.body.innerHTML = '<div id="app"></div>';
     let locked = true; const item = session("r1"), question = { question_id: "q1", text: "What happened next?" };
-    const exploration = () => ({ context: [], hypotheses: [], next_question: question, snapshots: [{}], formulations: [] });
+    const exploration = () => ({ context: [{ context_item_id: "c1", kind: "UNKNOWN" as const, text: "What remains unclear?", state: "OPEN", source_turn_ids: ["t1"] }, { context_item_id: "c2", kind: "CONTRADICTION" as const, text: "Two accounts differ.", state: "OPEN", source_turn_ids: ["t1"] }], hypotheses: [{ hypothesis_id: "h1", proposal_text: "A tentative explanation", uncertainty_text: "Limited context", discriminator_text: "Observe another example" }], next_question: question, snapshots: [{}], formulations: [{ formulation_id: "f1", version: 1, status: "CURRENT" as const, summary: "Current working picture", correction_text: null }] });
     const api = {
-      status: vi.fn(async () => ({ data_mode: "LOCAL_PERSONAL" as const, real_data_gate: "CLOSED" as const, local_personal: "ADMITTED" as const, locked })),
+      status: vi.fn(async () => ({ runtime_profile: "LOCAL_PERSONAL" as const, real_data_gate: "CLOSED" as const, local_personal: "ADMITTED" as const, locked, inbound_listener: "NONE" as const, outbound_provider: "NOT_CONFIGURED" as const, network: "OFFLINE_NO_LISTENER" as const, privacy: { core_processing_location: "LOCAL" as const, cloud_storage: "DISABLED" as const, cloud_disclosure: "NEVER_CLOUD" as const, telemetry: "OFF" as const } })),
       unlock: vi.fn(async () => { locked = false; return { session_token: "test" }; }), lock: vi.fn(async () => { locked = true; return {}; }),
       reflectionList: vi.fn(async () => ({ sessions: [item] })), reflectionCreate: vi.fn(async () => item), reflectionGet: vi.fn(async () => item),
       reflectionAddTurn: vi.fn(async (_id: string, content: string) => { item.turns = [...(item.turns ?? []), { turn_id: `t${item.turns!.length + 1}`, session_id: "r1", sequence: item.turns!.length + 1, actor: "USER", created_at: "2026-08-24T00:00:00Z", content }]; item.turn_count = item.turns.length; return item.turns.at(-1)!; }),
@@ -28,6 +28,9 @@ describe("Personal daily-use renderer", () => {
     expect(document.body.textContent).toContain("QUICK CAPTURE");
     document.querySelector<HTMLInputElement>("#quick-capture-title")!.value = "A note"; document.querySelector<HTMLTextAreaElement>("#quick-capture-text")!.value = "unique marker"; document.querySelector<HTMLFormElement>("#quick-capture-form")!.requestSubmit(); await tick();
     expect(api.reflectionCreate).toHaveBeenCalledWith("A note"); expect(api.reflectionAddTurn).toHaveBeenCalledWith("r1", "unique marker"); expect(document.body.textContent).toContain("Capture saved to your history");
+    expect(document.body.textContent).toContain("DAILY REVIEW"); expect(document.body.textContent).toContain("unresolved unknowns");
+    await click("Understand"); expect(document.body.textContent).toContain("Current picture"); expect(document.body.textContent).toContain("What remains unclear?"); expect(document.body.textContent).toContain("Derived from reflection"); await click("Open source reflection"); expect(document.body.textContent).toContain("USER · entry 1");
+    await click("Privacy & local status"); expect(document.body.textContent).toContain("OFFLINE_NO_LISTENER"); expect(document.body.textContent).toContain("NEVER_CLOUD");
     await click("History"); expect(document.body.textContent).toContain("Your saved reflections"); await click("Resume"); expect(document.body.textContent).toContain("USER · entry 1");
     await click("Search"); document.querySelector<HTMLInputElement>("#search-query")!.value = "marker"; document.querySelector<HTMLFormElement>("#search-form")!.requestSubmit(); await tick(); expect(document.body.textContent).toContain("unique marker");
     await click("Backup & recovery"); await click("Refresh status"); expect(document.body.textContent).toContain("Rotation: READY");
