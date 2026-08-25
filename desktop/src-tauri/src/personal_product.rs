@@ -150,7 +150,7 @@ pub fn run() {
         desktop_status, desktop_unlock, desktop_lock, desktop_reflection_create, desktop_reflection_list, desktop_reflection_get, desktop_reflection_add_turn, desktop_reflection_close, desktop_reflection_delete, desktop_reflection_search,
         desktop_exploration_start, desktop_exploration_get, desktop_exploration_answer, desktop_exploration_skip, desktop_formulation_propose, desktop_formulation_correct, desktop_formulation_accept, desktop_formulation_reject,
         desktop_personal_backup, desktop_personal_restore_isolated, desktop_personal_export_owner, desktop_personal_rotate, desktop_personal_recovery_status
-    ]).setup(|app| { WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into())).title("PSYCHE OS Personal").inner_size(960.0, 740.0).min_inner_size(720.0, 580.0).devtools(false).build()?; Ok(()) }).run(tauri::generate_context!()).expect("Personal desktop host failed");
+    ]).setup(|app| { WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into())).title("PSYCHE OS Personal").inner_size(1180.0, 780.0).min_inner_size(820.0, 600.0).devtools(false).build()?; Ok(()) }).run(tauri::generate_context!()).expect("Personal desktop host failed");
 }
 
 #[cfg(test)]
