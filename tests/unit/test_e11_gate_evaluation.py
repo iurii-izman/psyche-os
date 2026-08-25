@@ -11,8 +11,11 @@ from typing import Any
 import yaml
 
 from psyche_os.release_evidence.e11_gate import (
+    _matches_normalized_text_sha256,
+    _matches_raw_sha256,
     _verify_profile_binding,
     evaluate_evaluation,
+    load_evaluation,
     seal_evaluation,
 )
 
@@ -20,6 +23,9 @@ ROOT = Path(__file__).resolve().parents[2]
 NOW = datetime(2026, 8, 21, tzinfo=UTC)
 EVALUATION_PATH = (
     ROOT / "artifacts" / "e11" / "gate-evaluations" / "e11-implementation-candidate-draft.yaml"
+)
+HISTORICAL_EVALUATION_PATH = (
+    ROOT / "artifacts" / "e11" / "gate-evaluations" / "solo-local-2916926.yaml"
 )
 RAW_EVIDENCE_PATH = "artifacts/e11/release-manifests/e11-implementation-candidate.yaml"
 RDG_PROOF_PATH = "tests/fixtures/e11/deterministic-rdg-proof.yaml"
@@ -40,7 +46,7 @@ def _draft() -> dict[str, Any]:
     draft["candidate"]["source_commit"] = source_commit
     draft["profile_binding"].update(
         {
-            "profile_definition_sha256": _sha256("docs/architecture/REAL_DATA_GATE_PROFILE.yaml"),
+            "profile_definition_sha256": _sha256(profile_path.relative_to(ROOT).as_posix()),
             "profile_source_commit": source_commit,
         }
     )
@@ -226,6 +232,32 @@ def test_lock_sbom_and_artifact_identity_mismatch_close_candidate() -> None:
     assert (
         "identity_digest_mismatch:artifact:draft-release-manifest" in _outcome(evaluation).reasons
     )
+
+
+def test_binary_artifact_identity_uses_exact_raw_bytes(tmp_path: Path) -> None:
+    artifact = tmp_path / "artifact.exe"
+    artifact.write_bytes(b"MZ\x00\r\nbinary\r\ncontent\x00")
+    raw_sha256 = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    normalized_sha256 = hashlib.sha256(artifact.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+    assert _matches_raw_sha256(artifact, raw_sha256)
+    assert not _matches_raw_sha256(artifact, normalized_sha256)
+
+
+def test_normalized_text_identity_preserves_crlf_compatibility(tmp_path: Path) -> None:
+    text = tmp_path / "identity.yaml"
+    text.write_bytes(b"key: value\r\nnext: value\r\n")
+    normalized_sha256 = hashlib.sha256(text.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+    assert _matches_normalized_text_sha256(text, normalized_sha256)
+
+
+def test_historical_installer_identity_is_invalid_under_raw_artifact_semantics() -> None:
+    historical = load_evaluation(HISTORICAL_EVALUATION_PATH)
+
+    outcome = evaluate_evaluation(ROOT, historical, now=NOW)
+
+    assert "identity_digest_mismatch:artifact:personal-nsis-installer" in outcome.reasons
 
 
 def test_evidence_from_a_previous_candidate_closes_candidate() -> None:
