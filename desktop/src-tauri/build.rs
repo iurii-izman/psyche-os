@@ -40,18 +40,18 @@ fn main() {
     // Tauri validates every checked-in capability file at build time, including
     // the main-product capability that is not granted by the Personal config.
     // Define its permissions here without granting them to the Personal binary.
-    let commands: &'static [&'static str] = if cfg!(feature = "personal-product") {
-        Box::leak(
-            [
+    #[cfg(feature = "personal-product")]
+    let commands: &'static [&'static str] = Box::leak(
+        [
             command_manifest::SHIPPED_COMMANDS,
             full_command_manifest::SHIPPED_COMMANDS,
-            ]
-            .concat()
-            .into_boxed_slice(),
-        )
-    } else {
-        command_manifest::SHIPPED_COMMANDS
-    };
+        ]
+        .concat()
+        .into_boxed_slice(),
+    );
+    #[cfg(not(feature = "personal-product"))]
+    let commands: &'static [&'static str] = command_manifest::SHIPPED_COMMANDS;
+
     let attributes = tauri_build::Attributes::new()
         .app_manifest(tauri_build::AppManifest::new().commands(&commands));
     tauri_build::try_build(attributes).expect("failed to build Tauri command permissions");
