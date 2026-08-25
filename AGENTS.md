@@ -17,18 +17,19 @@
 ## Delivery default
 
 - Classify risk from the **delta and invariant changed**, not a directory name. A historical wording or test-only edit in a sensitive subsystem is not automatically high risk.
-- Normal flow: orient → short Task Contract → implement → targeted verification → one risk-appropriate final gate → review only on a concrete trigger → merge → stop.
+- Ordinary LOW/MEDIUM flow: implement → autonomous in-scope repair → targeted verification → one final gate → commit → push bounded branch → draft PR → inspect exact-SHA CI → repair deterministic in-scope CI regressions → stop green. Never force-push or push directly to `main`.
+- Keep LOW/MEDIUM Task Contracts compact: GOAL, SCOPE, DO NOT CROSS, ACCEPTANCE, AUTONOMY + VERIFY, OUTPUT. Do not add a separate prepare/architecture/review/report/STATE/evidence artifact unless the task itself needs it.
 - Boundary changes (new/material trust boundary, crypto/key behavior, recovery integrity, irreversible migration, permissions/network, real-data admission, material privacy/security architecture) require stronger deterministic proof and trigger-based independent review. Human approval is action-based under `.ai-dev/policy/approvals.yaml`; Task Contract pre-authorization counts.
 - One coherent candidate has at most one candidate-wide independent review. A bounded defect gets a smallest repair, failed oracle plus directly coupled regressions, then independent **delta** recheck only. Accepted work is not re-reviewed absent invalidation.
 - `ACCEPT` / `ACCEPT_WITH_OPTIONAL_ITEMS` close core implementation. Optional backlog records and stops; docs/status cleanup gets targeted checks; packaging cannot reopen acceptance. Prefer a local candidate commit SHA as review identity; dirty identity is fallback only.
-- Keep ordinary deterministic test repairs within the Task Contract. Stop only for a changed architecture/trust model, new approval, destructive/dependency/network/permission action, crypto or gate change, or structural evidence against accepted design.
+- Keep ordinary deterministic test, compile, type, lint, API, fixture, local-regression, and directly coupled CI repairs within the Task Contract. Stop only for a material redesign/trust-model change, new approval, destructive or irreversible action, production dependency, migration, permission/network expansion, crypto/key or REAL_DATA_GATE change, protected security-architecture decision, secrets/accounts/billing, or structural evidence against accepted design.
 
 ## Repository workflow
 
 - Keep research evidence in `docs/research/`, design reviews in `docs/reviews/`, and major architecture decisions in `docs/DECISION_LOG.md`.
 - Protected control-plane paths require the control-plane-change flow and explicit task authorization. Do not weaken tests, scanners, verifiers, or acceptance criteria for green.
-- Use `rg` → `ast-grep` → exact ranges. Use targeted checks while iterating and the final risk gate once. Validate orchestration with `uv run python scripts/dev/validate_orchestration.py`; validate the frozen research foundation when its owners are touched.
-- Do not push automatically unless the active Task Contract authorizes it. Preserve unrelated user changes; record only accepted epic commits in `STATE.yaml`.
+- Use `rg` → `ast-grep` → exact ranges. Use targeted checks while iterating and one risk-appropriate final gate. Exact-SHA PR CI may be that final gate when it exercises the relevant stack; do not duplicate a full local suite without a concrete reason. Run orchestration validation only when its owners change, and research validation only when the owned research foundation changes.
+- For LOW/MEDIUM, normal push to a bounded topic branch and draft PR are pre-authorized; never force-push or push directly to `main`. Preserve unrelated user changes; record only accepted epic commits in `STATE.yaml`.
 - When repository CI exists for a PR, inspect the exact PR-head checks and require them green before merge.
 
 ## AI Dev OS

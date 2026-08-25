@@ -30,10 +30,13 @@ rust:                # run from desktop/src-tauri/
   clippy: cargo clippy -- -D warnings
   test: cargo test
 
-# Final risk gate ≈ CI semantics: full pytest + orchestration validator + research
-# validator. ruff/mypy are inner-loop checks (V0/V1) and, given current pre-existing
-# debt, are recorded but not treated as a hard stop until that debt is triaged.
+# CI remains deliberately broad. LOW/MEDIUM work uses targeted checks and one final
+# gate: exact-SHA PR CI when it covers the changed stack, otherwise the appropriate
+# local gate. Research and orchestration validators run only for their owners.
 final_gate:
-  - uv run pytest -q
-  - uv run python scripts/dev/validate_orchestration.py
-  - uv run python scripts/validate_research_foundation.py
+  exact_sha_pr_ci: preferred_when_relevant
+  local_fallback:
+    - uv run pytest -q
+  owner_specific:
+    control_plane: uv run python scripts/dev/validate_orchestration.py
+    research_foundation: uv run python scripts/validate_research_foundation.py

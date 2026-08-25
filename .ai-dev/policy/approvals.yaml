@@ -16,6 +16,8 @@ require_explicit_approval:
   - permissions expansion
   - new network exposure
   - crypto or key-handling change
+  - REAL_DATA_GATE or real-data admission change
+  - material security architecture change
   - change under .ai-dev/policy
   - change to the benchmark verifier
   - change to security scanner configuration

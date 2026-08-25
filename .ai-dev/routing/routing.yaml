@@ -1,27 +1,24 @@
 # Model routing + circuit breakers.
-# Roles (CHEAP/STRONG) map to concrete models via provider config; roles are stable,
-# model names are version-sensitive and re-checked before major changes.
+# Provider/model changes are explicit when they occur; ordinary work uses the
+# currently selected capable coding agent without a required model-switch ritual.
 
 version: 2
 
 roles:
-  cheap: deepseek-v4-flash      # verify actual model id before use
-  strong: deepseek-v4-pro
+  current: currently_selected_capable_coding_agent
+  stronger: stronger_or_different_capable_coding_agent
 
 routing:
   low_medium:
-    - cheap
-    - verify
-    - one_grounded_cheap_retry
-    - strong
+    - currently_selected_capable_coding_agent
+    - escalate_only_after_material_reasoning_failure_unresolved_ambiguity_or_explicit_need
   high:
-    - cheap_recon_if_useful
-    - strong_implementation
+    - current_or_stronger_agent_as_risk_requires
     - full_deterministic_gate
     - review_if_concrete_trigger
   critical:
     - architecture_confirmation
-    - strong_frontier_implementation
+    - stronger_agent_when_needed
     - full_deterministic_verification
     - independent_reviewer_if_concrete_trigger
     - human_approval_if_listed_action
@@ -29,10 +26,10 @@ routing:
 execution_lanes:
   product_default:
     use_for: ordinary user-facing work, bounded bug fixes, and deterministic local features
-    flow: orient -> contract -> implement -> targeted_verify -> final_gate_once -> review_if_triggered -> merge -> stop
+    flow: implement -> autonomous_in_scope_repair -> targeted_verify -> one_final_gate -> commit -> push_bounded_branch -> draft_pr -> inspect_exact_sha_ci -> repair_deterministic_ci_regressions -> stop_green
   boundary_change:
     use_for: materially changed trust boundaries, crypto/key behavior, recovery integrity, irreversible migrations, permissions, network, real-data admission, or core privacy/security architecture
-    flow: architecture_confirmation -> strong_implementation -> full_deterministic_proof -> independent_review_if_triggered -> action_based_approval -> merge
+    flow: architecture_confirmation -> stronger_implementation_as_needed -> full_deterministic_proof -> independent_review_if_triggered -> action_based_approval -> merge
   packaging_closeout:
     use_for: accepted candidates, commits, pushes, PRs, merges, and bounded post-merge checks
     flow: exact_accepted_candidate -> package -> bounded_post_merge_check -> stop
@@ -45,6 +42,7 @@ review_policy:
     - irreversible_migration
     - changed_real_data_admission
     - material_security_or_privacy_invariant_change
+    - material_permission_or_network_expansion
     - high_risk_change_where_independent_falsification_materially_improves_confidence
     - task_contract_requires_review
     - repaired_invariant_requires_independent_delta_recheck

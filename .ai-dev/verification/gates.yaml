@@ -6,8 +6,8 @@ version: 2
 selection:
   docs_or_status_only: relevant_syntax_schema_link_or_orchestration_checks_only
   control_plane_config: focused_policy_schema_tests_and_orchestration_validator
-  ordinary_product: targeted_tests_then_one_risk_appropriate_final_gate
-  boundary_or_security_change: full_appropriate_deterministic_gate
+  ordinary_product: targeted_tests_then_one_final_gate_or_exact_sha_pr_ci
+  boundary_or_security_change: full_appropriate_deterministic_gate_and_triggered_review
   accepted_narrow_repair: invalidated_components_and_directly_coupled_regressions_only
   independent_review: only_when_routing_review_trigger_is_true
 
@@ -39,10 +39,19 @@ gates:
       - cd desktop/src-tauri && cargo test
 
   final:
-    v3:
+    local_v3_when_pr_ci_is_unavailable_or_insufficient:
       - uv run pytest -q
       - uv run python scripts/dev/validate_orchestration.py
+    exact_sha_pr_ci:
+      - use_when_it_exercises_the_relevant_stack
+      - inspect_the_candidate_head_sha
+      - do_not_duplicate_the_equivalent_full_local_gate_without_concrete_reason
+    research_foundation:
       - uv run python scripts/validate_research_foundation.py
+      - required_only_when_research_foundation_owners_change
+    control_plane:
+      - uv run python scripts/dev/validate_orchestration.py
+      - required_when_control_plane_owners_change
     v4:
       # Independent fresh-context review is trigger-based, never label-based.
       reviewer: fresh

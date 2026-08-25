@@ -104,6 +104,18 @@ def test_policy_rejects_unconditional_critical_approval_or_second_review() -> No
     assert "one candidate-wide review maximum" in result.failures
 
 
+def test_policy_rejects_missing_real_data_or_security_architecture_approval() -> None:
+    approvals = _yaml_mapping(APPROVALS_PATH)
+    approvals["require_explicit_approval"].remove("REAL_DATA_GATE or real-data admission change")
+    approvals["require_explicit_approval"].remove("material security architecture change")
+    result = Validation()
+    validate_product_mode_policy(
+        result, _yaml_mapping(RISK_PATH), approvals, _yaml_mapping(ROUTING_PATH), _yaml_mapping(GATES_PATH), _yaml_mapping(COMMANDS_PATH)
+    )
+    assert "real-data admission remains explicitly approved" in result.failures
+    assert "material security architecture remains explicitly approved" in result.failures
+
+
 def test_policy_rejects_mypy_as_a_default_hard_gate_or_missing_optional_diagnostic() -> None:
     gates = _yaml_mapping(GATES_PATH)
     commands = _yaml_mapping(COMMANDS_PATH)

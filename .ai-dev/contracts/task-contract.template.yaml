@@ -1,89 +1,13 @@
-# Task Contract — reusable minimal template.
-# One short contract per non-trivial task; used identically by harness, reviewer,
-# verifier, recovery, telemetry, and lab comparison.
-# Pre-authorization in `permissions` counts as approval (approvals.yaml).
+# Compact Task Contract for ordinary LOW/MEDIUM product work.
+# The user task itself may be this contract. It pre-authorizes only listed actions.
 
-task_id: T-000
-base_sha: <HEAD_SHA>
+GOAL: <outcome>
+SCOPE: <allowed paths and behavior>
+DO NOT CROSS: <boundaries, dependencies, migrations, permissions, real-data, secrets>
+ACCEPTANCE: <observable functional result>
+AUTONOMY + VERIFY: <autonomous repairs; targeted checks; one final gate or exact-SHA PR CI>
+OUTPUT: <commit, draft PR, residual/deferred item if any>
 
-profile: balanced            # balanced | quality | economy | lab
-risk: medium                 # low | medium | high | critical
-
-goal:
-  - <what must change and why>
-
-non_goals:
-  - <explicitly out of scope; no unrelated refactoring>
-
-authority:
-  - CONSTITUTION.md
-  - <ADR / spec section / docs reference>
-
-expected_scope:
-  - <paths the task is allowed to change>
-
-protected_scope:
-  - .ai-dev/**
-
-acceptance:
-  - <observable criteria that prove the task is done>
-
-# Keep these categories distinct. Tiny tasks may omit empty optional sections, but a
-# non-trivial task must not turn convenience evidence into an unstated acceptance gate.
-repository_required_gates:
-  - <policy-owned command/gate from .ai-dev/verification; cannot be silently waived>
-
-contract_required_proof: []
-# Each additional proof must name its risk, why repository gates are insufficient,
-# primary trusted oracle, failure meaning, and stop/escalation condition. An optional
-# alternate oracle is pre-authorized only when recorded before execution; it must be
-# already trusted and prove the equivalent required property, not a weaker one.
-# - risk: <named product/security risk>
-#   insufficiency_of_repository_gates: <why policy gates alone do not prove it>
-#   primary_oracle: <trusted test/runtime/review evidence path>
-#   failure_meaning: <what a failure establishes or does not establish>
-#   alternate_oracles: []
-#   # - oracle: <already-trusted alternate evidence path>
-#   #   trigger: <exact pre-recorded fallback condition>
-#   #   sufficiency: <why it proves the equivalent required property>
-#   #   residual_limitation: <bounded remaining limitation>
-#   stop_or_escalation: <bounded next action>
-
-supplemental_evidence: []
-# Diagnostics, smoke, exploratory evidence, or convenience checks. Failure does not
-# automatically fail the product; it must be classified under oracle_failure_policy.
-
-proof_recovery_budget:
-  max_feature_local_repair_loops: 1
-  # More work requires an explicit, risk-based reason; it cannot be spent merely to
-  # obtain a decorative PASS marker.
-
-oracle_failure_policy:
-  classify_as: product_defect|test_defect|oracle_defect|environment_defect|tool_harness_defect
-  # Repository-required gates cannot be waived, replaced, or reclassified by a Task
-  # Contract. Supplemental evidence is non-load-bearing: its classified failure does
-  # not change acceptance if gates and contract proof remain satisfied. Required proof
-  # cannot be silently relabelled supplemental after failure. A pre-authorized,
-  # equivalent alternate oracle may be used with a recorded switch; otherwise a
-  # post-failure replacement/removal of contract-required proof needs explicit human
-  # approval under approvals.yaml and the affected acceptance claim remains blocked.
-  low_medium: <stop verifier expansion when policy gates and sufficient trusted product evidence pass; record bounded residual>
-  high_critical: <missing load-bearing runtime/security evidence remains blocking>
-
-stop_conditions:
-  - <product-risk stop/escalation condition>
-  - <verifier rabbit-hole stop condition when relevant>
-
-permissions:
-  network: false
-  dependencies: false
-  migrations: false
-  destructive: false
-
-routing:
-  initial: cheap             # cheap | strong
-  max_grounded_retry: 1
-  escalation: strong
-
-# Optional, for HIGH/CRITICAL: assumptions must be explicit, not hidden.
-assumptions: []
+# Add a short explicit approval only for destructive/irreversible actions, production
+# dependencies, migrations, permission/network expansion, crypto/key changes,
+# REAL_DATA_GATE changes, secrets/accounts/billing, or material security architecture.
