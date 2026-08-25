@@ -140,11 +140,21 @@ def _repo_path(root: Path, value: Any, field: str, reasons: list[str]) -> Path |
     return candidate
 
 
-def _matches_sha256(path: Path, expected: Any) -> bool:
+def _matches_normalized_text_sha256(path: Path, expected: Any) -> bool:
+    """Match the repository's intentional LF-normalized text identity."""
     return (
         isinstance(expected, str)
         and len(expected) == _SHA256_LENGTH
         and (hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest() == expected)
+    )
+
+
+def _matches_raw_sha256(path: Path, expected: Any) -> bool:
+    """Match an artifact identity over its exact stored bytes."""
+    return (
+        isinstance(expected, str)
+        and len(expected) == _SHA256_LENGTH
+        and hashlib.sha256(path.read_bytes()).hexdigest() == expected
     )
 
 
@@ -159,7 +169,7 @@ def _verify_identity_files(root: Path, evaluation: Mapping[str, Any], reasons: l
             reasons.append(f"missing_identity:{kind}")
             continue
         path = _repo_path(root, identity.get("path"), f"identities.{kind}", reasons)
-        if path is not None and not _matches_sha256(path, identity.get("sha256")):
+        if path is not None and not _matches_normalized_text_sha256(path, identity.get("sha256")):
             reasons.append(f"identity_digest_mismatch:{kind}")
     artifacts = identities.get("artifacts", [])
     if not isinstance(artifacts, list) or not artifacts:
@@ -171,7 +181,7 @@ def _verify_identity_files(root: Path, evaluation: Mapping[str, Any], reasons: l
             continue
         name = str(artifact.get("id", "unknown"))
         path = _repo_path(root, artifact.get("path"), f"identities.artifacts.{name}", reasons)
-        if path is not None and not _matches_sha256(path, artifact.get("sha256")):
+        if path is not None and not _matches_raw_sha256(path, artifact.get("sha256")):
             reasons.append(f"identity_digest_mismatch:artifact:{name}")
 
 
@@ -318,7 +328,9 @@ def _evidence_index(
         if expires is not None and expires <= now:
             reasons.append(f"expired_evidence:{evidence_id}")
         path = _repo_path(root, item.get("raw_evidence_path"), f"evidence:{evidence_id}", reasons)
-        if path is not None and not _matches_sha256(path, item.get("raw_evidence_sha256")):
+        if path is not None and not _matches_normalized_text_sha256(
+            path, item.get("raw_evidence_sha256")
+        ):
             reasons.append(f"evidence_digest_mismatch:{evidence_id}")
         if path is None:
             continue

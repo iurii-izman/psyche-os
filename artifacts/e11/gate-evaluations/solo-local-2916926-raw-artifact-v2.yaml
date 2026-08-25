@@ -1,0 +1,52 @@
+schema_version: "1.0"
+evaluation_id: "solo-local-2916926-raw-artifact-v2"
+lifecycle: "SEALED"
+candidate:
+  source_commit: "29169262b1d9d71f1c1eb6c2e193069abd70d816"
+  build_id: "29169262b1d9d71f1c1eb6c2e193069abd70d816"
+  platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}
+  requested_data_class: "SYNTHETIC_ONLY"
+  reproducibility: {status: "REPRODUCED", evidence_ids: ["final-verification"]}
+profile_binding:
+  profile_path: "docs/architecture/REAL_DATA_GATE_PROFILE.yaml"
+  profile_id: "local_personal_evidence_reflection_windows_v1"
+  profile_version: "1.0"
+  profile_definition_sha256: "50f8f9b684b4db14df482ef8f461c8c95bf99ba3ec35842059fa56d08859d1f7"
+  profile_source_commit: "29169262b1d9d71f1c1eb6c2e193069abd70d816"
+identities:
+  lock: {path: "uv.lock", sha256: "82af2a0d7b995fb2c585de715133365d63d8f28c2827110746aeafcaa1fbd162"}
+  sbom: {path: "artifacts/f0/sbom.cdx.json", sha256: "5fa16e8662dce850f2f814e30d57dd4a4bda66e341e6914e455d50123cadd43d"}
+  artifacts:
+    - {id: "personal-nsis-installer", path: "artifacts/e11/solo-local-2916926/PSYCHE OS Personal_0.2.0_x64-setup.exe", sha256: "1b2254c353b654aea9a3d2694043e011f9e1dd3abed0cff345681659de017327"}
+evidence:
+  - {id: "final-verification", rdg_ids: ["RDG-01", "RDG-02", "RDG-03", "RDG-04", "RDG-05", "RDG-06", "RDG-07", "RDG-08", "RDG-09", "RDG-10", "RDG-11", "RDG-12"], proof_class: "deterministic_validator_result_v1", proof_result: "PASS", candidate_source_commit: "29169262b1d9d71f1c1eb6c2e193069abd70d816", candidate_build_id: "29169262b1d9d71f1c1eb6c2e193069abd70d816", candidate_platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}, raw_evidence_path: "artifacts/e11/solo-local-2916926/rdg-proof.yaml", raw_evidence_sha256: "9bca94b8bfda9144a2afb0f0b0400a84a922b1cdefaf15ab5ef01382261a7494", expires_at: "2026-09-01T00:00:00Z"}
+  - {id: "package-exclusions", rdg_ids: [], proof_class: "boundary_exclusion_proof_v1", proof_result: "PASS", candidate_source_commit: "29169262b1d9d71f1c1eb6c2e193069abd70d816", candidate_build_id: "29169262b1d9d71f1c1eb6c2e193069abd70d816", candidate_platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}, raw_evidence_path: "artifacts/e11/solo-local-2916926/boundary-exclusion-proof.yaml", raw_evidence_sha256: "34d0cfa1779142467e2fed146b2e4a36fd492c8c4e08ed8f9b1cb4c986e98b71", expires_at: "2026-09-01T00:00:00Z"}
+reviews: []
+boundary_assessments:
+  - {boundary_id: "canonical_encrypted_store_and_key_recovery", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "backup_restore_and_scoped_filesystem", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "desktop_renderer_and_typed_ipc", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "local_archive_and_disposable_retrieval_projection", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "general_blob_or_attachment_writes", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["package-exclusions"]}
+  - {boundary_id: "importer_parser_or_untrusted_rendering", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["package-exclusions"]}
+  - {boundary_id: "provider_model_or_network", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["package-exclusions"]}
+  - {boundary_id: "assessment_scoring", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["package-exclusions"]}
+  - {boundary_id: "longitudinal_or_n_of_1", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["package-exclusions"]}
+  - {boundary_id: "professional_report_or_external_handoff", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["package-exclusions"]}
+rdg_controls:
+  - {id: "RDG-01", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["canonical_encrypted_store_and_key_recovery", "general_blob_or_attachment_writes"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-02", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-03", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-04", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "general_blob_or_attachment_writes", "local_archive_and_disposable_retrieval_projection", "professional_report_or_external_handoff"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-05", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "local_archive_and_disposable_retrieval_projection", "professional_report_or_external_handoff"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-06", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "desktop_renderer_and_typed_ipc", "general_blob_or_attachment_writes", "local_archive_and_disposable_retrieval_projection", "professional_report_or_external_handoff"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-07", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["canonical_encrypted_store_and_key_recovery", "local_archive_and_disposable_retrieval_projection", "provider_model_or_network"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-08", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["desktop_renderer_and_typed_ipc", "importer_parser_or_untrusted_rendering"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-09", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["assessment_scoring", "desktop_renderer_and_typed_ipc", "importer_parser_or_untrusted_rendering", "longitudinal_or_n_of_1", "professional_report_or_external_handoff", "provider_model_or_network"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-10", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "desktop_renderer_and_typed_ipc", "general_blob_or_attachment_writes", "importer_parser_or_untrusted_rendering", "local_archive_and_disposable_retrieval_projection", "provider_model_or_network"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-11", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["assessment_scoring", "longitudinal_or_n_of_1", "professional_report_or_external_handoff", "provider_model_or_network"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-12", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "desktop_renderer_and_typed_ipc", "general_blob_or_attachment_writes", "importer_parser_or_untrusted_rendering", "local_archive_and_disposable_retrieval_projection", "longitudinal_or_n_of_1", "professional_report_or_external_handoff", "provider_model_or_network"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+residual_risks: [{id: "solo-local-rdg-controls", severity: "HIGH", status: "RESOLVED", expires_at: "2026-09-01T00:00:00Z"}]
+gate_decision: {requested_state: "CLOSED", authority: "NONE"}
+successor: {supersedes: "solo-local-2916926", invalidation_reasons: ["binary_artifact_digest_semantics_corrected"]}
+seal: {payload_sha256: "758fbf30c787161127523fa5cd5a27d915dbf1e6a3260ca68699474b97e8f7c8", sealed_at: "2026-08-25T16:58:59Z"}

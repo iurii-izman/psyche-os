@@ -29,7 +29,7 @@ identities:
   artifacts:
     - id: "draft-release-manifest"
       path: "artifacts/e11/release-manifests/e11-implementation-candidate.yaml"
-      sha256: "8ad379519caa958239b8ea1c2fd9a1440a673b0407babea29f498dbe1677cf6f"
+      sha256: "2e467c372780ea26cccfba593bc6bb01dea40544586541082a3de1caf7077e4b"
 evidence: []
 reviews: []
 boundary_assessments:
