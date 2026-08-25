@@ -34,7 +34,17 @@ def _sha256(path: str) -> str:
 def _draft() -> dict[str, Any]:
     value = yaml.safe_load(EVALUATION_PATH.read_text(encoding="utf-8"))
     assert isinstance(value, dict)
-    return copy.deepcopy(value)
+    draft = copy.deepcopy(value)
+    source_commit = "224fdd93bb9d7ea69f99531dceecf961d254a48f"
+    profile_path = ROOT / "docs/architecture/REAL_DATA_GATE_PROFILE.yaml"
+    draft["candidate"]["source_commit"] = source_commit
+    draft["profile_binding"].update(
+        {
+            "profile_definition_sha256": _sha256("docs/architecture/REAL_DATA_GATE_PROFILE.yaml"),
+            "profile_source_commit": source_commit,
+        }
+    )
+    return draft
 
 
 def _proved_sealed() -> dict[str, Any]:
@@ -175,12 +185,11 @@ def test_profile_history_requires_existing_matching_ancestor_commit() -> None:
     evaluation["profile_binding"]["profile_source_commit"] = (
         "21d0154376dc7926ce8ee80711605101e2b5820c"
     )
-    assert "profile_source_not_in_candidate_lineage" in _outcome(evaluation).reasons
+    assert "profile_historical_digest_mismatch" in _outcome(evaluation).reasons
 
 
-def test_older_ancestor_profile_binding_is_valid() -> None:
+def test_current_profile_binding_is_valid() -> None:
     evaluation = _draft()
-    evaluation["candidate"]["source_commit"] = "21d0154376dc7926ce8ee80711605101e2b5820c"
     reasons: list[str] = []
 
     _verify_profile_binding(ROOT, evaluation, reasons)

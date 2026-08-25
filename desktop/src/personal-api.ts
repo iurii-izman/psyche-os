@@ -3,7 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 export interface PersonalStatus {
   runtime_profile: "LOCAL_PERSONAL";
   local_personal: "NOT_ADMITTED" | "ADMISSION_AVAILABLE" | "ADMITTED";
-  real_data_gate: "CLOSED";
+  real_data_gate: "CLOSED" | "OPEN";
+  admission_expires_at?: string | null;
   locked: boolean;
   inbound_listener: "NONE";
   outbound_provider: "NOT_CONFIGURED";

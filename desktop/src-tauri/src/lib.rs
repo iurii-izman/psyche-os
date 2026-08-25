@@ -998,7 +998,7 @@ mod tests {
             assert!(handler_block.contains(command), "{command} is absent from generate_handler");
             assert!(renderer_api.contains(&format!("\"{command}\"")), "{command} is absent from renderer API");
         }
-        assert!(include_str!("../build.rs").contains("commands(command_manifest::SHIPPED_COMMANDS)"));
+        assert!(include_str!("../build.rs").contains("commands(&commands)"));
     }
 
     #[test]
