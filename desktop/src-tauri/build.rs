@@ -11,7 +11,7 @@ mod command_manifest {
 mod full_command_manifest;
 
 #[cfg(feature = "personal-product")]
-fn personal_release_identity() -> (String, String) {
+fn personal_release_identity() -> (String, String, String) {
     const BUILD_ID: &str = "PSYCHE_OS_PERSONAL_BUILD_ID";
     const PROFILE_DIGEST: &str = "PSYCHE_OS_PERSONAL_PROFILE_DIGEST";
 
@@ -23,6 +23,9 @@ fn personal_release_identity() -> (String, String) {
 
     let build_id = std::env::var(BUILD_ID).ok();
     let profile_digest = std::env::var(PROFILE_DIGEST).ok();
+    let profile_id = std::env::var("PSYCHE_OS_PERSONAL_PROFILE_ID").unwrap_or_else(|_| "local_personal_evidence_reflection_windows_v1".to_owned());
+    if !matches!(profile_id.as_str(), "local_personal_evidence_reflection_windows_v1" | "local_personal_bounded_openai_reflection_windows_v1") { panic!("unknown Personal runtime profile"); }
+    println!("cargo:rerun-if-env-changed=PSYCHE_OS_PERSONAL_PROFILE_ID");
     let release = std::env::var("PROFILE").as_deref() == Ok("release");
     let valid_build_id = build_id.as_deref().is_some_and(|value| {
         value.len() == 40
@@ -54,15 +57,17 @@ fn personal_release_identity() -> (String, String) {
     (
         build_id.unwrap_or_else(|| "UNBOUND".to_owned()),
         profile_digest.unwrap_or_else(|| "UNBOUND".to_owned()),
+        profile_id,
     )
 }
 
 fn main() {
     #[cfg(feature = "personal-product")]
     {
-        let (build_id, profile_digest) = personal_release_identity();
+        let (build_id, profile_digest, profile_id) = personal_release_identity();
         println!("cargo:rustc-env=PSYCHE_OS_PERSONAL_BUILD_ID={build_id}");
         println!("cargo:rustc-env=PSYCHE_OS_PERSONAL_PROFILE_DIGEST={profile_digest}");
+        println!("cargo:rustc-env=PSYCHE_OS_PERSONAL_PROFILE_ID={profile_id}");
     }
     // `generate_context!` validates this path even for Rust-only tests.  The
     // production bundle still requires Vite to populate it before packaging.

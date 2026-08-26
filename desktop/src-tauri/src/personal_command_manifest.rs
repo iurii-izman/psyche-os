@@ -24,4 +24,9 @@ pub const SHIPPED_COMMANDS: &[&str] = &[
     "desktop_personal_export_owner",
     "desktop_personal_rotate",
     "desktop_personal_recovery_status",
+    "desktop_ai_provider_status",
+    "desktop_ai_provider_configure",
+    "desktop_ai_provider_delete",
+    "desktop_ai_formulation_prepare",
+    "desktop_ai_formulation_execute",
 ];

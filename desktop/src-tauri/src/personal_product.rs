@@ -20,6 +20,7 @@ const ALLOWED_ORIGINS: &[(&str, &str)] = &[("tauri", "localhost"), ("http", "tau
 // compile unless both are exact lower-case hexadecimal identities.
 const PERSONAL_BUILD_ID: &str = env!("PSYCHE_OS_PERSONAL_BUILD_ID");
 const PERSONAL_PROFILE_DIGEST: &str = env!("PSYCHE_OS_PERSONAL_PROFILE_DIGEST");
+const PERSONAL_PROFILE_ID: &str = env!("PSYCHE_OS_PERSONAL_PROFILE_ID");
 
 #[derive(Serialize)]
 struct Request<'a> { version: &'static str, command: &'static str, correlation_id: String, session_token: Option<&'a str>, payload: Value }
@@ -89,7 +90,7 @@ fn personal_environment(temp: &Path, local_data: &Path) -> Vec<(OsString, OsStri
         (OsString::from("PSYCHE_OS_LOCAL_APP_DATA"), local_data.as_os_str().to_owned()),
         (OsString::from("PSYCHE_OS_PERSONAL_ADMISSION_ROOT"), local_data.join("PSYCHE OS").join("Personal").into_os_string()),
         (OsString::from("PSYCHE_OS_PERSONAL_BUILD_ID"), OsString::from(PERSONAL_BUILD_ID)),
-        (OsString::from("PSYCHE_OS_PERSONAL_PROFILE_ID"), OsString::from("local_personal_evidence_reflection_windows_v1")),
+        (OsString::from("PSYCHE_OS_PERSONAL_PROFILE_ID"), OsString::from(PERSONAL_PROFILE_ID)),
         (OsString::from("PSYCHE_OS_PERSONAL_PROFILE_DIGEST"), OsString::from(PERSONAL_PROFILE_DIGEST)),
     ]
 }
@@ -127,6 +128,9 @@ fn bounded_turn(value: &str) -> Result<(), String> { if !value.trim().is_empty()
 #[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct FormulationCorrectionRequest { session_token: Option<String>, formulation_id: String, correction_text: String }
 #[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct PersonalSecretRequest { session_token: Option<String>, secret: String }
 #[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct PersonalRestoreRequest { session_token: Option<String>, backup_id: String, secret: String }
+#[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct AIKeyRequest { session_token: Option<String>, api_key: String }
+#[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct AIPreviewRequest { session_token: Option<String>, session_id: String, selected_turn_ids: Vec<String> }
+#[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct AIExecuteRequest { session_token: Option<String>, interaction_id: String, preview_id: String }
 
 #[tauri::command] fn desktop_status(window: WebviewWindow, state: tauri::State<'_, DesktopState>) -> Result<Value, String> { personal_call(&window, &state, "status.get", None, json!({})) }
 #[tauri::command] fn desktop_unlock(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: UnlockRequest) -> Result<Value, String> { if request.secret.is_empty() || request.secret.len() > 256 { return Err("UNLOCK_REJECTED".to_string()); } personal_call(&window, &state, "session.unlock", None, json!({"secret": request.secret})) }
@@ -148,12 +152,18 @@ formulation_command!(desktop_formulation_accept, "reflection_exploration.formula
 #[tauri::command] fn desktop_personal_export_owner(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: PersonalSecretRequest) -> Result<Value, String> { bounded(&[&request.secret])?; personal_call(&window, &state, "export.owner", request.session_token.as_deref(), json!({"secret": request.secret})) }
 #[tauri::command] fn desktop_personal_rotate(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: PersonalSecretRequest) -> Result<Value, String> { bounded(&[&request.secret])?; personal_call(&window, &state, "rotation.rotate", request.session_token.as_deref(), json!({"secret": request.secret})) }
 #[tauri::command] fn desktop_personal_recovery_status(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> { personal_call(&window, &state, "recovery.status", request.session_token.as_deref(), json!({})) }
+#[tauri::command] fn desktop_ai_provider_status(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> { personal_call(&window, &state, "ai.provider.status", request.session_token.as_deref(), json!({})) }
+#[tauri::command] fn desktop_ai_provider_configure(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: AIKeyRequest) -> Result<Value, String> { if request.api_key.len() > 512 { return Err("INVALID_PAYLOAD".to_string()); } personal_call(&window, &state, "ai.provider.configure", request.session_token.as_deref(), json!({"api_key": request.api_key})) }
+#[tauri::command] fn desktop_ai_provider_delete(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> { personal_call(&window, &state, "ai.provider.delete", request.session_token.as_deref(), json!({})) }
+#[tauri::command] fn desktop_ai_formulation_prepare(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: AIPreviewRequest) -> Result<Value, String> { if request.selected_turn_ids.len() > 8 || request.selected_turn_ids.iter().any(|id| id.is_empty() || id.len() > MAX_TEXT) { return Err("INVALID_PAYLOAD".to_string()); } personal_call(&window, &state, "ai.working_formulation.prepare", request.session_token.as_deref(), json!({"session_id": request.session_id, "selected_turn_ids": request.selected_turn_ids})) }
+#[tauri::command] fn desktop_ai_formulation_execute(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: AIExecuteRequest) -> Result<Value, String> { bounded(&[&request.interaction_id, &request.preview_id])?; personal_call(&window, &state, "ai.working_formulation.authorize_execute", request.session_token.as_deref(), json!({"interaction_id": request.interaction_id, "preview_id": request.preview_id})) }
 
 pub fn run() {
     tauri::Builder::default().manage(DesktopState { sidecar: Mutex::new(None) }).invoke_handler(tauri::generate_handler![
         desktop_status, desktop_unlock, desktop_lock, desktop_reflection_create, desktop_reflection_list, desktop_reflection_get, desktop_reflection_add_turn, desktop_reflection_close, desktop_reflection_delete, desktop_reflection_search,
         desktop_exploration_start, desktop_exploration_get, desktop_exploration_answer, desktop_exploration_skip, desktop_formulation_propose, desktop_formulation_correct, desktop_formulation_accept, desktop_formulation_reject,
-        desktop_personal_backup, desktop_personal_restore_isolated, desktop_personal_export_owner, desktop_personal_rotate, desktop_personal_recovery_status
+        desktop_personal_backup, desktop_personal_restore_isolated, desktop_personal_export_owner, desktop_personal_rotate, desktop_personal_recovery_status,
+        desktop_ai_provider_status, desktop_ai_provider_configure, desktop_ai_provider_delete, desktop_ai_formulation_prepare, desktop_ai_formulation_execute
     ]).setup(|app| { WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into())).title("PSYCHE OS Personal").inner_size(1180.0, 780.0).min_inner_size(820.0, 600.0).devtools(false).build()?; Ok(()) }).run(tauri::generate_context!()).expect("Personal desktop host failed");
 }
 

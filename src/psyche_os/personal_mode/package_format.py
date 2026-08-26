@@ -7,9 +7,10 @@ import json
 import sqlite3
 from typing import Any
 
-from psyche_os.personal_mode.schema import initialize_personal_v10
+from psyche_os.personal_mode.schema import initialize_personal_v10, initialize_personal_v11
 
 PERSONAL_V10_FORMAT_VERSION = 3
+PERSONAL_V11_FORMAT_VERSION = 4
 PERSONAL_V10_INVENTORY = (
     "schema_migrations",
     "reflection_sessions",
@@ -26,10 +27,7 @@ PERSONAL_V10_INVENTORY = (
     "reflection_snapshot_questions",
     "reflection_formulations",
 )
-_RESTORE_ORDER = (
-    *(table for table in PERSONAL_V10_INVENTORY if table != "schema_migrations"),
-    "schema_migrations",
-)
+PERSONAL_V11_INVENTORY = (*PERSONAL_V10_INVENTORY, "reflection_ai_provenance", "reflection_ai_provenance_sources")
 
 
 class PersonalPackageError(Exception):
@@ -42,13 +40,13 @@ def _digest(value: Any) -> str:
     ).hexdigest()
 
 
-def _expected_schemas() -> dict[str, list[str]]:
+def _expected_schemas(version: int) -> dict[str, list[str]]:
     reference = sqlite3.connect(":memory:")
     try:
-        initialize_personal_v10(reference)
+        (initialize_personal_v10 if version == 10 else initialize_personal_v11)(reference)
         return {
             table: [row[1] for row in reference.execute(f"PRAGMA table_info({table})")]
-            for table in PERSONAL_V10_INVENTORY
+            for table in (PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY)
         }
     finally:
         reference.close()
@@ -61,12 +59,12 @@ def _package_body(connection: Any) -> dict[str, Any]:
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
         )
     }
-    if actual != set(PERSONAL_V10_INVENTORY):
+    if actual != set(PERSONAL_V11_INVENTORY):
         raise PersonalPackageError()
     tables: dict[str, list[dict[str, Any]]] = {}
     schemas: dict[str, list[str]] = {}
     checksums: dict[str, str] = {}
-    for table in PERSONAL_V10_INVENTORY:
+    for table in PERSONAL_V11_INVENTORY:
         cursor = connection.execute(f"SELECT * FROM {table}")
         columns = [item[0] for item in cursor.description]
         rows = [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
@@ -75,9 +73,9 @@ def _package_body(connection: Any) -> dict[str, Any]:
         checksums[table] = _digest(rows)
     return {
         "format": "psyche-os-personal-logical-package",
-        "format_version": PERSONAL_V10_FORMAT_VERSION,
-        "schema_version": 10,
-        "inventory": list(PERSONAL_V10_INVENTORY),
+        "format_version": PERSONAL_V11_FORMAT_VERSION,
+        "schema_version": 11,
+        "inventory": list(PERSONAL_V11_INVENTORY),
         "schemas": schemas,
         "checksums": checksums,
         "tables": tables,
@@ -116,15 +114,17 @@ def verify_personal_package_structure(package: Any) -> bool:
             "package_checksum",
         }:
             return False
+        version = package.get("schema_version")
+        inventory = PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY if version == 11 else ()
+        expected_format = PERSONAL_V10_FORMAT_VERSION if version == 10 else PERSONAL_V11_FORMAT_VERSION if version == 11 else -1
         if (
             package["format"] != "psyche-os-personal-logical-package"
-            or package["format_version"] != 3
-            or package["schema_version"] != 10
-            or tuple(package["inventory"]) != PERSONAL_V10_INVENTORY
-            or _expected_schemas() != package["schemas"]
+            or package["format_version"] != expected_format
+            or tuple(package["inventory"]) != inventory
+            or _expected_schemas(version) != package["schemas"]
         ):
             return False
-        for table in PERSONAL_V10_INVENTORY:
+        for table in inventory:
             rows = package["tables"][table]
             if (
                 any(set(row) != set(package["schemas"][table]) for row in rows)
@@ -144,17 +144,23 @@ def restore_personal_package(package: dict[str, Any], connection: Any) -> None:
     ).fetchall()
     if existing:
         raise PersonalPackageError()
-    initialize_personal_v10(connection)
+    version = package["schema_version"]
+    (initialize_personal_v10 if version == 10 else initialize_personal_v11)(connection)
     try:
         connection.execute("BEGIN IMMEDIATE")
         connection.execute("DELETE FROM schema_migrations")
-        for table in _RESTORE_ORDER:
+        inventory = PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY
+        for table in (*(table for table in inventory if table != "schema_migrations"), "schema_migrations"):
             for row in package["tables"][table]:
                 columns = list(row)
                 connection.execute(
                     f"INSERT INTO {table}({','.join(columns)}) VALUES({','.join('?' for _ in columns)})",
                     [row[column] for column in columns],
                 )
+        if version == 10:
+            connection.commit()
+            initialize_personal_v11(connection)
+            return
         if create_personal_package(connection)["package_checksum"] != package["package_checksum"]:
             raise PersonalPackageError()
         connection.commit()

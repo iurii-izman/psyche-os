@@ -1,0 +1,38 @@
+schema_version: "1.0"
+status: "ACCEPTED_STABLE_PROFILE_DEFINITION"
+authoritative: true
+profile_id: "local_personal_bounded_openai_reflection_windows_v1"
+profile_version: "1.0"
+definition_lifecycle:
+  external_evaluation_binding_required: true
+  self_digest_forbidden: true
+  candidate_enforcement_must_be_proven_in_exact_evaluation: true
+intended_use:
+  statement: >-
+    Single-owner Personal reflection. OpenAI may receive only explicitly selected
+    USER turns for one proposed working formulation after one-time confirmation.
+  real_data_admission: "PROHIBITED_UNTIL_EXACT_EVALUATION_HAS_VALID_HUMAN_OPEN_DECISION_AND_UNEXPIRED_RUNTIME_TOKEN"
+supported_platform_envelope:
+  operating_systems: ["Windows"]
+  exact_architecture_runtime_and_packaging: "BOUND_IN_EXACT_EVALUATION"
+boundary_inventory:
+  canonical_encrypted_store_and_key_recovery: { state: "ENABLED" }
+  desktop_renderer_and_typed_ipc: { state: "ENABLED" }
+  provider_model_or_network:
+    state: "ENABLED"
+    endpoint: "https://api.openai.com/v1/responses"
+    provider: "openai"
+    model: "gpt-5.6-luna"
+    purpose: "bounded_working_formulation"
+    constraints: ["HTTPS_ONLY", "NO_REDIRECTS", "NO_PROXY_INHERITANCE", "NO_RETRY", "STORE_FALSE", "NO_TOOLS_FILES_WEB_MEMORY", "EXPLICIT_ONE_USE_AUTHORIZATION"]
+    applicable_rdg: ["RDG-07", "RDG-09", "RDG-10", "RDG-11", "RDG-12"]
+  inbound_listener: { state: "EXCLUDED", exclusion_requirement: "No inbound listener is shipped." }
+  general_network: { state: "EXCLUDED", exclusion_requirement: "No renderer or arbitrary endpoint network capability is shipped." }
+  assessment_scoring: { state: "EXCLUDED" }
+  longitudinal_or_n_of_1: { state: "EXCLUDED" }
+required_review_classes:
+  coding_model_output: "NON_AUTHORITATIVE_PROPOSAL_ONLY"
+  gate_decider: "REPOSITORY_OWNER"
+  human_attestation_method: "local_human_attestation_v1"
+rationale_authority:
+  gate_policy: "docs/architecture/REAL_DATA_GATE.yaml"

@@ -208,6 +208,16 @@ class GuidedExplorationService:
         question = self.db.execute("SELECT question_id,dimension,text,status,snapshot_id FROM reflection_questions WHERE session_id=? AND status='PROPOSED' ORDER BY created_at LIMIT 1", (sid,)).fetchone()
         snapshots = [dict(zip(("snapshot_id","version","method_version","created_at"), row, strict=True)) for row in self.db.execute("SELECT snapshot_id,version,method_version,created_at FROM reflection_exploration_snapshots WHERE session_id=? ORDER BY version DESC", (sid,))]
         formulations = [dict(zip(("formulation_id","version","parent_formulation_id","snapshot_id","status","summary","correction_text","method_version","created_at","updated_at"), row, strict=True)) for row in self.db.execute("SELECT formulation_id,version,parent_formulation_id,snapshot_id,status,summary,correction_text,method_version,created_at,updated_at FROM reflection_formulations WHERE session_id=? ORDER BY version DESC", (sid,))]
+        for formulation in formulations:
+            try:
+                provenance = self.db.execute("SELECT origin,provider,actual_model,config_digest,context_manifest_id,disclosure_receipt_id FROM reflection_ai_provenance WHERE formulation_id=?", (formulation["formulation_id"],)).fetchone()
+                if provenance:
+                    formulation["ai_provenance"] = dict(zip(("origin","provider","actual_model","config_digest","context_manifest_id","disclosure_receipt_id"), provenance, strict=True))
+                    formulation["supporting_turn_ids"] = [row[0] for row in self.db.execute("SELECT turn_id FROM reflection_ai_provenance_sources WHERE formulation_id=? ORDER BY turn_id", (formulation["formulation_id"],))]
+            except Exception:
+                # Synthetic/non-Personal exploration schemas intentionally have
+                # no Personal AI provenance table.
+                pass
         return {"context": context, "hypotheses": hypotheses, "next_question": dict(zip(("question_id","dimension","text","status","snapshot_id"), question, strict=True)) if question else None, "snapshots": snapshots, "formulations": formulations}
 
     def _hypotheses(self, where: str, values: tuple[str, ...]) -> list[dict[str, Any]]:

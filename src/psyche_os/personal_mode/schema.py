@@ -32,6 +32,11 @@ _DDL = (
     "CREATE UNIQUE INDEX idx_reflection_formulations_current ON reflection_formulations(session_id) WHERE status='CURRENT'",
 )
 
+_V11_DDL = (
+    "CREATE TABLE reflection_ai_provenance (formulation_id TEXT PRIMARY KEY, origin TEXT NOT NULL CHECK(origin='AI'), provider TEXT NOT NULL, requested_model TEXT NOT NULL, actual_model TEXT NOT NULL, config_digest TEXT NOT NULL, method_version TEXT NOT NULL, context_manifest_id TEXT NOT NULL, disclosure_receipt_id TEXT NOT NULL, created_at TEXT NOT NULL, FOREIGN KEY(formulation_id) REFERENCES reflection_formulations(formulation_id) ON DELETE CASCADE)",
+    "CREATE TABLE reflection_ai_provenance_sources (formulation_id TEXT NOT NULL, turn_id TEXT NOT NULL, PRIMARY KEY(formulation_id,turn_id), FOREIGN KEY(formulation_id) REFERENCES reflection_ai_provenance(formulation_id) ON DELETE CASCADE, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
+)
+
 
 def initialize_personal_v10(connection: Any) -> None:
     """Create or validate the exact Personal-only V10 schema, fail closed."""
@@ -50,3 +55,24 @@ def initialize_personal_v10(connection: Any) -> None:
             "INSERT INTO schema_migrations(version,label,checksum) VALUES(10,?,?)",
             ("pmv1_personal_reflection_v10", "personal-v10"),
         )
+
+
+def migrate_personal_v11(connection: Any) -> None:
+    """Atomic additive provenance migration; V10 rows and bytes remain intact."""
+    versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
+    if versions == [10, 11]:
+        return
+    if versions != [10]:
+        raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
+    with connection:
+        for statement in _V11_DDL:
+            connection.execute(statement)
+        connection.execute("INSERT INTO schema_migrations(version,label,checksum) VALUES(11,?,?)", ("pmv1_ai_working_formulation_provenance_v11", "personal-v11-ai-provenance"))
+
+
+def initialize_personal_v11(connection: Any) -> None:
+    """Current Personal schema: initialize V10, then apply only V10→V11."""
+    existing = connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()
+    if not existing:
+        initialize_personal_v10(connection)
+    migrate_personal_v11(connection)
