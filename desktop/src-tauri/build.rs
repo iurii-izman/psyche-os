@@ -9,6 +9,9 @@ mod command_manifest {
 #[cfg(feature = "personal-product")]
 #[path = "src/command_manifest.rs"]
 mod full_command_manifest;
+#[cfg(not(feature = "personal-product"))]
+#[path = "src/personal_command_manifest.rs"]
+mod personal_command_manifest;
 
 #[cfg(feature = "personal-product")]
 fn personal_release_identity() -> (String, String, String) {
@@ -99,9 +102,10 @@ fn main() {
             .expect("uv is required to build the fixed Python sidecar");
         assert!(status.success(), "fixed Python sidecar build failed");
     }
-    // Tauri validates every checked-in capability file at build time, including
-    // the main-product capability that is not granted by the Personal config.
-    // Define its permissions here without granting them to the Personal binary.
+    // Tauri validates every checked-in capability file at build time, even when
+    // that capability is not granted by the active product config.  Therefore
+    // both product command sets must be defined in both build modes.  Capability
+    // files still decide what each runtime is actually granted.
     #[cfg(feature = "personal-product")]
     let commands: &'static [&'static str] = Box::leak(
         [
@@ -112,7 +116,14 @@ fn main() {
         .into_boxed_slice(),
     );
     #[cfg(not(feature = "personal-product"))]
-    let commands: &'static [&'static str] = command_manifest::SHIPPED_COMMANDS;
+    let commands: &'static [&'static str] = Box::leak(
+        [
+            command_manifest::SHIPPED_COMMANDS,
+            personal_command_manifest::SHIPPED_COMMANDS,
+        ]
+        .concat()
+        .into_boxed_slice(),
+    );
 
     let attributes = tauri_build::Attributes::new()
         .app_manifest(tauri_build::AppManifest::new().commands(&commands));
