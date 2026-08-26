@@ -7,10 +7,11 @@ export interface PersonalStatus {
   real_data_gate: "CLOSED" | "OPEN";
   admission_expires_at?: string | null;
   locked: boolean;
+  setup_required?: boolean;
   inbound_listener: "NONE";
   outbound_provider: "NOT_CONFIGURED" | "OPENAI_EXPLICIT_OPT_IN";
   network: "OFFLINE_NO_LISTENER" | "OPENAI_EXPLICIT_ONE_CALL_ONLY";
-  privacy: { core_processing_location: "LOCAL"; cloud_storage: "DISABLED"; cloud_disclosure: "NEVER_CLOUD"; telemetry: "OFF" };
+  privacy: { core_processing_location: "LOCAL"; cloud_storage: "DISABLED"; cloud_disclosure: "NEVER_CLOUD" | "EXPLICIT_OPT_IN_OPENAI_ONLY"; telemetry: "OFF" };
 }
 export interface ReflectionTurn { turn_id: string; session_id: string; sequence: number; actor: "USER"; created_at: string; content: string; }
 export interface ReflectionSession { session_id: string; title: string; state: "ACTIVE" | "CLOSED"; turn_count: number; created_at?: string; updated_at?: string; closed_at?: string | null; turns?: ReflectionTurn[]; }

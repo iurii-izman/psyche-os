@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import shutil
 from typing import Any, cast
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -22,6 +23,7 @@ from sqlcipher3 import dbapi2  # type: ignore[import-untyped]
 from psyche_os.crypto.envelope import OSKeyWrapper, SensitiveBytes, derive_domain_key
 from psyche_os.personal_mode.admission import PersonalAdmissionGuard
 from psyche_os.personal_mode.key_envelope import PersonalKeyEnvelope
+from psyche_os.personal_mode.integrity import verify_personal_vault
 from psyche_os.personal_mode.package_format import (
     PERSONAL_V11_FORMAT_VERSION,
     create_personal_package,
@@ -130,22 +132,7 @@ def _open(path: Path, key: bytes, *, create: bool = False) -> Any:
 
 def _verify_db(connection: Any, envelope: PersonalKeyEnvelope) -> None:
     try:
-        schema = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
-        identity = connection.execute(
-            "SELECT DISTINCT data_mode FROM reflection_sessions"
-        ).fetchall()
-        if schema != 11 or identity not in ([], [("real_personal",)]):
-            raise PersonalLifecycleError()
-        if connection.execute("PRAGMA foreign_key_check").fetchall() != []:
-            raise PersonalLifecycleError()
-        if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-            raise PersonalLifecycleError()
-        # This query is intentionally content-free; it proves only the expected
-        # Personal persistence marker and is not an application content oracle.
-        if envelope.value["profile_id"] != "local_personal_evidence_reflection_windows_v1":
-            raise PersonalLifecycleError()
-    except PersonalLifecycleError:
-        raise
+        verify_personal_vault(connection, envelope)
     except Exception as exc:
         raise PersonalLifecycleError() from exc
 
@@ -399,14 +386,28 @@ class PersonalLifecycleService:
                 target / "metadata.json",
                 _canonical(
                     {
-                        "format": "PMV1-BACKUP-V10",
+                        "format": "PMV1-BACKUP-V11",
                         "key_version": envelope.value["key_version"],
                         "backup_id": backup_id,
                     }
                 ),
             )
-            return {"backup_id": backup_id, "key_version": str(envelope.value["key_version"])}
+            # File publication is not a successful backup.  Authenticate it,
+            # rebuild it only in staging, and prove the rebuilt vault through
+            # the canonical oracle before it can be called recoverable.
+            candidate = self.restore_isolated(backup_id, recovery_secret)
+            candidate_root = self._paths.staging / candidate["candidate_id"]
+            shutil.rmtree(candidate_root)
+            bootstrap_value = json.loads(bootstrap.decode("utf-8"))
+            return {
+                "backup_id": backup_id,
+                "key_version": str(envelope.value["key_version"]),
+                "verified": "RECOVERABLE",
+                "created_at": str(bootstrap_value["created_at"]),
+            }
         except Exception as exc:
+            if "target" in locals():
+                shutil.rmtree(target, ignore_errors=True)
             raise PersonalLifecycleError() from exc
         finally:
             key.clear()
@@ -467,7 +468,16 @@ class PersonalLifecycleService:
                 verification.close()
                 verification_key.clear()
                 verification_vmk.clear()
-            return {"candidate_id": candidate_id, "key_version": str(envelope.value["key_version"])}
+            source_version = int(envelope.value["key_version"])
+            active_version = int(self._active_envelope().value["key_version"])
+            return {
+                "candidate_id": candidate_id,
+                "key_version": str(source_version),
+                "verified": "RECOVERABLE",
+                "created_at": str(bootstrap.get("created_at", "UNKNOWN_LEGACY_BACKUP")),
+                "freshness": "CURRENT_GENERATION" if source_version == active_version else "HISTORICAL_GENERATION",
+                "activation": "NOT_AUTOMATIC",
+            }
         except Exception as exc:
             raise PersonalLifecycleError() from exc
 

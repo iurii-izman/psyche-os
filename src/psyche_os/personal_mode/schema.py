@@ -37,6 +37,18 @@ _V11_DDL = (
     "CREATE TABLE reflection_ai_provenance_sources (formulation_id TEXT NOT NULL, turn_id TEXT NOT NULL, PRIMARY KEY(formulation_id,turn_id), FOREIGN KEY(formulation_id) REFERENCES reflection_ai_provenance(formulation_id) ON DELETE CASCADE, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
 )
 
+# Kept public so the Personal integrity oracle has one authoritative inventory
+# rather than duplicating the current schema shape.
+PERSONAL_V10_INVENTORY = (
+    "schema_migrations", "reflection_sessions", "reflection_turns",
+    "reflection_explorations", "reflection_exploration_snapshots",
+    "reflection_context_items", "reflection_context_sources", "reflection_hypotheses",
+    "reflection_hypothesis_context_refs", "reflection_questions",
+    "reflection_snapshot_context_items", "reflection_snapshot_hypotheses",
+    "reflection_snapshot_questions", "reflection_formulations",
+)
+PERSONAL_V11_INVENTORY = (*PERSONAL_V10_INVENTORY, "reflection_ai_provenance", "reflection_ai_provenance_sources")
+
 
 def initialize_personal_v10(connection: Any) -> None:
     """Create or validate the exact Personal-only V10 schema, fail closed."""

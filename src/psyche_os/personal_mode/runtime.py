@@ -7,6 +7,7 @@ from collections.abc import Callable
 from psyche_os.crypto.envelope import OSKeyWrapper, SensitiveBytes
 from psyche_os.personal_mode.admission import PersonalAdmissionGuard
 from psyche_os.personal_mode.key_envelope import PersonalKeyEnvelope
+from psyche_os.personal_mode.integrity import verify_personal_vault
 from psyche_os.personal_mode.lifecycle import PersonalLifecycleService
 from psyche_os.personal_mode.reflection import PersonalReflectionService
 from psyche_os.personal_mode.runtime_profile import PersonalRuntimePaths
@@ -60,8 +61,9 @@ class PersonalRuntime:
                 lambda: SensitiveBytes(vmk.raw),
                 db_salt=bytes.fromhex(envelope.value["db_salt_hex"]),
             )
-            # Force open/create and V10 integrity validation before reporting setup.
-            self._reflection.connection.execute("PRAGMA integrity_check").fetchone()
+            # Setup reports success only once the newly persisted vault passes
+            # the same canonical lifecycle oracle as every later boundary.
+            verify_personal_vault(self._reflection.connection, envelope)
         except Exception as exc:
             self._clear()
             raise PersonalRuntimeError() from exc
@@ -86,7 +88,7 @@ class PersonalRuntime:
                 lambda: SensitiveBytes(vmk.raw),
                 db_salt=bytes.fromhex(envelope.value["db_salt_hex"]),
             )
-            self._reflection.connection.execute("PRAGMA integrity_check").fetchone()
+            verify_personal_vault(self._reflection.connection, envelope)
         except Exception as exc:
             self._clear()
             raise PersonalRuntimeError() from exc

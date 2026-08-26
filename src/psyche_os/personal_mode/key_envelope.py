@@ -56,6 +56,20 @@ class EnvelopeError(Exception):
     code = "KEY_ENVELOPE_INVALID"
 
 
+def validate_new_recovery_secret(secret: Any) -> str:
+    """Small deterministic floor for *new* manual recovery secrets.
+
+    Existing serialized envelopes are intentionally never revalidated against
+    this policy, so an upgrade neither locks an owner out nor rewrites a key.
+    """
+    if not isinstance(secret, str) or len(secret) < 16 or len(secret) > 256:
+        raise EnvelopeError()
+    classes = sum((any(c.islower() for c in secret), any(c.isupper() for c in secret), any(c.isdigit() for c in secret), any(not c.isalnum() for c in secret)))
+    if classes < 2 or len(set(secret)) < 6:
+        raise EnvelopeError()
+    return secret
+
+
 def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
@@ -184,6 +198,7 @@ class PersonalKeyEnvelope:
         _identifier(vault_id)
         _identifier(profile_id)
         _identifier(profile_version)
+        validate_new_recovery_secret(recovery_secret)
         vmk = generate_vmk()
         try:
             os_wrap = os_wrapper or OSKeyWrapper()
