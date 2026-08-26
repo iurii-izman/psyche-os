@@ -27,11 +27,29 @@ describe("Personal daily-use renderer", () => {
     document.querySelector<HTMLInputElement>("#unlock-secret")!.value = "fixture"; document.querySelector<HTMLFormElement>("#unlock-form")!.requestSubmit(); await tick();
     expect(document.body.textContent).toContain("БЫСТРАЯ ЗАПИСЬ");
     document.querySelector<HTMLInputElement>("#quick-capture-title")!.value = "A note"; document.querySelector<HTMLTextAreaElement>("#quick-capture-text")!.value = "unique marker"; document.querySelector<HTMLFormElement>("#quick-capture-form")!.requestSubmit(); await tick();
-    expect(api.reflectionCreate).toHaveBeenCalledWith("A note"); expect(api.reflectionAddTurn).toHaveBeenCalledWith("r1", "unique marker"); expect(document.body.textContent).toContain("Capture saved to your history");
-    expect(document.body.textContent).toContain("ОБЗОР"); expect(document.body.textContent).toContain("неясного");
-    await click("Осмысление"); expect(document.body.textContent).toContain("Current picture"); expect(document.body.textContent).toContain("What remains unclear?");
-    await click("Open source reflection"); expect(document.body.textContent).toContain("Ваша запись");
+    expect(api.reflectionCreate).toHaveBeenCalledWith("A note"); expect(api.reflectionAddTurn).toHaveBeenCalledWith("r1", "unique marker"); expect(document.body.textContent).toContain("Запись сохранена в истории");
+    expect(document.body.textContent).toContain("ПРОДОЛЖИТЬ"); expect(document.body.textContent).toContain("неясного");
+    expect(document.querySelector('[data-route="home"]')?.getAttribute("aria-current")).toBe("page");
+    await click("Осмысление"); expect(document.body.textContent).toContain("Текущая картина"); expect(document.body.textContent).toContain("What remains unclear?"); expect(document.body.textContent).toContain("Это рабочее предположение системы"); expect(document.querySelector('[data-route="sensemaking"]')?.getAttribute("aria-current")).toBe("page");
+    await click("Открыть размышление"); expect(document.body.textContent).toContain("Ваша запись");
     await click("История"); expect(document.body.textContent).toContain("История"); await click("Продолжить"); expect(document.body.textContent).toContain("Ваша запись");
     await click("Поиск"); document.querySelector<HTMLInputElement>("#search-query")!.value = "marker"; document.querySelector<HTMLFormElement>("#search-form")!.requestSubmit(); await tick(); expect(document.body.textContent).toContain("unique marker");
+  });
+
+  it("shows a compact Russian empty sensemaking state and human settings", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const api = {
+      status: vi.fn(async () => ({ runtime_profile: "LOCAL_PERSONAL" as const, real_data_gate: "CLOSED" as const, local_personal: "ADMITTED" as const, locked: false, inbound_listener: "NONE" as const, outbound_provider: "NOT_CONFIGURED" as const, network: "OFFLINE_NO_LISTENER" as const, privacy: { core_processing_location: "LOCAL" as const, cloud_storage: "DISABLED" as const, cloud_disclosure: "NEVER_CLOUD" as const, telemetry: "OFF" as const } })),
+      lock: vi.fn(async () => ({})), reflectionList: vi.fn(async () => ({ sessions: [] })), reflectionGet: vi.fn(), reflectionCreate: vi.fn(), reflectionAddTurn: vi.fn(), reflectionClose: vi.fn(), reflectionDelete: vi.fn(), reflectionSearch: vi.fn(), explorationGet: vi.fn(), explorationStart: vi.fn(), explorationAnswer: vi.fn(), explorationSkip: vi.fn(), formulationPropose: vi.fn(), formulationCorrect: vi.fn(), formulationAccept: vi.fn(), formulationReject: vi.fn(), personalRecoveryStatus: vi.fn(), personalBackup: vi.fn(), personalRestoreIsolated: vi.fn(), personalExportOwner: vi.fn()
+    } as unknown as PersonalApi;
+    await mountPersonal(api, document.querySelector<HTMLDivElement>("#app")!);
+    await click("Осмысление");
+    expect(document.body.textContent).toContain("Картина появится постепенно");
+    expect(document.querySelectorAll(".sense-section")).toHaveLength(0);
+    await click("Настройки");
+    expect(document.body.textContent).toContain("ПРИВАТНОСТЬ И ЛОКАЛЬНЫЙ РЕЖИМ");
+    expect(document.body.textContent).toContain("На этом устройстве");
+    expect(document.body.textContent).toContain("Технические сведения");
+    expect(document.body.textContent).toContain("Открыть резервное копирование");
   });
 });
