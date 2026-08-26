@@ -132,7 +132,18 @@ fn bounded_turn(value: &str) -> Result<(), String> { if !value.trim().is_empty()
 #[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct AIPreviewRequest { session_token: Option<String>, session_id: String, selected_turn_ids: Vec<String> }
 #[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct AIExecuteRequest { session_token: Option<String>, interaction_id: String, preview_id: String }
 
-#[tauri::command] fn desktop_status(window: WebviewWindow, state: tauri::State<'_, DesktopState>) -> Result<Value, String> { personal_call(&window, &state, "status.get", None, json!({})) }
+fn bind_trusted_build_id(mut status: Value) -> Result<Value, String> {
+    let fields = status
+        .as_object_mut()
+        .ok_or_else(|| "SIDECAR_PROTOCOL_FAILED".to_string())?;
+    fields.insert("build_id".to_string(), json!(PERSONAL_BUILD_ID));
+    Ok(status)
+}
+
+#[tauri::command]
+fn desktop_status(window: WebviewWindow, state: tauri::State<'_, DesktopState>) -> Result<Value, String> {
+    bind_trusted_build_id(personal_call(&window, &state, "status.get", None, json!({}))?)
+}
 #[tauri::command] fn desktop_unlock(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: UnlockRequest) -> Result<Value, String> { if request.secret.is_empty() || request.secret.len() > 256 { return Err("UNLOCK_REJECTED".to_string()); } personal_call(&window, &state, "session.unlock", None, json!({"secret": request.secret})) }
 #[tauri::command] fn desktop_lock(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> { personal_call(&window, &state, "session.lock", request.session_token.as_deref(), json!({})) }
 #[tauri::command] fn desktop_reflection_create(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ReflectionCreateRequest) -> Result<Value, String> { bounded(&[&request.title])?; personal_call(&window, &state, "reflection_session.create", request.session_token.as_deref(), json!({"title": request.title})) }
@@ -192,6 +203,25 @@ mod tests {
         let identity: std::collections::BTreeMap<OsString, OsString> = personal_environment(Path::new("C:\\temp"), Path::new("C:\\local")).into_iter().collect();
         assert_eq!(identity.get(&OsString::from("PSYCHE_OS_PERSONAL_BUILD_ID")), Some(&OsString::from(std::env::var("PSYCHE_OS_PERSONAL_BUILD_ID").unwrap_or_else(|_| "UNBOUND".to_string()))));
         assert_eq!(identity.get(&OsString::from("PSYCHE_OS_PERSONAL_PROFILE_DIGEST")), Some(&OsString::from(std::env::var("PSYCHE_OS_PERSONAL_PROFILE_DIGEST").unwrap_or_else(|_| "UNBOUND".to_string()))));
+    }
+    #[test]
+    fn trusted_launcher_build_id_overrides_sidecar_status_value() {
+        let status = bind_trusted_build_id(json!({
+            "build_id": "sidecar-must-not-control-this",
+            "runtime_profile": "LOCAL_PERSONAL_BOUNDED_OPENAI",
+            "real_data_gate": "OPEN"
+        }))
+        .expect("object status is accepted");
+        assert_eq!(status["build_id"], PERSONAL_BUILD_ID);
+        assert_eq!(status["runtime_profile"], "LOCAL_PERSONAL_BOUNDED_OPENAI");
+        assert_eq!(status["real_data_gate"], "OPEN");
+    }
+    #[test]
+    fn trusted_launcher_build_id_rejects_non_object_sidecar_status() {
+        assert_eq!(
+            bind_trusted_build_id(json!(["not-a-status-object"])),
+            Err("SIDECAR_PROTOCOL_FAILED".to_string())
+        );
     }
     #[test]
     fn personal_rust_to_sidecar_closed_boundary_is_content_free_and_rejects_ai() {
