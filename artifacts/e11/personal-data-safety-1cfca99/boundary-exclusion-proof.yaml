@@ -1,0 +1,8 @@
+schema_version: "1.0"
+proof_class: "boundary_exclusion_proof_v1"
+proof_result: "PASS"
+validator_id: "personal_data_safety_package_inventory_2026-08-26"
+candidate_source_commit: "1cfca99daf5ff2a87a9abfc9efd006edd7d59139"
+candidate_build_id: "1cfca99daf5ff2a87a9abfc9efd006edd7d59139"
+candidate_platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}
+boundary_ids: ["inbound_listener", "general_network", "assessment_scoring", "longitudinal_or_n_of_1"]

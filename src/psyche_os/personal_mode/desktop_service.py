@@ -183,6 +183,7 @@ class PersonalDesktopApplicationService:
         admission = self._guard.status()
         return {
             "locked": self._guard.locked,
+            "setup_required": not self._runtime._paths.envelope.exists(),
             "runtime_profile": "LOCAL_PERSONAL_BOUNDED_OPENAI" if self._ai_enabled else "LOCAL_PERSONAL",
             "local_personal": admission["local_personal"],
             "real_data_gate": "OPEN" if admission["local_personal"] != "NOT_ADMITTED" else "CLOSED",
@@ -193,7 +194,7 @@ class PersonalDesktopApplicationService:
             "privacy": {
                 "core_processing_location": "LOCAL",
                 "cloud_storage": "DISABLED",
-                "cloud_disclosure": "NEVER_CLOUD",
+                "cloud_disclosure": "EXPLICIT_OPT_IN_OPENAI_ONLY" if self._ai_enabled else "NEVER_CLOUD",
                 "telemetry": "OFF",
             },
         }

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
+from datetime import UTC, datetime
 from typing import Any
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -32,6 +33,7 @@ _FIELDS = frozenset(
         "bootstrap_auth",
     }
 )
+_V2_FIELDS = _FIELDS | {"created_at"}
 _AUTH_FIELDS = frozenset({"nonce_hex", "ciphertext_tag_hex"})
 
 
@@ -54,9 +56,11 @@ def _parse(raw: bytes) -> dict[str, Any]:
         raise RecoveryBootstrapError() from exc
     if (
         not isinstance(value, dict)
-        or set(value) != _FIELDS
+        or set(value) not in {_FIELDS, _V2_FIELDS}
         or value.get("format") != "PMV1-RECOVERY-BOOTSTRAP-V1"
-        or value.get("version") != 1
+        or value.get("version") not in {1, 2}
+        or (value.get("version") == 1 and set(value) != _FIELDS)
+        or (value.get("version") == 2 and set(value) != _V2_FIELDS)
     ):
         raise RecoveryBootstrapError()
     if (
@@ -69,6 +73,8 @@ def _parse(raw: bytes) -> dict[str, Any]:
     if not isinstance(auth, dict) or set(auth) != _AUTH_FIELDS:
         raise RecoveryBootstrapError()
     try:
+        if value["version"] == 2:
+            datetime.fromisoformat(value["created_at"])
         PersonalKeyEnvelope(
             {
                 "format": "PMV1-KEY-ENVELOPE-V1",
@@ -137,8 +143,9 @@ def create_bootstrap(
         bootstrap.update(
             {
                 "format": "PMV1-RECOVERY-BOOTSTRAP-V1",
-                "version": 1,
+                "version": 2,
                 "backup_id": backup_id,
+                "created_at": datetime.now(UTC).isoformat(),
                 "payload_nonce_hex": nonce.hex(),
                 "payload_length": len(ciphertext),
                 "payload_sha256_hex": hashlib.sha256(ciphertext).hexdigest(),

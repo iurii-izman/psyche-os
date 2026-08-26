@@ -7,29 +7,15 @@ import json
 import sqlite3
 from typing import Any
 
-from psyche_os.personal_mode.schema import initialize_personal_v10, initialize_personal_v11
+from psyche_os.personal_mode.schema import (
+    PERSONAL_V10_INVENTORY,
+    PERSONAL_V11_INVENTORY,
+    initialize_personal_v10,
+    initialize_personal_v11,
+)
 
 PERSONAL_V10_FORMAT_VERSION = 3
 PERSONAL_V11_FORMAT_VERSION = 4
-PERSONAL_V10_INVENTORY = (
-    "schema_migrations",
-    "reflection_sessions",
-    "reflection_turns",
-    "reflection_explorations",
-    "reflection_exploration_snapshots",
-    "reflection_context_items",
-    "reflection_context_sources",
-    "reflection_hypotheses",
-    "reflection_hypothesis_context_refs",
-    "reflection_questions",
-    "reflection_snapshot_context_items",
-    "reflection_snapshot_hypotheses",
-    "reflection_snapshot_questions",
-    "reflection_formulations",
-)
-PERSONAL_V11_INVENTORY = (*PERSONAL_V10_INVENTORY, "reflection_ai_provenance", "reflection_ai_provenance_sources")
-
-
 class PersonalPackageError(Exception):
     pass
 
