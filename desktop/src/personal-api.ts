@@ -2,14 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 
 export interface PersonalStatus {
   build_id?: string | null;
-  runtime_profile: "LOCAL_PERSONAL";
+  runtime_profile: "LOCAL_PERSONAL" | "LOCAL_PERSONAL_BOUNDED_OPENAI";
   local_personal: "NOT_ADMITTED" | "ADMISSION_AVAILABLE" | "ADMITTED";
   real_data_gate: "CLOSED" | "OPEN";
   admission_expires_at?: string | null;
   locked: boolean;
   inbound_listener: "NONE";
-  outbound_provider: "NOT_CONFIGURED";
-  network: "OFFLINE_NO_LISTENER";
+  outbound_provider: "NOT_CONFIGURED" | "OPENAI_EXPLICIT_OPT_IN";
+  network: "OFFLINE_NO_LISTENER" | "OPENAI_EXPLICIT_ONE_CALL_ONLY";
   privacy: { core_processing_location: "LOCAL"; cloud_storage: "DISABLED"; cloud_disclosure: "NEVER_CLOUD"; telemetry: "OFF" };
 }
 export interface ReflectionTurn { turn_id: string; session_id: string; sequence: number; actor: "USER"; created_at: string; content: string; }
@@ -21,7 +21,7 @@ export interface ExplorationView {
   hypotheses: { hypothesis_id: string; proposal_text: string; uncertainty_text: string; discriminator_text: string; context_refs?: { context_item_id: string; relation: string; source_turn_ids: string[] }[]; created_at?: string }[];
   next_question: { question_id: string; text: string } | null;
   snapshots: unknown[];
-  formulations: { formulation_id: string; version: number; status: "PROPOSED" | "CURRENT" | "REJECTED" | "SUPERSEDED"; summary: string; correction_text: string | null; created_at?: string; updated_at?: string }[];
+  formulations: { formulation_id: string; version: number; status: "PROPOSED" | "CURRENT" | "REJECTED" | "SUPERSEDED"; summary: string; correction_text: string | null; supporting_turn_ids?: string[]; ai_provenance?: { origin: "AI"; provider: string; actual_model: string }; created_at?: string; updated_at?: string }[];
 }
 
 let sessionToken: string | null = null;
@@ -51,5 +51,10 @@ export const personalApi = {
   personalExportOwner: (secret: string) => call("desktop_personal_export_owner", { secret }),
   personalRotate: (secret: string) => call("desktop_personal_rotate", { secret }),
   personalRecoveryStatus: () => call("desktop_personal_recovery_status")
+  ,aiProviderStatus: () => call<{ provider: "OpenAI"; configured: boolean; model: string; config_id: string }>("desktop_ai_provider_status")
+  ,aiProviderConfigure: (apiKey: string) => call("desktop_ai_provider_configure", { apiKey })
+  ,aiProviderDelete: () => call("desktop_ai_provider_delete")
+  ,aiFormulationPrepare: (sessionId: string, selectedTurnIds: string[]) => call<{ interaction_id: string; preview_id: string; turns: { turn_id: string; sequence: number; content: string }[]; expires_at: string }>("desktop_ai_formulation_prepare", { sessionId, selectedTurnIds })
+  ,aiFormulationExecute: (interactionId: string, previewId: string) => call("desktop_ai_formulation_execute", { interactionId, previewId })
 };
 export type PersonalApi = typeof personalApi;

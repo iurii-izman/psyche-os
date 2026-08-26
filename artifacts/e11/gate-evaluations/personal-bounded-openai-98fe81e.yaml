@@ -1,0 +1,49 @@
+schema_version: "1.0"
+evaluation_id: "personal-bounded-openai-98fe81e"
+lifecycle: "SEALED"
+candidate:
+  source_commit: "98fe81e0facfe889479030bc5cba3eec792fbff9"
+  build_id: "98fe81e0facfe889479030bc5cba3eec792fbff9"
+  platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}
+  requested_data_class: "SYNTHETIC_ONLY"
+  reproducibility: {status: "REPRODUCED", evidence_ids: ["bounded-release-verification"]}
+profile_binding:
+  profile_path: "docs/architecture/REAL_DATA_GATE_PROFILE_OPENAI.yaml"
+  profile_id: "local_personal_bounded_openai_reflection_windows_v1"
+  profile_version: "1.0"
+  profile_definition_sha256: "1b91fad63ad04e02e90f9cae70d8d5d36a9a66ec9f00d1002cded853726ca99a"
+  profile_source_commit: "98fe81e0facfe889479030bc5cba3eec792fbff9"
+identities:
+  lock: {path: "uv.lock", sha256: "82af2a0d7b995fb2c585de715133365d63d8f28c2827110746aeafcaa1fbd162"}
+  sbom: {path: "artifacts/f0/sbom.cdx.json", sha256: "5fa16e8662dce850f2f814e30d57dd4a4bda66e341e6914e455d50123cadd43d"}
+  artifacts:
+    - {id: "personal-bounded-openai-nsis-installer", path: "artifacts/e11/personal-bounded-openai-98fe81e/PSYCHE OS Personal_0.2.0_x64-setup.exe", sha256: "9f0d12f1155e8dfa1fb9906535b16ee51c4b1e0f8e9dc6c01f4bb3f483862095"}
+evidence:
+  - {id: "bounded-release-verification", rdg_ids: ["RDG-01", "RDG-02", "RDG-03", "RDG-04", "RDG-05", "RDG-06", "RDG-07", "RDG-08", "RDG-09", "RDG-10", "RDG-11", "RDG-12"], proof_class: "deterministic_validator_result_v1", proof_result: "PASS", candidate_source_commit: "98fe81e0facfe889479030bc5cba3eec792fbff9", candidate_build_id: "98fe81e0facfe889479030bc5cba3eec792fbff9", candidate_platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}, raw_evidence_path: "artifacts/e11/personal-bounded-openai-98fe81e/rdg-proof.yaml", raw_evidence_sha256: "4ebb783c76f44fc61aeea09c3b06aa306c923aa8681ed5126b5e931053ec6858", expires_at: "2026-09-02T00:00:00Z"}
+  - {id: "bounded-package-exclusions", rdg_ids: [], proof_class: "boundary_exclusion_proof_v1", proof_result: "PASS", candidate_source_commit: "98fe81e0facfe889479030bc5cba3eec792fbff9", candidate_build_id: "98fe81e0facfe889479030bc5cba3eec792fbff9", candidate_platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}, raw_evidence_path: "artifacts/e11/personal-bounded-openai-98fe81e/boundary-exclusion-proof.yaml", raw_evidence_sha256: "73a651b1dcf20caedce5440a123d0ebef6872894448f2599048c360911b8dd07", expires_at: "2026-09-02T00:00:00Z"}
+reviews: []
+boundary_assessments:
+  - {boundary_id: "canonical_encrypted_store_and_key_recovery", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "desktop_renderer_and_typed_ipc", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "provider_model_or_network", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "inbound_listener", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["bounded-package-exclusions"]}
+  - {boundary_id: "general_network", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["bounded-package-exclusions"]}
+  - {boundary_id: "assessment_scoring", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["bounded-package-exclusions"]}
+  - {boundary_id: "longitudinal_or_n_of_1", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["bounded-package-exclusions"]}
+rdg_controls:
+  - {id: "RDG-01", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["bounded-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-02", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["bounded-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-03", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["bounded-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-04", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["bounded-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-05", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["bounded-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-06", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["bounded-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-07", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["bounded-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-08", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["bounded-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-09", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["bounded-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-10", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["bounded-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-11", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["bounded-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-12", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["bounded-release-verification"], excluded_boundary_ids: []}
+residual_risks: [{id: "bounded-openai-rdg-controls", severity: "HIGH", status: "RESOLVED", expires_at: "2026-09-02T00:00:00Z"}]
+gate_decision: {requested_state: "CLOSED", authority: "NONE"}
+successor: {supersedes: "personal-ux-v11-3897a7f", invalidation_reasons: ["exact_candidate_replacement", "provider_model_or_network_applicable"]}
+seal: {payload_sha256: "95b104aae4d86c47cd702b37aed9be4b1f0d014974b2e682f08b6cf4153ba3a4", sealed_at: "2026-08-26T20:15:00Z"}

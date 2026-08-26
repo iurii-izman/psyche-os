@@ -36,6 +36,12 @@ _CLOSED_RESIDUAL_RISK_STATUSES = {"RESOLVED"}
 _REQUIRED_REVIEW_STATE = "COMPLETE"
 _SHA256_LENGTH = 64
 _ALWAYS_APPLICABLE_RDGS = frozenset({"RDG-09", "RDG-10", "RDG-11", "RDG-12"})
+_PROFILE_PATHS = frozenset(
+    {
+        "docs/architecture/REAL_DATA_GATE_PROFILE.yaml",
+        "docs/architecture/REAL_DATA_GATE_PROFILE_OPENAI.yaml",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -202,8 +208,11 @@ def _verify_candidate_source(root: Path, evaluation: Mapping[str, Any], reasons:
         reasons.append("candidate_source_missing")
 
 
-def _profile(root: Path, reasons: list[str]) -> dict[str, Any] | None:
-    path = root / "docs" / "architecture" / "REAL_DATA_GATE_PROFILE.yaml"
+def _profile(root: Path, profile_path: str, reasons: list[str]) -> dict[str, Any] | None:
+    if profile_path not in _PROFILE_PATHS:
+        reasons.append("profile_path_mismatch")
+        return None
+    path = root / profile_path
     try:
         profile = yaml.safe_load(path.read_text(encoding="utf-8"))
     except Exception as exc:
@@ -218,16 +227,20 @@ def _profile(root: Path, reasons: list[str]) -> dict[str, Any] | None:
 def _verify_profile_binding(
     root: Path, evaluation: Mapping[str, Any], reasons: list[str]
 ) -> dict[str, Any] | None:
-    profile = _profile(root, reasons)
     binding = evaluation.get("profile_binding", {})
-    if profile is None or not isinstance(binding, dict):
+    if not isinstance(binding, dict):
         reasons.append("profile_binding_invalid")
-        return profile
-    path = _repo_path(root, binding.get("profile_path"), "profile_binding.profile_path", reasons)
+        return None
+    profile_path = binding.get("profile_path")
+    if not isinstance(profile_path, str):
+        reasons.append("profile_binding_invalid")
+        return None
+    profile = _profile(root, profile_path, reasons)
+    if profile is None:
+        return None
+    path = _repo_path(root, profile_path, "profile_binding.profile_path", reasons)
     if path is None:
         return profile
-    if binding.get("profile_path") != "docs/architecture/REAL_DATA_GATE_PROFILE.yaml":
-        reasons.append("profile_path_mismatch")
     if binding.get("profile_id") != profile.get("profile_id"):
         reasons.append("profile_id_mismatch")
     if binding.get("profile_version") != profile.get("profile_version"):

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
+import os
 import secrets
 from typing import Any, Final
 
@@ -22,9 +23,12 @@ from psyche_os.personal_mode.admission import (
 from psyche_os.personal_mode.lifecycle import PersonalLifecycleError
 from psyche_os.personal_mode.runtime import PersonalRuntime, PersonalRuntimeError
 from psyche_os.personal_mode.runtime_profile import PersonalRuntimePaths
+from psyche_os.personal_mode.ai_working_formulation import OpenAIKeyStore, PersonalAIError, PersonalWorkingFormulationService
+from psyche_os.adapters.e07_provider import OpenAIReflectionProvider
 
 PROTOCOL_VERSION: Final = "1.0"
 MAX_SECRET: Final = 256
+AI_PROFILE_ID: Final = "local_personal_bounded_openai_reflection_windows_v1"
 
 PERSONAL_ALLOWED_COMMANDS: Final = frozenset(
     {
@@ -51,6 +55,11 @@ PERSONAL_ALLOWED_COMMANDS: Final = frozenset(
         "recovery.status",
         "export.owner",
         "rotation.rotate",
+        "ai.provider.status",
+        "ai.provider.configure",
+        "ai.provider.delete",
+        "ai.working_formulation.prepare",
+        "ai.working_formulation.authorize_execute",
     }
 )
 
@@ -100,6 +109,8 @@ class PersonalDesktopApplicationService:
         self._runtime = factory(paths, self._guard)
         self._guard.bind_key_clearer(self._runtime._clear)
         self._session_token: str | None = None
+        self._ai_enabled = os.environ.get("PSYCHE_OS_PERSONAL_PROFILE_ID") == AI_PROFILE_ID
+        self._ai: PersonalWorkingFormulationService | None = None
 
     def close(self) -> None:
         self._session_token = None
@@ -109,6 +120,8 @@ class PersonalDesktopApplicationService:
         self, command: str, payload: dict[str, Any], session_token: str | None
     ) -> dict[str, Any]:
         if command not in PERSONAL_ALLOWED_COMMANDS:
+            raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
+        if command.startswith("ai.") and not self._ai_enabled:
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
         try:
             if command in PERSONAL_SESSION_COMMANDS:
@@ -140,6 +153,11 @@ class PersonalDesktopApplicationService:
                 "recovery.status": self._recovery_status,
                 "export.owner": self._export,
                 "rotation.rotate": self._rotate,
+                "ai.provider.status": self._ai_status,
+                "ai.provider.configure": self._ai_configure,
+                "ai.provider.delete": self._ai_delete,
+                "ai.working_formulation.prepare": self._ai_prepare,
+                "ai.working_formulation.authorize_execute": self._ai_authorize_execute,
             }
             return handlers[command](payload)
         except PersonalNotAdmittedError as exc:
@@ -148,6 +166,8 @@ class PersonalDesktopApplicationService:
         except (PersonalRuntimeError, PersonalLifecycleError) as exc:
             raise PersonalDesktopServiceError("PERSONAL_OPERATION_FAILED") from exc
         except ReflectionSessionError as exc:
+            raise PersonalDesktopServiceError(exc.code) from exc
+        except PersonalAIError as exc:
             raise PersonalDesktopServiceError(exc.code) from exc
 
     def _require_session(self, token: str | None) -> None:
@@ -163,13 +183,13 @@ class PersonalDesktopApplicationService:
         admission = self._guard.status()
         return {
             "locked": self._guard.locked,
-            "runtime_profile": "LOCAL_PERSONAL",
+            "runtime_profile": "LOCAL_PERSONAL_BOUNDED_OPENAI" if self._ai_enabled else "LOCAL_PERSONAL",
             "local_personal": admission["local_personal"],
             "real_data_gate": "OPEN" if admission["local_personal"] != "NOT_ADMITTED" else "CLOSED",
             "admission_expires_at": admission.get("admission_expires_at"),
             "inbound_listener": "NONE",
-            "outbound_provider": "NOT_CONFIGURED",
-            "network": "OFFLINE_NO_LISTENER",
+            "outbound_provider": "OPENAI_EXPLICIT_OPT_IN" if self._ai_enabled else "NOT_CONFIGURED",
+            "network": "OPENAI_EXPLICIT_ONE_CALL_ONLY" if self._ai_enabled else "OFFLINE_NO_LISTENER",
             "privacy": {
                 "core_processing_location": "LOCAL",
                 "cloud_storage": "DISABLED",
@@ -188,6 +208,37 @@ class PersonalDesktopApplicationService:
             self._runtime.setup(secret)
         self._session_token = secrets.token_urlsafe(32)
         return {"session_token": self._session_token, "locked": False}
+
+    def _ai_service(self) -> PersonalWorkingFormulationService:
+        if not self._ai_enabled:
+            raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
+        if self._ai is None:
+            self._ai = PersonalWorkingFormulationService(self._runtime.reflection, OpenAIKeyStore(self._runtime._paths.root), OpenAIReflectionProvider())
+        return self._ai
+
+    def _ai_status(self, payload: Any) -> dict[str, Any]:
+        _exact(payload, set())
+        return self._ai_service().status()
+
+    def _ai_configure(self, payload: Any) -> dict[str, Any]:
+        key = _exact(payload, {"api_key"})["api_key"]
+        if not isinstance(key, str):
+            raise PersonalDesktopServiceError("INVALID_PAYLOAD")
+        self._ai_service()._keys.configure(key)
+        return {"configured": True}
+
+    def _ai_delete(self, payload: Any) -> dict[str, Any]:
+        _exact(payload, set())
+        self._ai_service()._keys.delete()
+        return {"configured": False}
+
+    def _ai_prepare(self, payload: Any) -> dict[str, Any]:
+        values = _exact(payload, {"session_id", "selected_turn_ids"})
+        return self._ai_service().prepare(values["session_id"], values["selected_turn_ids"])
+
+    def _ai_authorize_execute(self, payload: Any) -> dict[str, Any]:
+        values = _exact(payload, {"interaction_id", "preview_id"})
+        return self._ai_service().authorize_execute(values["interaction_id"], values["preview_id"])
 
     def _lock(self, payload: Any) -> dict[str, Any]:
         _exact(payload, set())

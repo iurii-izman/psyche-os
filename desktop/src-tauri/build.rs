@@ -9,9 +9,12 @@ mod command_manifest {
 #[cfg(feature = "personal-product")]
 #[path = "src/command_manifest.rs"]
 mod full_command_manifest;
+#[cfg(not(feature = "personal-product"))]
+#[path = "src/personal_command_manifest.rs"]
+mod personal_command_manifest;
 
 #[cfg(feature = "personal-product")]
-fn personal_release_identity() -> (String, String) {
+fn personal_release_identity() -> (String, String, String) {
     const BUILD_ID: &str = "PSYCHE_OS_PERSONAL_BUILD_ID";
     const PROFILE_DIGEST: &str = "PSYCHE_OS_PERSONAL_PROFILE_DIGEST";
 
@@ -23,6 +26,9 @@ fn personal_release_identity() -> (String, String) {
 
     let build_id = std::env::var(BUILD_ID).ok();
     let profile_digest = std::env::var(PROFILE_DIGEST).ok();
+    let profile_id = std::env::var("PSYCHE_OS_PERSONAL_PROFILE_ID").unwrap_or_else(|_| "local_personal_evidence_reflection_windows_v1".to_owned());
+    if !matches!(profile_id.as_str(), "local_personal_evidence_reflection_windows_v1" | "local_personal_bounded_openai_reflection_windows_v1") { panic!("unknown Personal runtime profile"); }
+    println!("cargo:rerun-if-env-changed=PSYCHE_OS_PERSONAL_PROFILE_ID");
     let release = std::env::var("PROFILE").as_deref() == Ok("release");
     let valid_build_id = build_id.as_deref().is_some_and(|value| {
         value.len() == 40
@@ -54,15 +60,17 @@ fn personal_release_identity() -> (String, String) {
     (
         build_id.unwrap_or_else(|| "UNBOUND".to_owned()),
         profile_digest.unwrap_or_else(|| "UNBOUND".to_owned()),
+        profile_id,
     )
 }
 
 fn main() {
     #[cfg(feature = "personal-product")]
     {
-        let (build_id, profile_digest) = personal_release_identity();
+        let (build_id, profile_digest, profile_id) = personal_release_identity();
         println!("cargo:rustc-env=PSYCHE_OS_PERSONAL_BUILD_ID={build_id}");
         println!("cargo:rustc-env=PSYCHE_OS_PERSONAL_PROFILE_DIGEST={profile_digest}");
+        println!("cargo:rustc-env=PSYCHE_OS_PERSONAL_PROFILE_ID={profile_id}");
     }
     // `generate_context!` validates this path even for Rust-only tests.  The
     // production bundle still requires Vite to populate it before packaging.
@@ -94,9 +102,10 @@ fn main() {
             .expect("uv is required to build the fixed Python sidecar");
         assert!(status.success(), "fixed Python sidecar build failed");
     }
-    // Tauri validates every checked-in capability file at build time, including
-    // the main-product capability that is not granted by the Personal config.
-    // Define its permissions here without granting them to the Personal binary.
+    // Tauri validates every checked-in capability file at build time, even when
+    // that capability is not granted by the active product config.  Therefore
+    // both product command sets must be defined in both build modes.  Capability
+    // files still decide what each runtime is actually granted.
     #[cfg(feature = "personal-product")]
     let commands: &'static [&'static str] = Box::leak(
         [
@@ -107,7 +116,14 @@ fn main() {
         .into_boxed_slice(),
     );
     #[cfg(not(feature = "personal-product"))]
-    let commands: &'static [&'static str] = command_manifest::SHIPPED_COMMANDS;
+    let commands: &'static [&'static str] = Box::leak(
+        [
+            command_manifest::SHIPPED_COMMANDS,
+            personal_command_manifest::SHIPPED_COMMANDS,
+        ]
+        .concat()
+        .into_boxed_slice(),
+    );
 
     let attributes = tauri_build::Attributes::new()
         .app_manifest(tauri_build::AppManifest::new().commands(&commands));

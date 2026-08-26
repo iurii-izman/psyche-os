@@ -10,6 +10,7 @@
     "allow-desktop-reflection-create", "allow-desktop-reflection-list", "allow-desktop-reflection-get", "allow-desktop-reflection-add-turn", "allow-desktop-reflection-close", "allow-desktop-reflection-delete", "allow-desktop-reflection-search",
     "allow-desktop-exploration-start", "allow-desktop-exploration-get", "allow-desktop-exploration-answer", "allow-desktop-exploration-skip",
     "allow-desktop-formulation-propose", "allow-desktop-formulation-correct", "allow-desktop-formulation-accept", "allow-desktop-formulation-reject",
-    "allow-desktop-personal-backup", "allow-desktop-personal-restore-isolated", "allow-desktop-personal-export-owner", "allow-desktop-personal-rotate", "allow-desktop-personal-recovery-status"
+    "allow-desktop-personal-backup", "allow-desktop-personal-restore-isolated", "allow-desktop-personal-export-owner", "allow-desktop-personal-rotate", "allow-desktop-personal-recovery-status",
+    "allow-desktop-ai-provider-status", "allow-desktop-ai-provider-configure", "allow-desktop-ai-provider-delete", "allow-desktop-ai-formulation-prepare", "allow-desktop-ai-formulation-execute"
   ]
 }
