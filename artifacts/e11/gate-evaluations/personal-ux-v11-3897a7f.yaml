@@ -1,0 +1,52 @@
+schema_version: "1.0"
+evaluation_id: "personal-ux-v11-3897a7f"
+lifecycle: "SEALED"
+candidate:
+  source_commit: "3897a7f9c96a128a1dd154474e7bbd4e1413cf2f"
+  build_id: "3897a7f9c96a128a1dd154474e7bbd4e1413cf2f"
+  platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}
+  requested_data_class: "SYNTHETIC_ONLY"
+  reproducibility: {status: "REPRODUCED", evidence_ids: ["final-verification"]}
+profile_binding:
+  profile_path: "docs/architecture/REAL_DATA_GATE_PROFILE.yaml"
+  profile_id: "local_personal_evidence_reflection_windows_v1"
+  profile_version: "1.0"
+  profile_definition_sha256: "50f8f9b684b4db14df482ef8f461c8c95bf99ba3ec35842059fa56d08859d1f7"
+  profile_source_commit: "3897a7f9c96a128a1dd154474e7bbd4e1413cf2f"
+identities:
+  lock: {path: "uv.lock", sha256: "82af2a0d7b995fb2c585de715133365d63d8f28c2827110746aeafcaa1fbd162"}
+  sbom: {path: "artifacts/f0/sbom.cdx.json", sha256: "5fa16e8662dce850f2f814e30d57dd4a4bda66e341e6914e455d50123cadd43d"}
+  artifacts:
+    - {id: "personal-nsis-installer", path: "artifacts/e11/personal-ux-v11-3897a7f/PSYCHE OS Personal_0.2.0_x64-setup.exe", sha256: "16f95e9c564f1808e7763e4327d2b89c31713ad1ad35aa953a2b12ab93faff20"}
+evidence:
+  - {id: "final-verification", rdg_ids: ["RDG-01", "RDG-02", "RDG-03", "RDG-04", "RDG-05", "RDG-06", "RDG-07", "RDG-08", "RDG-09", "RDG-10", "RDG-11", "RDG-12"], proof_class: "deterministic_validator_result_v1", proof_result: "PASS", candidate_source_commit: "3897a7f9c96a128a1dd154474e7bbd4e1413cf2f", candidate_build_id: "3897a7f9c96a128a1dd154474e7bbd4e1413cf2f", candidate_platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}, raw_evidence_path: "artifacts/e11/personal-ux-v11-3897a7f/rdg-proof.yaml", raw_evidence_sha256: "e0fa6ad44a97eeb74ab1821577ff723500451abb4badd2e1a29a8e5b0b2272b0", expires_at: "2026-09-02T00:00:00Z"}
+  - {id: "package-exclusions", rdg_ids: [], proof_class: "boundary_exclusion_proof_v1", proof_result: "PASS", candidate_source_commit: "3897a7f9c96a128a1dd154474e7bbd4e1413cf2f", candidate_build_id: "3897a7f9c96a128a1dd154474e7bbd4e1413cf2f", candidate_platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}, raw_evidence_path: "artifacts/e11/personal-ux-v11-3897a7f/boundary-exclusion-proof.yaml", raw_evidence_sha256: "fe1506467ee999c8eee562c821ebf489392e63dcf57caa0658b528a799fa2ea8", expires_at: "2026-09-02T00:00:00Z"}
+reviews: []
+boundary_assessments:
+  - {boundary_id: "canonical_encrypted_store_and_key_recovery", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "backup_restore_and_scoped_filesystem", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "desktop_renderer_and_typed_ipc", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "local_archive_and_disposable_retrieval_projection", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "general_blob_or_attachment_writes", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["package-exclusions"]}
+  - {boundary_id: "importer_parser_or_untrusted_rendering", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["package-exclusions"]}
+  - {boundary_id: "provider_model_or_network", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["package-exclusions"]}
+  - {boundary_id: "assessment_scoring", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["package-exclusions"]}
+  - {boundary_id: "longitudinal_or_n_of_1", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["package-exclusions"]}
+  - {boundary_id: "professional_report_or_external_handoff", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["package-exclusions"]}
+rdg_controls:
+  - {id: "RDG-01", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["canonical_encrypted_store_and_key_recovery", "general_blob_or_attachment_writes"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-02", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-03", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-04", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "general_blob_or_attachment_writes", "local_archive_and_disposable_retrieval_projection", "professional_report_or_external_handoff"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-05", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "local_archive_and_disposable_retrieval_projection", "professional_report_or_external_handoff"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-06", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "desktop_renderer_and_typed_ipc", "general_blob_or_attachment_writes", "local_archive_and_disposable_retrieval_projection", "professional_report_or_external_handoff"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-07", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["canonical_encrypted_store_and_key_recovery", "local_archive_and_disposable_retrieval_projection", "provider_model_or_network"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-08", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["desktop_renderer_and_typed_ipc", "importer_parser_or_untrusted_rendering"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-09", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["assessment_scoring", "desktop_renderer_and_typed_ipc", "importer_parser_or_untrusted_rendering", "longitudinal_or_n_of_1", "professional_report_or_external_handoff", "provider_model_or_network"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-10", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "desktop_renderer_and_typed_ipc", "general_blob_or_attachment_writes", "importer_parser_or_untrusted_rendering", "local_archive_and_disposable_retrieval_projection", "provider_model_or_network"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-11", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["assessment_scoring", "longitudinal_or_n_of_1", "professional_report_or_external_handoff", "provider_model_or_network"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-12", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["backup_restore_and_scoped_filesystem", "canonical_encrypted_store_and_key_recovery", "desktop_renderer_and_typed_ipc", "general_blob_or_attachment_writes", "importer_parser_or_untrusted_rendering", "local_archive_and_disposable_retrieval_projection", "longitudinal_or_n_of_1", "professional_report_or_external_handoff", "provider_model_or_network"], evidence_ids: ["final-verification"], excluded_boundary_ids: []}
+residual_risks: [{id: "personal-ux-v11-rdg-controls", severity: "HIGH", status: "RESOLVED", expires_at: "2026-09-02T00:00:00Z"}]
+gate_decision: {requested_state: "CLOSED", authority: "NONE"}
+successor: {supersedes: "personal-release-identity-be7bf74", invalidation_reasons: ["exact_candidate_replacement"]}
+seal: {payload_sha256: "69f0ad4cf9259c622a416cb3da8489f281d8e736573402f6c63351dcaec373cf", sealed_at: "2026-08-26T11:30:00Z"}
