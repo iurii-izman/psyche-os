@@ -1,0 +1,49 @@
+schema_version: "1.0"
+evaluation_id: "personal-data-safety-1cfca99"
+lifecycle: "SEALED"
+candidate:
+  source_commit: "1cfca99daf5ff2a87a9abfc9efd006edd7d59139"
+  build_id: "1cfca99daf5ff2a87a9abfc9efd006edd7d59139"
+  platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}
+  requested_data_class: "SYNTHETIC_ONLY"
+  reproducibility: {status: "REPRODUCED", evidence_ids: ["personal-data-safety-release-verification"]}
+profile_binding:
+  profile_path: "docs/architecture/REAL_DATA_GATE_PROFILE_OPENAI.yaml"
+  profile_id: "local_personal_bounded_openai_reflection_windows_v1"
+  profile_version: "1.0"
+  profile_definition_sha256: "1b91fad63ad04e02e90f9cae70d8d5d36a9a66ec9f00d1002cded853726ca99a"
+  profile_source_commit: "1cfca99daf5ff2a87a9abfc9efd006edd7d59139"
+identities:
+  lock: {path: "uv.lock", sha256: "82af2a0d7b995fb2c585de715133365d63d8f28c2827110746aeafcaa1fbd162"}
+  sbom: {path: "artifacts/f0/sbom.cdx.json", sha256: "5fa16e8662dce850f2f814e30d57dd4a4bda66e341e6914e455d50123cadd43d"}
+  artifacts:
+    - {id: "personal-data-safety-nsis-installer", path: "artifacts/e11/personal-data-safety-1cfca99/PSYCHE OS Personal_0.2.0_x64-setup.exe", sha256: "0ebd9fbb4622156e729a041115e92c7e062333c81a9e9a371d6b6020505b4b99"}
+evidence:
+  - {id: "personal-data-safety-release-verification", rdg_ids: ["RDG-01", "RDG-02", "RDG-03", "RDG-04", "RDG-05", "RDG-06", "RDG-07", "RDG-08", "RDG-09", "RDG-10", "RDG-11", "RDG-12"], proof_class: "deterministic_validator_result_v1", proof_result: "PASS", candidate_source_commit: "1cfca99daf5ff2a87a9abfc9efd006edd7d59139", candidate_build_id: "1cfca99daf5ff2a87a9abfc9efd006edd7d59139", candidate_platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}, raw_evidence_path: "artifacts/e11/personal-data-safety-1cfca99/rdg-proof.yaml", raw_evidence_sha256: "df03540eb7c642f866a7ce9c2645b91f4cbed7d2f516af208356a0d063a922c0", expires_at: "2026-09-02T00:00:00Z"}
+  - {id: "personal-data-safety-package-exclusions", rdg_ids: [], proof_class: "boundary_exclusion_proof_v1", proof_result: "PASS", candidate_source_commit: "1cfca99daf5ff2a87a9abfc9efd006edd7d59139", candidate_build_id: "1cfca99daf5ff2a87a9abfc9efd006edd7d59139", candidate_platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}, raw_evidence_path: "artifacts/e11/personal-data-safety-1cfca99/boundary-exclusion-proof.yaml", raw_evidence_sha256: "545cf9d167a04b418577a6bf70af62a571d8d90d56119cc5ad76a5866de47d6b", expires_at: "2026-09-02T00:00:00Z"}
+reviews: []
+boundary_assessments:
+  - {boundary_id: "canonical_encrypted_store_and_key_recovery", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "desktop_renderer_and_typed_ipc", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "provider_model_or_network", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "inbound_listener", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["personal-data-safety-package-exclusions"]}
+  - {boundary_id: "general_network", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["personal-data-safety-package-exclusions"]}
+  - {boundary_id: "assessment_scoring", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["personal-data-safety-package-exclusions"]}
+  - {boundary_id: "longitudinal_or_n_of_1", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["personal-data-safety-package-exclusions"]}
+rdg_controls:
+  - {id: "RDG-01", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["personal-data-safety-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-02", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["personal-data-safety-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-03", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["personal-data-safety-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-04", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["personal-data-safety-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-05", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["personal-data-safety-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-06", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["personal-data-safety-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-07", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["personal-data-safety-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-08", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["personal-data-safety-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-09", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["personal-data-safety-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-10", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["personal-data-safety-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-11", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["personal-data-safety-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-12", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["personal-data-safety-release-verification"], excluded_boundary_ids: []}
+residual_risks: [{id: "personal-data-safety-bounded-openai-controls", severity: "HIGH", status: "RESOLVED", expires_at: "2026-09-02T00:00:00Z"}]
+gate_decision: {requested_state: "CLOSED", authority: "NONE"}
+successor: {supersedes: "personal-bounded-openai-98fe81e", invalidation_reasons: ["exact_candidate_replacement", "package_rebuild", "provider_model_or_network_applicable"]}
+seal: {payload_sha256: "6233c5364604ac4102d56ae9941e9cb8a8ee0dc705d19c4e75f89a84ec83b73a", sealed_at: "2026-08-26T22:30:00Z"}
