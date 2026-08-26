@@ -16,6 +16,10 @@ const MAX_FRAME_BYTES: usize = 65_536;
 const MAX_TEXT: usize = 512;
 const MAX_TURN_TEXT: usize = 12_000;
 const ALLOWED_ORIGINS: &[(&str, &str)] = &[("tauri", "localhost"), ("http", "tauri.localhost")];
+// `build.rs` always supplies these values. Release Personal builds refuse to
+// compile unless both are exact lower-case hexadecimal identities.
+const PERSONAL_BUILD_ID: &str = env!("PSYCHE_OS_PERSONAL_BUILD_ID");
+const PERSONAL_PROFILE_DIGEST: &str = env!("PSYCHE_OS_PERSONAL_PROFILE_DIGEST");
 
 #[derive(Serialize)]
 struct Request<'a> { version: &'static str, command: &'static str, correlation_id: String, session_token: Option<&'a str>, payload: Value }
@@ -84,9 +88,9 @@ fn personal_environment(temp: &Path, local_data: &Path) -> Vec<(OsString, OsStri
         (OsString::from("TMP"), temp.as_os_str().to_owned()),
         (OsString::from("PSYCHE_OS_LOCAL_APP_DATA"), local_data.as_os_str().to_owned()),
         (OsString::from("PSYCHE_OS_PERSONAL_ADMISSION_ROOT"), local_data.join("PSYCHE OS").join("Personal").into_os_string()),
-        (OsString::from("PSYCHE_OS_PERSONAL_BUILD_ID"), OsString::from(option_env!("PSYCHE_OS_PERSONAL_BUILD_ID").unwrap_or("UNBOUND"))),
+        (OsString::from("PSYCHE_OS_PERSONAL_BUILD_ID"), OsString::from(PERSONAL_BUILD_ID)),
         (OsString::from("PSYCHE_OS_PERSONAL_PROFILE_ID"), OsString::from("local_personal_evidence_reflection_windows_v1")),
-        (OsString::from("PSYCHE_OS_PERSONAL_PROFILE_DIGEST"), OsString::from(option_env!("PSYCHE_OS_PERSONAL_PROFILE_DIGEST").unwrap_or("UNBOUND"))),
+        (OsString::from("PSYCHE_OS_PERSONAL_PROFILE_DIGEST"), OsString::from(PERSONAL_PROFILE_DIGEST)),
     ]
 }
 
@@ -173,6 +177,11 @@ mod tests {
     #[test] fn personal_environment_has_only_launcher_bound_admission_identity() {
         let values: BTreeSet<OsString> = personal_environment(Path::new("C:\\temp"), Path::new("C:\\local")).into_iter().map(|(key, _)| key).collect();
         for required in ["PSYCHE_OS_PERSONAL_ADMISSION_ROOT", "PSYCHE_OS_PERSONAL_BUILD_ID", "PSYCHE_OS_PERSONAL_PROFILE_ID", "PSYCHE_OS_PERSONAL_PROFILE_DIGEST"] { assert!(values.contains(&OsString::from(required))); }
+    }
+    #[test] fn personal_environment_uses_the_build_script_identity() {
+        let identity: std::collections::BTreeMap<OsString, OsString> = personal_environment(Path::new("C:\\temp"), Path::new("C:\\local")).into_iter().collect();
+        assert_eq!(identity.get(&OsString::from("PSYCHE_OS_PERSONAL_BUILD_ID")), Some(&OsString::from(std::env::var("PSYCHE_OS_PERSONAL_BUILD_ID").unwrap_or_else(|_| "UNBOUND".to_string()))));
+        assert_eq!(identity.get(&OsString::from("PSYCHE_OS_PERSONAL_PROFILE_DIGEST")), Some(&OsString::from(std::env::var("PSYCHE_OS_PERSONAL_PROFILE_DIGEST").unwrap_or_else(|_| "UNBOUND".to_string()))));
     }
     #[test]
     fn personal_rust_to_sidecar_closed_boundary_is_content_free_and_rejects_ai() {

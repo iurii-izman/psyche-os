@@ -23,3 +23,18 @@ def test_personal_build_uses_the_canonical_profile_representation() -> None:
     build = (ROOT / "desktop" / "scripts" / "build-personal.ps1").read_text(encoding="utf-8")
     assert '$profileText.Replace("`r`n", "`n").Replace("`r", "`n")' in build
     assert "ReadAllBytes" not in build
+
+
+def test_personal_release_binding_is_explicit_and_cache_safe() -> None:
+    build_rs = (ROOT / "desktop" / "src-tauri" / "build.rs").read_text(encoding="utf-8")
+    product = (ROOT / "desktop" / "src-tauri" / "src" / "personal_product.rs").read_text(encoding="utf-8")
+    for name in ("PSYCHE_OS_PERSONAL_BUILD_ID", "PSYCHE_OS_PERSONAL_PROFILE_DIGEST"):
+        assert name in build_rs
+    assert "cargo:rerun-if-env-changed={BUILD_ID}" in build_rs
+    assert "cargo:rerun-if-env-changed={PROFILE_DIGEST}" in build_rs
+    assert "cargo:rustc-env=PSYCHE_OS_PERSONAL_BUILD_ID=" in build_rs
+    assert "cargo:rustc-env=PSYCHE_OS_PERSONAL_PROFILE_DIGEST=" in build_rs
+    assert "Personal release builds require valid" in build_rs
+    assert 'env!("PSYCHE_OS_PERSONAL_BUILD_ID")' in product
+    assert 'env!("PSYCHE_OS_PERSONAL_PROFILE_DIGEST")' in product
+    assert "option_env!(\"PSYCHE_OS_PERSONAL_" not in product
