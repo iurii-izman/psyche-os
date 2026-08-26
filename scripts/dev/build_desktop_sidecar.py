@@ -17,7 +17,6 @@ BUILD = DESKTOP / "build" / "sidecar"
 NAME = "psyche-os-sidecar-x86_64-pc-windows-msvc"
 PERSONAL_NAME = "psyche-os-personal-sidecar-x86_64-pc-windows-msvc"
 PERSONAL_FORBIDDEN_MODULES = (
-    "psyche_os.adapters",
     "psyche_os.application.action_planning",
     "psyche_os.backup_export",
     "psyche_os.interfaces.cli",
@@ -25,6 +24,13 @@ PERSONAL_FORBIDDEN_MODULES = (
     "psyche_os.domain.assessments",
     "psyche_os.storage.v3a3_action_schema",
 )
+OFFLINE_PROFILE = "local_personal_evidence_reflection_windows_v1"
+BOUNDED_OPENAI_PROFILE = "local_personal_bounded_openai_reflection_windows_v1"
+BOUNDED_OPENAI_ADAPTERS = {
+    "psyche_os.adapters",
+    "psyche_os.adapters.adapters",
+    "psyche_os.adapters.e07_provider",
+}
 SYNTHETIC_FIXTURE = "psyche_os/fixtures/e03_orchid_station_v1.json"
 
 
@@ -68,8 +74,16 @@ def _build(name: str, entrypoint: Path, *, synthetic: bool) -> Path:
     return executable
 
 
-def _verify_personal_inventory(executable: Path) -> None:
-    """Inspect the emitted PyInstaller module graph, not source-string matches."""
+def _personal_profile() -> str:
+    """Return the explicit package profile, defaulting fail-closed to Offline."""
+    profile = os.environ.get("PSYCHE_OS_PERSONAL_PROFILE_ID", OFFLINE_PROFILE)
+    if profile not in {OFFLINE_PROFILE, BOUNDED_OPENAI_PROFILE}:
+        raise RuntimeError("unknown-personal-profile")
+    return profile
+
+
+def _verify_personal_inventory(executable: Path, profile: str) -> None:
+    """Inspect the emitted module graph against the exact active profile."""
     result = subprocess.run(
         [
             sys.executable,
@@ -85,12 +99,18 @@ def _verify_personal_inventory(executable: Path) -> None:
         text=True,
     )
     names = result.stdout.splitlines()
+    modules = {name.strip() for name in result.stdout.splitlines()}
     if result.returncode != 0 or any(
         name.strip() == forbidden or name.strip().startswith(f"{forbidden}.")
-        for name in names
+        for name in modules
         for forbidden in PERSONAL_FORBIDDEN_MODULES
     ):
         raise RuntimeError("personal-modulegraph")
+    adapters = {name for name in modules if name == "psyche_os.adapters" or name.startswith("psyche_os.adapters.")}
+    if profile == OFFLINE_PROFILE and adapters:
+        raise RuntimeError("offline-personal-adapter-leakage")
+    if profile == BOUNDED_OPENAI_PROFILE and adapters != BOUNDED_OPENAI_ADAPTERS:
+        raise RuntimeError("bounded-openai-adapter-inventory")
     actual = {path.name for path in OUTPUT.glob("psyche-os*sidecar*.exe")}
     expected = {f"{NAME}.exe", f"{PERSONAL_NAME}.exe"}
     if actual != expected:
@@ -132,7 +152,7 @@ def main() -> int:
             ROOT / "src" / "psyche_os" / "interfaces" / "personal_desktop_sidecar.py",
             synthetic=False,
         )
-        _verify_personal_inventory(personal)
+        _verify_personal_inventory(personal, _personal_profile())
         _verify_synthetic_resource(executable)
     except RuntimeError as error:
         print(f"FAIL: {error}", file=sys.stderr)

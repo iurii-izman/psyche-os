@@ -181,7 +181,7 @@ mod tests {
         assert_eq!(actual, expected);
         let renderer = include_str!("../../src/personal-api.ts");
         for command in super::super::personal_command_manifest::SHIPPED_COMMANDS { assert!(source.contains(command)); assert!(renderer.contains(&format!("\"{command}\""))); }
-        for forbidden in ["desktop_ai_", "desktop_archive_", "desktop_action_"] { assert!(!handler.0.contains(forbidden)); }
+        for forbidden in ["desktop_archive_", "desktop_action_"] { assert!(!handler.0.contains(forbidden)); }
     }
     #[test] fn personal_environment_has_no_provider_credential() { assert!(!personal_environment(Path::new("C:\\temp"), Path::new("C:\\local")).iter().any(|(key, _)| key == "OPENAI_API_KEY")); }
     #[test] fn personal_environment_has_only_launcher_bound_admission_identity() {

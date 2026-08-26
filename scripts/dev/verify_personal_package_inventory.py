@@ -8,9 +8,11 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-FORBIDDEN_RENDERER = ("openai", "desktop_ai_", "desktop_archive_", "desktop_action_", "archive.operate", "ai.")
+OFFLINE_PROFILE = "local_personal_evidence_reflection_windows_v1"
+BOUNDED_OPENAI_PROFILE = "local_personal_bounded_openai_reflection_windows_v1"
+FORBIDDEN_RENDERER = ("desktop_archive_", "desktop_action_", "archive.operate", "ai.")
 FORBIDDEN_MODULES = (
-    "psyche_os.adapters", "psyche_os.application.action_planning", "psyche_os.backup_export",
+    "psyche_os.application.action_planning", "psyche_os.backup_export",
     "psyche_os.interfaces.cli", "psyche_os.storage.migrations", "psyche_os.domain.assessments",
     "psyche_os.storage.v3a3_action_schema",
 )
@@ -23,6 +25,7 @@ def fail(message: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--installer", required=True, type=Path)
+    parser.add_argument("--profile", required=True, choices=(OFFLINE_PROFILE, BOUNDED_OPENAI_PROFILE))
     arguments = parser.parse_args()
     installer = arguments.installer.resolve()
     renderer = ROOT / "desktop" / "dist-personal"
@@ -33,8 +36,26 @@ def main() -> int:
     if any(token in asset_text.lower() for token in FORBIDDEN_RENDERER):
         fail("Personal emitted renderer contains a forbidden product surface")
     command_table = (ROOT / "desktop" / "src-tauri" / "src" / "personal_command_manifest.rs").read_text(encoding="utf-8")
-    if any(token in command_table for token in ("desktop_ai_", "desktop_archive_", "desktop_action_")):
+    if any(token in command_table for token in ("desktop_archive_", "desktop_action_")):
         fail("Personal command table contains a forbidden command")
+    has_ai = "desktop_ai_" in command_table
+    if arguments.profile == OFFLINE_PROFILE and (has_ai or "openai" in asset_text.lower()):
+        fail("Offline Personal package contains bounded OpenAI capability")
+    if arguments.profile == BOUNDED_OPENAI_PROFILE:
+        required_commands = (
+            "desktop_ai_provider_status", "desktop_ai_provider_configure", "desktop_ai_provider_delete",
+            "desktop_ai_formulation_prepare", "desktop_ai_formulation_execute",
+        )
+        if any(command not in command_table for command in required_commands):
+            fail("Bounded OpenAI command inventory is incomplete")
+        provider = (ROOT / "src" / "psyche_os" / "adapters" / "e07_provider.py").read_text(encoding="utf-8")
+        required_provider_invariants = (
+            'endpoint = "https://api.openai.com/v1/responses"', "request.ProxyHandler({})",
+            "class _RejectRedirects", '"store": False', '"model": "gpt-5.6-luna"',
+            '"reasoning": {"effort": "low"}',
+        )
+        if any(item not in provider for item in required_provider_invariants):
+            fail("Bounded OpenAI provider invariant missing")
     seven_zip = Path("C:/Program Files/7-Zip/7z.exe")
     listed = subprocess.run([str(seven_zip), "l", str(installer)], capture_output=True, text=True, check=False)
     if listed.returncode != 0:
@@ -43,10 +64,18 @@ def main() -> int:
         fail("Personal installer sidecar inventory is not exact")
     sidecar = ROOT / "desktop" / "src-tauri" / "binaries" / "psyche-os-personal-sidecar-x86_64-pc-windows-msvc.exe"
     graph = subprocess.run([sys.executable, "-m", "PyInstaller.utils.cliutils.archive_viewer", "-r", "-b", str(sidecar)], cwd=ROOT, capture_output=True, text=True, check=False)
-    names = graph.stdout.splitlines()
-    if graph.returncode != 0 or any(name.strip() == forbidden or name.strip().startswith(f"{forbidden}.") for name in names for forbidden in FORBIDDEN_MODULES):
+    names = {name.strip() for name in graph.stdout.splitlines()}
+    if graph.returncode != 0 or any(name == forbidden or name.startswith(f"{forbidden}.") for name in names for forbidden in FORBIDDEN_MODULES):
         fail("Personal frozen sidecar modulegraph contains a forbidden module")
-    print("PASS personal package: config, emitted renderer, command table, installer sidecars, and frozen modulegraph")
+    adapters = {name for name in names if name == "psyche_os.adapters" or name.startswith("psyche_os.adapters.")}
+    allowed_adapters = {
+        "psyche_os.adapters", "psyche_os.adapters.adapters", "psyche_os.adapters.e07_provider",
+    }
+    if arguments.profile == OFFLINE_PROFILE and adapters:
+        fail("Offline Personal sidecar contains an adapter module")
+    if arguments.profile == BOUNDED_OPENAI_PROFILE and adapters != allowed_adapters:
+        fail("Bounded OpenAI Personal sidecar adapter inventory is not exact")
+    print(f"PASS personal package ({arguments.profile}): config, renderer, command table, installer sidecars, and frozen modulegraph")
     return 0
 
 

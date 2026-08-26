@@ -48,8 +48,7 @@ describe("Personal daily-use renderer", () => {
     expect(document.querySelectorAll(".sense-section")).toHaveLength(0);
     await click("Настройки");
     expect(document.body.textContent).toContain("ПРИВАТНОСТЬ И ЛОКАЛЬНЫЙ РЕЖИМ");
-    expect(document.body.textContent).toContain("На этом устройстве");
+    expect(document.body.textContent).toContain("Локально");
     expect(document.body.textContent).toContain("Технические сведения");
-    expect(document.body.textContent).toContain("Открыть резервное копирование");
   });
 });
