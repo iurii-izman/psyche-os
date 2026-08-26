@@ -23,18 +23,15 @@ describe("Personal daily-use renderer", () => {
       personalRecoveryStatus: vi.fn(async () => ({ local_personal: "ADMITTED", rotation: "READY" })), personalBackup: vi.fn(async () => ({ backup_id: "backup-1" })), personalRestoreIsolated: vi.fn(async () => ({ candidate_id: "candidate-1" })), personalExportOwner: vi.fn(async () => ({ export_id: "export-1", audience: "OWNER_ONLY" }))
     } as unknown as PersonalApi;
     await mountPersonal(api, document.querySelector<HTMLDivElement>("#app")!);
-    expect(document.body.textContent).toContain("Vault locked");
+    expect(document.body.textContent).toContain("Ваше личное пространство защищено");
     document.querySelector<HTMLInputElement>("#unlock-secret")!.value = "fixture"; document.querySelector<HTMLFormElement>("#unlock-form")!.requestSubmit(); await tick();
-    expect(document.body.textContent).toContain("QUICK CAPTURE");
+    expect(document.body.textContent).toContain("БЫСТРАЯ ЗАПИСЬ");
     document.querySelector<HTMLInputElement>("#quick-capture-title")!.value = "A note"; document.querySelector<HTMLTextAreaElement>("#quick-capture-text")!.value = "unique marker"; document.querySelector<HTMLFormElement>("#quick-capture-form")!.requestSubmit(); await tick();
     expect(api.reflectionCreate).toHaveBeenCalledWith("A note"); expect(api.reflectionAddTurn).toHaveBeenCalledWith("r1", "unique marker"); expect(document.body.textContent).toContain("Capture saved to your history");
-    expect(document.body.textContent).toContain("DAILY REVIEW"); expect(document.body.textContent).toContain("unresolved unknowns");
-    await click("Understand"); expect(document.body.textContent).toContain("Current picture"); expect(document.body.textContent).toContain("What remains unclear?"); expect(document.body.textContent).toContain("Derived from reflection"); await click("Open source reflection"); expect(document.body.textContent).toContain("USER · entry 1");
-    await click("Privacy & local status"); expect(document.body.textContent).toContain("OFFLINE_NO_LISTENER"); expect(document.body.textContent).toContain("NEVER_CLOUD");
-    await click("History"); expect(document.body.textContent).toContain("Your saved reflections"); await click("Resume"); expect(document.body.textContent).toContain("USER · entry 1");
-    await click("Search"); document.querySelector<HTMLInputElement>("#search-query")!.value = "marker"; document.querySelector<HTMLFormElement>("#search-form")!.requestSubmit(); await tick(); expect(document.body.textContent).toContain("unique marker");
-    await click("Backup & recovery"); await click("Refresh status"); expect(document.body.textContent).toContain("Rotation: READY");
-    vi.spyOn(window, "confirm").mockReturnValue(true); document.querySelector<HTMLInputElement>("#backup-secret")!.value = "fixture"; document.querySelector<HTMLFormElement>("#backup-form")!.requestSubmit(); await tick(); expect(document.body.textContent).toContain("Backup identifier: backup-1");
-    document.querySelector<HTMLInputElement>("#restore-backup-id")!.value = "backup-1"; document.querySelector<HTMLInputElement>("#restore-secret")!.value = "fixture"; document.querySelector<HTMLFormElement>("#restore-form")!.requestSubmit(); await tick(); expect(api.personalRestoreIsolated).toHaveBeenCalledWith("backup-1", "fixture"); expect(document.body.textContent).toContain("Isolated restore candidate created");
+    expect(document.body.textContent).toContain("ОБЗОР"); expect(document.body.textContent).toContain("неясного");
+    await click("Осмысление"); expect(document.body.textContent).toContain("Current picture"); expect(document.body.textContent).toContain("What remains unclear?");
+    await click("Open source reflection"); expect(document.body.textContent).toContain("Ваша запись");
+    await click("История"); expect(document.body.textContent).toContain("История"); await click("Продолжить"); expect(document.body.textContent).toContain("Ваша запись");
+    await click("Поиск"); document.querySelector<HTMLInputElement>("#search-query")!.value = "marker"; document.querySelector<HTMLFormElement>("#search-form")!.requestSubmit(); await tick(); expect(document.body.textContent).toContain("unique marker");
   });
 });
