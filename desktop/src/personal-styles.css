@@ -61,3 +61,21 @@ input, textarea, select { width: 100%; border: 1px solid #b8c2b9; border-radius:
 .history-event > p, .history-event > small { grid-column: 2; }
 .is-source-highlight { border-left: 4px solid #317153; padding-left: 1rem; background: #edf6ef; }
 @media (prefers-color-scheme: dark) { .source-record, .reported-turn, .history-event, .source-evidence { border-color: #374639; }.source-excerpt { background: #19231b; border-color: #455449; }.is-ai-proposal { background: #352d1c; border-left-color: #c79a47; }.formulation-controls { background: #202b22; }.is-source-highlight { background: #203d2a; }.source-record small, .reported-turn small, .history-event small, .derived > small, .provenance-note { color: #c3d0c5; } }
+
+/* Longitudinal history remains a read-only, source-linked workspace. */
+.period-picker { max-width: 18rem; margin-top: 1rem; }
+.longitudinal-period-note { color: #526157; font-size: .88rem; }
+.longitudinal-review dl { max-width: 48rem; }
+.longitudinal-inline { display: grid; gap: .25rem; border-top: 1px solid #e1e6e0; margin-top: .8rem; padding-top: .7rem; }
+.longitudinal-inline p { margin: 0; white-space: pre-wrap; }
+.longitudinal-day { border-top: 1px solid #e1e6e0; padding-top: .85rem; margin-top: .85rem; }
+.longitudinal-day h3 { font-size: 1rem; }
+.longitudinal-event, .longitudinal-item { display: grid; gap: .45rem; padding: .85rem 0; border-top: 1px solid #e1e6e0; }
+.longitudinal-event p, .longitudinal-item p { margin: 0; white-space: pre-wrap; line-height: 1.55; }
+.longitudinal-item h3 { font-size: 1rem; }
+.longitudinal-item details { display: grid; gap: .45rem; }
+.longitudinal-item summary { cursor: pointer; color: #245c44; font-weight: 650; }
+.formulation-version { display: grid; gap: .4rem; padding: .75rem; background: #f7f9f6; border-left: 3px solid #809188; }
+.formulation-version small { color: #526157; }
+.lineage-arrow { color: #526157; font-size: 1.4rem; text-align: center; }
+@media (prefers-color-scheme: dark) { .longitudinal-period-note, .formulation-version small { color: #c3d0c5; }.longitudinal-day, .longitudinal-event, .longitudinal-item, .longitudinal-inline { border-color: #374639; }.formulation-version { background: #202b22; } }
