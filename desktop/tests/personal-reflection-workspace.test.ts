@@ -31,7 +31,9 @@ describe("Personal daily-use renderer", () => {
     expect(document.body.textContent).toContain("ПРОДОЛЖИТЬ"); expect(document.body.textContent).toContain("неясного");
     expect(document.querySelector('[data-route="home"]')?.getAttribute("aria-current")).toBe("page");
     await click("Осмысление"); expect(document.body.textContent).toContain("Текущая картина"); expect(document.body.textContent).toContain("What remains unclear?"); expect(document.body.textContent).toContain("Это рабочее предположение системы"); expect(document.querySelector('[data-route="sensemaking"]')?.getAttribute("aria-current")).toBe("page");
-    await click("Открыть размышление"); expect(document.body.textContent).toContain("Ваша запись");
+    await click("Посмотреть «Во времени»"); expect(document.body.textContent).toContain("Хронология"); expect(document.body.textContent).toContain("Остаётся открытым"); expect(document.body.textContent).toContain("Обзор периода"); expect(document.querySelector('[data-route="longitudinal"]')?.getAttribute("aria-current")).toBe("page");
+    const period = document.querySelector<HTMLSelectElement>("#longitudinal-period")!; period.value = "all"; period.dispatchEvent(new Event("change")); await tick(); expect(document.body.textContent).toContain("Показано: всё время"); expect(document.querySelectorAll(".longitudinal-event [data-open]").length).toBeGreaterThan(0);
+    document.querySelector<HTMLButtonElement>('[data-open="r1"]')!.click(); await tick(); expect(document.body.textContent).toContain("Ваша запись");
     await click("История"); expect(document.body.textContent).toContain("История"); await click("Продолжить"); expect(document.body.textContent).toContain("Ваша запись");
     await click("Поиск"); document.querySelector<HTMLInputElement>("#search-query")!.value = "marker"; document.querySelector<HTMLFormElement>("#search-form")!.requestSubmit(); await tick(); expect(document.body.textContent).toContain("unique marker");
   });
