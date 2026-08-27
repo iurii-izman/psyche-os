@@ -1,5 +1,5 @@
 import "./personal-styles.css";
-import { personalApi, type ExplorationView, type PersonalApi, type PersonalStatus, type ReflectionSession, type SearchResult, type SearchView } from "./personal-api";
+import type { ExplorationView, PersonalApi, PersonalStatus, ReflectionSession, SearchResult, SearchView } from "./personal-api";
 import { buildPersonalLongitudinal, type LongitudinalPeriod } from "./personal-longitudinal";
 import { buildContextPack, CONTEXT_PACK_LIMIT } from "./personal-context-pack";
 
@@ -9,7 +9,7 @@ const escape = (value: unknown) => String(value ?? "").replace(/[&<>"]/g, (c) =>
 const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
 const dateLabel = (value?: string | null) => { if (!value) return "Дата не указана"; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }); };
 
-export async function mountPersonal(api: PersonalApi = personalApi, host: HTMLDivElement = document.querySelector<HTMLDivElement>("#app")!): Promise<void> {
+export async function mountPersonal(api: PersonalApi, host: HTMLDivElement = document.querySelector<HTMLDivElement>("#app")!): Promise<void> {
   if (!host) throw new Error("Personal application root is missing");
   let status: PersonalStatus | null = null, sessions: ReflectionSession[] = [], current: ReflectionSession | null = null, exploration: ExplorationView | null = null;
   let route: Route = "home", notice = "", recovery: Record<string, unknown> | null = null, search: SearchView | null = null, sensemaking: ExplorationBundle[] | null = null, longitudinalPeriod: LongitudinalPeriod = "30d", busy = false, aiConfigured: boolean | null = null, sourceTurnId: string | null = null, showContextPack = false;
@@ -75,5 +75,3 @@ export async function mountPersonal(api: PersonalApi = personalApi, host: HTMLDi
   render();
   try { const currentStatus = await refresh(); if (!currentStatus.locked) await loadSensemaking(); render(); } catch (error) { status = { runtime_profile: "LOCAL_PERSONAL", real_data_gate: "CLOSED", local_personal: "ADMISSION_AVAILABLE", locked: true, inbound_listener: "NONE", outbound_provider: "NOT_CONFIGURED", network: "OFFLINE_NO_LISTENER", privacy: { core_processing_location: "LOCAL", cloud_storage: "DISABLED", cloud_disclosure: "NEVER_CLOUD", telemetry: "OFF" } }; notice = `Не удалось загрузить состояние: ${errorText(error)}`; render(); }
 }
-
-if (document.querySelector("#app")) void mountPersonal();
