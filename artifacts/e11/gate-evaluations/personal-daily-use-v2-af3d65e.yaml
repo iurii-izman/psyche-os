@@ -1,0 +1,49 @@
+schema_version: "1.0"
+evaluation_id: "personal-daily-use-v2-af3d65e"
+lifecycle: "SEALED"
+candidate:
+  source_commit: "af3d65e5401c3cfeb3ca4412f6e210674c1612a3"
+  build_id: "af3d65e5401c3cfeb3ca4412f6e210674c1612a3"
+  platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}
+  requested_data_class: "SYNTHETIC_ONLY"
+  reproducibility: {status: "REPRODUCED", evidence_ids: ["daily-use-v2-release-verification"]}
+profile_binding:
+  profile_path: "docs/architecture/REAL_DATA_GATE_PROFILE_OPENAI.yaml"
+  profile_id: "local_personal_bounded_openai_reflection_windows_v1"
+  profile_version: "1.0"
+  profile_definition_sha256: "1b91fad63ad04e02e90f9cae70d8d5d36a9a66ec9f00d1002cded853726ca99a"
+  profile_source_commit: "af3d65e5401c3cfeb3ca4412f6e210674c1612a3"
+identities:
+  lock: {path: "uv.lock", sha256: "82af2a0d7b995fb2c585de715133365d63d8f28c2827110746aeafcaa1fbd162"}
+  sbom: {path: "artifacts/f0/sbom.cdx.json", sha256: "5fa16e8662dce850f2f814e30d57dd4a4bda66e341e6914e455d50123cadd43d"}
+  artifacts:
+    - {id: "personal-daily-use-v2-nsis-installer", path: "artifacts/e11/personal-daily-use-v2-af3d65e/PSYCHE OS Personal_0.2.0_x64-setup.exe", sha256: "c8c750aa56f46710c09fa3fcb8a0714cad3b92edd113a28e610b40d44466d142"}
+evidence:
+  - {id: "daily-use-v2-release-verification", rdg_ids: ["RDG-01", "RDG-02", "RDG-03", "RDG-04", "RDG-05", "RDG-06", "RDG-07", "RDG-08", "RDG-09", "RDG-10", "RDG-11", "RDG-12"], proof_class: "deterministic_validator_result_v1", proof_result: "PASS", candidate_source_commit: "af3d65e5401c3cfeb3ca4412f6e210674c1612a3", candidate_build_id: "af3d65e5401c3cfeb3ca4412f6e210674c1612a3", candidate_platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}, raw_evidence_path: "artifacts/e11/personal-daily-use-v2-af3d65e/rdg-proof.yaml", raw_evidence_sha256: "23c3de0085d2d84b601c203cc24cc3d0be2de4eb1f9b3fe22ba7f4de680ea9eb", expires_at: "2026-09-03T00:00:00Z"}
+  - {id: "daily-use-v2-package-exclusions", rdg_ids: [], proof_class: "boundary_exclusion_proof_v1", proof_result: "PASS", candidate_source_commit: "af3d65e5401c3cfeb3ca4412f6e210674c1612a3", candidate_build_id: "af3d65e5401c3cfeb3ca4412f6e210674c1612a3", candidate_platform: {operating_system: "Windows", architecture: "x86_64", runtime: "python-3.12.10", packaging: "nsis"}, raw_evidence_path: "artifacts/e11/personal-daily-use-v2-af3d65e/boundary-exclusion-proof.yaml", raw_evidence_sha256: "30ec0cc5960a8c195ace27e42d03f26fff540c6e1468eda22ca322cb87b216ea", expires_at: "2026-09-03T00:00:00Z"}
+reviews: []
+boundary_assessments:
+  - {boundary_id: "canonical_encrypted_store_and_key_recovery", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "desktop_renderer_and_typed_ipc", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "provider_model_or_network", state: "APPLICABLE", unreachable: false, review_ids: [], exclusion_evidence_ids: []}
+  - {boundary_id: "inbound_listener", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["daily-use-v2-package-exclusions"]}
+  - {boundary_id: "general_network", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["daily-use-v2-package-exclusions"]}
+  - {boundary_id: "assessment_scoring", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["daily-use-v2-package-exclusions"]}
+  - {boundary_id: "longitudinal_or_n_of_1", state: "EXCLUDED", unreachable: true, review_ids: [], exclusion_evidence_ids: ["daily-use-v2-package-exclusions"]}
+rdg_controls:
+  - {id: "RDG-01", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["daily-use-v2-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-02", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["daily-use-v2-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-03", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["daily-use-v2-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-04", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["daily-use-v2-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-05", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["daily-use-v2-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-06", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["daily-use-v2-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-07", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["daily-use-v2-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-08", status: "PROVED_FOR_CANDIDATE", boundary_predicates: [], evidence_ids: ["daily-use-v2-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-09", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["daily-use-v2-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-10", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["daily-use-v2-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-11", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["daily-use-v2-release-verification"], excluded_boundary_ids: []}
+  - {id: "RDG-12", status: "PROVED_FOR_CANDIDATE", boundary_predicates: ["provider_model_or_network"], evidence_ids: ["daily-use-v2-release-verification"], excluded_boundary_ids: []}
+residual_risks: [{id: "personal-daily-use-v2-rdg-controls", severity: "HIGH", status: "RESOLVED", expires_at: "2026-09-03T00:00:00Z"}]
+gate_decision: {requested_state: "CLOSED", authority: "NONE"}
+successor: {supersedes: "personal-build-id-654633e", invalidation_reasons: ["exact_candidate_replacement", "daily_use_composition", "provider_model_or_network_applicable"]}
+seal: {payload_sha256: "620cbdd1393a38e80164f6a127694eb248e90797aaaa20e22b75b23c6bb55de7", sealed_at: "2026-08-27T15:10:41Z"}
