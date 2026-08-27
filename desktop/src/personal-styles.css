@@ -94,3 +94,20 @@ input, textarea, select { width: 100%; border: 1px solid #b8c2b9; border-radius:
 .formulation-version small { color: #526157; }
 .lineage-arrow { color: #526157; font-size: 1.4rem; text-align: center; }
 @media (prefers-color-scheme: dark) { .longitudinal-period-note, .formulation-version small { color: #c3d0c5; }.longitudinal-day, .longitudinal-event, .longitudinal-item, .longitudinal-inline { border-color: #374639; }.formulation-version { background: #202b22; } }
+
+/* Wide-screen daily-use readability: use desktop width without stretching prose. */
+.product-shell { width: min(1560px, calc(100% - 2rem)); }
+.sense-section > p { max-width: 78ch; }
+.home-shell, .longitudinal-shell, .sensemaking { grid-template-columns: repeat(auto-fit, minmax(min(34rem, 100%), 1fr)); align-items: start; gap: 1rem 1.5rem; }
+.home-shell > .product-home, .home-shell > .recent-card, .home-shell > .result { grid-column: 1 / -1; }
+.longitudinal-shell > .product-home, .longitudinal-shell > .longitudinal-review, .longitudinal-shell > .longitudinal-timeline, .longitudinal-shell > .result { grid-column: 1 / -1; }
+.longitudinal-timeline summary { cursor: pointer; color: #245c44; font-weight: 650; }
+.longitudinal-timeline[open] summary { margin-bottom: .6rem; }
+.sessions-card { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(26rem, 100%), 1fr)); gap: 0 2.5rem; align-content: start; }
+.sessions-card > p { grid-column: 1 / -1; }
+/* Provenance stays reachable but visually secondary to user/source content. */
+.provenance-note { font-size: .82rem; }
+.derived > small { font-size: .82rem; }
+.source-evidence summary { font-size: .86rem; }
+@media (min-width: 1100px) { .longitudinal-review dl { max-width: none; grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 820px) { .home-shell, .longitudinal-shell, .sensemaking { grid-template-columns: 1fr; } }
