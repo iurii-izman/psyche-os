@@ -30,6 +30,13 @@ def test_guided_exploration_versions_proposals_and_cascade(tmp_path: Path) -> No
     proposal = guided.propose_formulation(session["session_id"])
     assert proposal["status"] == "PROPOSED"
     assert "не диагноз" in proposal["summary"]
+    evidence_view = guided.get(session["session_id"])
+    evidence_formulation = next(item for item in evidence_view["formulations"] if item["formulation_id"] == proposal["formulation_id"])
+    assert evidence_formulation["origin"] == "DETERMINISTIC"
+    known = next(item for item in initial["context"] if item["kind"] == "KNOWN")
+    assert known["source_turn_ids"][0] in evidence_formulation["supporting_turn_ids"]
+    assert len(evidence_formulation["supporting_turn_ids"]) == 2
+    assert evidence_formulation["uncertainty_text"]
     corrected = guided.correct_formulation(proposal["formulation_id"], "Синтетическое уточнение")
     assert corrected["version"] == proposal["version"] + 1
     assert guided.set_formulation_status(corrected["formulation_id"], "CURRENT")["status"] == "CURRENT"

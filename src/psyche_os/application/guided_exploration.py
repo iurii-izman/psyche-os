@@ -209,10 +209,34 @@ class GuidedExplorationService:
         snapshots = [dict(zip(("snapshot_id","version","method_version","created_at"), row, strict=True)) for row in self.db.execute("SELECT snapshot_id,version,method_version,created_at FROM reflection_exploration_snapshots WHERE session_id=? ORDER BY version DESC", (sid,))]
         formulations = [dict(zip(("formulation_id","version","parent_formulation_id","snapshot_id","status","summary","correction_text","method_version","created_at","updated_at"), row, strict=True)) for row in self.db.execute("SELECT formulation_id,version,parent_formulation_id,snapshot_id,status,summary,correction_text,method_version,created_at,updated_at FROM reflection_formulations WHERE session_id=? ORDER BY version DESC", (sid,))]
         for formulation in formulations:
+            formulation["origin"] = "DETERMINISTIC"
+            formulation["supporting_turn_ids"] = [
+                row[0]
+                for row in self.db.execute(
+                    "SELECT DISTINCT source.turn_id "
+                    "FROM reflection_snapshot_context_items snapshot_context "
+                    "JOIN reflection_context_sources source ON source.context_item_id=snapshot_context.context_item_id "
+                    "JOIN reflection_turns turn ON turn.turn_id=source.turn_id "
+                    "WHERE snapshot_context.snapshot_id=? AND snapshot_context.kind='KNOWN' "
+                    "ORDER BY turn.sequence, turn.turn_id",
+                    (formulation["snapshot_id"],),
+                )
+            ]
+            uncertainties = [
+                row[0]
+                for row in self.db.execute(
+                    "SELECT text FROM reflection_snapshot_context_items "
+                    "WHERE snapshot_id=? AND kind='UNKNOWN' AND state IN ('OPEN','UNRESOLVED') "
+                    "ORDER BY context_item_id",
+                    (formulation["snapshot_id"],),
+                )
+            ]
+            formulation["uncertainty_text"] = " ".join(uncertainties) or None
             try:
                 provenance = self.db.execute("SELECT origin,provider,actual_model,config_digest,context_manifest_id,disclosure_receipt_id FROM reflection_ai_provenance WHERE formulation_id=?", (formulation["formulation_id"],)).fetchone()
                 if provenance:
                     formulation["ai_provenance"] = dict(zip(("origin","provider","actual_model","config_digest","context_manifest_id","disclosure_receipt_id"), provenance, strict=True))
+                    formulation["origin"] = "AI"
                     formulation["supporting_turn_ids"] = [row[0] for row in self.db.execute("SELECT turn_id FROM reflection_ai_provenance_sources WHERE formulation_id=? ORDER BY turn_id", (formulation["formulation_id"],))]
             except Exception:
                 # Synthetic/non-Personal exploration schemas intentionally have

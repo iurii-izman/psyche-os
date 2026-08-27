@@ -22,7 +22,7 @@ export interface ExplorationView {
   hypotheses: { hypothesis_id: string; proposal_text: string; uncertainty_text: string; discriminator_text: string; context_refs?: { context_item_id: string; relation: string; source_turn_ids: string[] }[]; created_at?: string }[];
   next_question: { question_id: string; text: string } | null;
   snapshots: unknown[];
-  formulations: { formulation_id: string; version: number; parent_formulation_id?: string | null; snapshot_id?: string; status: "PROPOSED" | "CURRENT" | "REJECTED" | "SUPERSEDED"; summary: string; correction_text: string | null; supporting_turn_ids?: string[]; ai_provenance?: { origin: "AI"; provider: string; actual_model: string; config_digest?: string; context_manifest_id?: string; disclosure_receipt_id?: string }; created_at?: string; updated_at?: string }[];
+  formulations: { formulation_id: string; version: number; parent_formulation_id?: string | null; snapshot_id?: string; status: "PROPOSED" | "CURRENT" | "REJECTED" | "SUPERSEDED"; origin?: "DETERMINISTIC" | "AI"; summary: string; correction_text: string | null; uncertainty_text?: string | null; supporting_turn_ids?: string[]; ai_provenance?: { origin: "AI"; provider: string; actual_model: string; config_digest?: string; context_manifest_id?: string; disclosure_receipt_id?: string }; created_at?: string; updated_at?: string }[];
 }
 
 let sessionToken: string | null = null;
