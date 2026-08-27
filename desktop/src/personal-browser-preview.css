@@ -1,0 +1,14 @@
+.preview-toolbar {
+  align-items: center;
+  background: #172033;
+  color: #f4f7ff;
+  display: flex;
+  font: 14px/1.4 system-ui, sans-serif;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 10px 20px;
+}
+
+.preview-toolbar label { align-items: center; display: flex; gap: 8px; }
+.preview-toolbar select { font: inherit; }
+.preview-toolbar span { color: #c8d2ea; }
