@@ -33,12 +33,27 @@ input, textarea, select { width: 100%; border: 1px solid #b8c2b9; border-radius:
 .settings-card details { margin-top: 1.15rem; padding-top: 1rem; border-top: 1px solid #e1e6e0; }
 .settings-card summary { cursor: pointer; color: #245c44; font-weight: 650; }
 .settings-card details dl { margin-top: .9rem; }
-.search-form { display: grid; grid-template-columns: minmax(16rem, 1fr) minmax(9rem, .45fr) auto; align-items: end; gap: .75rem; }
+.search-form { display: grid; grid-template-columns: minmax(16rem, 1.4fr) repeat(4, minmax(8rem, .7fr)) auto; align-items: end; gap: .75rem; }
 .search-form button { min-height: 43px; }
 .search-summary { margin: 1rem 0 .25rem; color: #526157; }
 .search-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; align-items: start; padding: .85rem 0; border-top: 1px solid #e1e6e0; }
 .search-result strong { margin-right: .5rem; }
 .search-result p { margin: .4rem 0 0; line-height: 1.55; }
+.search-result small { display: block; margin-top: .35rem; color: #68756c; }
+.search-result .result-type, .context-pack .result-type { margin: 0 0 .25rem; color: #607064; font-size: .75rem; font-weight: 700; letter-spacing: .08em; }
+.search-result-ai_proposal { border-left: 3px solid #956a25; padding-left: .8rem; }
+.search-result-formulation { border-left: 3px solid #809188; padding-left: .8rem; }
+.search-result-unknown, .search-result-contradiction { border-left: 3px solid #586f83; padding-left: .8rem; }
+.search-actions { display: grid; gap: .55rem; justify-items: start; min-width: 10.5rem; }
+.search-actions label { font-size: .88rem; color: #526157; }
+.related-context { border-top: 1px solid #dfe6df; margin-top: .75rem; padding-top: .65rem; }
+.related-context summary { color: #245c44; cursor: pointer; font-weight: 650; }
+.related-context article, .context-pack > article { display: grid; gap: .3rem; padding: .7rem 0; border-top: 1px solid #e1e6e0; }
+.related-context article small, .context-pack article small { color: #68756c; }
+.related-context article p, .context-pack article p { margin: 0; white-space: pre-wrap; }
+.context-pack-actions { display: flex; gap: .65rem; flex-wrap: wrap; margin-top: 1rem; }
+.context-pack { display: grid; gap: .65rem; margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #317153; }
+.context-pack h2, .context-pack h3 { margin: 0; }
 .calm-empty { max-width: 42rem; color: #526157; }
 .calm-empty h2 { margin-top: 0; }
 .recovery-verify { margin-top: 1rem; max-width: 720px; }

@@ -15,8 +15,14 @@ export interface PersonalStatus {
 }
 export interface ReflectionTurn { turn_id: string; session_id: string; sequence: number; actor: "USER"; created_at: string; content: string; }
 export interface ReflectionSession { session_id: string; title: string; state: "ACTIVE" | "CLOSED"; turn_count: number; created_at?: string; updated_at?: string; closed_at?: string | null; turns?: ReflectionTurn[]; }
-export interface SearchResult { session_id: string; session_title: string; session_state: "ACTIVE" | "CLOSED"; turn_id: string | null; turn_sequence: number | null; excerpt: string; }
-export interface SearchView { query: string; state: "ALL" | "ACTIVE" | "CLOSED"; total_matches: number; returned_count: number; offset: number; limit: number; truncated: boolean; has_more: boolean; results: SearchResult[]; }
+export type SearchContent = "ALL" | "SOURCE" | "UNKNOWN" | "CONTRADICTION" | "FORMULATION";
+export type SearchPeriod = "7D" | "30D" | "ALL";
+export type FormulationStatusFilter = "ALL" | "CURRENT" | "PROPOSED" | "REJECTED" | "SUPERSEDED";
+export type SearchResultType = "REFLECTION" | "USER_SOURCE" | "UNKNOWN" | "CONTRADICTION" | "FORMULATION" | "AI_PROPOSAL";
+export interface SearchSourceTurn { turn_id: string; sequence: number; created_at: string; content: string; }
+export interface RelatedContext { label: string; why_related: string; result_id: string; result_type: SearchResultType; session_id: string; session_title: string; turn_id: string | null; turn_sequence: number | null; text: string; }
+export interface SearchResult { result_id: string; result_type: SearchResultType; session_id: string; session_title: string; session_state: "ACTIVE" | "CLOSED"; at: string; text: string; excerpt: string; turn_id: string | null; turn_sequence: number | null; status: string | null; source_turns: SearchSourceTurn[]; why_here: string; parent_result_id: string | null; ai_provenance: { provider: string; actual_model: string } | null; correction_text: string | null; related_context: RelatedContext[]; }
+export interface SearchView { query: string; state: "ALL" | "ACTIVE" | "CLOSED"; content: SearchContent; period: SearchPeriod; formulation_status: FormulationStatusFilter; total_matches: number; returned_count: number; offset: number; limit: number; truncated: boolean; has_more: boolean; results: SearchResult[]; }
 export interface ExplorationView {
   context: { context_item_id: string; dimension: string; kind: "KNOWN" | "UNKNOWN" | "CONTRADICTION"; text: string; state: string; source_turn_ids?: string[]; created_at?: string }[];
   hypotheses: { hypothesis_id: string; proposal_text: string; uncertainty_text: string; discriminator_text: string; context_refs?: { context_item_id: string; relation: string; source_turn_ids: string[] }[]; created_at?: string }[];
@@ -38,7 +44,7 @@ export const personalApi = {
   reflectionAddTurn: (sessionId: string, content: string) => call<ReflectionTurn>("desktop_reflection_add_turn", { sessionId, content }),
   reflectionClose: (sessionId: string) => call("desktop_reflection_close", { sessionId }),
   reflectionDelete: (sessionId: string) => call("desktop_reflection_delete", { sessionId, confirmation: "DELETE REFLECTION SESSION" }),
-  reflectionSearch: (query: string, state: "ALL" | "ACTIVE" | "CLOSED", limit = 20, offset = 0) => call<SearchView>("desktop_reflection_search", { query, state, limit, offset }),
+  reflectionSearch: (query: string, filters: { state: "ALL" | "ACTIVE" | "CLOSED"; content: SearchContent; period: SearchPeriod; formulationStatus: FormulationStatusFilter }, limit = 20, offset = 0) => call<SearchView>("desktop_reflection_search", { query, state: filters.state, content: filters.content, period: filters.period, formulationStatus: filters.formulationStatus, limit, offset }),
   explorationStart: (sessionId: string) => call<ExplorationView>("desktop_exploration_start", { sessionId }),
   explorationGet: (sessionId: string) => call<ExplorationView>("desktop_exploration_get", { sessionId }),
   explorationAnswer: (questionId: string, answerText: string) => call<ExplorationView>("desktop_exploration_answer", { questionId, answerText }),
