@@ -1,6 +1,6 @@
 import type { ExplorationView, PersonalApi, PersonalStatus, ReflectionSession, ReflectionTurn, SearchResult, SearchView } from "./personal-api";
 
-export type PreviewScenario = "ACTIVE" | "CLOSED" | "EMPTY";
+export type PreviewScenario = "ACTIVE" | "CLOSED" | "EMPTY" | "SEARCH_MANY";
 
 type PreviewState = {
   sessions: ReflectionSession[];
@@ -36,7 +36,7 @@ const activeExploration = (): ExplorationView => ({
     { context_item_id: "active-unknown", dimension: "context", kind: "UNKNOWN", text: "Неясно, что чаще мешает сделать паузу: время или привычка отвечать сразу.", state: "OPEN", source_turn_ids: ["active-turn-2"], created_at: at(5) },
     { context_item_id: "active-contradiction", dimension: "context", kind: "CONTRADICTION", text: "Контакт с людьми одновременно даёт энергию и затрудняет восстановление.", state: "UNRESOLVED", source_turn_ids: ["active-turn-1", "active-turn-2"], created_at: at(5) }
   ],
-  hypotheses: [{ hypothesis_id: "active-hypothesis", proposal_text: "Короткая пауза может быть полезным переходом после насыщенной встречи.", uncertainty_text: "Это рабочее предположение, а не факт.", discriminator_text: "Проверить на нескольких разных днях.", created_at: at(5) }],
+  hypotheses: [{ hypothesis_id: "active-hypothesis", proposal_text: "Короткая пауза может быть полезным переходом после насыщенной встречи.", uncertainty_text: "Пока неясно, работает ли это и в дни без встреч.", discriminator_text: "Сравнить несколько дней с паузой и без неё.", context_refs: [{ context_item_id: "active-unknown", relation: "RELATES_TO", source_turn_ids: ["active-turn-2"] }], created_at: at(5) }, { hypothesis_id: "active-hypothesis-open", proposal_text: "Привычка отвечать сразу может мешать сделать паузу.", uncertainty_text: "Неизвестно, насколько это устойчивая закономерность.", discriminator_text: "Заметить в моменте, когда пауза не состоялась и почему.", context_refs: [{ context_item_id: "active-unknown", relation: "MENTIONS", source_turn_ids: [] }], created_at: at(5) }],
   next_question: { question_id: "active-question", text: "Что помогает заметить момент, когда нужна короткая пауза?" },
   snapshots: [{ snapshot_id: "active-snapshot", version: 1, created_at: at(5) }],
   formulations: [
@@ -54,11 +54,14 @@ const closedExploration = (): ExplorationView => ({
   formulations: [{ formulation_id: "closed-current", version: 1, parent_formulation_id: null, status: "CURRENT", origin: "DETERMINISTIC", summary: "Перед ответом иногда полезна короткая спокойная пауза.", correction_text: null, supporting_turn_ids: ["closed-turn-2"], created_at: at(2), updated_at: at(2) }]
 });
 
+const manyTurns: ReflectionTurn[] = Array.from({ length: 45 }, (_, index) => ({ turn_id: `many-turn-${index + 1}`, session_id: "many", sequence: index + 1, actor: "USER" as const, created_at: at(3), content: `Синтетическая запись ${index + 1} о маршруте: утренний маршрут занимает разное время.` }));
+
 const clone = <T>(value: T): T => structuredClone(value);
 const session = (sessionId: string, title: string, state: "ACTIVE" | "CLOSED", turns: ReflectionTurn[], day: number): ReflectionSession => ({ session_id: sessionId, title, state, turn_count: turns.length, turns, created_at: at(day), updated_at: at(day), closed_at: state === "CLOSED" ? at(day) : null });
 
 const scenarioState = (scenario: PreviewScenario): PreviewState => {
   if (scenario === "EMPTY") return { sessions: [], explorations: new Map(), locked: false };
+  if (scenario === "SEARCH_MANY") { const many = session("many", "Синтетический сценарий пагинации", "ACTIVE", clone(manyTurns), 3); return { sessions: [many], explorations: new Map([[many.session_id, { context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }]]), locked: false }; }
   const active = session("active", "Активное размышление", "ACTIVE", clone(activeTurns), 5);
   const closed = session("closed", "Завершённое размышление", "CLOSED", clone(closedTurns), 2);
   if (scenario === "CLOSED") return { sessions: [closed], explorations: new Map([[closed.session_id, closedExploration()]]), locked: false };
