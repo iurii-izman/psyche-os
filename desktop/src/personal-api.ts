@@ -18,11 +18,11 @@ export interface ReflectionSession { session_id: string; title: string; state: "
 export interface SearchResult { session_id: string; session_title: string; session_state: "ACTIVE" | "CLOSED"; turn_id: string | null; turn_sequence: number | null; excerpt: string; }
 export interface SearchView { query: string; state: "ALL" | "ACTIVE" | "CLOSED"; total_matches: number; returned_count: number; offset: number; limit: number; truncated: boolean; has_more: boolean; results: SearchResult[]; }
 export interface ExplorationView {
-  context: { context_item_id: string; kind: "KNOWN" | "UNKNOWN" | "CONTRADICTION"; text: string; state: string; source_turn_ids?: string[]; created_at?: string }[];
+  context: { context_item_id: string; dimension: string; kind: "KNOWN" | "UNKNOWN" | "CONTRADICTION"; text: string; state: string; source_turn_ids?: string[]; created_at?: string }[];
   hypotheses: { hypothesis_id: string; proposal_text: string; uncertainty_text: string; discriminator_text: string; context_refs?: { context_item_id: string; relation: string; source_turn_ids: string[] }[]; created_at?: string }[];
   next_question: { question_id: string; text: string } | null;
   snapshots: unknown[];
-  formulations: { formulation_id: string; version: number; status: "PROPOSED" | "CURRENT" | "REJECTED" | "SUPERSEDED"; summary: string; correction_text: string | null; supporting_turn_ids?: string[]; ai_provenance?: { origin: "AI"; provider: string; actual_model: string }; created_at?: string; updated_at?: string }[];
+  formulations: { formulation_id: string; version: number; parent_formulation_id: string | null; status: "PROPOSED" | "CURRENT" | "REJECTED" | "SUPERSEDED"; origin?: "DETERMINISTIC" | "AI"; summary: string; correction_text: string | null; uncertainty_text?: string | null; supporting_turn_ids?: string[]; ai_provenance?: { origin: "AI"; provider: string; actual_model: string }; created_at?: string; updated_at?: string }[];
 }
 
 let sessionToken: string | null = null;
