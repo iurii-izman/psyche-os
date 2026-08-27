@@ -13,6 +13,7 @@ import os
 import secrets
 from typing import Any, Final
 
+from psyche_os.adapters.e07_provider import OpenAIReflectionProvider
 from psyche_os.application.guided_exploration import GuidedExplorationService
 from psyche_os.application.reflection_sessions import ReflectionSessionError
 from psyche_os.personal_mode.admission import (
@@ -20,11 +21,15 @@ from psyche_os.personal_mode.admission import (
     PersonalAdmissionGuard,
     PersonalNotAdmittedError,
 )
+from psyche_os.personal_mode.ai_working_formulation import (
+    OpenAIKeyStore,
+    PersonalAIError,
+    PersonalWorkingFormulationService,
+)
+from psyche_os.personal_mode.context_retrieval import PersonalContextRetrievalService
 from psyche_os.personal_mode.lifecycle import PersonalLifecycleError
 from psyche_os.personal_mode.runtime import PersonalRuntime, PersonalRuntimeError
 from psyche_os.personal_mode.runtime_profile import PersonalRuntimePaths
-from psyche_os.personal_mode.ai_working_formulation import OpenAIKeyStore, PersonalAIError, PersonalWorkingFormulationService
-from psyche_os.adapters.e07_provider import OpenAIReflectionProvider
 
 PROTOCOL_VERSION: Final = "1.0"
 MAX_SECRET: Final = 256
@@ -271,8 +276,17 @@ class PersonalDesktopApplicationService:
         )
 
     def _search(self, payload: Any) -> dict[str, Any]:
-        values = _exact(payload, {"query", "state", "limit", "offset"})
-        return self._runtime.reflection.search(**values)
+        if not isinstance(payload, dict):
+            raise PersonalDesktopServiceError("INVALID_PAYLOAD")
+        legacy = {"query", "state", "limit", "offset"}
+        current = {*legacy, "content", "period", "formulation_status"}
+        if set(payload) == legacy:
+            values = {**payload, "content": "ALL", "period": "ALL", "formulation_status": "ALL"}
+        elif set(payload) == current:
+            values = payload
+        else:
+            raise PersonalDesktopServiceError("INVALID_PAYLOAD")
+        return PersonalContextRetrievalService(self._runtime.reflection).search(**values)
 
     def _exploration(self) -> GuidedExplorationService:
         self._guard.require()
