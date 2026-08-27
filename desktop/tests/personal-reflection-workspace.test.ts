@@ -55,4 +55,35 @@ describe("Personal daily-use renderer", () => {
     expect(document.body.textContent).toContain("Локально");
     expect(document.body.textContent).toContain("Технические сведения");
   });
+
+  it("keeps CLOSED exploration readable without mutation controls", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const closed = session("closed", "CLOSED", [{ turn_id: "turn-closed", session_id: "closed", sequence: 1, actor: "USER", created_at: "2026-08-24T00:00:00Z", content: "Сохранённый текст пользователя" }]);
+    const savedExploration = { context: [{ context_item_id: "context-closed", kind: "UNKNOWN" as const, text: "Сохранённый контекст", state: "OPEN", source_turn_ids: ["turn-closed"] }], hypotheses: [], next_question: { question_id: "question-closed", text: "Сохранённый вопрос" }, snapshots: [{}], formulations: [{ formulation_id: "formulation-closed", version: 1, parent_formulation_id: null, status: "PROPOSED" as const, summary: "Сохранённая формулировка", correction_text: null, supporting_turn_ids: ["turn-closed"] }] };
+    const api = {
+      status: vi.fn(async () => ({ runtime_profile: "LOCAL_PERSONAL" as const, real_data_gate: "CLOSED" as const, local_personal: "ADMITTED" as const, locked: false, inbound_listener: "NONE" as const, outbound_provider: "NOT_CONFIGURED" as const, network: "OFFLINE_NO_LISTENER" as const, privacy: { core_processing_location: "LOCAL" as const, cloud_storage: "DISABLED" as const, cloud_disclosure: "NEVER_CLOUD" as const, telemetry: "OFF" as const } })),
+      lock: vi.fn(async () => ({})), reflectionList: vi.fn(async () => ({ sessions: [closed] })), reflectionGet: vi.fn(async () => closed), reflectionCreate: vi.fn(), reflectionAddTurn: vi.fn(), reflectionClose: vi.fn(), reflectionDelete: vi.fn(), reflectionSearch: vi.fn(), explorationGet: vi.fn(async () => savedExploration), explorationStart: vi.fn(), explorationAnswer: vi.fn(), explorationSkip: vi.fn(), formulationPropose: vi.fn(), formulationCorrect: vi.fn(), formulationAccept: vi.fn(), formulationReject: vi.fn(), personalRecoveryStatus: vi.fn(), personalBackup: vi.fn(), personalRestoreIsolated: vi.fn(), personalExportOwner: vi.fn()
+    } as unknown as PersonalApi;
+    await mountPersonal(api, document.querySelector<HTMLDivElement>("#app")!);
+    await click("Открыть");
+    expect(document.body.textContent).toContain("Размышление завершено. Исследование доступно только для чтения.");
+    for (const text of ["Сохранённый текст пользователя", "Сохранённый контекст", "Сохранённый вопрос", "Сохранённая формулировка"]) expect(document.body.textContent).toContain(text);
+    for (const selector of ["#start-exploration", "#propose-formulation", "#answer-question", "#skip-question", "[data-correct]", "[data-accept]", "[data-reject]"]) expect(document.querySelector(selector)).toBeNull();
+    expect(document.querySelector("#delete-reflection")).not.toBeNull();
+  });
+
+  it("keeps ACTIVE exploration controls and hides raw SESSION_CLOSED errors", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const active = session("active");
+    const api = {
+      status: vi.fn(async () => ({ runtime_profile: "LOCAL_PERSONAL" as const, real_data_gate: "CLOSED" as const, local_personal: "ADMITTED" as const, locked: false, inbound_listener: "NONE" as const, outbound_provider: "NOT_CONFIGURED" as const, network: "OFFLINE_NO_LISTENER" as const, privacy: { core_processing_location: "LOCAL" as const, cloud_storage: "DISABLED" as const, cloud_disclosure: "NEVER_CLOUD" as const, telemetry: "OFF" as const } })),
+      lock: vi.fn(async () => ({})), reflectionList: vi.fn(async () => ({ sessions: [active] })), reflectionGet: vi.fn(async () => active), reflectionCreate: vi.fn(), reflectionAddTurn: vi.fn(), reflectionClose: vi.fn(), reflectionDelete: vi.fn(), reflectionSearch: vi.fn(), explorationGet: vi.fn(async () => ({ context: [], hypotheses: [], next_question: { question_id: "question-active", text: "Активный вопрос" }, snapshots: [{}], formulations: [{ formulation_id: "formulation-active", version: 1, parent_formulation_id: null, status: "PROPOSED" as const, summary: "Активная формулировка", correction_text: null, supporting_turn_ids: [] }] })), explorationStart: vi.fn(async () => { throw new Error("SESSION_CLOSED"); }), explorationAnswer: vi.fn(), explorationSkip: vi.fn(), formulationPropose: vi.fn(), formulationCorrect: vi.fn(), formulationAccept: vi.fn(), formulationReject: vi.fn(), personalRecoveryStatus: vi.fn(), personalBackup: vi.fn(), personalRestoreIsolated: vi.fn(), personalExportOwner: vi.fn()
+    } as unknown as PersonalApi;
+    await mountPersonal(api, document.querySelector<HTMLDivElement>("#app")!);
+    await click("Продолжить");
+    for (const selector of ["#start-exploration", "#propose-formulation", "#answer-question", "#skip-question", "[data-correct]", "[data-accept]", "[data-reject]"]) expect(document.querySelector(selector)).not.toBeNull();
+    await click("Обновить исследование");
+    expect(document.body.textContent).toContain("Размышление завершено. Изменения недоступны.");
+    expect(document.body.textContent).not.toContain("SESSION_CLOSED");
+  });
 });
