@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>PSYCHE OS Personal · browser preview</title>
+  </head>
+  <body>
+    <aside class="preview-toolbar" aria-label="Сценарий предпросмотра">
+      <label>Синтетический сценарий
+        <select id="preview-scenario">
+          <option value="ACTIVE">ACTIVE</option>
+          <option value="CLOSED">CLOSED</option>
+          <option value="EMPTY">EMPTY</option>
+        </select>
+      </label>
+      <span>Только в памяти · без Tauri, vault и сети</span>
+    </aside>
+    <div id="app"></div>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>
