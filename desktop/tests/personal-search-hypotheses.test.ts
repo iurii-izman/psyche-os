@@ -60,12 +60,34 @@ describe("Personal search pagination", () => {
     expect(document.querySelector("#load-more-search")).toBeNull();
   });
 
-  it("does not render a duplicated result_id twice when the service repeats a row", async () => {
+  it("advances the backend cursor by page windows, not by deduplicated visible count", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const { api } = paginatedApi(45);
+    (api.reflectionSearch as ReturnType<typeof vi.fn>).mockImplementation(async (query: string, _filters: unknown, limit = 20, offset = 0) => {
+      const rows = Array.from({ length: Math.min(limit, 45 - offset) }, (_, index) => result(offset + index + 1));
+      if (offset === 20) rows[0] = result(1);
+      return page(rows, offset, 45);
+    });
+    await mountPersonal(api, document.querySelector<HTMLDivElement>("#app")!);
+    await click("Поиск");
+    await runSearch();
+    await click("Показать ещё");
+    expect(api.reflectionSearch).toHaveBeenLastCalledWith("marker", expect.anything(), 20, 20);
+    expect(document.querySelectorAll(".search-result")).toHaveLength(39);
+    expect(document.body.textContent).toContain("Показано 39 из 45");
+    await click("Показать ещё");
+    expect(api.reflectionSearch).toHaveBeenLastCalledWith("marker", expect.anything(), 20, 40);
+    expect(document.querySelectorAll(".search-result")).toHaveLength(44);
+    expect(document.body.textContent).toContain("Показано 44 из 45");
+    expect(document.querySelector("#load-more-search")).toBeNull();
+  });
+
+  it("renders a result_id repeated inside one incoming page only once", async () => {
     document.body.innerHTML = '<div id="app"></div>';
     const { api } = paginatedApi(25);
     (api.reflectionSearch as ReturnType<typeof vi.fn>).mockImplementation(async (query: string, _filters: unknown, limit = 20, offset = 0) => {
       const rows = Array.from({ length: Math.min(limit, 25 - offset) }, (_, index) => result(offset + index + 1));
-      if (offset > 0) rows[0] = result(1);
+      if (offset === 20) { rows[1] = result(21); }
       return page(rows, offset, 25);
     });
     await mountPersonal(api, document.querySelector<HTMLDivElement>("#app")!);
@@ -73,7 +95,7 @@ describe("Personal search pagination", () => {
     await runSearch();
     await click("Показать ещё");
     expect(document.querySelectorAll(".search-result")).toHaveLength(24);
-    expect(document.querySelectorAll("[data-context-select='result-1']")).toHaveLength(1);
+    expect(document.querySelectorAll("[data-context-select='result-21']")).toHaveLength(1);
     expect(document.body.textContent).toContain("Показано 24 из 25");
   });
 
@@ -109,18 +131,20 @@ describe("Personal search pagination", () => {
     expect(document.body.textContent).toContain("Показано 20 из 25");
   });
 
-  it("preserves first-page results and allows retry when a later page fails", async () => {
+  it("preserves first-page results and the cursor when a later page fails, retrying the same offset", async () => {
     document.body.innerHTML = '<div id="app"></div>';
     const { api } = paginatedApi(25, true);
     await mountPersonal(api, document.querySelector<HTMLDivElement>("#app")!);
     await click("Поиск");
     await runSearch();
     await click("Показать ещё");
+    expect(api.reflectionSearch).toHaveBeenLastCalledWith("marker", expect.anything(), 20, 20);
     expect(document.querySelectorAll(".search-result")).toHaveLength(20);
     expect(document.body.textContent).toContain("Не удалось выполнить действие");
     expect(document.querySelector("#load-more-search")).not.toBeNull();
     (api.reflectionSearch as ReturnType<typeof vi.fn>).mockImplementation(async (query: string, _filters: unknown, limit = 20, offset = 0) => page(Array.from({ length: Math.min(limit, 25 - offset) }, (_, index) => result(offset + index + 1)), offset, 25));
     await click("Показать ещё");
+    expect(api.reflectionSearch).toHaveBeenLastCalledWith("marker", expect.anything(), 20, 20);
     expect(document.querySelectorAll(".search-result")).toHaveLength(25);
   });
 });
