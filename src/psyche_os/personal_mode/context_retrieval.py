@@ -1,4 +1,3 @@
-# ruff: noqa: RUF001
 """Read-only local retrieval over the existing Personal V11 reflection records.
 
 The projection deliberately has no index, cache, provider, or write path.  It
@@ -214,14 +213,16 @@ class PersonalContextRetrievalService:
             provider: dict[str, str] | None = None,
             parent_id: str | None = None,
             sequence: int | None = None,
+            searchable_text: str | None = None,
+            correction_text: str | None = None,
         ) -> None:
-            if not allowed(session, at) or not _matches(text, query_tokens):
+            if not allowed(session, at) or not _matches(searchable_text or text, query_tokens):
                 return
             source_rows = sources(source_turn_ids)
             if result_type == "UNKNOWN":
                 why = f"Эта неясность основана на {_source_phrase(len(source_rows))}."
             elif result_type == "CONTRADICTION":
-                why = f"Это противоречие связано с {_source_phrase(len(source_rows))}."
+                why = f"Это противоречие связано с {_source_phrase(len(source_rows))}."  # noqa: RUF001 - intentional Russian owner-visible provenance
             elif result_type in {"FORMULATION", "AI_PROPOSAL"}:
                 why = f"Формулировка опирается на {_source_phrase(len(source_rows))}."
             elif result_type == "USER_SOURCE":
@@ -247,6 +248,7 @@ class PersonalContextRetrievalService:
                     "why_here": why,
                     "parent_result_id": parent_id,
                     "ai_provenance": provider,
+                    "correction_text": correction_text,
                 }
             )
 
@@ -336,6 +338,12 @@ class PersonalContextRetrievalService:
                         if formulation["parent_formulation_id"]
                         else None
                     ),
+                    searchable_text="\n".join(
+                        text
+                        for text in (formulation["summary"], formulation["correction_text"])
+                        if text
+                    ),
+                    correction_text=formulation["correction_text"],
                 )
 
         for item in results:
@@ -452,11 +460,11 @@ class PersonalContextRetrievalService:
                         candidate, "Связанная неясность", "Основано на одной и той же вашей записи."
                     )
                 elif candidate["result_type"] == "CONTRADICTION":
-                    add(candidate, "Связанное противоречие", "Связано с той же вашей записью.")
+                    add(candidate, "Связанное противоречие", "Связано с той же вашей записью.")  # noqa: RUF001 - intentional Russian owner-visible relation
                 else:
                     add(
                         candidate,
-                        "Связано с этой записью",
+                        "Связано с этой записью",  # noqa: RUF001 - intentional Russian owner-visible relation
                         "Использует тот же сохранённый источник.",
                     )
 

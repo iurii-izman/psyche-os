@@ -3,7 +3,7 @@ import { buildContextPack, CONTEXT_PACK_LIMIT } from "../src/personal-context-pa
 import type { SearchResult } from "../src/personal-api";
 
 const result = (id: string, turnId = "turn-1"): SearchResult => ({
-  result_id: id, result_type: "FORMULATION", session_id: "session-1", session_title: "Synthetic reflection", session_state: "ACTIVE", at: "2026-08-20T12:00:00Z", text: `Synthetic ${id}`, excerpt: `Synthetic ${id}`, turn_id: null, turn_sequence: null, status: "CURRENT", source_turns: [{ turn_id: turnId, sequence: 1, created_at: "2026-08-20T12:00:00Z", content: "Exact synthetic source" }], why_here: "Формулировка опирается на одной вашей записи.", parent_result_id: null, ai_provenance: null, related_context: []
+  result_id: id, result_type: "FORMULATION", session_id: "session-1", session_title: "Synthetic reflection", session_state: "ACTIVE", at: "2026-08-20T12:00:00Z", text: `Synthetic ${id}`, excerpt: `Synthetic ${id}`, turn_id: null, turn_sequence: null, status: "CURRENT", source_turns: [{ turn_id: turnId, sequence: 1, created_at: "2026-08-20T12:00:00Z", content: "Exact synthetic source" }], why_here: "Формулировка опирается на одной вашей записи.", parent_result_id: null, ai_provenance: null, correction_text: null, related_context: []
 });
 
 describe("Personal context pack", () => {
