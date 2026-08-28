@@ -270,6 +270,10 @@ def test_current_answer_gets_explicit_session_consent_policy_and_retry_keeps_exa
     assert receipt["items"][0]["turn_id"] == answer
     assert receipt["transmission"] == "SENT"
     assert provider.last_context["sources"][0]["policy_id"] == receipt["items"][0]["policy_id"]
+    item = receipt["items"][0]
+    assert item["created_at"]
+    assert item["session_id"]
+    assert item["session_title"]
 
 
 def test_never_cloud_and_third_party_policy_axes_fail_closed_despite_consent() -> None:

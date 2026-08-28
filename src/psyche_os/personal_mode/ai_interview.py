@@ -323,13 +323,13 @@ class PersonalAIInterviewService:
             else "NOT_SENT"
         )
         items = self._reflection.connection.execute(
-            "SELECT m.alias,m.turn_id,m.policy_id,m.ordinal,m.char_count,t.content FROM interview_attempt_manifest_items m JOIN reflection_turns t ON t.turn_id=m.turn_id WHERE m.attempt_id=? ORDER BY m.ordinal",
+            "SELECT m.alias,m.turn_id,m.policy_id,m.ordinal,m.char_count,t.content,t.created_at,t.session_id,s.title FROM interview_attempt_manifest_items m JOIN reflection_turns t ON t.turn_id=m.turn_id JOIN reflection_sessions s ON s.session_id=t.session_id WHERE m.attempt_id=? ORDER BY m.ordinal",
             (attempt_id,),
         ).fetchall()
         result["items"] = [
             dict(
                 zip(
-                    ("alias", "turn_id", "policy_id", "ordinal", "char_count", "content"),
+                    ("alias", "turn_id", "policy_id", "ordinal", "char_count", "content", "created_at", "session_id", "session_title"),
                     item,
                     strict=True,
                 )

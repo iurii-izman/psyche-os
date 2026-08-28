@@ -160,6 +160,7 @@ export interface InterviewQuestion {
   rationale: string;
   decision: "ASK" | "END_RECOMMENDED";
   basis_aliases: string[];
+  attempt_id?: string | null;
 }
 export interface InterviewView {
   interview_session_id: string;
@@ -168,6 +169,7 @@ export interface InterviewView {
   summary: string | null;
   next_direction: string | null;
   consent: "ABSENT" | "ACTIVE_IN_MEMORY";
+  source_session_id?: string | null;
   current_question: InterviewQuestion | null;
   attempts: {
     attempt_id: string;
@@ -324,7 +326,17 @@ export const personalApi = {
   aiInterviewGet: (interviewSessionId: string) =>
     call<InterviewView>("desktop_ai_interview_get", { interviewSessionId }),
   aiInterviewDisclosure: (attemptId: string) =>
-    call<{ state: string; items: { alias: string; content: string }[] }>(
+    call<{
+      state: string;
+      items: {
+        alias: string;
+        content: string;
+        turn_id?: string;
+        created_at?: string;
+        session_id?: string;
+        session_title?: string;
+      }[];
+    }>(
       "desktop_ai_interview_disclosure",
       { attemptId },
     ),
