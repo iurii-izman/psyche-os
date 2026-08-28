@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import json
@@ -21,11 +22,15 @@ from psyche_os.policy.engine import (
 
 PROFILE_ID = "local_personal_ai_interview_openai_windows_v1"
 MODEL = "gpt-5.6-luna"
-CONFIG_ID = "personal-ai-interview-v1-1-daily-use-12-8000"
-SCHEMA_ID = "personal-ai-interview-output-v1"
+CONFIG_ID = "personal-ai-interview-v2-model-12-8000-m6-1600"
+SCHEMA_ID = "personal-ai-interview-output-v2"
 PURPOSE = "personal_ai_interview"
 MAX_SOURCE_ITEMS, MAX_SOURCE_CHARS, MAX_INQUIRY_ITEMS, MAX_CONTEXT_CHARS = 12, 8000, 8, 8000
 MAX_QUESTION = MAX_RATIONALE = 480
+MAX_MODEL_ITEMS, MAX_MODEL_CHARS, MAX_MODEL_DELTA = 6, 1600, 3
+MODEL_KINDS = ("HYPOTHESIS", "PATTERN", "CONTRADICTION", "UNKNOWN")
+TEMPORAL_SCOPES = ("CURRENT_STATE", "CONTEXTUAL_PATTERN", "CROSS_PERIOD_PATTERN", "HISTORICAL_CHANGED", "UNCLEAR")
+DELTA_ACTIONS = ("CREATE", "REVISE", "CONTEST", "RESOLVE")
 _UNSAFE = (
     r"(?:\u0443\s+вас|you\s+have)\s+(?:депресси\w*|биполяр\w*|параной\w*|diagnos\w*)",
     r"(?:диагноз\w*|diagnos\w*)",
@@ -56,6 +61,26 @@ def _safe(value: str) -> str:
 def _canonical_inquiry_text(value: str) -> str:
     """Deliberately narrow duplicate key; this is not semantic/fuzzy merging."""
     return " ".join(value.casefold().split())
+
+
+_ABSOLUTE_TRAIT = (
+    r"вы\s+всегда\s+(?:были\s+)?(?:так\w*|таким)",
+    r"вы\s+никогда\s+не\s+",
+    r"ты\s+всегда\s+",
+    r"это\s+точн",
+    r"это\s+факт",
+    r"точно\s+являетс",
+    r"you\s+always\s+are",
+    r"you\s+never\s+",
+    r"definitely\s+is",
+)
+
+
+def _working_language(value: str) -> str:
+    """Reject absolute stable-trait certainty; working language stays provisional."""
+    if any(re.search(pattern, value, flags=re.IGNORECASE) for pattern in _ABSOLUTE_TRAIT):
+        raise PersonalAIError("AI_OUTPUT_UNSAFE")
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +119,9 @@ class PersonalAIInterviewService:
                 "max_source_items": MAX_SOURCE_ITEMS,
                 "max_source_chars": MAX_SOURCE_CHARS,
                 "max_context_chars": MAX_CONTEXT_CHARS,
+                "max_model_items": MAX_MODEL_ITEMS,
+                "max_model_chars": MAX_MODEL_CHARS,
+                "max_model_delta": MAX_MODEL_DELTA,
             },
             "eligible_source_count": int(eligible),
         }
@@ -345,7 +373,138 @@ class PersonalAIInterviewService:
             for row in inquiry
             if self._derivation_eligible(str(row[4]))
         ]
+        model_items = self._reflection.connection.execute(
+            "SELECT a.alias,r.kind,r.text,r.temporal_scope,r.uncertainty,i.state,r.derivation_id FROM interview_attempt_model_items a "
+            "JOIN personal_model_revisions r ON r.revision_id=a.revision_id "
+            "JOIN personal_model_items i ON i.item_id=a.item_id WHERE a.attempt_id=? ORDER BY a.ordinal",
+            (attempt_id,),
+        ).fetchall()
+        result["model_items"] = [
+            {
+                "alias": str(alias),
+                "kind": str(kind),
+                "text": str(text),
+                "temporal_scope": str(scope),
+                "uncertainty": uncertainty,
+                "state": str(state),
+            }
+            for alias, kind, text, scope, uncertainty, state, derivation_id in model_items
+            if derivation_id and self._derivation_eligible(str(derivation_id))
+        ]
         return result
+
+    def model(self) -> dict[str, Any]:
+        """Local, inspectable Personal Model view; eligibility never hides local state."""
+        items = []
+        for item_id, kind, state, created_at, updated_at in self._reflection.connection.execute(
+            "SELECT item_id,kind,state,created_at,updated_at FROM personal_model_items ORDER BY updated_at DESC,item_id ASC"
+        ).fetchall():
+            revisions = self._reflection.connection.execute(
+                "SELECT revision_id,ordinal,kind,text,temporal_scope,uncertainty,revision_reason,derivation_id,owner_turn_id,status,created_at FROM personal_model_revisions WHERE item_id=? ORDER BY ordinal ASC",
+                (item_id,),
+            ).fetchall()
+            current = next((row for row in revisions if row[9] == "CURRENT"), None)
+
+            def excerpts(revision_id: str, role: str) -> list[dict[str, str]]:
+                rows = self._reflection.connection.execute(
+                    "SELECT t.turn_id,t.content,t.created_at,t.session_id FROM personal_model_revision_sources s JOIN reflection_turns t ON t.turn_id=s.turn_id WHERE s.revision_id=? AND s.role=? ORDER BY t.created_at,t.turn_id",
+                    (revision_id, role),
+                ).fetchall()
+                return [
+                    {"turn_id": str(turn_id), "content": str(content), "created_at": str(created), "session_id": str(session_id)}
+                    for turn_id, content, created, session_id in rows
+                ]
+
+            challenges = [
+                {
+                    "text": str(content),
+                    "created_at": str(challenge_created),
+                }
+                for content, challenge_created in self._reflection.connection.execute(
+                    "SELECT t.content,ch.created_at FROM personal_model_challenges ch JOIN reflection_turns t ON t.turn_id=ch.turn_id WHERE ch.item_id=? ORDER BY ch.created_at",
+                    (item_id,),
+                ).fetchall()
+            ]
+            history = [
+                {
+                    "ordinal": int(ordinal),
+                    "kind": str(rev_kind),
+                    "text": str(rev_text),
+                    "temporal_scope": str(scope),
+                    "revision_reason": reason,
+                    "status": str(status),
+                    "created_at": str(rev_created),
+                }
+                for _rid, ordinal, rev_kind, rev_text, scope, _unc, reason, _der, _oturn, status, rev_created in revisions
+            ]
+            items.append(
+                {
+                    "item_id": str(item_id),
+                    "kind": str(kind),
+                    "state": str(state),
+                    "created_at": str(created_at),
+                    "updated_at": str(updated_at),
+                    "current": None
+                    if current is None
+                    else {
+                        "revision_id": str(current[0]),
+                        "text": str(current[3]),
+                        "temporal_scope": str(current[4]),
+                        "uncertainty": current[5],
+                        "created_at": str(current[10]),
+                        "support": excerpts(str(current[0]), "SUPPORT"),
+                        "counterevidence": excerpts(str(current[0]), "COUNTEREVIDENCE"),
+                    },
+                    "challenges": challenges,
+                    "history": history,
+                }
+            )
+        return {"items": items}
+
+    def challenge(self, item_id: Any, content: Any) -> dict[str, Any]:
+        """Record an owner correction as USER SOURCE; no provider call happens."""
+        item_id, content = _text(item_id, 64), _text(content, 12000)
+        c, now = self._reflection.connection, _now()
+        with c:
+            item = c.execute(
+                "SELECT state FROM personal_model_items WHERE item_id=?",
+                (item_id,),
+            ).fetchone()
+            if item is None:
+                raise PersonalAIError("MODEL_ITEM_NOT_FOUND")
+            revision = c.execute(
+                "SELECT revision_id FROM personal_model_revisions WHERE item_id=? AND status='CURRENT'",
+                (item_id,),
+            ).fetchone()
+            if revision is None:
+                raise PersonalAIError("MODEL_ITEM_NOT_FOUND")
+            session = c.execute(
+                "SELECT session_id,turn_count FROM reflection_sessions WHERE title=? AND state='ACTIVE' ORDER BY created_at DESC LIMIT 1",
+                ("Исправления рабочей модели",),
+            ).fetchone()
+            if session is None:
+                session_id = self._reflection.create_session("Исправления рабочей модели")["session_id"]
+                turn_count = 0
+            else:
+                session_id, turn_count = str(session[0]), int(session[1])
+            turn_id, seq = generate_id(), turn_count + 1
+            c.execute(
+                "INSERT INTO reflection_turns VALUES(?,?,?,?,?,?)",
+                (turn_id, session_id, seq, "USER", now, content),
+            )
+            c.execute(
+                "UPDATE reflection_sessions SET turn_count=?,updated_at=? WHERE session_id=?",
+                (seq, now, session_id),
+            )
+            c.execute(
+                "INSERT INTO personal_model_challenges VALUES(?,?,?,?,?)",
+                (generate_id(), item_id, str(revision[0]), turn_id, now),
+            )
+            c.execute(
+                "UPDATE personal_model_items SET state='CONTESTED',updated_at=? WHERE item_id=?",
+                (now, item_id),
+            )
+        return self.model()
 
     def get(self, session_id: Any) -> dict[str, Any]:
         session_id = _text(session_id, 64)
@@ -394,7 +553,7 @@ class PersonalAIInterviewService:
                 result["current_question"]["basis_aliases"]
             )
         attempts = self._reflection.connection.execute(
-            "SELECT attempt_id,state,answer_turn_id,created_at,error_code FROM interview_attempts WHERE interview_session_id=? ORDER BY created_at DESC",
+            "SELECT attempt_id,state,answer_turn_id,created_at,error_code FROM interview_attempts WHERE interview_session_id=? ORDER BY created_at DESC,rowid DESC",
             (session_id,),
         ).fetchall()
         result["attempts"] = [
@@ -561,9 +720,63 @@ class PersonalAIInterviewService:
         ).fetchall()
         return bool(rows) and all(self._policy_for_turn(str(row[0])) is not None for row in rows)
 
+    def _model_context(self, sources: tuple[dict[str, Any], ...]) -> tuple[dict[str, Any], ...]:
+        """Bounded, eligibility-filtered Personal Model context for one packet.
+
+        Local planner only: the provider still receives an exact closed packet.
+        Contested (owner-challenged) items are never transmitted; they stay
+        locally useful without presenting challenged AI text as current truth.
+        """
+        alias_by_turn = {item["turn_id"]: item["alias"] for item in sources}
+        rows = self._reflection.connection.execute(
+            "SELECT i.item_id,i.updated_at,r.revision_id,r.kind,r.text,r.temporal_scope,r.uncertainty,r.derivation_id "
+            "FROM personal_model_items i JOIN personal_model_revisions r ON r.item_id=i.item_id AND r.status='CURRENT' "
+            "WHERE i.state='ACTIVE' "
+            "ORDER BY CASE r.kind WHEN 'CONTRADICTION' THEN 0 WHEN 'HYPOTHESIS' THEN 1 WHEN 'PATTERN' THEN 2 ELSE 3 END,"
+            "i.updated_at DESC,i.item_id ASC"
+        ).fetchall()
+        entries: list[dict[str, Any]] = []
+        chars = 0
+        for item_id, _updated_at, revision_id, kind, text, scope, uncertainty, derivation_id in rows:
+            if len(entries) == MAX_MODEL_ITEMS:
+                break
+            if chars + len(text) > MAX_MODEL_CHARS:
+                continue
+            if not derivation_id or not self._derivation_eligible(str(derivation_id)):
+                continue
+            supporting: list[str] = []
+            counterevidence: list[str] = []
+            for turn_id, role in self._reflection.connection.execute(
+                "SELECT turn_id,role FROM personal_model_revision_sources WHERE revision_id=? ORDER BY turn_id",
+                (revision_id,),
+            ):
+                alias = alias_by_turn.get(str(turn_id))
+                if alias:
+                    (supporting if role == "SUPPORT" else counterevidence).append(alias)
+            entry = {
+                "alias": f"M{len(entries) + 1}",
+                "item_id": str(item_id),
+                "revision_id": str(revision_id),
+                "kind": str(kind),
+                "text": str(text),
+                "temporal_scope": str(scope),
+                "uncertainty": uncertainty,
+                "supporting": supporting,
+                "counterevidence": counterevidence,
+                "char_count": len(text),
+            }
+            entries.append(entry)
+            chars += len(text)
+        return tuple(entries)
+
     def _select(
         self, session_id: str
-    ) -> tuple[tuple[dict[str, Any], ...], tuple[dict[str, Any], ...], tuple[dict[str, Any], ...]]:
+    ) -> tuple[
+        tuple[dict[str, Any], ...],
+        tuple[dict[str, Any], ...],
+        tuple[dict[str, Any], ...],
+        tuple[dict[str, Any], ...],
+    ]:
         rows = self._reflection.connection.execute(
             "SELECT turn_id,content,created_at FROM (SELECT t.turn_id,t.content,t.created_at FROM interview_sessions i JOIN reflection_turns t ON t.session_id=i.source_session_id WHERE i.interview_session_id=? UNION ALL SELECT t.turn_id,t.content,t.created_at FROM reflection_turns t WHERE t.actor='USER' AND t.session_id NOT IN (SELECT source_session_id FROM interview_sessions WHERE interview_session_id=?)) ORDER BY created_at DESC,turn_id DESC",
             (session_id, session_id),
@@ -632,24 +845,29 @@ class PersonalAIInterviewService:
             + sum(x["char_count"] for x in inquiry)
             + sum(len(x["text"]) for x in planning)
         )
-        for group, key in ((sources, "char_count"), (inquiry, "char_count"), (planning, "text")):
+        model = list(self._model_context(sources))
+        total += sum(x["char_count"] for x in model)
+        # Model-derived text consumes the same bounded context budget; trim it
+        # first, then planning, then inquiry, then sources.
+        for group, key in ((model, "char_count"), (planning, "text"), (inquiry, "char_count"), (sources, "char_count")):
             while total > MAX_CONTEXT_CHARS and group:
                 total -= len(group[-1][key]) if key == "text" else group[-1][key]
                 group.pop()
-        return tuple(sources), tuple(inquiry), tuple(planning)
+        return tuple(sources), tuple(inquiry), tuple(planning), tuple(model)
 
     def _perform(self, session_id: str, answer_turn_id: str | None) -> dict[str, Any]:
         self._require_consent(session_id)
         if not self._exists(session_id):
             raise PersonalAIError("INTERVIEW_NOT_FOUND")
-        sources, inquiry, planning = self._select(session_id)
+        sources, inquiry, planning, model = self._select(session_id)
         source_chars = sum(x["char_count"] for x in sources)
         inquiry_chars = sum(x["char_count"] for x in inquiry)
-        context_chars = source_chars + inquiry_chars + sum(len(x["text"]) for x in planning)
+        model_chars = sum(x["char_count"] for x in model)
+        context_chars = source_chars + inquiry_chars + model_chars + sum(len(x["text"]) for x in planning)
         attempt_id, now, c = generate_id(), _now(), self._reflection.connection
         with c:
             c.execute(
-                "INSERT INTO interview_attempts VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO interview_attempts(attempt_id,interview_session_id,answer_turn_id,purpose,provider_profile,model,config_id,schema_id,state,policy_enabled,source_item_count,source_char_count,inquiry_item_count,inquiry_char_count,context_char_count,model_item_count,model_char_count,created_at,sent_at,completed_at,error_code) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     attempt_id,
                     session_id,
@@ -666,6 +884,8 @@ class PersonalAIInterviewService:
                     len(inquiry),
                     inquiry_chars,
                     context_chars,
+                    len(model),
+                    model_chars,
                     now,
                     None,
                     None,
@@ -689,6 +909,11 @@ class PersonalAIInterviewService:
                     "INSERT INTO interview_attempt_inquiry_items VALUES(?,?,?,?)",
                     (attempt_id, item["item_id"], ordinal, item["char_count"]),
                 )
+            for ordinal, item in enumerate(model, 1):
+                c.execute(
+                    "INSERT INTO interview_attempt_model_items VALUES(?,?,?,?,?,?)",
+                    (attempt_id, item["alias"], item["item_id"], item["revision_id"], ordinal, item["char_count"]),
+                )
         manifest = {
             "attempt_id": attempt_id,
             "purpose": PURPOSE,
@@ -697,11 +922,14 @@ class PersonalAIInterviewService:
             "config_id": CONFIG_ID,
             "schema_id": SCHEMA_ID,
             "source_aliases": [x["alias"] for x in sources],
+            "model_aliases": [x["alias"] for x in model],
             "max_source_items": MAX_SOURCE_ITEMS,
             "max_source_chars": MAX_SOURCE_CHARS,
+            "max_model_items": MAX_MODEL_ITEMS,
+            "max_model_chars": MAX_MODEL_CHARS,
             "max_context_chars": MAX_CONTEXT_CHARS,
         }
-        packet = {"sources": sources, "inquiry": inquiry, "planning": planning}
+        packet = {"sources": sources, "inquiry": inquiry, "planning": planning, "model": model}
         try:
             with c:
                 c.execute(
@@ -733,7 +961,11 @@ class PersonalAIInterviewService:
                 )
             raise PersonalAIError("MODEL_NOT_AVAILABLE")
         try:
-            parsed = validate_interview_output(raw, {x["alias"] for x in sources})
+            parsed = validate_interview_output(
+                raw,
+                {x["alias"] for x in sources},
+                frozenset(x["alias"] for x in model),
+            )
         except PersonalAIError as exc:
             with c:
                 c.execute(
@@ -741,7 +973,7 @@ class PersonalAIInterviewService:
                     (_now(), exc.code, attempt_id),
                 )
             raise
-        self._commit(session_id, attempt_id, sources, answer_turn_id, parsed, actual_model)
+        self._commit(session_id, attempt_id, sources, model, answer_turn_id, parsed, actual_model)
         return self.get(session_id)
 
     def _commit(
@@ -749,12 +981,14 @@ class PersonalAIInterviewService:
         session_id: str,
         attempt_id: str,
         sources: tuple[dict[str, Any], ...],
+        model: tuple[dict[str, Any], ...],
         answer_turn_id: str | None,
         value: dict[str, Any],
         actual_model: str,
     ) -> None:
         now, c, derivation_id = _now(), self._reflection.connection, generate_id()
         by_alias = {x["alias"]: x for x in sources}
+        model_by_alias = {x["alias"]: x for x in model}
         with c:
             c.execute(
                 "UPDATE interview_attempts SET state='SUCCEEDED',completed_at=?,model=? WHERE attempt_id=?",
@@ -820,6 +1054,7 @@ class PersonalAIInterviewService:
                     ),
                 )
                 active_items.add((item["kind"], _canonical_inquiry_text(item["text"])))
+            self._apply_model_delta(c, value["model_delta"], model_by_alias, by_alias, derivation_id, now)
             state = "END_RECOMMENDED" if value["decision"] == "END_RECOMMENDED" else "ACTIVE"
             summary_id = derivation_id if value["summary"] is not None else None
             direction_id = derivation_id if value["next_direction"] is not None else None
@@ -836,8 +1071,178 @@ class PersonalAIInterviewService:
                 ),
             )
 
+    def _apply_model_delta(
+        self,
+        c: Any,
+        deltas: Sequence[dict[str, Any]],
+        model_by_alias: dict[str, dict[str, Any]],
+        by_alias: dict[str, dict[str, Any]],
+        derivation_id: str,
+        now: str,
+    ) -> None:
+        """Apply the validated model delta inside the caller's transaction."""
+        for delta in deltas:
+            kind, text = delta["kind"], delta["text"]
+            if delta["action"] == "CREATE":
+                item_id, revision_id = generate_id(), generate_id()
+                c.execute(
+                    "INSERT INTO personal_model_items VALUES(?,?,?,?,?)",
+                    (item_id, kind, "ACTIVE", now, now),
+                )
+                c.execute(
+                    "INSERT INTO personal_model_revisions VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (revision_id, item_id, 1, kind, text, delta["temporal_scope"], delta["uncertainty"], delta["reason"], derivation_id, None, "CURRENT", now),
+                )
+            else:
+                target = model_by_alias[delta["target"]]
+                item_id, current_revision_id = target["item_id"], target["revision_id"]
+                if delta["action"] == "REVISE":
+                    ordinal = c.execute(
+                        "SELECT max(ordinal) FROM personal_model_revisions WHERE item_id=?",
+                        (item_id,),
+                    ).fetchone()[0] + 1
+                    revision_id = generate_id()
+                    c.execute(
+                        "UPDATE personal_model_revisions SET status='SUPERSEDED' WHERE revision_id=? AND status='CURRENT'",
+                        (current_revision_id,),
+                    )
+                    c.execute(
+                        "INSERT INTO personal_model_revisions VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (revision_id, item_id, ordinal, kind, text, delta["temporal_scope"], delta["uncertainty"], delta["reason"], derivation_id, None, "CURRENT", now),
+                    )
+                    c.execute(
+                        "UPDATE personal_model_items SET kind=?,updated_at=? WHERE item_id=?",
+                        (kind, now, item_id),
+                    )
+                elif delta["action"] == "CONTEST":
+                    revision_id = current_revision_id
+                    if text is not None:
+                        # A contested item may be replaced by a narrowed version;
+                        # the previous revision stays inspectable either way.
+                        ordinal = c.execute(
+                            "SELECT max(ordinal) FROM personal_model_revisions WHERE item_id=?",
+                            (item_id,),
+                        ).fetchone()[0] + 1
+                        revision_id = generate_id()
+                        c.execute(
+                            "UPDATE personal_model_revisions SET status='SUPERSEDED' WHERE revision_id=? AND status='CURRENT'",
+                            (current_revision_id,),
+                        )
+                        c.execute(
+                            "INSERT INTO personal_model_revisions VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                            (revision_id, item_id, ordinal, kind, text, delta["temporal_scope"], delta["uncertainty"], delta["reason"], derivation_id, None, "CURRENT", now),
+                        )
+                        c.execute(
+                            "UPDATE personal_model_items SET kind=?,updated_at=? WHERE item_id=?",
+                            (kind, now, item_id),
+                        )
+                    else:
+                        c.execute(
+                            "UPDATE personal_model_items SET updated_at=? WHERE item_id=?",
+                            (now, item_id),
+                        )
+                else:  # RESOLVE
+                    revision_id = current_revision_id
+                    c.execute(
+                        "UPDATE personal_model_items SET state='RESOLVED',updated_at=? WHERE item_id=?",
+                        (now, item_id),
+                    )
+            if delta["action"] != "RESOLVE":
+                for role, key in (("SUPPORT", "supporting"), ("COUNTEREVIDENCE", "counterevidence")):
+                    for alias in delta[key]:
+                        c.execute(
+                            "INSERT INTO personal_model_revision_sources VALUES(?,?,?,?)",
+                            (revision_id, by_alias[alias]["turn_id"], alias, role),
+                        )
 
-def validate_interview_output(raw: Any, aliases: set[str]) -> dict[str, Any]:
+
+def validate_model_delta(raw: Any, aliases: set[str], model_aliases: set[str]) -> list[dict[str, Any]]:
+    """Strict deterministic validation of the small declarative model delta."""
+    if not isinstance(raw, list) or len(raw) > MAX_MODEL_DELTA:
+        raise PersonalAIError("AI_OUTPUT_REJECTED")
+    deltas, seen_targets, seen_creates = [], set(), set()
+    for entry in raw:
+        if not isinstance(entry, dict) or set(entry) != {
+            "action",
+            "target",
+            "kind",
+            "text",
+            "temporal_scope",
+            "uncertainty",
+            "supporting",
+            "counterevidence",
+            "reason",
+        }:
+            raise PersonalAIError("AI_OUTPUT_REJECTED")
+        action, target = entry["action"], entry["target"]
+        if action not in DELTA_ACTIONS or not isinstance(target, str):
+            raise PersonalAIError("AI_OUTPUT_REJECTED")
+        if action == "CREATE":
+            if target != "":
+                raise PersonalAIError("AI_OUTPUT_REJECTED")
+        elif not target or target not in model_aliases or target in seen_targets:
+            # Hallucinated model alias, or a second conflicting delta against
+            # the same target in one response, is rejected outright.
+            raise PersonalAIError("AI_OUTPUT_REJECTED")
+        seen_targets.add(target)
+        kind = entry["kind"]
+        if kind not in MODEL_KINDS:
+            raise PersonalAIError("AI_OUTPUT_REJECTED")
+        if entry["temporal_scope"] not in TEMPORAL_SCOPES:
+            raise PersonalAIError("AI_OUTPUT_REJECTED")
+        for key in ("supporting", "counterevidence"):
+            value = entry[key]
+            if (
+                not isinstance(value, list)
+                or len(set(value)) != len(value)
+                or not all(isinstance(a, str) and a in aliases for a in value)
+            ):
+                raise PersonalAIError("AI_OUTPUT_REJECTED")
+        supporting, counterevidence = entry["supporting"], entry["counterevidence"]
+        reason = _safe(_text(entry["reason"], 240))
+        uncertainty = entry["uncertainty"]
+        uncertainty = None if uncertainty in ("", None) else _safe(_text(uncertainty, 160))
+        if action in {"CREATE", "REVISE"}:
+            text = _working_language(_safe(_text(entry["text"], MAX_QUESTION)))
+            if not supporting:
+                # No model item may exist without a valid SOURCE basis.
+                raise PersonalAIError("AI_OUTPUT_REJECTED")
+            if kind == "PATTERN" and len(supporting) < 2:
+                # Conservative validation: a single ordinary source cannot
+                # justify a stable pattern; the provider must use HYPOTHESIS.
+                raise PersonalAIError("AI_OUTPUT_REJECTED")
+            if action == "CREATE":
+                create_key = (kind, _canonical_inquiry_text(text))
+                if create_key in seen_creates:
+                    raise PersonalAIError("AI_OUTPUT_REJECTED")
+                seen_creates.add(create_key)
+        else:
+            text = entry["text"]
+            if text in ("", None):
+                text = None
+            else:
+                text = _working_language(_safe(_text(text, MAX_QUESTION)))
+            if action == "CONTEST" and not counterevidence and not reason:
+                raise PersonalAIError("AI_OUTPUT_REJECTED")
+        deltas.append(
+            {
+                "action": action,
+                "target": target or None,
+                "kind": kind,
+                "text": text,
+                "temporal_scope": entry["temporal_scope"],
+                "uncertainty": uncertainty,
+                "supporting": list(supporting),
+                "counterevidence": list(counterevidence),
+                "reason": reason,
+            }
+        )
+    return deltas
+
+
+def validate_interview_output(
+    raw: Any, aliases: set[str], model_aliases: frozenset[str] = frozenset()
+) -> dict[str, Any]:
     required = {
         "schema_version",
         "decision",
@@ -847,6 +1252,7 @@ def validate_interview_output(raw: Any, aliases: set[str]) -> dict[str, Any]:
         "summary",
         "next_direction",
         "inquiry_items",
+        "model_delta",
     }
     if not isinstance(raw, dict) or set(raw) != required or raw.get("schema_version") != SCHEMA_ID:
         raise PersonalAIError("AI_OUTPUT_REJECTED")
@@ -903,4 +1309,5 @@ def validate_interview_output(raw: Any, aliases: set[str]) -> dict[str, Any]:
         "summary": summary,
         "next_direction": next_direction,
         "inquiry_items": items,
+        "model_delta": validate_model_delta(raw["model_delta"], aliases, set(model_aliases)),
     }

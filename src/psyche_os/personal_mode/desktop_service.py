@@ -80,6 +80,8 @@ PERSONAL_ALLOWED_COMMANDS: Final = frozenset(
         "ai.interview.control",
         "ai.interview.get",
         "ai.interview.disclosure",
+        "ai.model.list",
+        "ai.model.correct",
     }
 )
 
@@ -148,7 +150,7 @@ class PersonalDesktopApplicationService:
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
         if command.startswith("ai.working_formulation") and not self._ai_enabled:
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
-        if command.startswith("ai.interview") and not self._interview_enabled:
+        if (command.startswith("ai.interview") or command.startswith("ai.model")) and not self._interview_enabled:
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
         try:
             if command in PERSONAL_SESSION_COMMANDS:
@@ -198,6 +200,8 @@ class PersonalDesktopApplicationService:
                 "ai.interview.control": self._interview_control,
                 "ai.interview.get": self._interview_get,
                 "ai.interview.disclosure": self._interview_disclosure,
+                "ai.model.list": self._model_list,
+                "ai.model.correct": self._model_correct,
             }
             return handlers[command](payload)
         except PersonalNotAdmittedError as exc:
@@ -369,6 +373,14 @@ class PersonalDesktopApplicationService:
 
     def _interview_disclosure(self, payload: Any) -> dict[str, Any]:
         return self._interview_service().disclosure(_exact(payload, {"attempt_id"})["attempt_id"])
+
+    def _model_list(self, payload: Any) -> dict[str, Any]:
+        _exact(payload, set())
+        return self._interview_service().model()
+
+    def _model_correct(self, payload: Any) -> dict[str, Any]:
+        values = _exact(payload, {"item_id", "content"})
+        return self._interview_service().challenge(values["item_id"], values["content"])
 
     def _lock(self, payload: Any) -> dict[str, Any]:
         _exact(payload, set())

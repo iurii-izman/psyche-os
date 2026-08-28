@@ -2,7 +2,9 @@ import "./personal-styles.css";
 import type {
   ExplorationView,
   InterviewView,
+  ModelItem,
   PersonalApi,
+  PersonalModelView,
   PersonalStatus,
   ReflectionSession,
   SearchResult,
@@ -70,6 +72,68 @@ const interviewKindLabel = (kind: string) =>
     }) as Record<string, string>
   )[kind] ?? "ЗАМЕТКА AI-ИССЛЕДОВАНИЯ · НЕ ФАКТ";
 
+const modelKindLabel = (kind: string) =>
+  (
+    ({
+      HYPOTHESIS: "РАБОЧЕЕ ПРЕДПОЛОЖЕНИЕ · НЕ ФАКТ",
+      PATTERN: "ПОВТОРЯЮЩИЙСЯ ПАТТЕРН · ВЫВОД ИЗ ЗАПИСЕЙ",
+      CONTRADICTION: "ПРОТИВОРЕЧИЕ · НЕ СХОДЯТСЯ ДАННЫЕ",
+      UNKNOWN: "ПОКА НЕЯСНО",
+    }) as Record<string, string>
+  )[kind] ?? "РАБОЧАЯ ВЕРСИЯ · НЕ ФАКТ";
+
+const temporalLabel = (scope: string) =>
+  (
+    ({
+      CURRENT_STATE: "Похоже на текущее состояние",
+      CONTEXTUAL_PATTERN: "Зависит от контекста",
+      CROSS_PERIOD_PATTERN: "Повторяется в разных периодах",
+      HISTORICAL_CHANGED: "Раньше проявлялось, сейчас могло измениться",
+      UNCLEAR: "Пока непонятно, насколько это устойчиво",
+    }) as Record<string, string>
+  )[scope] ?? "Временная область неясна";
+
+const modelStateLabel = (state: string) =>
+  (
+    ({
+      CONTESTED: "Оспорено вами",
+      RESOLVED: "Разрешено",
+      INVALIDATED: "Не подтверждается",
+    }) as Record<string, string>
+  )[state] ?? "";
+
+const modelExcerpt = (excerpt: {
+  turn_id: string;
+  content: string;
+  created_at: string;
+  session_id?: string;
+}) =>
+  `<article class="source-excerpt"><strong>Вы написали</strong><small>${escape(dateLabel(excerpt.created_at))}</small><p>${escape(excerpt.content)}</p>${excerpt.session_id ? `<button class="link-button" data-open-source="${escape(excerpt.session_id)}" data-turn-id="${escape(excerpt.turn_id)}">Открыть источник</button>` : ""}</article>`;
+
+const modelCard = (item: ModelItem) => {
+  const current = item.current;
+  if (!current) {
+    const latest = item.history.at(-1);
+    if (!latest) return "";
+    return `<article class="hypothesis-card model-card"><p class="hypothesis-label">${escape(modelKindLabel(item.kind))}</p><span class="status-pill">Не подтверждается</span><p class="hypothesis-proposal">${escape(latest.text)}</p><p class="provenance-note">Эта версия больше не активна: значимая опора утрачена или версия разрешена. История сохранена, удалённое содержимое не восстанавливается.</p></article>`;
+  }
+  const stateBadge = modelStateLabel(item.state)
+    ? `<span class="status-pill">${escape(modelStateLabel(item.state))}</span>`
+    : "";
+  const basis =
+    current.support.length || current.counterevidence.length
+      ? `<details class="source-evidence"><summary>Почему эта версия · основания ${current.support.length} · не укладывается ${current.counterevidence.length}</summary>${current.support.length ? `<p class="provenance-note">Основания:</p>${current.support.map(modelExcerpt).join("")}` : ""}${current.counterevidence.length ? `<p class="provenance-note">Не укладывается в эту версию:</p>${current.counterevidence.map(modelExcerpt).join("")}` : ""}</details>`
+      : "";
+  const history = item.history.filter((revision) => revision.status !== "CURRENT");
+  const historyMarkup = history.length
+    ? `<details><summary>Что изменилось в понимании · ${history.length}</summary>${history.map((revision) => `<article class="history-event"><strong>Предыдущая версия</strong><p>${escape(revision.text)}</p>${revision.revision_reason ? `<small>Причина: ${escape(revision.revision_reason)}</small>` : ""}<small>${escape(dateLabel(revision.created_at))} · исходная версия сохранена.</small></article>`).join("")}</details>`
+    : "";
+  const challenges = item.challenges.length
+    ? item.challenges.map((challenge) => `<article class="history-event"><strong>Ваше исправление</strong><p>${escape(challenge.text)}</p><small>${escape(dateLabel(challenge.created_at))} · сохранено как ваша запись-источник.</small></article>`).join("")
+    : "";
+  return `<article class="hypothesis-card model-card"><p class="hypothesis-label">${escape(modelKindLabel(item.kind))}</p>${stateBadge}<p class="hypothesis-proposal">${escape(current.text)}</p><p class="provenance-note">${escape(temporalLabel(current.temporal_scope))}</p>${current.uncertainty ? `<p class="hypothesis-field"><strong>Что пока неизвестно</strong><span>${escape(current.uncertainty)}</span></p>` : ""}${challenges}${basis}${historyMarkup}<small>${escape(dateLabel(item.updated_at))}</small><form data-model-challenge="${escape(item.item_id)}"><label>Исправить / оспорить <textarea required maxlength="12000" placeholder="Например: это было верно только для 2021–2022"></textarea></label><button>Сохранить исправление</button></form></article>`;
+};
+
 export async function mountPersonal(
   api: PersonalApi,
   host: HTMLDivElement = document.querySelector<HTMLDivElement>("#app")!,
@@ -80,7 +144,8 @@ export async function mountPersonal(
     current: ReflectionSession | null = null,
     exploration: ExplorationView | null = null,
     interview: InterviewView | null = null,
-    interviewSessions: InterviewView[] = [];
+    interviewSessions: InterviewView[] = [],
+    model: PersonalModelView | null = null;
   let route: Route = "home",
     notice = "",
     recovery: Record<string, unknown> | null = null,
@@ -139,6 +204,7 @@ export async function mountPersonal(
       if (nextStatus.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI") {
         const listed = await api.aiInterviewList();
         interviewSessions = listed.sessions;
+        model = await api.aiModelList();
         if (!interview) {
           const selected =
             listed.sessions.find((item) => item.state !== "COMPLETED") ??
@@ -275,6 +341,20 @@ export async function mountPersonal(
             }),
         ),
       );
+    host
+      .querySelectorAll<HTMLFormElement>("[data-model-challenge]")
+      .forEach((form) =>
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const content = form.querySelector("textarea")?.value.trim();
+          if (!content) return;
+          void act(async () => {
+            model = await api.aiModelCorrect(form.dataset.modelChallenge!, content);
+            notice =
+              "Исправление сохранено как ваша запись-источник; рабочая версия помечена как оспоренная.";
+          });
+        }),
+      );
   };
   const submit = (selector: string, action: () => Promise<void>) =>
     host
@@ -392,6 +472,25 @@ export async function mountPersonal(
   const homeMarkup = () => {
     const recent = ordered().slice(0, 5),
       bundles = sensemaking ?? [],
+      modelReason = (() => {
+        const items = (model?.items ?? []).filter((item) => item.current);
+        if (items.some((item) => item.kind === "CONTRADICTION" && item.state === "ACTIVE"))
+          return "Есть противоречие, которое стоит проверить";
+        if (items.some((item) => item.state === "CONTESTED"))
+          return "Есть рабочая версия, которую вы оспорили — её стоит перепроверить";
+        if (
+          items.some(
+            (item) =>
+              item.kind === "HYPOTHESIS" &&
+              item.state === "ACTIVE" &&
+              (item.current?.counterevidence.length ?? 0) === 0,
+          )
+        )
+          return "Есть рабочая версия, которой пока не хватает контрпримеров";
+        if (items.some((item) => item.kind === "UNKNOWN" && item.state === "ACTIVE"))
+          return "Мы пока плохо понимаем, устойчива ли одна важная часть картины";
+        return null;
+      })(),
       active = ordered().filter((item) => item.state === "ACTIVE"),
       unknowns = bundles.reduce(
         (count, bundle) =>
@@ -420,7 +519,7 @@ export async function mountPersonal(
       ),
       interviewCard =
         status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI"
-          ? `<section class="card daily-review inquiry-primary"><p>AI-ИССЛЕДОВАНИЕ</p><h2>${interview && interview.state !== "COMPLETED" ? "Продолжить исследование" : "Начать исследование"}</h2><p>${interview?.next_direction ? `Полезно вернуться к: ${escape(interview.next_direction)}` : interview?.owner_topic ? `Продолжим выбранную тему: ${escape(interview.owner_topic)}` : "PSYCHE задаёт один вопрос за раз и постепенно проясняет важное — без анкеты и без спешки."}</p><p class="provenance-note">Ваши ответы сохраняются локально как источники; выводы AI — рабочие предложения.</p><button data-route="interview" class="primary">${interview && interview.state !== "COMPLETED" ? "Продолжить" : "Начать AI-сессию"}</button>${!interview || interview.state === "COMPLETED" ? '<button id="home-start-topic">Есть тема, о которой хочу поговорить</button>' : '<button id="home-new-topic">Начать с другой темы</button>'}</section>`
+          ? `<section class="card daily-review inquiry-primary"><p>AI-ИССЛЕДОВАНИЕ</p><h2>${interview && interview.state !== "COMPLETED" ? "Продолжить исследование" : "Начать исследование"}</h2><p>${interview?.next_direction ? `Полезно вернуться к: ${escape(interview.next_direction)}` : interview?.owner_topic ? `Продолжим выбранную тему: ${escape(interview.owner_topic)}` : "PSYCHE задаёт один вопрос за раз и постепенно проясняет важное — без анкеты и без спешки."}</p>${modelReason ? `<p class="provenance-note">${escape(modelReason)}</p>` : ""}<p class="provenance-note">Ваши ответы сохраняются локально как источники; выводы AI — рабочие предложения.</p><button data-route="interview" class="primary">${interview && interview.state !== "COMPLETED" ? "Продолжить" : "Начать AI-сессию"}</button>${!interview || interview.state === "COMPLETED" ? '<button id="home-start-topic">Есть тема, о которой хочу поговорить</button>' : '<button id="home-new-topic">Начать с другой темы</button>'}</section>`
           : "";
     const homeLead = status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? "Что сейчас полезно исследовать?" : "Запишите то, к чему хотите вернуться.";
     return `<main class="product-shell home-shell">${nav()}<section class="product-home compact-heading"><p>PERSONAL</p><h1>Сегодня</h1><p>${homeLead}</p></section>${interviewCard}<section class="card quick-capture"><p>БЫСТРАЯ ЗАПИСЬ</p><h2>Сохранить мысль</h2><form id="quick-capture-form"><label>Название (необязательно) <input id="quick-capture-title" maxlength="160" placeholder="Короткая заметка" autofocus /></label><label>Текст <textarea id="quick-capture-text" required maxlength="12000" placeholder="Напишите то, что хотите сохранить…"></textarea></label><button class="primary">Сохранить</button></form></section><section class="card daily-review"><div><p>КАРТИНА</p><h2>Ваши записи и выводы</h2></div><div class="review-counts"><span>${active.length} активных размышлений</span><span>${currentFormulations} текущих формулировок</span><span>${unknowns} неясного</span><span>${contradictions} противоречий</span></div><button data-route="sensemaking" class="primary">Открыть картину</button><button data-route="longitudinal">Посмотреть изменения за 30 дней</button></section><section class="card recent-card"><p>НЕДАВНЕЕ</p><h2>Ваши размышления</h2>${recent.length ? recent.map(sessionRow).join("") : "<p>Первая запись появится здесь.</p>"}<button data-route="history">Открыть историю</button></section>${noticeMarkup()}</main>`;
@@ -579,13 +678,22 @@ export async function mountPersonal(
       )
       .join("");
     const interviewDerived = interviewSessions.flatMap((session) => (session.derived_items ?? []).map((item) => `<article class="derived is-ai-proposal"><p>${escape(interviewKindLabel(item.kind))}</p><p>${escape(item.text)}</p><small>${escape(dateLabel(item.created_at))} · производное из AI-сессии, основания доступны в сессии.</small></article>`)).join("");
-    const hasMaterial = bundles.length > 0 || interviewDerived.length > 0;
-    return `<main class="product-shell">${nav()}<section class="product-home"><p>PERSONAL</p><h1>Картина</h1><p>Здесь источник, выводы и неясность показаны отдельно. AI-предложения не являются фактами.</p></section>${hasMaterial ? `<div class="sensemaking">${interviewDerived ? senseSection("Из AI-исследований", interviewDerived, "") : ""}${senseSection("Исходные записи", sourceRecords(bundles), "Исходные размышления появятся после первой записи.")}${senseSection("Что я сообщил", reported(bundles), "В записях пока нет исходного текста.")}${senseSection("Неизвестно", contexts("UNKNOWN"), "Пока нет открытых неясностей.")}${senseSection("Противоречия", contexts("CONTRADICTION"), "Пока нет отмеченных противоречий.")}${senseSection("Рабочие предположения", hypotheses, "Рабочих предположений пока нет — они появляются после исследования записи.")}${senseSection("Рабочие формулировки", formulations, "Рабочие формулировки появятся после исследования записи.")}${senseSection("Исправления и история", chronology, "История изменений появится вместе с формулировками.")}</div>` : `<section class="card calm-empty"><h2>Картина появится постепенно</h2><p>Сохраните размышление, чтобы видеть исходный текст, вопросы и рабочие формулировки отдельно.</p></section>`}${noticeMarkup()}</main>`;
+    const modelItems = (model?.items ?? []).filter((item) => item.current);
+    const important = modelItems.filter((item) => item.state === "ACTIVE" || item.state === "CONTESTED").slice(0, 6);
+    const modelPatterns = modelItems.filter((item) => item.kind === "PATTERN" && item.state === "ACTIVE");
+    const modelHypotheses = modelItems.filter((item) => item.kind === "HYPOTHESIS" && (item.state === "ACTIVE" || item.state === "CONTESTED"));
+    const modelContradictions = modelItems.filter((item) => item.kind === "CONTRADICTION" && item.state === "ACTIVE");
+    const modelUnknowns = modelItems.filter((item) => item.kind === "UNKNOWN" && item.state === "ACTIVE");
+    const modelRevisions = modelItems.filter((item) => item.history.length > 1 || item.challenges.length > 0 || !item.current);
+    const hasMaterial = bundles.length > 0 || interviewDerived.length > 0 || modelItems.length > 0;
+    return `<main class="product-shell">${nav()}<section class="product-home"><p>PERSONAL</p><h1>Картина</h1><p>Рабочая модель, источники и неясность показаны отдельно. Рабочие версии AI — не факты, и вы можете их оспорить.</p></section>${hasMaterial ? `<div class="sensemaking">${modelItems.length ? `${senseSection("Что сейчас кажется важным", important.map(modelCard).join(""), "Пока нет активных рабочих версий.")}${senseSection("Повторяющиеся паттерны", modelPatterns.map(modelCard).join(""), "Устойчивых повторяющихся паттернов пока не зафиксировано.")}${senseSection("Рабочие версии модели", modelHypotheses.map(modelCard).join(""), "Рабочих предположений пока нет — они появляются из AI-сессий при достаточных основаниях.")}${senseSection("Где данные не сходятся", modelContradictions.map(modelCard).join(""), "Неразрешённых противоречий нет. Это ценная информация, а не ошибка.")}${senseSection("Что пока неясно", modelUnknowns.map(modelCard).join(""), "Значимых неизвестных пока нет.")}${senseSection("Что изменилось в понимании", modelRevisions.map(modelCard).join(""), "История пересмотров появится, когда рабочие версии начнут меняться.")}` : ""}${interviewDerived ? senseSection("Из AI-исследований", interviewDerived, "") : ""}${senseSection("Исходные записи", sourceRecords(bundles), "Исходные размышления появятся после первой записи.")}${senseSection("Что я сообщил", reported(bundles), "В записях пока нет исходного текста.")}${senseSection("Неизвестно", contexts("UNKNOWN"), "Пока нет открытых неясностей.")}${senseSection("Противоречия", contexts("CONTRADICTION"), "Пока нет отмеченных противоречий.")}${senseSection("Рабочие предположения", hypotheses, "Рабочих предположений пока нет — они появляются после исследования записи.")}${senseSection("Рабочие формулировки", formulations, "Рабочие формулировки появятся после исследования записи.")}${senseSection("Исправления и история", chronology, "История изменений появится вместе с формулировками.")}</div>` : `<section class="card calm-empty"><h2>Картина появится постепенно</h2><p>Сохраните размышление или начните AI-сессию, чтобы видеть исходный текст, рабочие версии и неясности отдельно.</p></section>`}${noticeMarkup()}</main>`;
   };
   const longitudinalMarkup = () => {
     const view = buildPersonalLongitudinal(
       sensemaking ?? [],
       longitudinalPeriod,
+      new Date(),
+      model,
     );
     const periodLabel = (
       {
@@ -616,6 +724,14 @@ export async function mountPersonal(
           REJECTED: "отклонена",
         }) as Record<string, string>
       )[status] ?? status;
+    const understanding = view.understanding.length
+      ? view.understanding
+          .map(
+            (item) =>
+              `<article class="longitudinal-item"><small>${escape(dateLabel(item.at))}</small>${item.earlier ? `<p><strong>Раньше:</strong> ${escape(item.earlier)}</p>` : ""}<p><strong>Стало:</strong> ${escape(item.later)}</p><p>Изменилось: ${escape(item.changed)}</p></article>`,
+          )
+          .join("")
+      : "<p>Рабочая модель понимания пока не менялась.</p>";
     const review = `<section class="card longitudinal-review"><h2>Обзор периода</h2><p>Счётчики помогают перейти к сохранённым материалам; это не оценка состояния, прогресса или человека.</p><dl><dt>Активных размышлений в периоде</dt><dd>${view.review.active_reflections}</dd><dt>Текущих формулировок, обновлённых в периоде</dt><dd>${view.review.current_formulations.length}</dd><dt>Новых неясностей</dt><dd>${view.review.new_unknowns}</dd><dt>Остаётся открытым</dt><dd>${view.review.unresolved_unknowns} неясностей · ${view.review.unresolved_contradictions} противоречий</dd><dt>Повторяющихся точных фраз</dt><dd>${view.review.recurring_themes}</dd></dl>${view.review.current_formulations.length ? `<div class="longitudinal-inline">${view.review.current_formulations.map((item) => `<p>Версия ${item.version} · ${escape(item.summary)}</p>`).join("")}</div>` : "<p>Текущих формулировок, обновлённых в выбранный период, нет.</p>"}</section>`;
     const timelineByDay = new Map<string, typeof view.timeline>();
     for (const event of view.timeline) {
@@ -669,7 +785,7 @@ export async function mountPersonal(
           )
           .join("")
       : "<p>Необработанных предложенных формулировок нет.</p>";
-    return `<main class="product-shell longitudinal-shell">${nav()}<section class="product-home"><p>PERSONAL · ТОЛЬКО ЧТЕНИЕ</p><h1>Во времени</h1><p>Хронология и сводка строятся из сохранённых записей и состояний. Здесь нет диагноза, оценки или скрытой интерпретации.</p><label class="period-picker">Период <select id="longitudinal-period"><option value="7d"${longitudinalPeriod === "7d" ? " selected" : ""}>Последние 7 дней</option><option value="30d"${longitudinalPeriod === "30d" ? " selected" : ""}>Последние 30 дней</option><option value="all"${longitudinalPeriod === "all" ? " selected" : ""}>Всё время</option></select></label><p class="longitudinal-period-note">Показано: ${periodLabel}.</p></section>${review}<section class="sense-section"><h2>Что изменилось</h2><p>Показаны только сохранённые переходы версий; система не делает вывода об улучшении или ухудшении.</p>${changes}</section><section class="sense-section"><h2>Остаётся открытым</h2><p>Открытые записи остаются видимыми без срока и без штрафа за давность.</p>${unresolved}${proposed}</section><section class="sense-section"><h2>Эволюция формулировок</h2><p>Версии, исправления, статусы и происхождение сохранены отдельно от исходных записей.</p>${lineages}</section><section class="sense-section"><h2>Повторяющиеся темы</h2><p>Группировка прозрачна: только точные повторения сохранённых фраз, привязанные к источникам.</p>${themes}</section><details class="sense-section longitudinal-timeline"><summary>Хронология · ${view.timeline.length} ${view.timeline.length === 1 ? "событие" : "событий"}</summary><p>Только события, записанные в продукте; это не восстановленная хронология жизни.</p>${timeline}</details>${noticeMarkup()}</main>`;
+    return `<main class="product-shell longitudinal-shell">${nav()}<section class="product-home"><p>PERSONAL · ТОЛЬКО ЧТЕНИЕ</p><h1>Во времени</h1><p>Хронология и сводка строятся из сохранённых записей и состояний. Здесь нет диагноза, оценки или скрытой интерпретации.</p><label class="period-picker">Период <select id="longitudinal-period"><option value="7d"${longitudinalPeriod === "7d" ? " selected" : ""}>Последние 7 дней</option><option value="30d"${longitudinalPeriod === "30d" ? " selected" : ""}>Последние 30 дней</option><option value="all"${longitudinalPeriod === "all" ? " selected" : ""}>Всё время</option></select></label><p class="longitudinal-period-note">Показано: ${periodLabel}.</p></section>${review}<section class="sense-section"><h2>Как менялось понимание</h2><p>Здесь показано, как менялась рабочая модель PSYCHE — это не утверждение, что изменились вы сами. Предыдущие версии сохраняются.</p>${understanding}</section><section class="sense-section"><h2>Что изменилось</h2><p>Показаны только сохранённые переходы версий; система не делает вывода об улучшении или ухудшении.</p>${changes}</section><section class="sense-section"><h2>Остаётся открытым</h2><p>Открытые записи остаются видимыми без срока и без штрафа за давность.</p>${unresolved}${proposed}</section><section class="sense-section"><h2>Эволюция формулировок</h2><p>Версии, исправления, статусы и происхождение сохранены отдельно от исходных записей.</p>${lineages}</section><section class="sense-section"><h2>Повторяющиеся темы</h2><p>Группировка прозрачна: только точные повторения сохранённых фраз, привязанные к источникам.</p>${themes}</section><details class="sense-section longitudinal-timeline"><summary>Хронология · ${view.timeline.length} ${view.timeline.length === 1 ? "событие" : "событий"}</summary><p>Только события, записанные в продукте; это не восстановленная хронология жизни.</p>${timeline}</details>${noticeMarkup()}</main>`;
   };
   const privacyMarkup = () => {
     const ai =
@@ -1056,7 +1172,7 @@ export async function mountPersonal(
               );
               const target = host.querySelector("#interview-disclosure");
               if (target)
-                target.innerHTML = `<p>Статус: ${escape(receipt.state)}</p>${receipt.items.map((item) => `<article class="source-excerpt"><strong>${escape(item.alias)}</strong><p>${escape(item.content)}</p></article>`).join("")}`;
+                target.innerHTML = `<h3>Исходные записи, переданные AI</h3>${receipt.items.map((item) => `<article class="source-excerpt"><strong>${escape(item.alias)}</strong><p>${escape(item.content)}</p></article>`).join("") || "<p>Исходные записи не передавались.</p>"}<h3>Рабочая модель, переданная AI</h3>${(receipt.model_items ?? []).map((item) => `<article class="source-excerpt"><strong>${escape(modelKindLabel(item.kind))}</strong><small>${escape(temporalLabel(item.temporal_scope))}</small><p>${escape(item.text)}</p></article>`).join("") || "<p>Рабочая модель не передавалась.</p>"}`;
             }),
         ),
       );

@@ -1,6 +1,6 @@
-import type { ExplorationView, InterviewView, PersonalApi, PersonalStatus, ReflectionSession, ReflectionTurn, SearchResult, SearchView } from "./personal-api";
+import type { ExplorationView, InterviewView, ModelItem, PersonalApi, PersonalModelView, PersonalStatus, ReflectionSession, ReflectionTurn, SearchResult, SearchView } from "./personal-api";
 
-export type PreviewScenario = "ACTIVE" | "CLOSED" | "EMPTY" | "SEARCH_MANY" | "INTERVIEW_ONBOARDING" | "INTERVIEW_ACTIVE" | "INTERVIEW_WITH_HISTORY" | "INTERVIEW_END_RECOMMENDED" | "INTERVIEW_RETRYABLE_FAILURE" | "INTERVIEW_PAUSED_RECONSENT" | "INTERVIEW_DISCLOSURE";
+export type PreviewScenario = "ACTIVE" | "CLOSED" | "EMPTY" | "SEARCH_MANY" | "INTERVIEW_ONBOARDING" | "INTERVIEW_ACTIVE" | "INTERVIEW_WITH_HISTORY" | "INTERVIEW_END_RECOMMENDED" | "INTERVIEW_RETRYABLE_FAILURE" | "INTERVIEW_PAUSED_RECONSENT" | "INTERVIEW_DISCLOSURE" | "PERSONAL_MODEL_EARLY" | "PERSONAL_MODEL_KNOWN_USER" | "PERSONAL_MODEL_COMPETING_HYPOTHESES" | "PERSONAL_MODEL_COUNTEREVIDENCE" | "PERSONAL_MODEL_REVISION" | "PERSONAL_MODEL_OWNER_CORRECTION" | "PERSONAL_MODEL_CURRENT_VS_HISTORICAL" | "PERSONAL_MODEL_CONTRADICTION" | "PERSONAL_MODEL_SOURCE_DELETED" | "PERSONAL_MODEL_RICH_20_SESSIONS";
 
 type PreviewState = {
   sessions: ReflectionSession[];
@@ -8,6 +8,7 @@ type PreviewState = {
   locked: boolean;
   scenario: PreviewScenario;
   interview: InterviewView | null;
+  model: PersonalModelView | null;
 };
 
 const at = (day: number) => `2026-08-${String(day).padStart(2, "0")}T10:00:00Z`;
@@ -66,16 +67,120 @@ const closedExploration = (): ExplorationView => ({
 
 const manyTurns: ReflectionTurn[] = Array.from({ length: 45 }, (_, index) => ({ turn_id: `many-turn-${index + 1}`, session_id: "many", sequence: index + 1, actor: "USER" as const, created_at: at(3), content: `Синтетическая запись ${index + 1} о маршруте: утренний маршрут занимает разное время.` }));
 
+// Synthetic Personal Model fixtures: every support/counterevidence excerpt
+// points at synthetic USER turns so basis views stay inspectable.
+type ModelFixtureInput = {
+  id: string;
+  kind: ModelItem["kind"];
+  state: ModelItem["state"];
+  text: string;
+  scope: string;
+  uncertainty?: string;
+  support?: string[];
+  counterevidence?: string[];
+  challenges?: string[];
+  history?: { text: string; reason: string; day: number; status?: ModelItem["history"][number]["status"] }[];
+  created?: number;
+  updated?: number;
+};
+
+const modelFixture = (inputs: ModelFixtureInput[]): PersonalModelView => ({
+  items: inputs.map((input) => {
+    const created = at(input.created ?? 1);
+    const updated = at(input.updated ?? 10);
+    const history = [
+      ...(input.history ?? []).map((revision, index) => ({ ordinal: index + 1, kind: input.kind, text: revision.text, temporal_scope: input.scope, revision_reason: revision.reason, status: revision.status ?? ("SUPERSEDED" as const), created_at: at(revision.day) })),
+      { ordinal: (input.history?.length ?? 0) + 1, kind: input.kind, text: input.text, temporal_scope: input.scope, revision_reason: input.history?.length ? "Версия пересмотрена с учётом новых данных." : null, status: "CURRENT" as const, created_at: updated }
+    ];
+    const invalidated = input.state === "INVALIDATED";
+    return {
+      item_id: input.id,
+      kind: input.kind,
+      state: input.state,
+      created_at: created,
+      updated_at: updated,
+      current: invalidated
+        ? null
+        : {
+            revision_id: `${input.id}-current`,
+            text: input.text,
+            temporal_scope: input.scope,
+            uncertainty: input.uncertainty ?? null,
+            created_at: updated,
+            support: (input.support ?? []).map((turnId, index) => ({ turn_id: turnId, content: `Синтетическая запись-основание ${index + 1}: ${turnId === "active-turn-1" ? "Встреча дала энергию, но после неё сложно переключиться на отдых." : "Помогает короткая прогулка без телефона, хотя не всегда удаётся её сделать."}`, created_at: at(4), session_id: "active" })),
+            counterevidence: (input.counterevidence ?? []).map((turnId, index) => ({ turn_id: turnId, content: `Синтетический контрпример ${index + 1}: в этот раз пауза не потребовалась и всё прошло спокойно.`, created_at: at(6), session_id: "active" }))
+          },
+      challenges: (input.challenges ?? []).map((text, index) => ({ text, created_at: at(9 + index) })),
+      history
+    };
+  })
+});
+
+const previewModel = (scenario: PreviewScenario): PersonalModelView | null => {
+  if (!scenario.startsWith("PERSONAL_MODEL_")) return null;
+  if (scenario === "PERSONAL_MODEL_EARLY")
+    return modelFixture([
+      { id: "early-h1", kind: "HYPOTHESIS", state: "ACTIVE", text: "Возможно, после насыщенных встреч трудно переключаться на отдых.", scope: "UNCLEAR", uncertainty: "Пока один эпизод; недостаточно данных.", support: ["active-turn-1"] },
+      { id: "early-h2", kind: "HYPOTHESIS", state: "ACTIVE", text: "Одна из версий: короткая прогулка помогает сделать переход.", scope: "UNCLEAR", support: ["active-turn-2"] },
+      { id: "early-u1", kind: "UNKNOWN", state: "ACTIVE", text: "Неясно, зависит ли это от дня недели или усталости.", scope: "UNCLEAR", support: ["active-turn-1"] }
+    ]);
+  if (scenario === "PERSONAL_MODEL_KNOWN_USER")
+    return modelFixture([
+      { id: "known-h1", kind: "HYPOTHESIS", state: "ACTIVE", text: "Возможно, контроль становится особенно значимым, когда результат зависит от других людей.", scope: "CONTEXTUAL_PATTERN", support: ["active-turn-1", "active-turn-2"] },
+      { id: "known-p1", kind: "PATTERN", state: "ACTIVE", text: "Короткая пауза после встреч повторяется как то, что помогает восстановиться.", scope: "CROSS_PERIOD_PATTERN", support: ["active-turn-1", "active-turn-2"] },
+      { id: "known-u1", kind: "UNKNOWN", state: "ACTIVE", text: "Пока неясно, работает ли это в дни без встреч.", scope: "UNCLEAR", support: ["active-turn-2"] }
+    ]);
+  if (scenario === "PERSONAL_MODEL_COMPETING_HYPOTHESES")
+    return modelFixture([
+      { id: "competing-h1", kind: "HYPOTHESIS", state: "ACTIVE", text: "Версия А: трудности с паузой связаны с привычкой отвечать сразу.", scope: "CONTEXTUAL_PATTERN", support: ["active-turn-1"] },
+      { id: "competing-h2", kind: "HYPOTHESIS", state: "ACTIVE", text: "Версия Б: трудности с паузой связаны с остаточным возбуждением после встреч.", scope: "CONTEXTUAL_PATTERN", support: ["active-turn-2"] }
+    ]);
+  if (scenario === "PERSONAL_MODEL_COUNTEREVIDENCE")
+    return modelFixture([
+      { id: "counter-h1", kind: "HYPOTHESIS", state: "ACTIVE", text: "Возможно, вы избегаете конфликтов.", scope: "CONTEXTUAL_PATTERN", support: ["active-turn-1"], counterevidence: ["active-turn-2"], uncertainty: "Есть контрпример; версия сузилась." }
+    ]);
+  if (scenario === "PERSONAL_MODEL_REVISION")
+    return modelFixture([
+      { id: "revision-h1", kind: "HYPOTHESIS", state: "ACTIVE", text: "Общее избегание конфликтов не подтверждается; паттерн может быть специфичен для ситуаций, где от другого человека зависит значимый результат.", scope: "CONTEXTUAL_PATTERN", support: ["active-turn-1", "active-turn-2"], history: [{ text: "Возможно, вы избегаете конфликтов.", reason: "Первичная рабочая версия.", day: 2 }] }
+    ]);
+  if (scenario === "PERSONAL_MODEL_OWNER_CORRECTION")
+    return modelFixture([
+      { id: "correction-h1", kind: "HYPOTHESIS", state: "CONTESTED", text: "Возможно, вам важно всё доводить до конца самостоятельно.", scope: "UNCLEAR", support: ["active-turn-1"], challenges: ["Это было верно только для 2021–2022, сейчас я чаще прошу о помощи."] }
+    ]);
+  if (scenario === "PERSONAL_MODEL_CURRENT_VS_HISTORICAL")
+    return modelFixture([
+      { id: "historical-h1", kind: "HYPOTHESIS", state: "ACTIVE", text: "Возможно, это описывало вас раньше, но уже не описывает сейчас: ночные рабочие сессии.", scope: "HISTORICAL_CHANGED", support: ["active-turn-1"], history: [{ text: "Возможно, ночные рабочие сессии — ваша норма.", reason: "Появились данные о недавних изменениях.", day: 2 }] }
+    ]);
+  if (scenario === "PERSONAL_MODEL_CONTRADICTION")
+    return modelFixture([
+      { id: "contradiction-c1", kind: "CONTRADICTION", state: "ACTIVE", text: "Записи не сходятся: общение одновременно даёт энергию и затрудняет восстановление.", scope: "UNCLEAR", support: ["active-turn-1", "active-turn-2"] }
+    ]);
+  if (scenario === "PERSONAL_MODEL_SOURCE_DELETED")
+    return modelFixture([
+      { id: "deleted-h1", kind: "HYPOTHESIS", state: "INVALIDATED", text: "Эта версия больше не подтверждается: исходная запись удалена.", scope: "UNCLEAR", history: [{ text: "Возможно, утренние маршруты всегда занимают одинаковое время.", reason: "Первая версия.", day: 2 }] }
+    ]);
+  // PERSONAL_MODEL_RICH_20_SESSIONS: a mature, still readable model.
+  return modelFixture([
+    { id: "rich-p1", kind: "PATTERN", state: "ACTIVE", text: "Пауза после насыщенных встреч повторяется как то, что помогает восстановиться.", scope: "CROSS_PERIOD_PATTERN", support: ["active-turn-1", "active-turn-2"], created: 1, updated: 10 },
+    { id: "rich-h1", kind: "HYPOTHESIS", state: "ACTIVE", text: "Возможно, контроль особенно значим, когда результат зависит от других.", scope: "CONTEXTUAL_PATTERN", support: ["active-turn-1"], created: 2, updated: 9 },
+    { id: "rich-h2", kind: "HYPOTHESIS", state: "CONTESTED", text: "Возможно, вам важно всё доводить до конца самостоятельно.", scope: "UNCLEAR", support: ["active-turn-2"], challenges: ["Это было верно только для 2021–2022."], created: 3, updated: 8 },
+    { id: "rich-c1", kind: "CONTRADICTION", state: "ACTIVE", text: "Общение даёт энергию и одновременно затрудняет восстановление.", scope: "UNCLEAR", support: ["active-turn-1", "active-turn-2"], created: 4, updated: 10 },
+    { id: "rich-u1", kind: "UNKNOWN", state: "ACTIVE", text: "Неясно, зависит ли паттерн паузы от дня недели.", scope: "UNCLEAR", support: ["active-turn-2"], created: 5, updated: 7 },
+    { id: "rich-h3", kind: "HYPOTHESIS", state: "ACTIVE", text: "Избегание конфликтов, возможно, специфично для рабочих ситуаций.", scope: "CONTEXTUAL_PATTERN", support: ["active-turn-1"], counterevidence: ["active-turn-2"], history: [{ text: "Возможно, вы избегаете конфликтов.", reason: "Первичная версия.", day: 3 }], created: 3, updated: 9 },
+    { id: "rich-h4", kind: "HYPOTHESIS", state: "ACTIVE", text: "Ночные рабочие сессии, возможно, остались в прошлом.", scope: "HISTORICAL_CHANGED", support: ["active-turn-1"], history: [{ text: "Возможно, ночные сессии — ваша норма.", reason: "Данные о недавних изменениях.", day: 2 }], created: 2, updated: 8 }
+  ]);
+};
+
 const clone = <T>(value: T): T => structuredClone(value);
 const session = (sessionId: string, title: string, state: "ACTIVE" | "CLOSED", turns: ReflectionTurn[], day: number): ReflectionSession => ({ session_id: sessionId, title, state, turn_count: turns.length, turns, created_at: at(day), updated_at: at(day), closed_at: state === "CLOSED" ? at(day) : null });
 
 const scenarioState = (scenario: PreviewScenario): PreviewState => {
-  if (scenario === "EMPTY") return { sessions: [], explorations: new Map(), locked: false, scenario, interview: null };
-  if (scenario === "SEARCH_MANY") { const many = session("many", "Синтетический сценарий пагинации", "ACTIVE", clone(manyTurns), 3); return { sessions: [many], explorations: new Map([[many.session_id, { context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }]]), locked: false, scenario, interview: null }; }
+  if (scenario === "EMPTY") return { sessions: [], explorations: new Map(), locked: false, scenario, interview: null, model: null };
+  if (scenario === "SEARCH_MANY") { const many = session("many", "Синтетический сценарий пагинации", "ACTIVE", clone(manyTurns), 3); return { sessions: [many], explorations: new Map([[many.session_id, { context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }]]), locked: false, scenario, interview: null, model: null }; }
   const active = session("active", "Активное размышление", "ACTIVE", clone(activeTurns), 5);
   const closed = session("closed", "Завершённое размышление", "CLOSED", clone(closedTurns), 2);
-  if (scenario === "CLOSED") return { sessions: [closed], explorations: new Map([[closed.session_id, closedExploration()]]), locked: false, scenario, interview: null };
-  return { sessions: [active, closed], explorations: new Map([[active.session_id, activeExploration()], [closed.session_id, closedExploration()]]), locked: false, scenario, interview: previewInterview(scenario) };
+  if (scenario === "CLOSED") return { sessions: [closed], explorations: new Map([[closed.session_id, closedExploration()]]), locked: false, scenario, interview: null, model: null };
+  return { sessions: [active, closed], explorations: new Map([[active.session_id, activeExploration()], [closed.session_id, closedExploration()]]), locked: false, scenario, interview: previewInterview(scenario), model: previewModel(scenario) };
 };
 
 const findSession = (state: PreviewState, sessionId: string) => {
@@ -109,7 +214,7 @@ export const createPersonalBrowserPreviewApi = (scenario: PreviewScenario): Pers
   const state = scenarioState(scenario);
   const getExploration = (sessionId: string) => clone(explorationFor(state, sessionId));
   return {
-    status: async () => status(state.locked, state.interview !== null),
+    status: async () => status(state.locked, state.interview !== null || state.model !== null),
     unlock: async () => { state.locked = false; return { session_token: "synthetic-preview-only" }; },
     lock: async () => { state.locked = true; return {}; },
     reflectionCreate: async (title) => { const sessionId = `preview-${state.sessions.length + 1}`; const created = session(sessionId, title, "ACTIVE", [], 6); state.sessions.unshift(created); state.explorations.set(sessionId, { context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }); return clone(created); },
@@ -150,7 +255,15 @@ export const createPersonalBrowserPreviewApi = (scenario: PreviewScenario): Pers
     aiInterviewControl: async (_id, action, topic) => { if (!state.interview) throw new Error("SYNTHETIC_INTERVIEW_NOT_FOUND"); state.interview.state = action === "END" ? "COMPLETED" : action === "STOP" ? "PAUSED" : "ACTIVE"; if (action === "STOP" || action === "END") state.interview.consent = "ABSENT"; if (action === "CHANGE_TOPIC" && topic) state.interview.owner_topic = topic; return clone(state.interview); },
     aiInterviewGet: async () => clone(state.interview ?? previewInterview("INTERVIEW_ONBOARDING")!),
     aiInterviewDisclosure: async (attemptId) => attemptId === "synthetic-question-attempt"
-      ? { state: "SUCCEEDED", items: [{ alias: "S1", content: "Синтетическая локальная запись из более раннего размышления для визуальной проверки оснований; сеть не используется.", turn_id: "closed-turn-1", created_at: at(2), session_id: "closed", session_title: "Синтетическое прошлое размышление" }] }
-      : { state: "SUCCEEDED", items: [{ alias: "S1", content: "Синтетическая локальная запись для визуальной проверки; сеть не используется.", turn_id: "active-turn-1", created_at: at(4), session_id: "active", session_title: "Активное синтетическое размышление" }] }
+      ? { state: "SUCCEEDED", items: [{ alias: "S1", content: "Синтетическая локальная запись из более раннего размышления для визуальной проверки оснований; сеть не используется.", turn_id: "closed-turn-1", created_at: at(2), session_id: "closed", session_title: "Синтетическое прошлое размышление" }], model_items: state.model ? state.model.items.filter((item) => item.current && item.state === "ACTIVE").slice(0, 2).map((item, index) => ({ alias: `M${index + 1}`, kind: item.kind, text: item.current!.text, temporal_scope: item.current!.temporal_scope, uncertainty: item.current!.uncertainty, state: item.state })) : [] }
+      : { state: "SUCCEEDED", items: [{ alias: "S1", content: "Синтетическая локальная запись для визуальной проверки; сеть не используется.", turn_id: "active-turn-1", created_at: at(4), session_id: "active", session_title: "Активное синтетическое размышление" }] },
+    aiModelList: async () => clone(state.model ?? { items: [] }),
+    aiModelCorrect: async (itemId, content) => {
+      const target = state.model?.items.find((item) => item.item_id === itemId);
+      if (!target) throw new Error("MODEL_ITEM_NOT_FOUND");
+      target.state = "CONTESTED";
+      target.challenges = [...target.challenges, { text: content, created_at: at(11) }];
+      return clone(state.model!);
+    }
   };
 };

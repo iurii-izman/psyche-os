@@ -117,6 +117,8 @@ describe("Personal daily-use renderer", () => {
         policyCalls.push({ turnIds, enabled });
         return {};
       }),
+      aiModelList: vi.fn(async () => ({ items: [] })),
+      aiModelCorrect: vi.fn(async () => ({ items: [] })),
     } as unknown as PersonalApi;
     await mountPersonal(api, document.querySelector<HTMLDivElement>("#app")!);
     await click("Продолжить");

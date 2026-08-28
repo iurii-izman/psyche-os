@@ -139,6 +139,7 @@ fn bounded_turn(value: &str) -> Result<(), String> { if !value.trim().is_empty()
 #[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct InterviewRetryRequest { session_token: Option<String>, interview_session_id: String, answer_turn_id: String }
 #[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct InterviewControlRequest { session_token: Option<String>, interview_session_id: String, action: String, topic: Option<String> }
 #[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct InterviewDisclosureRequest { session_token: Option<String>, attempt_id: String }
+#[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct ModelCorrectionRequest { session_token: Option<String>, item_id: String, content: String }
 
 fn bind_trusted_build_id(mut status: Value) -> Result<Value, String> {
     let fields = status
@@ -198,6 +199,8 @@ interview_session_command!(desktop_ai_interview_grant_consent, "ai.interview.gra
 #[tauri::command] fn desktop_ai_interview_retry(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: InterviewRetryRequest) -> Result<Value, String> { bounded(&[&request.interview_session_id, &request.answer_turn_id])?; personal_call(&window, &state, "ai.interview.retry", request.session_token.as_deref(), json!({"interview_session_id": request.interview_session_id, "answer_turn_id": request.answer_turn_id})) }
 #[tauri::command] fn desktop_ai_interview_control(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: InterviewControlRequest) -> Result<Value, String> { bounded(&[&request.interview_session_id, &request.action])?; if let Some(topic) = &request.topic { bounded(&[topic])?; } personal_call(&window, &state, "ai.interview.control", request.session_token.as_deref(), json!({"interview_session_id": request.interview_session_id, "action": request.action, "topic": request.topic})) }
 #[tauri::command] fn desktop_ai_interview_disclosure(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: InterviewDisclosureRequest) -> Result<Value, String> { bounded(&[&request.attempt_id])?; personal_call(&window, &state, "ai.interview.disclosure", request.session_token.as_deref(), json!({"attempt_id": request.attempt_id})) }
+#[tauri::command] fn desktop_ai_model_list(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> { personal_call(&window, &state, "ai.model.list", request.session_token.as_deref(), json!({})) }
+#[tauri::command] fn desktop_ai_model_correct(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: ModelCorrectionRequest) -> Result<Value, String> { bounded(&[&request.item_id])?; bounded_turn(&request.content)?; personal_call(&window, &state, "ai.model.correct", request.session_token.as_deref(), json!({"item_id": request.item_id, "content": request.content})) }
 
 pub fn run() {
     tauri::Builder::default().manage(DesktopState { sidecar: Mutex::new(None) }).invoke_handler(tauri::generate_handler![
@@ -205,7 +208,7 @@ pub fn run() {
         desktop_exploration_start, desktop_exploration_get, desktop_exploration_answer, desktop_exploration_skip, desktop_formulation_propose, desktop_formulation_correct, desktop_formulation_accept, desktop_formulation_reject,
         desktop_personal_backup, desktop_personal_restore_isolated, desktop_personal_export_owner, desktop_personal_rotate, desktop_personal_recovery_status,
         desktop_ai_provider_status, desktop_ai_provider_configure, desktop_ai_provider_delete, desktop_ai_formulation_prepare, desktop_ai_formulation_execute,
-        desktop_ai_interview_status, desktop_ai_interview_policy, desktop_ai_interview_source_policy, desktop_ai_interview_start, desktop_ai_interview_list, desktop_ai_interview_grant_consent, desktop_ai_interview_revoke_consent, desktop_ai_interview_first_question, desktop_ai_interview_submit, desktop_ai_interview_retry, desktop_ai_interview_control, desktop_ai_interview_get, desktop_ai_interview_disclosure
+        desktop_ai_interview_status, desktop_ai_interview_policy, desktop_ai_interview_source_policy, desktop_ai_interview_start, desktop_ai_interview_list, desktop_ai_interview_grant_consent, desktop_ai_interview_revoke_consent, desktop_ai_interview_first_question, desktop_ai_interview_submit, desktop_ai_interview_retry, desktop_ai_interview_control, desktop_ai_interview_get, desktop_ai_interview_disclosure, desktop_ai_model_list, desktop_ai_model_correct
     ]).setup(|app| { WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into())).title("PSYCHE OS Personal").inner_size(1180.0, 780.0).min_inner_size(820.0, 600.0).devtools(false).build()?; Ok(()) }).run(tauri::generate_context!()).expect("Personal desktop host failed");
 }
 

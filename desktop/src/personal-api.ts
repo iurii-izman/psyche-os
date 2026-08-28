@@ -154,6 +154,42 @@ export interface ExplorationView {
     updated_at?: string;
   }[];
 }
+export interface ModelRevision {
+  ordinal: number;
+  kind: string;
+  text: string;
+  temporal_scope: string;
+  revision_reason: string | null;
+  status: "CURRENT" | "SUPERSEDED" | "INVALIDATED";
+  created_at: string;
+}
+export interface ModelSourceExcerpt {
+  turn_id: string;
+  content: string;
+  created_at: string;
+  session_id?: string;
+}
+export interface ModelItem {
+  item_id: string;
+  kind: "HYPOTHESIS" | "PATTERN" | "CONTRADICTION" | "UNKNOWN";
+  state: "ACTIVE" | "CONTESTED" | "RESOLVED" | "INVALIDATED";
+  created_at: string;
+  updated_at: string;
+  current: {
+    revision_id: string;
+    text: string;
+    temporal_scope: string;
+    uncertainty: string | null;
+    created_at: string;
+    support: ModelSourceExcerpt[];
+    counterevidence: ModelSourceExcerpt[];
+  } | null;
+  challenges: { text: string; created_at: string }[];
+  history: ModelRevision[];
+}
+export interface PersonalModelView {
+  items: ModelItem[];
+}
 export interface InterviewQuestion {
   question_id: string;
   question: string;
@@ -336,9 +372,20 @@ export const personalApi = {
         session_id?: string;
         session_title?: string;
       }[];
+      model_items?: {
+        alias: string;
+        kind: string;
+        text: string;
+        temporal_scope: string;
+        uncertainty: string | null;
+        state: string;
+      }[];
     }>(
       "desktop_ai_interview_disclosure",
       { attemptId },
     ),
+  aiModelList: () => call<PersonalModelView>("desktop_ai_model_list"),
+  aiModelCorrect: (itemId: string, content: string) =>
+    call<PersonalModelView>("desktop_ai_model_correct", { itemId, content }),
 };
 export type PersonalApi = typeof personalApi;
