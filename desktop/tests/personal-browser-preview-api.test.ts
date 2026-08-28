@@ -71,12 +71,38 @@ describe("Personal browser preview API", () => {
     expect((await active.status()).runtime_profile).toBe("LOCAL_PERSONAL_AI_INTERVIEW_OPENAI");
     const view = (await active.aiInterviewList()).sessions[0];
     expect(view?.current_question?.basis_aliases).toEqual(["S1"]);
+    expect(view?.current_question?.attempt_id).toBe("synthetic-question-attempt");
+    expect(view?.source_session_id).toBe("active");
     expect((await active.aiInterviewStatus()).profile_id).toBe("synthetic-no-network");
+
+    const basis = await active.aiInterviewDisclosure("synthetic-question-attempt");
+    expect(basis.items[0]?.content).toContain("Синтетическая");
+    expect(basis.items[0]?.created_at).toBeTruthy();
+    expect(basis.items[0]?.session_id).toBe("closed");
+    expect(basis.items[0]?.session_title).toBeTruthy();
 
     const end = createPersonalBrowserPreviewApi("INTERVIEW_END_RECOMMENDED");
     expect((await end.aiInterviewList()).sessions[0]?.state).toBe("END_RECOMMENDED");
     const retry = createPersonalBrowserPreviewApi("INTERVIEW_RETRYABLE_FAILURE");
     expect((await retry.aiInterviewList()).sessions[0]?.attempts[0]?.state).toBe("OUTCOME_UNKNOWN");
     expect((await retry.aiInterviewDisclosure("synthetic-disclosure")).items[0]?.content).toContain("Синтетическая");
+  });
+
+  it("changes the topic of the existing synthetic interview instead of creating a hidden parallel session", async () => {
+    const api = createPersonalBrowserPreviewApi("INTERVIEW_ACTIVE");
+    const before = (await api.aiInterviewList()).sessions[0];
+    const after = await api.aiInterviewControl(before!.interview_session_id, "CHANGE_TOPIC", "Синтетическая новая тема");
+    expect(after.interview_session_id).toBe(before!.interview_session_id);
+    expect(after.owner_topic).toBe("Синтетическая новая тема");
+    expect((await api.aiInterviewList()).sessions).toHaveLength(1);
+  });
+
+  it("applies the whole-reflection source policy as exact per-turn turn ids", async () => {
+    const api = createPersonalBrowserPreviewApi("INTERVIEW_ACTIVE");
+    const sessions = (await api.reflectionList()).sessions;
+    const userTurnIds = sessions.flatMap((item) => (item.turns ?? []).filter((turn) => turn.actor === "USER").map((turn) => turn.turn_id));
+    expect(userTurnIds.length).toBeGreaterThan(0);
+    await expect(api.aiInterviewSourcePolicy(userTurnIds, true)).resolves.toEqual({});
+    await expect(api.aiInterviewSourcePolicy(userTurnIds, false)).resolves.toEqual({});
   });
 });

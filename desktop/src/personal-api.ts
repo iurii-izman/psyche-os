@@ -160,6 +160,7 @@ export interface InterviewQuestion {
   rationale: string;
   decision: "ASK" | "END_RECOMMENDED";
   basis_aliases: string[];
+  attempt_id?: string | null;
 }
 export interface InterviewView {
   interview_session_id: string;
@@ -168,6 +169,7 @@ export interface InterviewView {
   summary: string | null;
   next_direction: string | null;
   consent: "ABSENT" | "ACTIVE_IN_MEMORY";
+  source_session_id?: string | null;
   current_question: InterviewQuestion | null;
   attempts: {
     attempt_id: string;
@@ -175,6 +177,8 @@ export interface InterviewView {
     answer_turn_id: string | null;
     error_code: string | null;
   }[];
+  session_trail?: { actor: "PSYCHE" | "YOU"; text: string; created_at: string }[];
+  derived_items?: { item_id: string; kind: string; text: string; priority: number; created_at: string }[];
 }
 
 let sessionToken: string | null = null;
@@ -278,7 +282,7 @@ export const personalApi = {
   aiFormulationExecute: (interactionId: string, previewId: string) =>
     call("desktop_ai_formulation_execute", { interactionId, previewId }),
   aiInterviewStatus: () =>
-    call<{ configured: boolean; policy_enabled: boolean; profile_id: string }>(
+    call<{ configured: boolean; policy_enabled: boolean; profile_id: string; eligible_source_count: number }>(
       "desktop_ai_interview_status",
     ),
   aiInterviewPolicy: (enabled: boolean) =>
@@ -322,7 +326,17 @@ export const personalApi = {
   aiInterviewGet: (interviewSessionId: string) =>
     call<InterviewView>("desktop_ai_interview_get", { interviewSessionId }),
   aiInterviewDisclosure: (attemptId: string) =>
-    call<{ state: string; items: { alias: string; content: string }[] }>(
+    call<{
+      state: string;
+      items: {
+        alias: string;
+        content: string;
+        turn_id?: string;
+        created_at?: string;
+        session_id?: string;
+        session_title?: string;
+      }[];
+    }>(
       "desktop_ai_interview_disclosure",
       { attemptId },
     ),

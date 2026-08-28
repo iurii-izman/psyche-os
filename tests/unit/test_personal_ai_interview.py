@@ -270,6 +270,10 @@ def test_current_answer_gets_explicit_session_consent_policy_and_retry_keeps_exa
     assert receipt["items"][0]["turn_id"] == answer
     assert receipt["transmission"] == "SENT"
     assert provider.last_context["sources"][0]["policy_id"] == receipt["items"][0]["policy_id"]
+    item = receipt["items"][0]
+    assert item["created_at"]
+    assert item["session_id"]
+    assert item["session_title"]
 
 
 def test_never_cloud_and_third_party_policy_axes_fail_closed_despite_consent() -> None:
@@ -314,6 +318,29 @@ def test_bounded_planner_carries_topic_controls_and_only_eligible_derived_inquir
     value.control(session_id, "SKIP")
     value.request_first_question(session_id)
     assert provider.last_context["inquiry"] == ()
+
+
+def test_thin_history_uses_local_onboarding_mode_and_session_trail_keeps_roles_distinct() -> None:
+    value, _reflection, provider = service()
+    session_id = ready(value)
+    value.request_first_question(session_id)
+    assert any(item["kind"] == "ONBOARDING" for item in provider.last_context["planning"])
+    value.submit(session_id, "trail-answer", "Синтетический ответ о текущей ситуации.")
+    trail = value.get(session_id)["session_trail"]
+    assert {item["actor"] for item in trail} == {"PSYCHE", "YOU"}
+
+
+def test_exact_normalized_duplicate_inquiry_item_is_not_accumulated() -> None:
+    value, reflection, provider = service()
+    source = historical_turn(reflection, "Synthetic duplicate support")
+    session_id = ready(value)
+    value.set_source_policy([source], True)
+    value.request_first_question(session_id)
+    value.control(session_id, "SKIP")
+    value.request_first_question(session_id)
+    assert reflection.connection.execute(
+        "SELECT count(*) FROM interview_inquiry_items WHERE kind='THEME'"
+    ).fetchone()[0] == 1
 
 
 def test_exact_derivation_basis_and_source_deletion_remove_dependent_meaning() -> None:

@@ -21,7 +21,7 @@ from psyche_os.policy.engine import (
 
 PROFILE_ID = "local_personal_ai_interview_openai_windows_v1"
 MODEL = "gpt-5.6-luna"
-CONFIG_ID = "personal-ai-interview-v1-conservative-12-8000"
+CONFIG_ID = "personal-ai-interview-v1-1-daily-use-12-8000"
 SCHEMA_ID = "personal-ai-interview-output-v1"
 PURPOSE = "personal_ai_interview"
 MAX_SOURCE_ITEMS, MAX_SOURCE_CHARS, MAX_INQUIRY_ITEMS, MAX_CONTEXT_CHARS = 12, 8000, 8, 8000
@@ -53,6 +53,11 @@ def _safe(value: str) -> str:
     return value
 
 
+def _canonical_inquiry_text(value: str) -> str:
+    """Deliberately narrow duplicate key; this is not semantic/fuzzy merging."""
+    return " ".join(value.casefold().split())
+
+
 @dataclass(frozen=True, slots=True)
 class ConsentCapability:
     session_id: str
@@ -73,6 +78,10 @@ class PersonalAIInterviewService:
         row = self._reflection.connection.execute(
             "SELECT enabled,updated_at FROM interview_policy WHERE policy_id='personal_ai_interview_v1'"
         ).fetchone()
+        eligible = self._reflection.connection.execute(
+            "SELECT count(*) FROM interview_source_policies WHERE enabled=1 AND purpose=? AND provider_profile=?",
+            (PURPOSE, PROFILE_ID),
+        ).fetchone()[0]
         return {
             "provider": "OpenAI",
             "profile_id": PROFILE_ID,
@@ -86,6 +95,7 @@ class PersonalAIInterviewService:
                 "max_source_chars": MAX_SOURCE_CHARS,
                 "max_context_chars": MAX_CONTEXT_CHARS,
             },
+            "eligible_source_count": int(eligible),
         }
 
     def set_policy(self, enabled: Any) -> dict[str, Any]:
@@ -170,7 +180,10 @@ class PersonalAIInterviewService:
         )
         return {
             "sessions": [
-                dict(zip(names, row, strict=True))
+                {
+                    **dict(zip(names, row, strict=True)),
+                    "derived_items": self._derived_items(str(row[0])),
+                }
                 for row in self._reflection.connection.execute(
                     "SELECT interview_session_id,state,owner_topic,summary,next_direction,created_at,updated_at,ended_at FROM interview_sessions ORDER BY updated_at DESC"
                 )
@@ -310,13 +323,13 @@ class PersonalAIInterviewService:
             else "NOT_SENT"
         )
         items = self._reflection.connection.execute(
-            "SELECT m.alias,m.turn_id,m.policy_id,m.ordinal,m.char_count,t.content FROM interview_attempt_manifest_items m JOIN reflection_turns t ON t.turn_id=m.turn_id WHERE m.attempt_id=? ORDER BY m.ordinal",
+            "SELECT m.alias,m.turn_id,m.policy_id,m.ordinal,m.char_count,t.content,t.created_at,t.session_id,s.title FROM interview_attempt_manifest_items m JOIN reflection_turns t ON t.turn_id=m.turn_id JOIN reflection_sessions s ON s.session_id=t.session_id WHERE m.attempt_id=? ORDER BY m.ordinal",
             (attempt_id,),
         ).fetchall()
         result["items"] = [
             dict(
                 zip(
-                    ("alias", "turn_id", "policy_id", "ordinal", "char_count", "content"),
+                    ("alias", "turn_id", "policy_id", "ordinal", "char_count", "content", "created_at", "session_id", "session_title"),
                     item,
                     strict=True,
                 )
@@ -395,7 +408,35 @@ class PersonalAIInterviewService:
             for item in attempts
         ]
         result["consent"] = "ACTIVE_IN_MEMORY" if session_id in self._consents else "ABSENT"
+        result["session_trail"] = self._session_trail(session_id)
+        result["derived_items"] = self._derived_items(session_id)
         return result
+
+    def _session_trail(self, session_id: str) -> list[dict[str, str]]:
+        """Small local-only trail: questions remain derived, answers remain sources."""
+        rows = self._reflection.connection.execute(
+            "SELECT 'PSYCHE' AS actor,q.question,q.created_at FROM interview_questions q WHERE q.interview_session_id=? "
+            "UNION ALL "
+            "SELECT 'YOU' AS actor,t.content,t.created_at FROM interview_submissions s JOIN reflection_turns t ON t.turn_id=s.turn_id WHERE s.interview_session_id=? "
+            "ORDER BY created_at DESC LIMIT 8",
+            (session_id, session_id),
+        ).fetchall()
+        return [
+            {"actor": str(actor), "text": str(text), "created_at": str(created_at)}
+            for actor, text, created_at in reversed(rows)
+        ]
+
+    def _derived_items(self, session_id: str) -> list[dict[str, Any]]:
+        rows = self._reflection.connection.execute(
+            "SELECT item_id,kind,text,priority,created_at,derivation_id FROM interview_inquiry_items "
+            "WHERE interview_session_id=? AND state='ACTIVE' ORDER BY priority DESC,created_at DESC,item_id ASC LIMIT 8",
+            (session_id,),
+        ).fetchall()
+        return [
+            {"item_id": str(item_id), "kind": str(kind), "text": str(text), "priority": int(priority), "created_at": str(created_at)}
+            for item_id, kind, text, priority, created_at, derivation_id in rows
+            if self._derivation_eligible(str(derivation_id))
+        ]
 
     def _exists(self, session_id: str) -> bool:
         return (
@@ -554,6 +595,8 @@ class PersonalAIInterviewService:
         ).fetchone()
         if session and session[0]:
             planning.append({"kind": "OWNER_TOPIC", "text": str(session[0])})
+        if not sources:
+            planning.append({"kind": "ONBOARDING", "text": "Little eligible history is available; begin with one meaningful current issue, transition, pattern, value tension, or concrete life domain."})
         question = self._reflection.connection.execute(
             "SELECT question,status,derivation_id FROM interview_questions WHERE interview_session_id=? ORDER BY created_at DESC LIMIT 1",
             (session_id,),
@@ -751,7 +794,17 @@ class PersonalAIInterviewService:
                         "INSERT INTO interview_question_basis VALUES(?,?,?)",
                         (question_id, alias, by_alias[alias]["turn_id"]),
                     )
+            active_items = {
+                (str(kind), _canonical_inquiry_text(str(text)))
+                for kind, text in c.execute(
+                    "SELECT kind,text FROM interview_inquiry_items WHERE state='ACTIVE'"
+                )
+            }
             for item in value["inquiry_items"]:
+                # Conservative deterministic hygiene: only exact normalized duplicates
+                # are suppressed. Ambiguous similarities remain distinct evidence.
+                if (item["kind"], _canonical_inquiry_text(item["text"])) in active_items:
+                    continue
                 c.execute(
                     "INSERT INTO interview_inquiry_items VALUES(?,?,?,?,?,?,?,?,?)",
                     (
@@ -766,6 +819,7 @@ class PersonalAIInterviewService:
                         now,
                     ),
                 )
+                active_items.add((item["kind"], _canonical_inquiry_text(item["text"])))
             state = "END_RECOMMENDED" if value["decision"] == "END_RECOMMENDED" else "ACTIVE"
             summary_id = derivation_id if value["summary"] is not None else None
             direction_id = derivation_id if value["next_direction"] is not None else None
