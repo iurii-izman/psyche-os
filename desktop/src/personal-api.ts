@@ -175,6 +175,8 @@ export interface InterviewView {
     answer_turn_id: string | null;
     error_code: string | null;
   }[];
+  session_trail?: { actor: "PSYCHE" | "YOU"; text: string; created_at: string }[];
+  derived_items?: { item_id: string; kind: string; text: string; priority: number; created_at: string }[];
 }
 
 let sessionToken: string | null = null;
@@ -278,7 +280,7 @@ export const personalApi = {
   aiFormulationExecute: (interactionId: string, previewId: string) =>
     call("desktop_ai_formulation_execute", { interactionId, previewId }),
   aiInterviewStatus: () =>
-    call<{ configured: boolean; policy_enabled: boolean; profile_id: string }>(
+    call<{ configured: boolean; policy_enabled: boolean; profile_id: string; eligible_source_count: number }>(
       "desktop_ai_interview_status",
     ),
   aiInterviewPolicy: (enabled: boolean) =>

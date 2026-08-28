@@ -67,7 +67,8 @@ export async function mountPersonal(
     sessions: ReflectionSession[] = [],
     current: ReflectionSession | null = null,
     exploration: ExplorationView | null = null,
-    interview: InterviewView | null = null;
+    interview: InterviewView | null = null,
+    interviewSessions: InterviewView[] = [];
   let route: Route = "home",
     notice = "",
     recovery: Record<string, unknown> | null = null,
@@ -76,6 +77,7 @@ export async function mountPersonal(
     longitudinalPeriod: LongitudinalPeriod = "30d",
     busy = false,
     aiConfigured: boolean | null = null,
+    interviewEligibility: number | null = null,
     sourceTurnId: string | null = null,
     showContextPack = false;
   type SearchFilters = {
@@ -124,11 +126,16 @@ export async function mountPersonal(
       sessions = (await api.reflectionList()).sessions;
       if (nextStatus.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI") {
         const listed = await api.aiInterviewList();
-        if (!interview)
-          interview =
+        interviewSessions = listed.sessions;
+        if (!interview) {
+          const selected =
             listed.sessions.find((item) => item.state !== "COMPLETED") ??
             listed.sessions[0] ??
             null;
+          interview = selected
+            ? await api.aiInterviewGet(selected.interview_session_id)
+            : null;
+        }
       }
       sensemaking = null;
     }
@@ -401,9 +408,10 @@ export async function mountPersonal(
       ),
       interviewCard =
         status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI"
-          ? `<section class="card daily-review"><p>AI-ИССЛЕДОВАНИЕ</p><h2>${interview && interview.state !== "COMPLETED" ? "Продолжить исследование" : "Начать AI-сессию"}</h2><p>PSYCHE задаёт один вопрос за раз. Ваши ответы сохраняются локально как источники; AI-выводы остаются предложениями.</p><button data-route="interview" class="primary">${interview && interview.state !== "COMPLETED" ? "Продолжить исследование" : "Начать AI-сессию"}</button></section>`
+          ? `<section class="card daily-review inquiry-primary"><p>AI-ИССЛЕДОВАНИЕ</p><h2>${interview && interview.state !== "COMPLETED" ? "Продолжить исследование" : "Начать исследование"}</h2><p>${interview?.next_direction ? `Полезно вернуться к: ${escape(interview.next_direction)}` : interview?.owner_topic ? `Продолжим выбранную тему: ${escape(interview.owner_topic)}` : "PSYCHE задаёт один вопрос за раз и постепенно проясняет важное — без анкеты и без спешки."}</p><p class="provenance-note">Ваши ответы сохраняются локально как источники; выводы AI — рабочие предложения.</p><button data-route="interview" class="primary">${interview && interview.state !== "COMPLETED" ? "Продолжить" : "Начать AI-сессию"}</button>${!interview || interview.state === "COMPLETED" ? '<button id="home-start-topic">Есть тема, о которой хочу поговорить</button>' : '<button id="home-new-topic">Начать с другой темы</button>'}</section>`
           : "";
-    return `<main class="product-shell home-shell">${nav()}<section class="product-home compact-heading"><p>PERSONAL</p><h1>Сегодня</h1><p>Запишите то, к чему хотите вернуться.</p></section>${interviewCard}<section class="card quick-capture"><p>БЫСТРАЯ ЗАПИСЬ</p><h2>Сохранить мысль</h2><form id="quick-capture-form"><label>Название (необязательно) <input id="quick-capture-title" maxlength="160" placeholder="Короткая заметка" autofocus /></label><label>Текст <textarea id="quick-capture-text" required maxlength="12000" placeholder="Напишите то, что хотите сохранить…"></textarea></label><button class="primary">Сохранить</button></form></section><section class="card daily-review"><div><p>КАРТИНА</p><h2>Ваши записи и выводы</h2></div><div class="review-counts"><span>${active.length} активных размышлений</span><span>${currentFormulations} текущих формулировок</span><span>${unknowns} неясного</span><span>${contradictions} противоречий</span></div><button data-route="sensemaking" class="primary">Открыть картину</button><button data-route="longitudinal">Посмотреть изменения за 30 дней</button></section><section class="card recent-card"><p>НЕДАВНЕЕ</p><h2>Ваши размышления</h2>${recent.length ? recent.map(sessionRow).join("") : "<p>Первая запись появится здесь.</p>"}<button data-route="history">Открыть историю</button></section>${noticeMarkup()}</main>`;
+    const homeLead = status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? "Что сейчас полезно исследовать?" : "Запишите то, к чему хотите вернуться.";
+    return `<main class="product-shell home-shell">${nav()}<section class="product-home compact-heading"><p>PERSONAL</p><h1>Сегодня</h1><p>${homeLead}</p></section>${interviewCard}<section class="card quick-capture"><p>БЫСТРАЯ ЗАПИСЬ</p><h2>Сохранить мысль</h2><form id="quick-capture-form"><label>Название (необязательно) <input id="quick-capture-title" maxlength="160" placeholder="Короткая заметка" autofocus /></label><label>Текст <textarea id="quick-capture-text" required maxlength="12000" placeholder="Напишите то, что хотите сохранить…"></textarea></label><button class="primary">Сохранить</button></form></section><section class="card daily-review"><div><p>КАРТИНА</p><h2>Ваши записи и выводы</h2></div><div class="review-counts"><span>${active.length} активных размышлений</span><span>${currentFormulations} текущих формулировок</span><span>${unknowns} неясного</span><span>${contradictions} противоречий</span></div><button data-route="sensemaking" class="primary">Открыть картину</button><button data-route="longitudinal">Посмотреть изменения за 30 дней</button></section><section class="card recent-card"><p>НЕДАВНЕЕ</p><h2>Ваши размышления</h2>${recent.length ? recent.map(sessionRow).join("") : "<p>Первая запись появится здесь.</p>"}<button data-route="history">Открыть историю</button></section>${noticeMarkup()}</main>`;
   };
 
   const interviewMarkup = () => {
@@ -417,14 +425,17 @@ export async function mountPersonal(
       interview.consent === "ACTIVE_IN_MEMORY"
         ? "Согласие активно только в памяти этого запуска."
         : "Передача выключена до явного согласия.";
+    const trail = interview.session_trail?.length
+      ? `<details class="card session-trail"><summary>Ход этой сессии · ${interview.session_trail.length}</summary>${interview.session_trail.map((item) => `<article class="session-turn ${item.actor === "PSYCHE" ? "derived" : ""}"><strong>${item.actor === "PSYCHE" ? "PSYCHE спросил" : "ВЫ ответили"}</strong><p>${escape(item.text)}</p></article>`).join("")}</details>`
+      : "";
     const main = question
-      ? `<section class="card"><p>PSYCHE · ОДИН ВОПРОС</p><h1>${escape(question.question)}</h1><details><summary>Почему этот вопрос?</summary><p>${escape(question.rationale)}</p></details><form id="interview-answer"><label>Ваш ответ <textarea id="interview-answer-text" required maxlength="12000"></textarea></label><button class="primary">Ответить</button></form><div class="formulation-controls"><button data-interview-control="SKIP">Пропустить</button><button data-interview-control="DECLINE">Не хочу обсуждать</button><button data-interview-control="CHANGE_TOPIC">Сменить тему</button><button data-interview-control="STOP" class="danger">Остановить</button></div></section>`
+      ? `<section class="card interview-focus"><p>PSYCHE · ОДИН ВОПРОС</p><h1>${escape(question.question)}</h1><details><summary>Почему этот вопрос?</summary><p>${escape(question.rationale)}</p></details><details><summary>Показать основания</summary><p>Основания: ${question.basis_aliases.length ? question.basis_aliases.map(escape).join(", ") : "текущая сессия и выбранное направление"}. Точные выдержки доступны в раскрытии передачи ниже.</p></details><form id="interview-answer"><label>Ваш ответ <textarea id="interview-answer-text" required maxlength="12000"></textarea></label><button class="primary">Ответить</button></form><div class="formulation-controls"><button data-interview-control="SKIP">Пропустить</button><button data-interview-control="DECLINE">Не хочу обсуждать</button><button data-interview-control="CHANGE_TOPIC">Сменить тему</button><button data-interview-control="STOP" class="danger">Остановить</button></div></section>`
       : `<section class="card"><p>${escape(consent)}</p><button id="${interview.consent === "ACTIVE_IN_MEMORY" ? "interview-next" : "interview-consent"}" class="primary">${interview.consent === "ACTIVE_IN_MEMORY" ? "Продолжить исследование" : "Показать согласие и продолжить"}</button></section>`;
     const end =
       interview.state === "END_RECOMMENDED"
-        ? `<section class="card"><p>РЕКОМЕНДАЦИЯ AI · НЕ РЕШЕНИЕ ЗА ВАС</p><h2>${escape(interview.summary ?? "Можно завершить эту линию на сейчас.")}</h2><p>${escape(interview.next_direction ?? "Следующее направление сохранено локально.")}</p><button data-interview-control="END" class="primary">Завершить</button><button data-interview-control="CONTINUE">Продолжить</button></section>`
+        ? `<section class="card interview-result"><p>РЕКОМЕНДАЦИЯ AI · НЕ РЕШЕНИЕ ЗА ВАС</p><h2>Что стало яснее</h2><p>${escape(interview.summary ?? "Можно завершить эту линию на сейчас.")}</p><h3>Что вы рассказали</h3><p>Ваши ответы остаются отдельными локальными источниками — их можно увидеть в ходе сессии.</p><h3>Рабочие предположения · НЕ ФАКТ</h3>${(interview.derived_items ?? []).filter((item) => item.kind === "HYPOTHESIS").map((item) => `<p>${escape(item.text)}</p>`).join("") || "<p>Новых рабочих предположений не сохранено.</p>"}<h3>Противоречия / неизвестное</h3>${(interview.derived_items ?? []).filter((item) => item.kind === "CONTRADICTION" || item.kind === "UNKNOWN").map((item) => `<p>${escape(item.text)}</p>`).join("") || "<p>Новых открытых пунктов не сохранено.</p>"}<h3>К чему вернуться</h3><p>${escape(interview.next_direction ?? "Следующее направление сохранено локально.")}</p><button data-interview-control="END" class="primary">Завершить</button><button data-interview-control="CONTINUE">Продолжить</button></section>`
         : "";
-    return `<main class="product-shell">${nav()}<section class="product-home"><p>AI-ИССЛЕДОВАНИЕ</p><h1>Исследование</h1><p>${escape(consent)} Всё хранилище не передаётся; фоновых вызовов нет.</p></section>${end}${main}${disclosure ? `<section class="card">${disclosure}<div id="interview-disclosure"></div></section>` : ""}${noticeMarkup()}</main>`;
+    return `<main class="product-shell">${nav()}<section class="product-home"><p>AI-ИССЛЕДОВАНИЕ</p><h1>Исследование</h1><p>${escape(consent)} Всё хранилище не передаётся; фоновых вызовов нет.</p></section>${end}${main}${trail}${disclosure ? `<section class="card">${disclosure}<div id="interview-disclosure"></div></section>` : ""}${noticeMarkup()}</main>`;
   };
   const historyMarkup = () =>
     `<main class="product-shell">${nav()}<section class="product-home"><p>ЛИЧНЫЕ ЗАПИСИ</p><h1>История</h1><p>Недавние записи — в начале списка.</p></section><section class="card sessions-card">${ordered().length ? ordered().map(sessionRow).join("") : "<p>История пока пуста. Начните с быстрой записи.</p>"}</section>${noticeMarkup()}</main>`;
@@ -550,8 +561,9 @@ export async function mountPersonal(
         ),
       )
       .join("");
-    const hasMaterial = bundles.length > 0;
-    return `<main class="product-shell">${nav()}<section class="product-home"><p>PERSONAL</p><h1>Картина</h1><p>Здесь источник, выводы и неясность показаны отдельно. AI-предложения не являются фактами.</p></section>${hasMaterial ? `<div class="sensemaking">${senseSection("Исходные записи", sourceRecords(bundles), "Исходные размышления появятся после первой записи.")}${senseSection("Что я сообщил", reported(bundles), "В записях пока нет исходного текста.")}${senseSection("Неизвестно", contexts("UNKNOWN"), "Пока нет открытых неясностей.")}${senseSection("Противоречия", contexts("CONTRADICTION"), "Пока нет отмеченных противоречий.")}${senseSection("Рабочие предположения", hypotheses, "Рабочих предположений пока нет — они появляются после исследования записи.")}${senseSection("Рабочие формулировки", formulations, "Рабочие формулировки появятся после исследования записи.")}${senseSection("Исправления и история", chronology, "История изменений появится вместе с формулировками.")}</div>` : `<section class="card calm-empty"><h2>Картина появится постепенно</h2><p>Сохраните размышление, чтобы видеть исходный текст, вопросы и рабочие формулировки отдельно.</p></section>`}${noticeMarkup()}</main>`;
+    const interviewDerived = interviewSessions.flatMap((session) => (session.derived_items ?? []).map((item) => `<article class="derived is-ai-proposal"><p>${item.kind === "HYPOTHESIS" ? "РАБОЧЕЕ ПРЕДПОЛОЖЕНИЕ · НЕ ФАКТ" : `AI-ИССЛЕДОВАНИЕ · ${escape(item.kind)}`}</p><p>${escape(item.text)}</p><small>${escape(dateLabel(item.created_at))} · производное из AI-сессии, основания доступны в сессии.</small></article>`)).join("");
+    const hasMaterial = bundles.length > 0 || interviewDerived.length > 0;
+    return `<main class="product-shell">${nav()}<section class="product-home"><p>PERSONAL</p><h1>Картина</h1><p>Здесь источник, выводы и неясность показаны отдельно. AI-предложения не являются фактами.</p></section>${hasMaterial ? `<div class="sensemaking">${interviewDerived ? senseSection("Из AI-исследований", interviewDerived, "") : ""}${senseSection("Исходные записи", sourceRecords(bundles), "Исходные размышления появятся после первой записи.")}${senseSection("Что я сообщил", reported(bundles), "В записях пока нет исходного текста.")}${senseSection("Неизвестно", contexts("UNKNOWN"), "Пока нет открытых неясностей.")}${senseSection("Противоречия", contexts("CONTRADICTION"), "Пока нет отмеченных противоречий.")}${senseSection("Рабочие предположения", hypotheses, "Рабочих предположений пока нет — они появляются после исследования записи.")}${senseSection("Рабочие формулировки", formulations, "Рабочие формулировки появятся после исследования записи.")}${senseSection("Исправления и история", chronology, "История изменений появится вместе с формулировками.")}</div>` : `<section class="card calm-empty"><h2>Картина появится постепенно</h2><p>Сохраните размышление, чтобы видеть исходный текст, вопросы и рабочие формулировки отдельно.</p></section>`}${noticeMarkup()}</main>`;
   };
   const longitudinalMarkup = () => {
     const view = buildPersonalLongitudinal(
@@ -646,7 +658,8 @@ export async function mountPersonal(
     const ai =
       status?.runtime_profile === "LOCAL_PERSONAL_BOUNDED_OPENAI" ||
       status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI";
-    return `<main class="product-shell">${nav()}<section class="product-home"><p>PERSONAL</p><h1>Настройки</h1><p>Состояние локального режима и инструменты восстановления.</p></section><section class="card settings-card"><p>ПРИВАТНОСТЬ И ЛОКАЛЬНЫЙ РЕЖИМ</p><h2>Ваши данные остаются под вашим контролем</h2><dl class="friendly-status"><dt>Обработка данных</dt><dd>Локально${ai ? " — по умолчанию" : ""}</dd><dt>Облачная передача</dt><dd>${ai ? "OpenAI — только после явного подтверждения" : "Отключена"}</dd><dt>Сетевые подключения</dt><dd>${ai ? "Только один подтверждённый запрос OpenAI" : "Отключены"}</dd><dt>Фоновая передача</dt><dd>Отключена</dd><dt>Телеметрия</dt><dd>Отключена</dd></dl>${ai ? `<section><h2>OpenAI</h2><p>${aiConfigured ? "Настроен" : "Не настроен"}</p><form id="ai-key-form"><label>${aiConfigured ? "Заменить ключ" : "Настроить ключ"}<input id="ai-key" type="password" required autocomplete="off" /></label><button>Сохранить ключ</button></form>${aiConfigured ? '<button id="ai-key-delete" class="danger">Удалить ключ</button>' : ""}</section>` : ""}<details><summary>Технические сведения</summary><dl><dt>Идентификатор сборки</dt><dd>${escape(status?.build_id ?? "Недоступен")}</dd><dt>Профиль</dt><dd>${escape(status?.runtime_profile)}</dd><dt>REAL_DATA_GATE</dt><dd>${escape(status?.real_data_gate)}</dd><dt>Сеть</dt><dd>${escape(status?.network)}</dd><dt>Входящий слушатель</dt><dd>${escape(status?.inbound_listener)}</dd><dt>Провайдер</dt><dd>${escape(status?.outbound_provider)}</dd></dl></details></section>${noticeMarkup()}</main>`;
+    const historyPermission = status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? `<section class="card"><p>AI-ИССЛЕДОВАНИЕ · ИСТОРИЧЕСКИЙ КОНТЕКСТ</p><h2>Какие прошлые записи AI-сессия может использовать</h2><p>${interviewEligibility === null ? "Проверяем локальные разрешения…" : `Сейчас разрешено: ${interviewEligibility} записей.`} Выберите или отзовите конкретные записи в их карточках истории. Невыбранные записи остаются локальными; разрешение действует только для этой цели и OpenAI.</p><button data-route="history">Открыть историю и выбрать записи</button></section>` : "";
+    return `<main class="product-shell">${nav()}<section class="product-home"><p>PERSONAL</p><h1>Настройки</h1><p>Состояние локального режима и инструменты восстановления.</p></section><section class="card settings-card"><p>ПРИВАТНОСТЬ И ЛОКАЛЬНЫЙ РЕЖИМ</p><h2>Ваши данные остаются под вашим контролем</h2><dl class="friendly-status"><dt>Обработка данных</dt><dd>Локально${ai ? " — по умолчанию" : ""}</dd><dt>Облачная передача</dt><dd>${ai ? "OpenAI — только после явного подтверждения" : "Отключена"}</dd><dt>Сетевые подключения</dt><dd>${ai ? "Только один подтверждённый запрос OpenAI" : "Отключены"}</dd><dt>Фоновая передача</dt><dd>Отключена</dd><dt>Телеметрия</dt><dd>Отключена</dd></dl>${ai ? `<section><h2>OpenAI</h2><p>${aiConfigured ? "Настроен" : "Не настроен"}</p><form id="ai-key-form"><label>${aiConfigured ? "Заменить ключ" : "Настроить ключ"}<input id="ai-key" type="password" required autocomplete="off" /></label><button>Сохранить ключ</button></form>${aiConfigured ? '<button id="ai-key-delete" class="danger">Удалить ключ</button>' : ""}</section>` : ""}<details><summary>Технические сведения</summary><dl><dt>Идентификатор сборки</dt><dd>${escape(status?.build_id ?? "Недоступен")}</dd><dt>Профиль</dt><dd>${escape(status?.runtime_profile)}</dd><dt>REAL_DATA_GATE</dt><dd>${escape(status?.real_data_gate)}</dd><dt>Сеть</dt><dd>${escape(status?.network)}</dd><dt>Входящий слушатель</dt><dd>${escape(status?.inbound_listener)}</dd><dt>Провайдер</dt><dd>${escape(status?.outbound_provider)}</dd></dl></details></section>${historyPermission}${noticeMarkup()}</main>`;
   };
   const recoveryMarkup = () =>
     `<main class="product-shell">${nav()}<section class="product-home"><p>РЕЗЕРВНОЕ КОПИРОВАНИЕ</p><h1>Восстановление и экспорт</h1><p>Инструменты работают с локальным хранилищем Personal.</p></section><div class="grid recovery-grid"><section class="card"><h2>Состояние резервного копирования</h2><p>${recovery ? `Допуск к Personal: ${escape(String(recovery.local_personal ?? "Недоступен"))}. Смена ключа: ${escape(String(recovery.rotation ?? "Недоступно"))}.` : "Состояние ещё не проверялось в этом окне."}</p><button id="recovery-status">Обновить состояние</button></section><section class="card"><h2>Создать резервную копию</h2><p>Резервная копия считается готовой только после аутентификации и отдельного проверочного восстановления.</p><form id="backup-form"><label>Секрет восстановления <input id="backup-secret" type="password" required /></label><button class="primary">Создать и проверить</button></form></section><section class="card"><h2>Экспорт владельца</h2><p>Создаёт зашифрованный экспорт, доступный только владельцу.</p><form id="export-form"><label>Секрет восстановления <input id="export-secret" type="password" required /></label><button>Экспорт владельца</button></form></section></div><section class="card recovery-verify"><h2>Проверить резервную копию</h2><p>Проверка создаёт отдельную копию и никогда не заменяет текущее хранилище автоматически. Сверьте дату и поколение: старая резервная копия может не включать поздние исправления или удаления. Удаление активных данных не удаляет уже созданные исторические резервные копии.</p><form id="restore-form"><label>Идентификатор резервной копии <input id="restore-backup-id" required /></label><label>Секрет восстановления <input id="restore-secret" type="password" required /></label><button>Проверить резервную копию</button></form></section>${noticeMarkup()}</main>`;
@@ -715,6 +728,8 @@ export async function mountPersonal(
     )
       void act(async () => {
         aiConfigured = (await api.aiProviderStatus()).configured;
+        if (status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI")
+          interviewEligibility = (await api.aiInterviewStatus()).eligible_source_count;
       });
     submit("#ai-key-form", async () => {
       await api.aiProviderConfigure(
@@ -748,6 +763,22 @@ export async function mountPersonal(
       route = "home";
       notice = "Запись сохранена в истории.";
     });
+    host.querySelector("#home-start-topic")?.addEventListener("click", () =>
+      void act(async () => {
+        const topic = window.prompt("Что вы хотите исследовать?");
+        if (!topic?.trim()) return;
+        interview = await api.aiInterviewStart(topic.trim());
+        route = "interview";
+      }),
+    );
+    host.querySelector("#home-new-topic")?.addEventListener("click", () =>
+      void act(async () => {
+        const topic = window.prompt("Что вы хотите исследовать по-другому?");
+        if (!topic?.trim()) return;
+        interview = await api.aiInterviewStart(topic.trim());
+        route = "interview";
+      }),
+    );
     submit("#search-form", async () => {
       const query = host
         .querySelector<HTMLInputElement>("#search-query")!
@@ -1040,6 +1071,7 @@ export async function mountPersonal(
       ].map((item) => item.value);
       if (!selected.length) return;
       await api.aiInterviewSourcePolicy(selected, true);
+      interviewEligibility = (await api.aiInterviewStatus()).eligible_source_count;
       notice = "Выбранные записи разрешены только для AI-исследования OpenAI.";
     });
     host.querySelector("#interview-source-revoke")?.addEventListener("click", () =>
@@ -1047,6 +1079,7 @@ export async function mountPersonal(
         const selected = [...host.querySelectorAll<HTMLInputElement>('input[name="interview-source-turn"]:checked')].map((item) => item.value);
         if (!selected.length) return;
         await api.aiInterviewSourcePolicy(selected, false);
+        interviewEligibility = (await api.aiInterviewStatus()).eligible_source_count;
         notice = "Разрешение на передачу выбранных записей отозвано.";
       }),
     );

@@ -316,6 +316,29 @@ def test_bounded_planner_carries_topic_controls_and_only_eligible_derived_inquir
     assert provider.last_context["inquiry"] == ()
 
 
+def test_thin_history_uses_local_onboarding_mode_and_session_trail_keeps_roles_distinct() -> None:
+    value, _reflection, provider = service()
+    session_id = ready(value)
+    value.request_first_question(session_id)
+    assert any(item["kind"] == "ONBOARDING" for item in provider.last_context["planning"])
+    value.submit(session_id, "trail-answer", "Синтетический ответ о текущей ситуации.")
+    trail = value.get(session_id)["session_trail"]
+    assert {item["actor"] for item in trail} == {"PSYCHE", "YOU"}
+
+
+def test_exact_normalized_duplicate_inquiry_item_is_not_accumulated() -> None:
+    value, reflection, provider = service()
+    source = historical_turn(reflection, "Synthetic duplicate support")
+    session_id = ready(value)
+    value.set_source_policy([source], True)
+    value.request_first_question(session_id)
+    value.control(session_id, "SKIP")
+    value.request_first_question(session_id)
+    assert reflection.connection.execute(
+        "SELECT count(*) FROM interview_inquiry_items WHERE kind='THEME'"
+    ).fetchone()[0] == 1
+
+
 def test_exact_derivation_basis_and_source_deletion_remove_dependent_meaning() -> None:
     value, reflection, _provider = service()
     source = historical_turn(reflection, "Synthetic support")

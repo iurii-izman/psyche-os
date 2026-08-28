@@ -137,7 +137,7 @@ export const createPersonalBrowserPreviewApi = (scenario: PreviewScenario): Pers
     aiProviderDelete: async () => ({}),
     aiFormulationPrepare: async (_sessionId, selectedTurnIds) => ({ interaction_id: "synthetic-preview", preview_id: "synthetic-preview", turns: state.sessions.flatMap((item) => item.turns ?? []).filter((turn) => selectedTurnIds.includes(turn.turn_id)), expires_at: at(6) }),
     aiFormulationExecute: async () => ({}),
-    aiInterviewStatus: async () => ({ configured: true, policy_enabled: true, profile_id: "synthetic-no-network" }),
+    aiInterviewStatus: async () => ({ configured: true, policy_enabled: true, profile_id: "synthetic-no-network", eligible_source_count: 2 }),
     aiInterviewPolicy: async () => ({}),
     aiInterviewSourcePolicy: async () => ({}),
     aiInterviewStart: async () => { state.interview = previewInterview("INTERVIEW_ONBOARDING")!; return clone(state.interview); },
