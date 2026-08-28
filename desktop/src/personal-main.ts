@@ -365,7 +365,10 @@ export async function mountPersonal(
     const selector = aiAvailable
       ? `<section class="card"><h2>Рабочая формулировка с AI</h2><p>Выберите до 8 ваших записей. Ничего не будет отправлено до точного предпросмотра и отдельного подтверждения.</p><form id="ai-selection">${turns.map((turn) => `<label><input type="checkbox" name="ai-turn" value="${escape(turn.turn_id)}" /> Запись ${turn.sequence} · ${turn.content.length} знаков</label>`).join("")}<button>Показать выбранное для проверки</button></form></section>`
       : "";
-    return `<main class="product-shell">${nav()}<header class="session-header"><p>РАЗМЫШЛЕНИЕ</p><h1>${escape(current.title)}</h1><p>${current.state === "CLOSED" ? "Завершено — только чтение" : "Активно — можно продолжить"}</p><button data-route="history">К истории</button></header><section class="card"><h2>Что вы написали</h2>${turns.length ? turns.map((turn) => `<article class="session-turn ${sourceTurnId === turn.turn_id ? "is-source-highlight" : ""}"><strong>Вы написали · запись ${turn.sequence}</strong><small>${escape(dateLabel(turn.created_at))}</small><p>${escape(turn.content)}</p></article>`).join("") : "<p>Записей пока нет.</p>"}${current.state === "ACTIVE" ? `<form id="add-turn"><label>Продолжить <textarea id="reflection-turn" required maxlength="12000"></textarea></label><button class="primary">Добавить запись</button></form><button id="close-reflection">Завершить размышление</button>` : ""}<button id="delete-reflection" class="danger">Удалить размышление</button></section>${selector}${preview}${explorationMarkup()}${noticeMarkup()}</main>`;
+    const interviewPolicy = status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" && turns.length
+      ? `<section class="card"><h2>Разрешение для AI-исследования</h2><p>Выберите конкретные записи, которые можно передавать только OpenAI для цели «AI-исследование». Невыбранные исторические записи остаются локальными и не передаются.</p><form id="interview-source-policy">${turns.map((turn) => `<label><input type="checkbox" name="interview-source-turn" value="${escape(turn.turn_id)}" /> Запись ${turn.sequence}</label>`).join("")}<button class="primary">Разрешить выбранные записи</button><button type="button" id="interview-source-revoke">Отозвать разрешение</button></form></section>`
+      : "";
+    return `<main class="product-shell">${nav()}<header class="session-header"><p>РАЗМЫШЛЕНИЕ</p><h1>${escape(current.title)}</h1><p>${current.state === "CLOSED" ? "Завершено — только чтение" : "Активно — можно продолжить"}</p><button data-route="history">К истории</button></header><section class="card"><h2>Что вы написали</h2>${turns.length ? turns.map((turn) => `<article class="session-turn ${sourceTurnId === turn.turn_id ? "is-source-highlight" : ""}"><strong>Вы написали · запись ${turn.sequence}</strong><small>${escape(dateLabel(turn.created_at))}</small><p>${escape(turn.content)}</p></article>`).join("") : "<p>Записей пока нет.</p>"}${current.state === "ACTIVE" ? `<form id="add-turn"><label>Продолжить <textarea id="reflection-turn" required maxlength="12000"></textarea></label><button class="primary">Добавить запись</button></form><button id="close-reflection">Завершить размышление</button>` : ""}<button id="delete-reflection" class="danger">Удалить размышление</button></section>${interviewPolicy}${selector}${preview}${explorationMarkup()}${noticeMarkup()}</main>`;
   };
   const homeMarkup = () => {
     const recent = ordered().slice(0, 5),
@@ -1031,6 +1034,22 @@ export async function mountPersonal(
       aiPreview = await api.aiFormulationPrepare(current.session_id, selected);
       notice = "Проверьте точный текст выбранных записей перед отправкой.";
     });
+    submit("#interview-source-policy", async () => {
+      const selected = [
+        ...host.querySelectorAll<HTMLInputElement>('input[name="interview-source-turn"]:checked'),
+      ].map((item) => item.value);
+      if (!selected.length) return;
+      await api.aiInterviewSourcePolicy(selected, true);
+      notice = "Выбранные записи разрешены только для AI-исследования OpenAI.";
+    });
+    host.querySelector("#interview-source-revoke")?.addEventListener("click", () =>
+      void act(async () => {
+        const selected = [...host.querySelectorAll<HTMLInputElement>('input[name="interview-source-turn"]:checked')].map((item) => item.value);
+        if (!selected.length) return;
+        await api.aiInterviewSourcePolicy(selected, false);
+        notice = "Разрешение на передачу выбранных записей отозвано.";
+      }),
+    );
     host.querySelector("#ai-cancel")?.addEventListener("click", () => {
       aiPreview = null;
       notice = "Отправка в OpenAI отменена.";

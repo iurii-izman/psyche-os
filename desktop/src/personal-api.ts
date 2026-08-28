@@ -283,6 +283,8 @@ export const personalApi = {
     ),
   aiInterviewPolicy: (enabled: boolean) =>
     call("desktop_ai_interview_policy", { enabled }),
+  aiInterviewSourcePolicy: (turnIds: string[], enabled: boolean) =>
+    call("desktop_ai_interview_source_policy", { turnIds, enabled }),
   aiInterviewStart: (ownerTopic: string | null = null) =>
     call<InterviewView>("desktop_ai_interview_start", { ownerTopic }),
   aiInterviewList: () =>

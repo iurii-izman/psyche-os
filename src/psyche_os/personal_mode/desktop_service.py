@@ -69,6 +69,7 @@ PERSONAL_ALLOWED_COMMANDS: Final = frozenset(
         "ai.working_formulation.authorize_execute",
         "ai.interview.status",
         "ai.interview.policy",
+        "ai.interview.source_policy",
         "ai.interview.start",
         "ai.interview.list",
         "ai.interview.grant_consent",
@@ -186,6 +187,7 @@ class PersonalDesktopApplicationService:
                 "ai.working_formulation.authorize_execute": self._ai_authorize_execute,
                 "ai.interview.status": self._interview_status,
                 "ai.interview.policy": self._interview_policy,
+                "ai.interview.source_policy": self._interview_source_policy,
                 "ai.interview.start": self._interview_start,
                 "ai.interview.list": self._interview_list,
                 "ai.interview.grant_consent": self._interview_grant_consent,
@@ -222,17 +224,31 @@ class PersonalDesktopApplicationService:
         return {
             "locked": self._guard.locked,
             "setup_required": not self._runtime._paths.envelope.exists(),
-            "runtime_profile": "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" if self._interview_enabled else "LOCAL_PERSONAL_BOUNDED_OPENAI" if self._ai_enabled else "LOCAL_PERSONAL",
+            "runtime_profile": "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI"
+            if self._interview_enabled
+            else "LOCAL_PERSONAL_BOUNDED_OPENAI"
+            if self._ai_enabled
+            else "LOCAL_PERSONAL",
             "local_personal": admission["local_personal"],
             "real_data_gate": "OPEN" if admission["local_personal"] != "NOT_ADMITTED" else "CLOSED",
             "admission_expires_at": admission.get("admission_expires_at"),
             "inbound_listener": "NONE",
-            "outbound_provider": "OPENAI_EXPLICIT_OPT_IN" if (self._ai_enabled or self._interview_enabled) else "NOT_CONFIGURED",
-            "network": "OPENAI_FOREGROUND_BOUNDED" if self._interview_enabled else "OPENAI_EXPLICIT_ONE_CALL_ONLY" if self._ai_enabled else "OFFLINE_NO_LISTENER",
+            "outbound_provider": "OPENAI_EXPLICIT_OPT_IN"
+            if (self._ai_enabled or self._interview_enabled)
+            else "NOT_CONFIGURED",
+            "network": "OPENAI_FOREGROUND_BOUNDED"
+            if self._interview_enabled
+            else "OPENAI_EXPLICIT_ONE_CALL_ONLY"
+            if self._ai_enabled
+            else "OFFLINE_NO_LISTENER",
             "privacy": {
                 "core_processing_location": "LOCAL",
                 "cloud_storage": "DISABLED",
-                "cloud_disclosure": "EXPLICIT_SESSION_CONSENT_OPENAI_ONLY" if self._interview_enabled else "EXPLICIT_OPT_IN_OPENAI_ONLY" if self._ai_enabled else "NEVER_CLOUD",
+                "cloud_disclosure": "EXPLICIT_SESSION_CONSENT_OPENAI_ONLY"
+                if self._interview_enabled
+                else "EXPLICIT_OPT_IN_OPENAI_ONLY"
+                if self._ai_enabled
+                else "NEVER_CLOUD",
                 "telemetry": "OFF",
             },
         }
@@ -252,7 +268,11 @@ class PersonalDesktopApplicationService:
         if not (self._ai_enabled or self._interview_enabled):
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
         if self._ai is None:
-            self._ai = PersonalWorkingFormulationService(self._runtime.reflection, OpenAIKeyStore(self._runtime._paths.root), OpenAIReflectionProvider())
+            self._ai = PersonalWorkingFormulationService(
+                self._runtime.reflection,
+                OpenAIKeyStore(self._runtime._paths.root),
+                OpenAIReflectionProvider(),
+            )
         return self._ai
 
     def _ai_status(self, payload: Any) -> dict[str, Any]:
@@ -283,7 +303,11 @@ class PersonalDesktopApplicationService:
         if not self._interview_enabled:
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
         if self._interview is None:
-            self._interview = PersonalAIInterviewService(self._runtime.reflection, OpenAIKeyStore(self._runtime._paths.root), OpenAIReflectionProvider())
+            self._interview = PersonalAIInterviewService(
+                self._runtime.reflection,
+                OpenAIKeyStore(self._runtime._paths.root),
+                OpenAIReflectionProvider(),
+            )
         return self._interview
 
     def _interview_status(self, payload: Any) -> dict[str, Any]:
@@ -292,6 +316,10 @@ class PersonalDesktopApplicationService:
 
     def _interview_policy(self, payload: Any) -> dict[str, Any]:
         return self._interview_service().set_policy(_exact(payload, {"enabled"})["enabled"])
+
+    def _interview_source_policy(self, payload: Any) -> dict[str, Any]:
+        values = _exact(payload, {"turn_ids", "enabled"})
+        return self._interview_service().set_source_policy(values["turn_ids"], values["enabled"])
 
     def _interview_start(self, payload: Any) -> dict[str, Any]:
         values = _exact(payload, {"owner_topic"})
@@ -302,28 +330,42 @@ class PersonalDesktopApplicationService:
         return self._interview_service().list()
 
     def _interview_grant_consent(self, payload: Any) -> dict[str, Any]:
-        return self._interview_service().grant_consent(_exact(payload, {"interview_session_id"})["interview_session_id"])
+        return self._interview_service().grant_consent(
+            _exact(payload, {"interview_session_id"})["interview_session_id"]
+        )
 
     def _interview_revoke_consent(self, payload: Any) -> dict[str, Any]:
-        return self._interview_service().revoke(_exact(payload, {"interview_session_id"})["interview_session_id"])
+        return self._interview_service().revoke(
+            _exact(payload, {"interview_session_id"})["interview_session_id"]
+        )
 
     def _interview_first_question(self, payload: Any) -> dict[str, Any]:
-        return self._interview_service().request_first_question(_exact(payload, {"interview_session_id"})["interview_session_id"])
+        return self._interview_service().request_first_question(
+            _exact(payload, {"interview_session_id"})["interview_session_id"]
+        )
 
     def _interview_submit(self, payload: Any) -> dict[str, Any]:
         values = _exact(payload, {"interview_session_id", "client_submission_id", "content"})
-        return self._interview_service().submit(values["interview_session_id"], values["client_submission_id"], values["content"])
+        return self._interview_service().submit(
+            values["interview_session_id"], values["client_submission_id"], values["content"]
+        )
 
     def _interview_retry(self, payload: Any) -> dict[str, Any]:
         values = _exact(payload, {"interview_session_id", "answer_turn_id"})
-        return self._interview_service().retry(values["interview_session_id"], values["answer_turn_id"])
+        return self._interview_service().retry(
+            values["interview_session_id"], values["answer_turn_id"]
+        )
 
     def _interview_control(self, payload: Any) -> dict[str, Any]:
         values = _exact(payload, {"interview_session_id", "action", "topic"})
-        return self._interview_service().control(values["interview_session_id"], values["action"], values["topic"])
+        return self._interview_service().control(
+            values["interview_session_id"], values["action"], values["topic"]
+        )
 
     def _interview_get(self, payload: Any) -> dict[str, Any]:
-        return self._interview_service().get(_exact(payload, {"interview_session_id"})["interview_session_id"])
+        return self._interview_service().get(
+            _exact(payload, {"interview_session_id"})["interview_session_id"]
+        )
 
     def _interview_disclosure(self, payload: Any) -> dict[str, Any]:
         return self._interview_service().disclosure(_exact(payload, {"attempt_id"})["attempt_id"])
