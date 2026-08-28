@@ -1,8 +1,30 @@
-# PSYCHE OS research-driven roadmap
+# PSYCHE OS product roadmap
 
-**Snapshot:** 2026-08-24
+**Product reorientation:** 2026-08-28
 **Planning unit:** evidence gates, not calendar promises  
 **Current state:** E00–E11 foundation work and Personal Mode v1 are accepted and merged; `REAL_DATA_GATE = CLOSED` and no real data is admitted.
+
+## Current product center
+
+PSYCHE OS is becoming an **AI-led Personal Inquiry & Evidence System**. The local Evidence OS remains the trusted memory, provenance and epistemic-control layer beneath that experience. It must remain useful for capture, evidence inspection, correction, search, export, deletion, recovery and local analysis without an AI or provider.
+
+The future Daily Use loop is: open PSYCHE → identify a worthwhile inquiry → start or continue an AI interview → one primary question at a time → evidence-informed exploration and revision → hypotheses, contradictions, unknowns, coverage and inquiry backlog evolve → later, bounded low-risk experiment/recommendation and observed outcome refine the model.
+
+AI may lead the **inquiry process**, but never determines truth about the owner, changes policy, or turns derived output into evidence. The owner can answer, skip, decline, change direction, correct, challenge, continue or stop at any time.
+
+## Current product verticals
+
+1. **AI Interview V1 — next implementation boundary.** PSYCHE leads a consented, evidence-grounded, one-question-at-a-time personal inquiry with inspectable rationale, disclosure and continuity. Its architecture contract is `docs/architecture/AI_INTERVIEW_V1.md`.
+2. **Personal Model V1.** “Картина” becomes an inspectable, correctable view of support, hypotheses, competing explanations, contradictions, unknowns, contexts, temporal relevance and next inquiry directions.
+3. **Inquiry → Change V1.** Supported understanding can later yield bounded, low-risk behavior/observation experiments and outcome tracking; existing causal and safety gates remain controlling.
+4. **Connected Evidence V1.** Owner-enabled local sources such as sleep, calendar, tasks or habits may later inform inquiry only through separately justified, local evidence boundaries.
+5. **Proactive PSYCHE V1.** Local between-session logic may later surface a useful reason to return; cloud AI still requires an explicit session launch and never runs in the background.
+
+Quick Capture, manual Reflection, History, Search, Context Pack, direct evidence inspection, privacy/recovery/export and the current one-shot Working Formulation remain useful supporting capabilities. They are not being removed.
+
+## Explicitly deferred
+
+Do not implement now: AI-generated microtests, governed standardized questionnaires, richer clinical/scientific reference integration, richer third-party relationship modeling, automatic broad temporal re-evaluation, advanced intervention/evaluation, cloud background AI, generic autonomous agents, or whole-vault cloud retrieval.
 
 ## Roadmap principles
 
@@ -24,7 +46,7 @@ The E00–E11 sequence is complete and retained below as historical product stra
 
 ## Product development now
 
-The default is a bounded, user-facing product increment selected from current user value and evidence. No successor epic is pre-authorized or scheduled. Define the next product increment, use the product-default delivery lane, and keep `REAL_DATA_GATE = CLOSED`.
+The next bounded product increment is **AI Interview V1**. Define its implementation Task Contract from the current master successor and architecture contract, use the product-default delivery lane, and keep `REAL_DATA_GATE = CLOSED`.
 
 ## Historical foundation and conditional capability map
 

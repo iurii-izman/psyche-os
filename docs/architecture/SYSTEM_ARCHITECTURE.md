@@ -5,6 +5,8 @@
 **Selected architecture:** local-first modular monolith with a hybrid bitemporal relational canonical store  
 **F0:** core/CLI only; no production application and no real data in the research phase
 
+> **Current product-direction scope:** [`PSYCHE_OS_MASTER_SPEC_v2.1_PRODUCT_REORIENTATION.md`](../PSYCHE_OS_MASTER_SPEC_v2.1_PRODUCT_REORIENTATION.md) and [`AI_INTERVIEW_V1.md`](AI_INTERVIEW_V1.md) supersede this document's former UI priority and optional-LLM-product framing. This document remains normative for the retained local Evidence OS, canonical ownership, typed boundaries, policy enforcement, and provider-independence constraints.
+
 ## 1. Architectural outcome
 
 PSYCHE OS is a local personal evidence vault whose essential operations do not depend on an LLM, network, vendor subscription, graph database or proprietary file format. The canonical store is an encrypted relational database plus encrypted immutable source objects. Version rows, typed provenance and minimal content-free audit events preserve history; graph, timeline, full-text, vector, analytics, report and clinician views are disposable projections.
@@ -148,6 +150,8 @@ No model is necessary. A normalization request, if later enabled, is a separate 
 The import is idempotent by an internal keyed/encrypted duplicate fingerprint and explicit user decision. Duplicate detection never exposes a plaintext hash. Unsupported or suspicious files remain quarantined and do not enter model context [ARCH-031–ARCH-036].
 
 ### 8.3 Optional LLM proposal
+
+This retained v2.0 one-shot proposal flow is not the Personal AI Interview contract. The current interview boundary is `AI_INTERVIEW_V1.md`; it preserves the controls below where compatible and adds session-scoped consent, inquiry continuity and derived-state rules.
 
 1. The user names a purpose and action.
 2. The application constructs candidate canonical IDs, not raw prompt text.
