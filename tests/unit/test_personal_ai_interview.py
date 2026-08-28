@@ -367,6 +367,36 @@ def test_end_direction_is_provenanced_and_available_to_later_session_only_when_e
     assert any(item["kind"] == "SAVED_DIRECTION" for item in provider.last_context["planning"])
 
 
+def test_source_deletion_clears_end_summary_and_direction_before_fk_nulling() -> None:
+    value, reflection, provider = service("end")
+    source = historical_turn(reflection, "Synthetic end support")
+    session_id = ready(value)
+    value.set_source_policy([source], True)
+    value.request_first_question(session_id)
+    attempt_id = value.get(session_id)["attempts"][0]["attempt_id"]
+    derivation_id = reflection.connection.execute(
+        "SELECT derivation_id FROM interview_derivations WHERE attempt_id=?", (attempt_id,)
+    ).fetchone()[0]
+    calls_before_delete = provider.calls
+    with reflection.connection:
+        reflection.connection.execute("DELETE FROM reflection_turns WHERE turn_id=?", (source,))
+    assert (
+        reflection.connection.execute(
+            "SELECT 1 FROM interview_derivations WHERE derivation_id=?", (derivation_id,)
+        ).fetchone()
+        is None
+    )
+    assert reflection.connection.execute(
+        "SELECT summary,summary_derivation_id,next_direction,next_direction_derivation_id FROM interview_sessions WHERE interview_session_id=?",
+        (session_id,),
+    ).fetchone() == (None, None, None, None)
+    assert reflection.connection.execute(
+        "SELECT count(*) FROM interview_inquiry_items"
+    ).fetchone() == (0,)
+    assert value.disclosure(attempt_id)["items"] == []
+    assert provider.calls == calls_before_delete
+
+
 @pytest.mark.parametrize(
     "question",
     [
