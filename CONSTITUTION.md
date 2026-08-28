@@ -1,13 +1,13 @@
 # PSYCHE OS Constitution
 
-**Version:** 2.0-research-final  
-**Effective research snapshot:** 2026-08-10  
-**Authority:** these invariants bind specifications and implementation; detailed operational meaning is defined by `docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md`.  
+**Version:** 2.1-product-alignment
+**Effective product alignment:** 2026-08-28
+**Authority:** these invariants bind specifications and implementation; detailed operational meaning is defined by `docs/PSYCHE_OS_MASTER_SPEC_v2.1_PRODUCT_REORIENTATION.md`. The retained v2.0 FINAL specification remains the foundation for its scientific, privacy, security, storage, recovery and evidence contracts where the successor does not supersede them.
 **Real personal data:** prohibited until `REAL_DATA_GATE = OPEN`.
 
 ## Purpose
 
-PSYCHE OS is a **Personal Evidence & Reflection System**. It helps one person preserve reports, observations, measurements, sources, interpretations, contradictions, change and unknowns without pretending to completely know, diagnose or define that person. `PersonalModelSnapshot` is a dated, revisable view over evidence, not a digital twin or objective identity.
+PSYCHE OS is an **AI-led Personal Inquiry & Evidence System**. Its local Evidence OS helps one person preserve reports, observations, measurements, sources, interpretations, contradictions, change and unknowns; the AI may lead a bounded inquiry process over that evidence without pretending to completely know, diagnose or define the person. `PersonalModelSnapshot` is a dated, revisable view over evidence, not a digital twin or objective identity.
 
 ## Invariants
 

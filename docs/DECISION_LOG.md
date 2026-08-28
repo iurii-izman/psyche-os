@@ -281,6 +281,19 @@ Each decision records: `decision → research question → evidence → alternat
 - **Review trigger:** Any material protected-boundary change, or concrete evidence that an independent review or additional proof can alter readiness.
 - **Confidence:** high for workflow simplification; safety invariants are unchanged.
 
+### ADR-025 — AI-led personal inquiry product reorientation
+
+- **Decision:** Reorient PSYCHE OS from a primarily local reflection/evidence-analysis product with bounded AI on top to an **AI-led Personal Inquiry & Evidence System**. The local Evidence OS remains the canonical, provider-independent memory, provenance and epistemic-control layer. Personal AI Interview V1 is the next implementation vertical; its justified boundary is frozen in `docs/architecture/AI_INTERVIEW_V1.md`.
+- **Question:** How can PSYCHE make long-term, evidence-grounded inquiry the primary Daily Use experience without turning an AI interpretation into truth, weakening owner agency, or eroding the local Evidence OS?
+- **Evidence:** The accepted product-direction Task Contract dated 2026-08-28; the accepted v2 foundation's provenance, source/derived, privacy, local ownership, correction/deletion, temporal, safety and provider-independence architecture; completed Personal Mode v1 capabilities.
+- **Alternatives:** retain archive/control-panel-first navigation with only one-shot optional AI proposals; rewrite the foundation around opaque provider memory; frame the AI as therapist/companion; introduce a generic autonomous agent.
+- **Rationale:** The existing foundation supplies the safeguards necessary for a meaningful long-term inquiry system. Process-leading AI can improve continuity and information value only when it remains evidence-bounded, defeasible, consented, inspectable, stateless at the provider, and unable to claim authority over the person.
+- **Frozen consequences:** AI may choose inquiry direction and question sequencing inside a foreground session, but not truth, permissions, policy, diagnosis, causal fact, or canonical evidence. USER answers persist as source before provider work; all AI outputs are derived; bounded local retrieval, explicit outbound eligibility, memory-only runtime consent, stateless foreground calls, local validation, atomic derived-state commits, idempotent USER submission, content-minimizing disclosure receipts, and correction/deletion compatibility are required. Provider memory, `previous_response_id`, hosted files/vector stores/tools/web, whole-vault cloud RAG, background AI, hidden profiles and generic agent loops are excluded.
+- **Uncertainty:** V1 context bounds, scoring/selection heuristics, evaluation corpus and exact internal state/schema names require a later bounded implementation contract and synthetic evidence. This decision does not authorize implementation or real/provider data disclosure.
+- **Review trigger:** any new or materially changed network/provider/privacy/consent boundary, background autonomy, provider-hosted memory/tooling, canonical semantic change, migration, real-data admission, clinical/recommendation expansion, or evidence that the boundary cannot preserve correction/deletion/provenance semantics.
+- **Supersedes:** ADR-001 only as to current product identity, and ADR-018 only as to primary UI priority. Their evidence-preserving, anti-dependency and nonclinical rationale remains in force. No constitutional invariant, real-data gate, crypto/key, storage, recovery or deletion decision is superseded.
+- **Confidence:** high for product direction and retained safeguards; implementation/evaluation readiness remains unproved.
+
 ## Supersession
 
 ADR-021 partially supersedes ADR-020 only for epic allocation; it does not alter
@@ -291,3 +304,8 @@ constitutional or real-data gates are affected.
 ADR-022 supersedes only ADR-003's deferred desktop-choice uncertainty. ADR-003's
 no-listener Python core and every constitutional, network and real-data boundary
 remain in force.
+
+ADR-025 supersedes ADR-001's product-category framing and ADR-018's
+archive-first UI priority only. It does not alter their underlying evidence, local
+ownership, nonclinical or anti-dependency constraints, and it does not authorize a
+provider, network, real-data or canonical-semantics change.

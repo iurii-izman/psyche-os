@@ -4,7 +4,7 @@
 **Map:** 7 milestones, 12 epics
 **Historical risk distribution:** 8 × `RISK-H`, 4 × `RISK-M`, 0 × `RISK-L`
 **Historical focused-review boundaries:** 8
-**Current:** E00–E11 are completed and accepted. This is a historical capability architecture, not a current work queue; no next epic is active.
+**Current:** E00–E11 are completed and accepted. This is a historical capability architecture, not a current work queue. The next product vertical is **AI Interview V1**, defined by the current roadmap and delivered through a bounded Task Contract rather than a new legacy epic.
 
 This is a capability map, not a release calendar. A later epic can be narrowed, deferred, or rejected when its entry evidence is unfavorable. No epic authorizes real data while `docs/architecture/REAL_DATA_GATE.yaml` is `CLOSED`.
 

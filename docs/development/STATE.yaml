@@ -18,6 +18,7 @@ infrastructure: "CLOSED_EXCEPTION_ONLY"
 current_implementation:
   task: null
   next_epic: null
+  next_product_vertical: "AI_INTERVIEW_V1"
   next_action: "DEFINE_NEXT_PRODUCT_INCREMENT"
 
 personal_mode:
@@ -75,7 +76,7 @@ accepted_epics:
 
 architecture:
   constitution: "CONSTITUTION.md"
-  master_spec: "docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md"
+  master_spec: "docs/PSYCHE_OS_MASTER_SPEC_v2.1_PRODUCT_REORIENTATION.md"
   decision_log: "docs/DECISION_LOG.md"
   roadmap: "docs/ROADMAP.md"
   epic_map: "docs/development/EPIC_MAP.md"

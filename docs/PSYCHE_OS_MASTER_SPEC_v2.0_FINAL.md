@@ -1,5 +1,7 @@
 # PSYCHE OS Master Specification v2.0 FINAL
 
+> **Supersession status (2026-08-28):** This is the retained v2.0 research/foundation specification. Its product center, product-experience priority, LLM role and roadmap are superseded by [`PSYCHE_OS_MASTER_SPEC_v2.1_PRODUCT_REORIENTATION.md`](PSYCHE_OS_MASTER_SPEC_v2.1_PRODUCT_REORIENTATION.md). Its scientific, epistemic, privacy, security, storage, recovery, deletion, temporal and provider-independence contracts remain authoritative unless that successor explicitly says otherwise. This note changes routing, not the historical v2.0 record.
+
 **Product category:** Personal Evidence & Reflection System  
 **Specification version:** 2.0.0-research-final  
 **Evidence snapshot:** 2026-08-10  

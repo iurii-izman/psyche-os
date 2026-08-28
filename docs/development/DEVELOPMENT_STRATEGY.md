@@ -9,7 +9,7 @@ The research foundation, E00–E11 delivery sequence, and Personal Mode v1 are a
 ## Authority
 
 1. `CONSTITUTION.md`.
-2. `docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md`.
+2. `docs/PSYCHE_OS_MASTER_SPEC_v2.1_PRODUCT_REORIENTATION.md`, with the retained v2.0 foundation specification for nonsuperseded scientific and operational contracts.
 3. Accepted ADR or supersession in `docs/DECISION_LOG.md`.
 4. `docs/ROADMAP.md` and `docs/development/EPIC_MAP.md`.
 5. The active Task Contract.

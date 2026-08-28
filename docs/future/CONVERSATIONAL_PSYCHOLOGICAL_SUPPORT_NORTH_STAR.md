@@ -1,13 +1,15 @@
-# Post-E11 Conversational Psychological Support North Star
+# Historical Post-E11 Conversational Psychological Support North Star
 
-**Status:** forward-compatibility contract; documentation only
+**Status:** superseded historical forward-compatibility note; documentation only
 **Horizon:** after E11 and only through separately authorized capability work
 **Owner profile:** one adult owner of one personal vault
 **REAL_DATA_GATE:** `CLOSED`
 
+> **Superseded for current product direction:** This document is retained as historical compatibility context. It does not define the current product balance, AI role, roadmap or implementation boundary. Those are governed by [`PSYCHE_OS_MASTER_SPEC_v2.1_PRODUCT_REORIENTATION.md`](../PSYCHE_OS_MASTER_SPEC_v2.1_PRODUCT_REORIENTATION.md), [`AI_INTERVIEW_V1.md`](../architecture/AI_INTERVIEW_V1.md), and ADR-025.
+
 ## Authority and boundary
 
-This document preserves extension points for a future **Personal Psychological Intelligence System**. It does not authorize implementation, real data, clinical use, a therapist persona, or expansion of E07–E11. Authority remains, in order, with `CONSTITUTION.md`, the v2 master specification, accepted decisions and architecture (including `MENTAL_HEALTH_AI_SAFETY.md`), accepted E00–E06 contracts, and the bounded current epic. Where this North Star conflicts with them, they win.
+This document preserves extension points for a former future **Personal Psychological Intelligence System**. It does not authorize implementation, real data, clinical use, a therapist persona, or expansion of E07–E11. Authority remains, in order, with `CONSTITUTION.md`, the current v2.1 master specification, accepted decisions and architecture (including `MENTAL_HEALTH_AI_SAFETY.md`), accepted E00–E06 contracts, and the bounded current task. Where this historical note conflicts with them, they win.
 
 The intended experience is approximately **70% analytical and structured personal intelligence / 30% conversational support and bounded-session experience**. It may eventually combine evidence-grounded sessions, guided interviewing, structured extraction, revisable formulations, longitudinal analysis, governed support skills, risk-bounded recommendation candidates and outcome tracking, user-authorized follow-up, optional cloud AI and voice, professional round trips, and rebuildable analytical views. None is enabled here.
 

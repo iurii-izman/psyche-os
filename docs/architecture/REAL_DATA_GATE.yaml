@@ -19,7 +19,8 @@ scope:
 
 authority:
   constitution: "CONSTITUTION.md"
-  master_spec: "docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md"
+  master_spec: "docs/PSYCHE_OS_MASTER_SPEC_v2.1_PRODUCT_REORIENTATION.md"
+  foundation_master_spec: "docs/PSYCHE_OS_MASTER_SPEC_v2.0_FINAL.md"
   privacy_security: "docs/architecture/PRIVACY_SECURITY_MODEL.md"
   threat_model: "docs/architecture/THREAT_MODEL.md"
   decision_log: "docs/DECISION_LOG.md#adr-023-profile-specific-real-data-gate-evaluation"
