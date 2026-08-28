@@ -131,6 +131,14 @@ fn bounded_turn(value: &str) -> Result<(), String> { if !value.trim().is_empty()
 #[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct AIKeyRequest { session_token: Option<String>, api_key: String }
 #[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct AIPreviewRequest { session_token: Option<String>, session_id: String, selected_turn_ids: Vec<String> }
 #[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct AIExecuteRequest { session_token: Option<String>, interaction_id: String, preview_id: String }
+#[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct InterviewSessionRequest { session_token: Option<String>, interview_session_id: String }
+#[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct InterviewStartRequest { session_token: Option<String>, owner_topic: Option<String> }
+#[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct InterviewPolicyRequest { session_token: Option<String>, enabled: bool }
+#[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct InterviewSourcePolicyRequest { session_token: Option<String>, turn_ids: Vec<String>, enabled: bool }
+#[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct InterviewSubmitRequest { session_token: Option<String>, interview_session_id: String, client_submission_id: String, content: String }
+#[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct InterviewRetryRequest { session_token: Option<String>, interview_session_id: String, answer_turn_id: String }
+#[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct InterviewControlRequest { session_token: Option<String>, interview_session_id: String, action: String, topic: Option<String> }
+#[derive(Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)] struct InterviewDisclosureRequest { session_token: Option<String>, attempt_id: String }
 
 fn bind_trusted_build_id(mut status: Value) -> Result<Value, String> {
     let fields = status
@@ -179,13 +187,25 @@ formulation_command!(desktop_formulation_accept, "reflection_exploration.formula
 #[tauri::command] fn desktop_ai_provider_delete(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> { personal_call(&window, &state, "ai.provider.delete", request.session_token.as_deref(), json!({})) }
 #[tauri::command] fn desktop_ai_formulation_prepare(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: AIPreviewRequest) -> Result<Value, String> { if request.selected_turn_ids.len() > 8 || request.selected_turn_ids.iter().any(|id| id.is_empty() || id.len() > MAX_TEXT) { return Err("INVALID_PAYLOAD".to_string()); } personal_call(&window, &state, "ai.working_formulation.prepare", request.session_token.as_deref(), json!({"session_id": request.session_id, "selected_turn_ids": request.selected_turn_ids})) }
 #[tauri::command] fn desktop_ai_formulation_execute(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: AIExecuteRequest) -> Result<Value, String> { bounded(&[&request.interaction_id, &request.preview_id])?; personal_call(&window, &state, "ai.working_formulation.authorize_execute", request.session_token.as_deref(), json!({"interaction_id": request.interaction_id, "preview_id": request.preview_id})) }
+#[tauri::command] fn desktop_ai_interview_status(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> { personal_call(&window, &state, "ai.interview.status", request.session_token.as_deref(), json!({})) }
+#[tauri::command] fn desktop_ai_interview_policy(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: InterviewPolicyRequest) -> Result<Value, String> { personal_call(&window, &state, "ai.interview.policy", request.session_token.as_deref(), json!({"enabled": request.enabled})) }
+#[tauri::command] fn desktop_ai_interview_source_policy(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: InterviewSourcePolicyRequest) -> Result<Value, String> { if request.turn_ids.is_empty() || request.turn_ids.len() > 12 || request.turn_ids.iter().any(|id| id.is_empty() || id.len() > MAX_TEXT) { return Err("INVALID_PAYLOAD".to_string()); } personal_call(&window, &state, "ai.interview.source_policy", request.session_token.as_deref(), json!({"turn_ids": request.turn_ids, "enabled": request.enabled})) }
+#[tauri::command] fn desktop_ai_interview_start(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: InterviewStartRequest) -> Result<Value, String> { if let Some(topic) = &request.owner_topic { bounded(&[topic])?; } personal_call(&window, &state, "ai.interview.start", request.session_token.as_deref(), json!({"owner_topic": request.owner_topic})) }
+#[tauri::command] fn desktop_ai_interview_list(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: SessionRequest) -> Result<Value, String> { personal_call(&window, &state, "ai.interview.list", request.session_token.as_deref(), json!({})) }
+macro_rules! interview_session_command { ($name:ident, $command:literal) => { #[tauri::command] fn $name(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: InterviewSessionRequest) -> Result<Value, String> { bounded(&[&request.interview_session_id])?; personal_call(&window, &state, $command, request.session_token.as_deref(), json!({"interview_session_id": request.interview_session_id})) } }; }
+interview_session_command!(desktop_ai_interview_grant_consent, "ai.interview.grant_consent"); interview_session_command!(desktop_ai_interview_revoke_consent, "ai.interview.revoke_consent"); interview_session_command!(desktop_ai_interview_first_question, "ai.interview.first_question"); interview_session_command!(desktop_ai_interview_get, "ai.interview.get");
+#[tauri::command] fn desktop_ai_interview_submit(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: InterviewSubmitRequest) -> Result<Value, String> { bounded(&[&request.interview_session_id, &request.client_submission_id])?; bounded_turn(&request.content)?; personal_call(&window, &state, "ai.interview.submit", request.session_token.as_deref(), json!({"interview_session_id": request.interview_session_id, "client_submission_id": request.client_submission_id, "content": request.content})) }
+#[tauri::command] fn desktop_ai_interview_retry(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: InterviewRetryRequest) -> Result<Value, String> { bounded(&[&request.interview_session_id, &request.answer_turn_id])?; personal_call(&window, &state, "ai.interview.retry", request.session_token.as_deref(), json!({"interview_session_id": request.interview_session_id, "answer_turn_id": request.answer_turn_id})) }
+#[tauri::command] fn desktop_ai_interview_control(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: InterviewControlRequest) -> Result<Value, String> { bounded(&[&request.interview_session_id, &request.action])?; if let Some(topic) = &request.topic { bounded(&[topic])?; } personal_call(&window, &state, "ai.interview.control", request.session_token.as_deref(), json!({"interview_session_id": request.interview_session_id, "action": request.action, "topic": request.topic})) }
+#[tauri::command] fn desktop_ai_interview_disclosure(window: WebviewWindow, state: tauri::State<'_, DesktopState>, request: InterviewDisclosureRequest) -> Result<Value, String> { bounded(&[&request.attempt_id])?; personal_call(&window, &state, "ai.interview.disclosure", request.session_token.as_deref(), json!({"attempt_id": request.attempt_id})) }
 
 pub fn run() {
     tauri::Builder::default().manage(DesktopState { sidecar: Mutex::new(None) }).invoke_handler(tauri::generate_handler![
         desktop_status, desktop_unlock, desktop_lock, desktop_reflection_create, desktop_reflection_list, desktop_reflection_get, desktop_reflection_add_turn, desktop_reflection_close, desktop_reflection_delete, desktop_reflection_search,
         desktop_exploration_start, desktop_exploration_get, desktop_exploration_answer, desktop_exploration_skip, desktop_formulation_propose, desktop_formulation_correct, desktop_formulation_accept, desktop_formulation_reject,
         desktop_personal_backup, desktop_personal_restore_isolated, desktop_personal_export_owner, desktop_personal_rotate, desktop_personal_recovery_status,
-        desktop_ai_provider_status, desktop_ai_provider_configure, desktop_ai_provider_delete, desktop_ai_formulation_prepare, desktop_ai_formulation_execute
+        desktop_ai_provider_status, desktop_ai_provider_configure, desktop_ai_provider_delete, desktop_ai_formulation_prepare, desktop_ai_formulation_execute,
+        desktop_ai_interview_status, desktop_ai_interview_policy, desktop_ai_interview_source_policy, desktop_ai_interview_start, desktop_ai_interview_list, desktop_ai_interview_grant_consent, desktop_ai_interview_revoke_consent, desktop_ai_interview_first_question, desktop_ai_interview_submit, desktop_ai_interview_retry, desktop_ai_interview_control, desktop_ai_interview_get, desktop_ai_interview_disclosure
     ]).setup(|app| { WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into())).title("PSYCHE OS Personal").inner_size(1180.0, 780.0).min_inner_size(820.0, 600.0).devtools(false).build()?; Ok(()) }).run(tauri::generate_context!()).expect("Personal desktop host failed");
 }
 
@@ -245,7 +265,7 @@ mod tests {
         assert_eq!(status["local_personal"], "NOT_ADMITTED");
         assert_eq!(status["real_data_gate"], "CLOSED");
         assert!(!personal_root.exists(), "closed launch created a Personal root");
-        assert_eq!(sidecar.invoke("session.unlock", None, json!({"secret": "synthetic-only"})), Err("NOT_ADMITTED".to_string()));
+        assert_eq!(sidecar.invoke("session.unlock", None, json!({"secret": "Synthetic-Recovery-2026!"})), Err("NOT_ADMITTED".to_string()));
         assert_eq!(sidecar.invoke("ai.status", None, json!({})), Err("UNKNOWN_COMMAND".to_string()));
         drop(sidecar);
         std::fs::remove_dir_all(base).expect("remove isolated test base");
@@ -255,7 +275,7 @@ mod tests {
         let base = std::env::temp_dir().join(format!("psyche-os-personal-admitted-e2e-{}", Uuid::new_v4()));
         std::fs::create_dir_all(&base).expect("test base");
         let mut sidecar = PersonalSidecar::spawn_admitted_test_fixture(base.clone()).expect("test-admitted fixture starts");
-        let token = sidecar.invoke("session.unlock", None, json!({"secret": "synthetic-only"})).expect("admitted unlock")["session_token"].as_str().expect("token").to_string();
+        let token = sidecar.invoke("session.unlock", None, json!({"secret": "Synthetic-Recovery-2026!"})).expect("admitted unlock")["session_token"].as_str().expect("token").to_string();
         let created = sidecar.invoke("reflection_session.create", Some(&token), json!({"title": "Synthetic quick capture"})).expect("create");
         let session_id = created["session_id"].as_str().expect("session id").to_string();
         let marker = "P1_SYNTHETIC_NEVER_CLOUD_SENTINEL";

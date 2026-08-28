@@ -37,6 +37,28 @@ _V11_DDL = (
     "CREATE TABLE reflection_ai_provenance_sources (formulation_id TEXT NOT NULL, turn_id TEXT NOT NULL, PRIMARY KEY(formulation_id,turn_id), FOREIGN KEY(formulation_id) REFERENCES reflection_ai_provenance(formulation_id) ON DELETE CASCADE, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
 )
 
+# V12 deliberately keeps interview-specific state separate from the canonical
+# USER source turns.  Interview answers are rows in reflection_turns; every
+# derived interview row points back to those turns and therefore disappears
+# with the source/session through ordinary foreign-key deletion.
+_V12_DDL = (
+    "CREATE TABLE interview_policy (policy_id TEXT PRIMARY KEY CHECK(policy_id='personal_ai_interview_v1'), enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)), updated_at TEXT NOT NULL)",
+    "CREATE TABLE interview_sessions (interview_session_id TEXT PRIMARY KEY, source_session_id TEXT NOT NULL UNIQUE, state TEXT NOT NULL CHECK(state IN ('ACTIVE','END_RECOMMENDED','PAUSED','COMPLETED')), owner_topic TEXT, summary TEXT, next_direction TEXT, summary_derivation_id TEXT, next_direction_derivation_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, ended_at TEXT, FOREIGN KEY(source_session_id) REFERENCES reflection_sessions(session_id) ON DELETE CASCADE, FOREIGN KEY(summary_derivation_id) REFERENCES interview_derivations(derivation_id) ON DELETE SET NULL, FOREIGN KEY(next_direction_derivation_id) REFERENCES interview_derivations(derivation_id) ON DELETE SET NULL)",
+    "CREATE TABLE interview_submissions (interview_session_id TEXT NOT NULL, client_submission_id TEXT NOT NULL, turn_id TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, PRIMARY KEY(interview_session_id,client_submission_id), FOREIGN KEY(interview_session_id) REFERENCES interview_sessions(interview_session_id) ON DELETE CASCADE, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
+    "CREATE TABLE interview_source_policies (turn_id TEXT PRIMARY KEY, policy_id TEXT NOT NULL UNIQUE, enabled INTEGER NOT NULL CHECK(enabled IN (0,1)), sensitivity TEXT NOT NULL CHECK(sensitivity IN ('ordinary','sensitive','deeply_sensitive')), processing_location TEXT NOT NULL CHECK(processing_location IN ('local_only','approved_cloud')), cloud_policy TEXT NOT NULL CHECK(cloud_policy IN ('never_cloud','ask_each_time','named_purpose_and_provider')), purpose TEXT NOT NULL, provider_profile TEXT NOT NULL, third_party_scope TEXT NOT NULL CHECK(third_party_scope IN ('none','incidental','material')), lineage_rule TEXT NOT NULL, assigned_by TEXT NOT NULL CHECK(assigned_by IN ('OWNER_HISTORY_ACTION','SESSION_CONSENT')), updated_at TEXT NOT NULL, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
+    "CREATE TABLE interview_attempts (attempt_id TEXT PRIMARY KEY, interview_session_id TEXT NOT NULL, answer_turn_id TEXT, purpose TEXT NOT NULL CHECK(purpose='personal_ai_interview'), provider_profile TEXT NOT NULL, model TEXT NOT NULL, config_id TEXT NOT NULL, schema_id TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('PREPARED','SENT','SUCCEEDED','FAILED','OUTCOME_UNKNOWN')), policy_enabled INTEGER NOT NULL CHECK(policy_enabled IN (0,1)), source_item_count INTEGER NOT NULL, source_char_count INTEGER NOT NULL, inquiry_item_count INTEGER NOT NULL, inquiry_char_count INTEGER NOT NULL, context_char_count INTEGER NOT NULL, created_at TEXT NOT NULL, sent_at TEXT, completed_at TEXT, error_code TEXT, FOREIGN KEY(interview_session_id) REFERENCES interview_sessions(interview_session_id) ON DELETE CASCADE, FOREIGN KEY(answer_turn_id) REFERENCES reflection_turns(turn_id) ON DELETE SET NULL)",
+    "CREATE TABLE interview_attempt_manifest_items (attempt_id TEXT NOT NULL, alias TEXT NOT NULL, turn_id TEXT NOT NULL, policy_id TEXT NOT NULL, ordinal INTEGER NOT NULL, char_count INTEGER NOT NULL, PRIMARY KEY(attempt_id,alias), UNIQUE(attempt_id,turn_id), FOREIGN KEY(attempt_id) REFERENCES interview_attempts(attempt_id) ON DELETE CASCADE, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
+    "CREATE TABLE interview_derivations (derivation_id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL UNIQUE, validation_state TEXT NOT NULL CHECK(validation_state='VALIDATED'), created_at TEXT NOT NULL, FOREIGN KEY(attempt_id) REFERENCES interview_attempts(attempt_id) ON DELETE CASCADE)",
+    "CREATE TABLE interview_derivation_sources (derivation_id TEXT NOT NULL, turn_id TEXT NOT NULL, alias TEXT NOT NULL, PRIMARY KEY(derivation_id,turn_id), FOREIGN KEY(derivation_id) REFERENCES interview_derivations(derivation_id) ON DELETE CASCADE, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
+    "CREATE TRIGGER interview_derivation_source_deleted AFTER DELETE ON interview_derivation_sources BEGIN DELETE FROM interview_derivations WHERE derivation_id=OLD.derivation_id; END",
+    "CREATE TRIGGER interview_derivation_deleted BEFORE DELETE ON interview_derivations BEGIN UPDATE interview_sessions SET summary=CASE WHEN summary_derivation_id=OLD.derivation_id THEN NULL ELSE summary END, summary_derivation_id=CASE WHEN summary_derivation_id=OLD.derivation_id THEN NULL ELSE summary_derivation_id END, next_direction=CASE WHEN next_direction_derivation_id=OLD.derivation_id THEN NULL ELSE next_direction END, next_direction_derivation_id=CASE WHEN next_direction_derivation_id=OLD.derivation_id THEN NULL ELSE next_direction_derivation_id END WHERE summary_derivation_id=OLD.derivation_id OR next_direction_derivation_id=OLD.derivation_id; END",
+    "CREATE TABLE interview_questions (question_id TEXT PRIMARY KEY, interview_session_id TEXT NOT NULL, derivation_id TEXT NOT NULL, question TEXT NOT NULL CHECK(length(question) BETWEEN 1 AND 480), rationale TEXT NOT NULL CHECK(length(rationale) BETWEEN 1 AND 480), decision TEXT NOT NULL CHECK(decision IN ('ASK','END_RECOMMENDED')), status TEXT NOT NULL CHECK(status IN ('CURRENT','ANSWERED','SKIPPED','DECLINED','SUPERSEDED')), basis_aliases TEXT NOT NULL CHECK(json_valid(basis_aliases) AND json_type(basis_aliases)='array'), created_at TEXT NOT NULL, FOREIGN KEY(interview_session_id) REFERENCES interview_sessions(interview_session_id) ON DELETE CASCADE, FOREIGN KEY(derivation_id) REFERENCES interview_derivations(derivation_id) ON DELETE CASCADE)",
+    "CREATE UNIQUE INDEX idx_interview_current_question ON interview_questions(interview_session_id) WHERE status='CURRENT'",
+    "CREATE TABLE interview_question_basis (question_id TEXT NOT NULL, alias TEXT NOT NULL, turn_id TEXT NOT NULL, PRIMARY KEY(question_id,alias), FOREIGN KEY(question_id) REFERENCES interview_questions(question_id) ON DELETE CASCADE, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
+    "CREATE TABLE interview_inquiry_items (item_id TEXT PRIMARY KEY, interview_session_id TEXT NOT NULL, derivation_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('THEME','WHITE_SPOT','REVISIT','HYPOTHESIS','CONTRADICTION','UNKNOWN')), text TEXT NOT NULL CHECK(length(text) BETWEEN 1 AND 480), priority INTEGER NOT NULL CHECK(priority BETWEEN 1 AND 5), state TEXT NOT NULL CHECK(state IN ('ACTIVE','DISMISSED','INVALIDATED')), source_turn_id TEXT, created_at TEXT NOT NULL, FOREIGN KEY(interview_session_id) REFERENCES interview_sessions(interview_session_id) ON DELETE CASCADE, FOREIGN KEY(derivation_id) REFERENCES interview_derivations(derivation_id) ON DELETE CASCADE, FOREIGN KEY(source_turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
+    "CREATE TABLE interview_attempt_inquiry_items (attempt_id TEXT NOT NULL, item_id TEXT NOT NULL, ordinal INTEGER NOT NULL, char_count INTEGER NOT NULL, PRIMARY KEY(attempt_id,item_id), FOREIGN KEY(attempt_id) REFERENCES interview_attempts(attempt_id) ON DELETE CASCADE, FOREIGN KEY(item_id) REFERENCES interview_inquiry_items(item_id) ON DELETE CASCADE)",
+)
+
 # Kept public so the Personal integrity oracle has one authoritative inventory
 # rather than duplicating the current schema shape.
 PERSONAL_V10_INVENTORY = (
@@ -48,6 +70,7 @@ PERSONAL_V10_INVENTORY = (
     "reflection_snapshot_questions", "reflection_formulations",
 )
 PERSONAL_V11_INVENTORY = (*PERSONAL_V10_INVENTORY, "reflection_ai_provenance", "reflection_ai_provenance_sources")
+PERSONAL_V12_INVENTORY = (*PERSONAL_V11_INVENTORY, "interview_policy", "interview_sessions", "interview_submissions", "interview_source_policies", "interview_attempts", "interview_attempt_manifest_items", "interview_derivations", "interview_derivation_sources", "interview_questions", "interview_question_basis", "interview_inquiry_items", "interview_attempt_inquiry_items")
 
 
 def initialize_personal_v10(connection: Any) -> None:
@@ -72,7 +95,7 @@ def initialize_personal_v10(connection: Any) -> None:
 def migrate_personal_v11(connection: Any) -> None:
     """Atomic additive provenance migration; V10 rows and bytes remain intact."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions == [10, 11]:
+    if versions in ([10, 11], [10, 11, 12]):
         return
     if versions != [10]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -82,9 +105,34 @@ def migrate_personal_v11(connection: Any) -> None:
         connection.execute("INSERT INTO schema_migrations(version,label,checksum) VALUES(11,?,?)", ("pmv1_ai_working_formulation_provenance_v11", "personal-v11-ai-provenance"))
 
 
+def migrate_personal_v12(connection: Any) -> None:
+    """Atomic additive AI Interview migration; historical source fails closed."""
+    versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
+    if versions == [10, 11, 12]:
+        return
+    if versions != [10, 11]:
+        raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
+    with connection:
+        for statement in _V12_DDL:
+            connection.execute(statement)
+        connection.execute(
+            "INSERT INTO interview_policy(policy_id,enabled,updated_at) VALUES('personal_ai_interview_v1',0,datetime('now'))"
+        )
+        connection.execute("INSERT INTO schema_migrations(version,label,checksum) VALUES(12,?,?)", ("pmv1_personal_ai_interview_v12", "personal-v12-ai-interview"))
+
+
 def initialize_personal_v11(connection: Any) -> None:
-    """Current Personal schema: initialize V10, then apply only V10→V11."""
+    """Former current schema for exact legacy-package compatibility."""
     existing = connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()
     if not existing:
         initialize_personal_v10(connection)
     migrate_personal_v11(connection)
+
+
+def initialize_personal_v12(connection: Any) -> None:
+    """Current Personal schema: initialize V10, then additive V11 and V12."""
+    existing = connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()
+    if not existing:
+        initialize_personal_v10(connection)
+    migrate_personal_v11(connection)
+    migrate_personal_v12(connection)

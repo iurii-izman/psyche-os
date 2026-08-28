@@ -22,7 +22,13 @@ class _SyntheticDpapi:
     available = True
 
     def protect(self, value: bytes, description: str) -> bytes:
-        return b"x" * 1024
+        return b"synthetic-dpapi:" + value
+
+    def unprotect(self, blob: bytes) -> bytes:
+        prefix = b"synthetic-dpapi:"
+        if not blob.startswith(prefix):
+            raise ValueError("invalid synthetic DPAPI blob")
+        return blob[len(prefix) :]
 
 
 def main() -> int:

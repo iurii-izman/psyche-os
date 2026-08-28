@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -23,6 +22,9 @@ def test_personal_build_uses_the_canonical_profile_representation() -> None:
     build = (ROOT / "desktop" / "scripts" / "build-personal.ps1").read_text(encoding="utf-8")
     assert '$profileText.Replace("`r`n", "`n").Replace("`r", "`n")' in build
     assert "ReadAllBytes" not in build
+    assert "AIInterview" in build
+    assert "local_personal_ai_interview_openai_windows_v1" in build
+    assert (ROOT / "docs" / "architecture" / "REAL_DATA_GATE_PROFILE_AI_INTERVIEW_OPENAI.yaml").is_file()
 
 
 def test_personal_release_binding_is_explicit_and_cache_safe() -> None:

@@ -1,25 +1,35 @@
-import type { ExplorationView, PersonalApi, PersonalStatus, ReflectionSession, ReflectionTurn, SearchResult, SearchView } from "./personal-api";
+import type { ExplorationView, InterviewView, PersonalApi, PersonalStatus, ReflectionSession, ReflectionTurn, SearchResult, SearchView } from "./personal-api";
 
-export type PreviewScenario = "ACTIVE" | "CLOSED" | "EMPTY" | "SEARCH_MANY";
+export type PreviewScenario = "ACTIVE" | "CLOSED" | "EMPTY" | "SEARCH_MANY" | "INTERVIEW_ONBOARDING" | "INTERVIEW_ACTIVE" | "INTERVIEW_WITH_HISTORY" | "INTERVIEW_END_RECOMMENDED" | "INTERVIEW_RETRYABLE_FAILURE" | "INTERVIEW_PAUSED_RECONSENT" | "INTERVIEW_DISCLOSURE";
 
 type PreviewState = {
   sessions: ReflectionSession[];
   explorations: Map<string, ExplorationView>;
   locked: boolean;
+  scenario: PreviewScenario;
+  interview: InterviewView | null;
 };
 
 const at = (day: number) => `2026-08-${String(day).padStart(2, "0")}T10:00:00Z`;
-const status = (locked: boolean): PersonalStatus => ({
+const status = (locked: boolean, interview = false): PersonalStatus => ({
   build_id: "browser-preview-synthetic",
-  runtime_profile: "LOCAL_PERSONAL",
+  runtime_profile: interview ? "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" : "LOCAL_PERSONAL",
   local_personal: "ADMITTED",
   real_data_gate: "CLOSED",
   locked,
   inbound_listener: "NONE",
-  outbound_provider: "NOT_CONFIGURED",
-  network: "OFFLINE_NO_LISTENER",
-  privacy: { core_processing_location: "LOCAL", cloud_storage: "DISABLED", cloud_disclosure: "NEVER_CLOUD", telemetry: "OFF" }
+  outbound_provider: interview ? "OPENAI_EXPLICIT_OPT_IN" : "NOT_CONFIGURED",
+  network: interview ? "OPENAI_FOREGROUND_BOUNDED" : "OFFLINE_NO_LISTENER",
+  privacy: { core_processing_location: "LOCAL", cloud_storage: "DISABLED", cloud_disclosure: interview ? "EXPLICIT_SESSION_CONSENT_OPENAI_ONLY" : "NEVER_CLOUD", telemetry: "OFF" }
 });
+
+const previewInterview = (scenario: PreviewScenario): InterviewView | null => {
+  if (!scenario.startsWith("INTERVIEW_")) return null;
+  const end = scenario === "INTERVIEW_END_RECOMMENDED";
+  const active = scenario === "INTERVIEW_ACTIVE" || scenario === "INTERVIEW_WITH_HISTORY" || scenario === "INTERVIEW_DISCLOSURE";
+  const failure = scenario === "INTERVIEW_RETRYABLE_FAILURE";
+  return { interview_session_id: "synthetic-interview", state: end ? "END_RECOMMENDED" : scenario === "INTERVIEW_PAUSED_RECONSENT" ? "PAUSED" : "ACTIVE", owner_topic: null, summary: end ? "Сейчас полезно остановиться: новая информация почти не меняет рабочие версии." : null, next_direction: end ? "Вернуться к одному конкретному эпизоду, когда будет уместно." : null, consent: active ? "ACTIVE_IN_MEMORY" : "ABSENT", current_question: active ? { question_id: "synthetic-question", question: scenario === "INTERVIEW_WITH_HISTORY" ? "В каком конкретном эпизоде после встречи вы заметили, что переключиться на отдых трудно?" : "Что в последнем похожем эпизоде произошло до того, как стало трудно остановиться?", rationale: "Чтобы отделить общее объяснение от наблюдаемого эпизода.", decision: "ASK", basis_aliases: scenario === "INTERVIEW_WITH_HISTORY" ? ["S1"] : [] } : null, attempts: failure ? [{ attempt_id: "synthetic-failed", state: "OUTCOME_UNKNOWN", answer_turn_id: "synthetic-answer", error_code: "PROVIDER_OUTCOME_UNKNOWN" }] : scenario === "INTERVIEW_DISCLOSURE" ? [{ attempt_id: "synthetic-disclosure", state: "SUCCEEDED", answer_turn_id: "synthetic-answer", error_code: null }] : [] };
+};
 
 const activeTurns: ReflectionTurn[] = [
   { turn_id: "active-turn-1", session_id: "active", sequence: 1, actor: "USER", created_at: at(4), content: "Встреча дала энергию, но после неё сложно переключиться на отдых." },
@@ -60,12 +70,12 @@ const clone = <T>(value: T): T => structuredClone(value);
 const session = (sessionId: string, title: string, state: "ACTIVE" | "CLOSED", turns: ReflectionTurn[], day: number): ReflectionSession => ({ session_id: sessionId, title, state, turn_count: turns.length, turns, created_at: at(day), updated_at: at(day), closed_at: state === "CLOSED" ? at(day) : null });
 
 const scenarioState = (scenario: PreviewScenario): PreviewState => {
-  if (scenario === "EMPTY") return { sessions: [], explorations: new Map(), locked: false };
-  if (scenario === "SEARCH_MANY") { const many = session("many", "Синтетический сценарий пагинации", "ACTIVE", clone(manyTurns), 3); return { sessions: [many], explorations: new Map([[many.session_id, { context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }]]), locked: false }; }
+  if (scenario === "EMPTY") return { sessions: [], explorations: new Map(), locked: false, scenario, interview: null };
+  if (scenario === "SEARCH_MANY") { const many = session("many", "Синтетический сценарий пагинации", "ACTIVE", clone(manyTurns), 3); return { sessions: [many], explorations: new Map([[many.session_id, { context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }]]), locked: false, scenario, interview: null }; }
   const active = session("active", "Активное размышление", "ACTIVE", clone(activeTurns), 5);
   const closed = session("closed", "Завершённое размышление", "CLOSED", clone(closedTurns), 2);
-  if (scenario === "CLOSED") return { sessions: [closed], explorations: new Map([[closed.session_id, closedExploration()]]), locked: false };
-  return { sessions: [active, closed], explorations: new Map([[active.session_id, activeExploration()], [closed.session_id, closedExploration()]]), locked: false };
+  if (scenario === "CLOSED") return { sessions: [closed], explorations: new Map([[closed.session_id, closedExploration()]]), locked: false, scenario, interview: null };
+  return { sessions: [active, closed], explorations: new Map([[active.session_id, activeExploration()], [closed.session_id, closedExploration()]]), locked: false, scenario, interview: previewInterview(scenario) };
 };
 
 const findSession = (state: PreviewState, sessionId: string) => {
@@ -99,7 +109,7 @@ export const createPersonalBrowserPreviewApi = (scenario: PreviewScenario): Pers
   const state = scenarioState(scenario);
   const getExploration = (sessionId: string) => clone(explorationFor(state, sessionId));
   return {
-    status: async () => status(state.locked),
+    status: async () => status(state.locked, state.interview !== null),
     unlock: async () => { state.locked = false; return { session_token: "synthetic-preview-only" }; },
     lock: async () => { state.locked = true; return {}; },
     reflectionCreate: async (title) => { const sessionId = `preview-${state.sessions.length + 1}`; const created = session(sessionId, title, "ACTIVE", [], 6); state.sessions.unshift(created); state.explorations.set(sessionId, { context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }); return clone(created); },
@@ -126,6 +136,19 @@ export const createPersonalBrowserPreviewApi = (scenario: PreviewScenario): Pers
     aiProviderConfigure: async () => ({}),
     aiProviderDelete: async () => ({}),
     aiFormulationPrepare: async (_sessionId, selectedTurnIds) => ({ interaction_id: "synthetic-preview", preview_id: "synthetic-preview", turns: state.sessions.flatMap((item) => item.turns ?? []).filter((turn) => selectedTurnIds.includes(turn.turn_id)), expires_at: at(6) }),
-    aiFormulationExecute: async () => ({})
+    aiFormulationExecute: async () => ({}),
+    aiInterviewStatus: async () => ({ configured: true, policy_enabled: true, profile_id: "synthetic-no-network" }),
+    aiInterviewPolicy: async () => ({}),
+    aiInterviewSourcePolicy: async () => ({}),
+    aiInterviewStart: async () => { state.interview = previewInterview("INTERVIEW_ONBOARDING")!; return clone(state.interview); },
+    aiInterviewList: async () => ({ sessions: state.interview ? [clone(state.interview)] : [] }),
+    aiInterviewGrantConsent: async () => ({}),
+    aiInterviewRevokeConsent: async () => ({}),
+    aiInterviewFirstQuestion: async () => { state.interview = { ...(state.interview ?? previewInterview("INTERVIEW_ACTIVE")!), consent: "ACTIVE_IN_MEMORY", current_question: previewInterview("INTERVIEW_ACTIVE")!.current_question }; return clone(state.interview); },
+    aiInterviewSubmit: async () => { state.interview = { ...(state.interview ?? previewInterview("INTERVIEW_ACTIVE")!), state: "ACTIVE", consent: "ACTIVE_IN_MEMORY", current_question: previewInterview("INTERVIEW_WITH_HISTORY")!.current_question }; return clone(state.interview); },
+    aiInterviewRetry: async () => clone(state.interview ?? previewInterview("INTERVIEW_RETRYABLE_FAILURE")!),
+    aiInterviewControl: async (_id, action) => { if (!state.interview) throw new Error("SYNTHETIC_INTERVIEW_NOT_FOUND"); state.interview.state = action === "END" ? "COMPLETED" : action === "STOP" ? "PAUSED" : "ACTIVE"; if (action === "STOP" || action === "END") state.interview.consent = "ABSENT"; return clone(state.interview); },
+    aiInterviewGet: async () => clone(state.interview ?? previewInterview("INTERVIEW_ONBOARDING")!),
+    aiInterviewDisclosure: async () => ({ state: "SUCCEEDED", items: [{ alias: "S1", content: "Синтетическая локальная запись для визуальной проверки; сеть не используется." }] })
   };
 };

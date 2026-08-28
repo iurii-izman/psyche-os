@@ -65,4 +65,18 @@ describe("Personal browser preview API", () => {
     expect(third.has_more).toBe(false);
     expect(third.truncated).toBe(false);
   });
+
+  it("provides the AI Interview visual states entirely in memory with no provider configuration", async () => {
+    const active = createPersonalBrowserPreviewApi("INTERVIEW_WITH_HISTORY");
+    expect((await active.status()).runtime_profile).toBe("LOCAL_PERSONAL_AI_INTERVIEW_OPENAI");
+    const view = (await active.aiInterviewList()).sessions[0];
+    expect(view?.current_question?.basis_aliases).toEqual(["S1"]);
+    expect((await active.aiInterviewStatus()).profile_id).toBe("synthetic-no-network");
+
+    const end = createPersonalBrowserPreviewApi("INTERVIEW_END_RECOMMENDED");
+    expect((await end.aiInterviewList()).sessions[0]?.state).toBe("END_RECOMMENDED");
+    const retry = createPersonalBrowserPreviewApi("INTERVIEW_RETRYABLE_FAILURE");
+    expect((await retry.aiInterviewList()).sessions[0]?.attempts[0]?.state).toBe("OUTCOME_UNKNOWN");
+    expect((await retry.aiInterviewDisclosure("synthetic-disclosure")).items[0]?.content).toContain("Синтетическая");
+  });
 });

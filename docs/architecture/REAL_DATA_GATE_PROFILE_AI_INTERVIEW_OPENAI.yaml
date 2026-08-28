@@ -1,0 +1,38 @@
+schema_version: "1.0"
+status: "ACCEPTED_IMPLEMENTATION_PROFILE_DEFINITION"
+authoritative: true
+profile_id: "local_personal_ai_interview_openai_windows_v1"
+profile_version: "1.0"
+definition_lifecycle:
+  external_evaluation_binding_required: true
+  self_digest_forbidden: true
+  candidate_enforcement_must_be_proven_in_exact_evaluation: true
+intended_use:
+  statement: >-
+    Foreground owner-controlled Personal AI Interview. OpenAI receives only a
+    locally selected, policy-eligible, bounded subset after explicit runtime
+    session consent. USER answers remain local source; model output is derived.
+  real_data_admission: "PROHIBITED_UNTIL_EXACT_EVALUATION_HAS_VALID_HUMAN_OPEN_DECISION_AND_UNEXPIRED_RUNTIME_TOKEN"
+supported_platform_envelope:
+  operating_systems: ["Windows"]
+  exact_architecture_runtime_and_packaging: "BOUND_IN_EXACT_EVALUATION"
+boundary_inventory:
+  canonical_encrypted_store_and_key_recovery: { state: "ENABLED" }
+  desktop_renderer_and_typed_ipc: { state: "ENABLED" }
+  provider_model_or_network:
+    state: "ENABLED"
+    endpoint: "https://api.openai.com/v1/responses"
+    provider: "openai"
+    model: "gpt-5.6-luna"
+    purpose: "personal_ai_interview"
+    constraints: ["HTTPS_ONLY", "NO_REDIRECTS", "NO_PROXY_INHERITANCE", "STORE_FALSE", "NO_TOOLS_FILES_WEB_MEMORY", "NO_BACKGROUND", "STATELESS_FOREGROUND", "RUNTIME_CONSENT", "BOUNDED_LOCAL_MANIFEST", "NO_AUTOMATIC_RETRY"]
+    applicable_rdg: ["RDG-07", "RDG-09", "RDG-10", "RDG-11", "RDG-12"]
+  inbound_listener: { state: "EXCLUDED", exclusion_requirement: "No inbound listener is shipped." }
+  general_network: { state: "EXCLUDED", exclusion_requirement: "No renderer or arbitrary endpoint network capability is shipped." }
+  provider_hosted_memory_or_tools: { state: "EXCLUDED", exclusion_requirement: "No provider conversation state, files, vectors, tools or web." }
+required_review_classes:
+  coding_model_output: "NON_AUTHORITATIVE_DERIVED_ONLY"
+  gate_decider: "REPOSITORY_OWNER"
+  human_attestation_method: "local_human_attestation_v1"
+rationale_authority:
+  gate_policy: "docs/architecture/REAL_DATA_GATE.yaml"

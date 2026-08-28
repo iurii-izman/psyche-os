@@ -27,7 +27,7 @@ fn personal_release_identity() -> (String, String, String) {
     let build_id = std::env::var(BUILD_ID).ok();
     let profile_digest = std::env::var(PROFILE_DIGEST).ok();
     let profile_id = std::env::var("PSYCHE_OS_PERSONAL_PROFILE_ID").unwrap_or_else(|_| "local_personal_evidence_reflection_windows_v1".to_owned());
-    if !matches!(profile_id.as_str(), "local_personal_evidence_reflection_windows_v1" | "local_personal_bounded_openai_reflection_windows_v1") { panic!("unknown Personal runtime profile"); }
+    if !matches!(profile_id.as_str(), "local_personal_evidence_reflection_windows_v1" | "local_personal_bounded_openai_reflection_windows_v1" | "local_personal_ai_interview_openai_windows_v1") { panic!("unknown Personal runtime profile"); }
     println!("cargo:rerun-if-env-changed=PSYCHE_OS_PERSONAL_PROFILE_ID");
     let release = std::env::var("PROFILE").as_deref() == Ok("release");
     let valid_build_id = build_id.as_deref().is_some_and(|value| {
