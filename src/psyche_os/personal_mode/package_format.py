@@ -10,12 +10,15 @@ from typing import Any
 from psyche_os.personal_mode.schema import (
     PERSONAL_V10_INVENTORY,
     PERSONAL_V11_INVENTORY,
+    PERSONAL_V12_INVENTORY,
     initialize_personal_v10,
     initialize_personal_v11,
+    initialize_personal_v12,
 )
 
 PERSONAL_V10_FORMAT_VERSION = 3
 PERSONAL_V11_FORMAT_VERSION = 4
+PERSONAL_V12_FORMAT_VERSION = 5
 class PersonalPackageError(Exception):
     pass
 
@@ -29,10 +32,10 @@ def _digest(value: Any) -> str:
 def _expected_schemas(version: int) -> dict[str, list[str]]:
     reference = sqlite3.connect(":memory:")
     try:
-        (initialize_personal_v10 if version == 10 else initialize_personal_v11)(reference)
+        (initialize_personal_v10 if version == 10 else initialize_personal_v11 if version == 11 else initialize_personal_v12)(reference)
         return {
             table: [row[1] for row in reference.execute(f"PRAGMA table_info({table})")]
-            for table in (PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY)
+            for table in (PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY if version == 11 else PERSONAL_V12_INVENTORY)
         }
     finally:
         reference.close()
@@ -45,12 +48,21 @@ def _package_body(connection: Any) -> dict[str, Any]:
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
         )
     }
-    if actual != set(PERSONAL_V11_INVENTORY):
+    versions = tuple(row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version"))
+    if versions == (10,):
+        version, inventory, format_version = 10, PERSONAL_V10_INVENTORY, PERSONAL_V10_FORMAT_VERSION
+    elif versions == (10, 11):
+        version, inventory, format_version = 11, PERSONAL_V11_INVENTORY, PERSONAL_V11_FORMAT_VERSION
+    elif versions == (10, 11, 12):
+        version, inventory, format_version = 12, PERSONAL_V12_INVENTORY, PERSONAL_V12_FORMAT_VERSION
+    else:
+        raise PersonalPackageError()
+    if actual != set(inventory):
         raise PersonalPackageError()
     tables: dict[str, list[dict[str, Any]]] = {}
     schemas: dict[str, list[str]] = {}
     checksums: dict[str, str] = {}
-    for table in PERSONAL_V11_INVENTORY:
+    for table in inventory:
         cursor = connection.execute(f"SELECT * FROM {table}")
         columns = [item[0] for item in cursor.description]
         rows = [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
@@ -59,9 +71,9 @@ def _package_body(connection: Any) -> dict[str, Any]:
         checksums[table] = _digest(rows)
     return {
         "format": "psyche-os-personal-logical-package",
-        "format_version": PERSONAL_V11_FORMAT_VERSION,
-        "schema_version": 11,
-        "inventory": list(PERSONAL_V11_INVENTORY),
+        "format_version": format_version,
+        "schema_version": version,
+        "inventory": list(inventory),
         "schemas": schemas,
         "checksums": checksums,
         "tables": tables,
@@ -101,8 +113,8 @@ def verify_personal_package_structure(package: Any) -> bool:
         }:
             return False
         version = package.get("schema_version")
-        inventory = PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY if version == 11 else ()
-        expected_format = PERSONAL_V10_FORMAT_VERSION if version == 10 else PERSONAL_V11_FORMAT_VERSION if version == 11 else -1
+        inventory = PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY if version == 11 else PERSONAL_V12_INVENTORY if version == 12 else ()
+        expected_format = PERSONAL_V10_FORMAT_VERSION if version == 10 else PERSONAL_V11_FORMAT_VERSION if version == 11 else PERSONAL_V12_FORMAT_VERSION if version == 12 else -1
         if (
             package["format"] != "psyche-os-personal-logical-package"
             or package["format_version"] != expected_format
@@ -131,11 +143,16 @@ def restore_personal_package(package: dict[str, Any], connection: Any) -> None:
     if existing:
         raise PersonalPackageError()
     version = package["schema_version"]
-    (initialize_personal_v10 if version == 10 else initialize_personal_v11)(connection)
+    (initialize_personal_v10 if version == 10 else initialize_personal_v11 if version == 11 else initialize_personal_v12)(connection)
     try:
         connection.execute("BEGIN IMMEDIATE")
+        # V12 initialization seeds a fail-closed policy row.  A package is the
+        # authoritative logical snapshot, so remove that seed before restoring
+        # its corresponding row rather than merging policy state.
+        if version == 12:
+            connection.execute("DELETE FROM interview_policy")
         connection.execute("DELETE FROM schema_migrations")
-        inventory = PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY
+        inventory = PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY if version == 11 else PERSONAL_V12_INVENTORY
         for table in (*(table for table in inventory if table != "schema_migrations"), "schema_migrations"):
             for row in package["tables"][table]:
                 columns = list(row)
@@ -145,7 +162,7 @@ def restore_personal_package(package: dict[str, Any], connection: Any) -> None:
                 )
         if version == 10:
             connection.commit()
-            initialize_personal_v11(connection)
+            initialize_personal_v12(connection)
             return
         if create_personal_package(connection)["package_checksum"] != package["package_checksum"]:
             raise PersonalPackageError()
