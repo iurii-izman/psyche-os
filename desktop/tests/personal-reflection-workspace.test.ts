@@ -86,4 +86,56 @@ describe("Personal daily-use renderer", () => {
     expect(document.body.textContent).toContain("Размышление завершено. Изменения недоступны.");
     expect(document.body.textContent).not.toContain("SESSION_CLOSED");
   });
+
+  it("applies whole-reflection source policy in bounded batches of at most 12 exact turn ids", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const turnCount = 29;
+    const bigTurns = Array.from({ length: turnCount }, (_, index) => ({
+      turn_id: `turn-${index + 1}`,
+      session_id: "big",
+      sequence: index + 1,
+      actor: "USER" as const,
+      created_at: "2026-08-24T00:00:00Z",
+      content: `Синтетическая запись ${index + 1}`,
+    }));
+    const big = session("big", "ACTIVE", bigTurns);
+    const policyCalls: { turnIds: string[]; enabled: boolean }[] = [];
+    const api = {
+      status: vi.fn(async () => ({ runtime_profile: "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" as const, real_data_gate: "CLOSED" as const, local_personal: "ADMITTED" as const, locked: false, inbound_listener: "NONE" as const, outbound_provider: "OPENAI_EXPLICIT_OPT_IN" as const, network: "OPENAI_FOREGROUND_BOUNDED" as const, privacy: { core_processing_location: "LOCAL" as const, cloud_storage: "DISABLED" as const, cloud_disclosure: "EXPLICIT_SESSION_CONSENT_OPENAI_ONLY" as const, telemetry: "OFF" as const } })),
+      lock: vi.fn(async () => ({})),
+      reflectionList: vi.fn(async () => ({ sessions: [big] })),
+      reflectionGet: vi.fn(async () => big),
+      reflectionCreate: vi.fn(), reflectionAddTurn: vi.fn(), reflectionClose: vi.fn(), reflectionDelete: vi.fn(), reflectionSearch: vi.fn(),
+      explorationGet: vi.fn(async () => ({ context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] })),
+      explorationStart: vi.fn(), explorationAnswer: vi.fn(), explorationSkip: vi.fn(),
+      formulationPropose: vi.fn(), formulationCorrect: vi.fn(), formulationAccept: vi.fn(), formulationReject: vi.fn(),
+      personalRecoveryStatus: vi.fn(), personalBackup: vi.fn(), personalRestoreIsolated: vi.fn(), personalExportOwner: vi.fn(),
+      aiInterviewStatus: vi.fn(async () => ({ configured: true, policy_enabled: true, profile_id: "synthetic", eligible_source_count: turnCount })),
+      aiInterviewList: vi.fn(async () => ({ sessions: [] })),
+      aiInterviewGet: vi.fn(async () => { throw new Error("INTERVIEW_NOT_FOUND"); }),
+      aiInterviewSourcePolicy: vi.fn(async (turnIds: string[], enabled: boolean) => {
+        policyCalls.push({ turnIds, enabled });
+        return {};
+      }),
+    } as unknown as PersonalApi;
+    await mountPersonal(api, document.querySelector<HTMLDivElement>("#app")!);
+    await click("Продолжить");
+    expect(document.querySelector("#interview-source-allow-all")).not.toBeNull();
+
+    await click("Разрешить всё размышление для AI");
+    expect(policyCalls.length).toBe(Math.ceil(turnCount / 12));
+    for (const call of policyCalls) expect(call.turnIds.length).toBeLessThanOrEqual(12);
+    expect(policyCalls.every((call) => call.enabled)).toBe(true);
+    expect(policyCalls.flatMap((call) => call.turnIds).sort()).toEqual(bigTurns.map((turn) => turn.turn_id).sort());
+    expect(document.body.textContent).toContain("Все записи этого размышления разрешены");
+    expect(api.aiInterviewStatus).toHaveBeenCalled();
+
+    policyCalls.length = 0;
+    await click("Отозвать разрешение со всего размышления");
+    expect(policyCalls.length).toBe(Math.ceil(turnCount / 12));
+    for (const call of policyCalls) expect(call.turnIds.length).toBeLessThanOrEqual(12);
+    expect(policyCalls.every((call) => !call.enabled)).toBe(true);
+    expect(policyCalls.flatMap((call) => call.turnIds).sort()).toEqual(bigTurns.map((turn) => turn.turn_id).sort());
+    expect(document.body.textContent).toContain("Разрешение на передачу всех записей этого размышления отозвано");
+  });
 });

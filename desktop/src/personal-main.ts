@@ -1146,7 +1146,15 @@ export async function mountPersonal(
         notice = "В этом размышлении пока нет ваших записей.";
         return;
       }
-      await api.aiInterviewSourcePolicy(turnIds, enabled);
+      // Backend rejects any policy call with more than MAX_SOURCE_ITEMS=12
+      // turn ids, so apply the exact per-turn policy in bounded batches.
+      const batchSize = 12;
+      for (let offset = 0; offset < turnIds.length; offset += batchSize) {
+        await api.aiInterviewSourcePolicy(
+          turnIds.slice(offset, offset + batchSize),
+          enabled,
+        );
+      }
       interviewEligibility = (await api.aiInterviewStatus()).eligible_source_count;
       notice = enabled
         ? "Все записи этого размышления разрешены только для AI-исследования OpenAI."
