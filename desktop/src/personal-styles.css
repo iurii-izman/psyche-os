@@ -111,3 +111,14 @@ input, textarea, select { width: 100%; border: 1px solid #b8c2b9; border-radius:
 .source-evidence summary { font-size: .86rem; }
 @media (min-width: 1100px) { .longitudinal-review dl { max-width: none; grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 820px) { .home-shell, .longitudinal-shell, .sensemaking { grid-template-columns: 1fr; } }
+
+/* Working assumptions: deterministic exploration material, explicitly not facts and not AI output. */
+.hypothesis-card { padding: 1rem; border: 1px solid #d6ddd5; border-left: 3px solid #a3b3a7; border-radius: 10px; background: #fbfcfa; display: grid; gap: .45rem; }
+.hypothesis-label { color: #607064; font-size: .72rem; font-weight: 700; letter-spacing: .08em; }
+.hypothesis-proposal { white-space: pre-wrap; line-height: 1.6; max-width: 72ch; }
+.hypothesis-field { display: grid; gap: .15rem; margin: 0; }
+.hypothesis-field strong { font-size: .82rem; color: #526157; }
+.hypothesis-field span { white-space: pre-wrap; line-height: 1.55; max-width: 72ch; }
+.hypothesis-card > small { color: #69766d; }
+.search-more { margin: .75rem 0 .25rem; }
+@media (prefers-color-scheme: dark) { .hypothesis-card { background: #1d261e; border-color: #374639; border-left-color: #5d6f61; }.hypothesis-label, .hypothesis-field strong { color: #c3d0c5; }.hypothesis-card > small { color: #a9b8ab; } }
