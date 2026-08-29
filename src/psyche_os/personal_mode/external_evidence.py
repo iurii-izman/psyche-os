@@ -50,16 +50,22 @@ def _hash(value: Any) -> str:
 def health_md_checksums(
     header: dict[str, Any], records: list[dict[str, Any]], issues: list[dict[str, Any]], manifest: dict[str, Any]
 ) -> tuple[list[str], str, str]:
-    """Return the normative v1 semantic checksums for a decoded snapshot.
-
-    A record hash covers the exact record object except its self-referential
-    ``hash`` member.  The logical checksum covers the decoded framing and
-    records (and is therefore format-independent); the manifest checksum
-    covers its own complete semantic payload except its self-reference.
-    """
+    """Return the normative Health.md Raw Snapshot v1 checksums."""
     record_hashes = [_hash({key: value for key, value in record.items() if key != "hash"}) for record in records]
-    logical = _hash({"header": header, "records": records, "issues": issues})
-    manifest_payload = {key: value for key, value in manifest.items() if key != "manifestChecksumSha256"}
+    digest = hashlib.sha256()
+    logical_header = json.loads(_canonical(header))
+    logical_header["request"]["format"] = "JSON"
+    for kind, value in [("header", logical_header), *[("record", record) for record in records], *[("issue", issue) for issue in issues]]:
+        digest.update(kind.encode("ascii"))
+        digest.update(b"\0")
+        digest.update(_canonical(value).encode("utf-8"))
+        digest.update(b"\n")
+    logical = digest.hexdigest()
+    manifest_payload = {
+        key: value
+        for key, value in manifest.items()
+        if key not in {"manifestChecksumSha256", "artifactChecksumSha256"}
+    }
     return record_hashes, logical, _hash(manifest_payload)
 
 
