@@ -80,6 +80,20 @@ _V13_DDL = (
     "CREATE TRIGGER personal_model_support_lost AFTER DELETE ON personal_model_revision_sources BEGIN UPDATE personal_model_revisions SET status='INVALIDATED' WHERE revision_id=OLD.revision_id AND status='CURRENT' AND NOT EXISTS (SELECT 1 FROM personal_model_revision_sources WHERE revision_id=OLD.revision_id AND role='SUPPORT'); UPDATE personal_model_items SET state='INVALIDATED' WHERE state IN ('ACTIVE','CONTESTED') AND NOT EXISTS (SELECT 1 FROM personal_model_revisions WHERE item_id=personal_model_items.item_id AND status='CURRENT'); END",
 )
 
+# V14 is the deliberately narrow Inquiry -> Change model.  Check-in text stays
+# in reflection_turns; these rows only bind durable derived plans and outcomes
+# to exact source/derivation identities.
+_V14_DDL = (
+    "CREATE TABLE change_plans (plan_id TEXT PRIMARY KEY, derivation_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('OBSERVE','EXPERIMENT')), state TEXT NOT NULL CHECK(state IN ('PROPOSED','ACTIVE','COMPLETED','STOPPED','DISMISSED','INVALIDATED')), title TEXT NOT NULL CHECK(length(title) BETWEEN 1 AND 160), reason TEXT NOT NULL CHECK(length(reason) BETWEEN 1 AND 480), instructions TEXT NOT NULL CHECK(length(instructions) BETWEEN 1 AND 1200), observation_prompt TEXT NOT NULL CHECK(length(observation_prompt) BETWEEN 1 AND 480), expected_signal TEXT NOT NULL CHECK(length(expected_signal) BETWEEN 1 AND 480), counter_signal TEXT NOT NULL CHECK(length(counter_signal) BETWEEN 1 AND 480), duration_days INTEGER CHECK(duration_days BETWEEN 1 AND 31), stop_conditions TEXT NOT NULL CHECK(length(stop_conditions) BETWEEN 1 AND 480), risk_level TEXT NOT NULL CHECK(risk_level='LOW'), reversible INTEGER NOT NULL CHECK(reversible=1), self_directed INTEGER NOT NULL CHECK(self_directed=1), created_at TEXT NOT NULL, activated_at TEXT, ended_at TEXT, completion_review_id TEXT UNIQUE, FOREIGN KEY(derivation_id) REFERENCES interview_derivations(derivation_id) ON DELETE CASCADE, FOREIGN KEY(completion_review_id) REFERENCES change_reviews(review_id) ON DELETE NO ACTION)",
+    "CREATE TABLE change_plan_targets (plan_id TEXT NOT NULL, item_id TEXT NOT NULL, revision_id TEXT NOT NULL, PRIMARY KEY(plan_id,item_id), FOREIGN KEY(plan_id) REFERENCES change_plans(plan_id) ON DELETE CASCADE, FOREIGN KEY(item_id) REFERENCES personal_model_items(item_id) ON DELETE CASCADE, FOREIGN KEY(revision_id) REFERENCES personal_model_revisions(revision_id) ON DELETE CASCADE)",
+    "CREATE TABLE change_observations (observation_id TEXT PRIMARY KEY, plan_id TEXT NOT NULL, turn_id TEXT NOT NULL UNIQUE, signal TEXT CHECK(signal IN ('BETTER','SAME','WORSE','UNCLEAR','NOT_APPLICABLE')), created_at TEXT NOT NULL, FOREIGN KEY(plan_id) REFERENCES change_plans(plan_id) ON DELETE CASCADE, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
+    "CREATE TABLE change_reviews (review_id TEXT PRIMARY KEY, plan_id TEXT NOT NULL, derivation_id TEXT NOT NULL, practical_effect TEXT NOT NULL CHECK(practical_effect IN ('HELPED','NO_CLEAR_EFFECT','WORSE','MIXED','NOT_TESTED')), epistemic_outcome TEXT NOT NULL CHECK(epistemic_outcome IN ('SUPPORTED','WEAKENED','INCONCLUSIVE','CONTEXT_DEPENDENT')), summary TEXT NOT NULL CHECK(length(summary) BETWEEN 1 AND 480), understanding TEXT NOT NULL CHECK(length(understanding) BETWEEN 1 AND 480), recommended_next TEXT NOT NULL CHECK(recommended_next IN ('COMPLETE','CONTINUE_OBSERVING','RETURN_TO_INQUIRY')), created_at TEXT NOT NULL, FOREIGN KEY(plan_id) REFERENCES change_plans(plan_id) ON DELETE CASCADE, FOREIGN KEY(derivation_id) REFERENCES interview_derivations(derivation_id) ON DELETE CASCADE)",
+    "CREATE TRIGGER change_review_deleted_reopens_plan AFTER DELETE ON change_reviews WHEN (SELECT completion_review_id FROM change_plans WHERE plan_id=OLD.plan_id)=OLD.review_id BEGIN UPDATE change_plans SET state='ACTIVE',ended_at=NULL,completion_review_id=NULL WHERE plan_id=OLD.plan_id; END",
+    "CREATE TABLE change_review_sessions (interview_session_id TEXT PRIMARY KEY, plan_id TEXT NOT NULL, FOREIGN KEY(interview_session_id) REFERENCES interview_sessions(interview_session_id) ON DELETE CASCADE, FOREIGN KEY(plan_id) REFERENCES change_plans(plan_id) ON DELETE CASCADE)",
+    "CREATE TABLE interview_attempt_change_items (attempt_id TEXT NOT NULL, alias TEXT NOT NULL, plan_id TEXT NOT NULL, sent_state TEXT NOT NULL CHECK(sent_state IN ('PROPOSED','ACTIVE','COMPLETED','STOPPED','DISMISSED','INVALIDATED')), ordinal INTEGER NOT NULL, char_count INTEGER NOT NULL, PRIMARY KEY(attempt_id,alias), UNIQUE(attempt_id,plan_id), FOREIGN KEY(attempt_id) REFERENCES interview_attempts(attempt_id) ON DELETE CASCADE, FOREIGN KEY(plan_id) REFERENCES change_plans(plan_id) ON DELETE CASCADE)",
+    "CREATE UNIQUE INDEX idx_change_one_active_experiment ON change_plans(kind) WHERE state='ACTIVE' AND kind='EXPERIMENT'",
+)
+
 # Kept public so the Personal integrity oracle has one authoritative inventory
 # rather than duplicating the current schema shape.
 PERSONAL_V10_INVENTORY = (
@@ -93,6 +107,7 @@ PERSONAL_V10_INVENTORY = (
 PERSONAL_V11_INVENTORY = (*PERSONAL_V10_INVENTORY, "reflection_ai_provenance", "reflection_ai_provenance_sources")
 PERSONAL_V12_INVENTORY = (*PERSONAL_V11_INVENTORY, "interview_policy", "interview_sessions", "interview_submissions", "interview_source_policies", "interview_attempts", "interview_attempt_manifest_items", "interview_derivations", "interview_derivation_sources", "interview_questions", "interview_question_basis", "interview_inquiry_items", "interview_attempt_inquiry_items")
 PERSONAL_V13_INVENTORY = (*PERSONAL_V12_INVENTORY, "personal_model_items", "personal_model_revisions", "personal_model_revision_sources", "personal_model_challenges", "interview_attempt_model_items")
+PERSONAL_V14_INVENTORY = (*PERSONAL_V13_INVENTORY, "change_plans", "change_plan_targets", "change_observations", "change_reviews", "change_review_sessions", "interview_attempt_change_items")
 
 
 def initialize_personal_v10(connection: Any) -> None:
@@ -117,7 +132,7 @@ def initialize_personal_v10(connection: Any) -> None:
 def migrate_personal_v11(connection: Any) -> None:
     """Atomic additive provenance migration; V10 rows and bytes remain intact."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11], [10, 11, 12], [10, 11, 12, 13]):
+    if versions in ([10, 11], [10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14]):
         return
     if versions != [10]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -130,7 +145,7 @@ def migrate_personal_v11(connection: Any) -> None:
 def migrate_personal_v12(connection: Any) -> None:
     """Atomic additive AI Interview migration; historical source fails closed."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11, 12], [10, 11, 12, 13]):
+    if versions in ([10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14]):
         return
     if versions != [10, 11]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -146,7 +161,7 @@ def migrate_personal_v12(connection: Any) -> None:
 def migrate_personal_v13(connection: Any) -> None:
     """Atomic additive Personal Model migration; no semantic backfill."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions == [10, 11, 12, 13]:
+    if versions in ([10, 11, 12, 13], [10, 11, 12, 13, 14]):
         return
     if versions != [10, 11, 12]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -181,3 +196,15 @@ def initialize_personal_v13(connection: Any) -> None:
     migrate_personal_v11(connection)
     migrate_personal_v12(connection)
     migrate_personal_v13(connection)
+
+def migrate_personal_v14(connection: Any) -> None:
+    versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
+    if versions == [10, 11, 12, 13, 14]: return
+    if versions != [10, 11, 12, 13]: raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
+    with connection:
+        for statement in _V14_DDL: connection.execute(statement)
+        connection.execute("INSERT INTO schema_migrations(version,label,checksum) VALUES(14,?,?)", ("pmv1_inquiry_change_v14", "personal-v14-inquiry-change"))
+
+def initialize_personal_v14(connection: Any) -> None:
+    initialize_personal_v13(connection)
+    migrate_personal_v14(connection)

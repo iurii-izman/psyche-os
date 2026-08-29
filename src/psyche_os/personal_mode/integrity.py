@@ -16,10 +16,12 @@ from psyche_os.personal_mode.schema import (
     PERSONAL_V11_INVENTORY,
     PERSONAL_V12_INVENTORY,
     PERSONAL_V13_INVENTORY,
+    PERSONAL_V14_INVENTORY,
     initialize_personal_v10,
     initialize_personal_v11,
     initialize_personal_v12,
     initialize_personal_v13,
+    initialize_personal_v14,
 )
 
 
@@ -34,8 +36,8 @@ _PROFILE_VERSION = "v1"
 def _schema_fingerprint(version: int) -> dict[str, tuple[tuple[Any, ...], ...]]:
     reference = sqlite3.connect(":memory:")
     try:
-        (initialize_personal_v10 if version == 10 else initialize_personal_v11 if version == 11 else initialize_personal_v12 if version == 12 else initialize_personal_v13)(reference)
-        inventory = PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY if version == 11 else PERSONAL_V12_INVENTORY if version == 12 else PERSONAL_V13_INVENTORY
+        (initialize_personal_v10 if version == 10 else initialize_personal_v11 if version == 11 else initialize_personal_v12 if version == 12 else initialize_personal_v13 if version == 13 else initialize_personal_v14)(reference)
+        inventory = PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY if version == 11 else PERSONAL_V12_INVENTORY if version == 12 else PERSONAL_V13_INVENTORY if version == 13 else PERSONAL_V14_INVENTORY
         return {
             table: tuple(reference.execute(f"PRAGMA table_info({table})").fetchall())
             for table in inventory
@@ -44,7 +46,7 @@ def _schema_fingerprint(version: int) -> dict[str, tuple[tuple[Any, ...], ...]]:
         reference.close()
 
 
-_EXPECTED = {10: _schema_fingerprint(10), 11: _schema_fingerprint(11), 12: _schema_fingerprint(12), 13: _schema_fingerprint(13)}
+_EXPECTED = {10: _schema_fingerprint(10), 11: _schema_fingerprint(11), 12: _schema_fingerprint(12), 13: _schema_fingerprint(13), 14: _schema_fingerprint(14)}
 
 
 def verify_personal_vault(connection: Any, envelope: PersonalKeyEnvelope) -> int:
@@ -75,10 +77,10 @@ def verify_personal_vault(connection: Any, envelope: PersonalKeyEnvelope) -> int
         versions = tuple(row[0] for row in connection.execute(
             "SELECT version FROM schema_migrations ORDER BY version"
         ).fetchall())
-        if versions not in {(10,), (10, 11), (10, 11, 12), (10, 11, 12, 13)}:
+        if versions not in {(10,), (10, 11), (10, 11, 12), (10, 11, 12, 13), (10, 11, 12, 13, 14)}:
             raise PersonalIntegrityError()
         version = versions[-1]
-        inventory = PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY if version == 11 else PERSONAL_V12_INVENTORY if version == 12 else PERSONAL_V13_INVENTORY
+        inventory = PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY if version == 11 else PERSONAL_V12_INVENTORY if version == 12 else PERSONAL_V13_INVENTORY if version == 13 else PERSONAL_V14_INVENTORY
         actual = {
             row[0]
             for row in connection.execute(

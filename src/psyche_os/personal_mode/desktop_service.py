@@ -202,6 +202,11 @@ class PersonalDesktopApplicationService:
                 "ai.interview.disclosure": self._interview_disclosure,
                 "ai.model.list": self._model_list,
                 "ai.model.correct": self._model_correct,
+                "ai.change.list": self._change_list,
+                "ai.change.control": self._change_control,
+                "ai.change.observe": self._change_observe,
+                "ai.change.allow_observations": self._change_allow_observations,
+                "ai.change.start_review": self._change_start_review,
             }
             return handlers[command](payload)
         except PersonalNotAdmittedError as exc:
@@ -381,6 +386,26 @@ class PersonalDesktopApplicationService:
     def _model_correct(self, payload: Any) -> dict[str, Any]:
         values = _exact(payload, {"item_id", "content"})
         return self._interview_service().challenge(values["item_id"], values["content"])
+
+    def _change_list(self, payload: Any) -> dict[str, Any]:
+        _exact(payload, set())
+        return self._interview_service().changes()
+
+    def _change_control(self, payload: Any) -> dict[str, Any]:
+        values = _exact(payload, {"plan_id", "action"})
+        return self._interview_service().change_control(values["plan_id"], values["action"])
+
+    def _change_observe(self, payload: Any) -> dict[str, Any]:
+        values = _exact(payload, {"plan_id", "content", "signal"})
+        return self._interview_service().observe_change(values["plan_id"], values["content"], values["signal"])
+
+    def _change_allow_observations(self, payload: Any) -> dict[str, Any]:
+        values = _exact(payload, {"plan_id", "enabled"})
+        return self._interview_service().allow_change_observations(values["plan_id"], values["enabled"])
+
+    def _change_start_review(self, payload: Any) -> dict[str, Any]:
+        values = _exact(payload, {"plan_id"})
+        return self._interview_service().start_change_review(values["plan_id"])
 
     def _lock(self, payload: Any) -> dict[str, Any]:
         _exact(payload, set())
