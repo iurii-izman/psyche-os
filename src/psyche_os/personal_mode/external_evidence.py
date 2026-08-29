@@ -59,22 +59,180 @@ def _first(value: dict[str, Any], *keys: str) -> Any:
 
 
 def _timestamp(value: Any) -> str | None:
-    if not isinstance(value, str) or not value:
+    """Read the normative full-resolution Health.md instant object."""
+    if value is None:
         return None
+    if not isinstance(value, dict) or set(value) != {"epochSecond", "nano", "epochSecondExact"}:
+        raise ExternalEvidenceError("INVALID_INSTANT")
+    second, nano, exact = value["epochSecond"], value["nano"], value["epochSecondExact"]
+    if (
+        not isinstance(second, int)
+        or isinstance(second, bool)
+        or not isinstance(nano, int)
+        or isinstance(nano, bool)
+        or not isinstance(exact, str)
+        or str(second) != exact
+        or not 0 <= nano <= 999_999_999
+    ):
+        raise ExternalEvidenceError("INVALID_INSTANT")
     try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise ExternalEvidenceError("INVALID_TIMESTAMP") from exc
-    return value
+        stamp = datetime.fromtimestamp(second, UTC).strftime("%Y-%m-%dT%H:%M:%S")
+    except (OverflowError, OSError, ValueError) as exc:
+        raise ExternalEvidenceError("INVALID_INSTANT") from exc
+    return f"{stamp}.{nano:09d}Z"
+
+
+def _valid_sha(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(char in "0123456789abcdef" for char in value)
+    )
+
+
+def _validate_header(header: Any) -> None:
+    required = {"schema", "version", "snapshotId", "createdAt", "request", "capabilities"}
+    if (
+        not isinstance(header, dict)
+        or set(header) != required
+        or header["schema"] != "healthmd.raw-snapshot"
+        or header["version"] != 1
+        or not isinstance(header["snapshotId"], str)
+        or not header["snapshotId"]
+    ):
+        raise ExternalEvidenceError("INVALID_SNAPSHOT_HEADER")
+    _timestamp(header["createdAt"])
+    request, capabilities = header["request"], header["capabilities"]
+    if (
+        not isinstance(request, dict)
+        or not {
+            "format",
+            "scope",
+            "startTime",
+            "endTime",
+            "selectedMetricIds",
+            "pageSize",
+            "includeExerciseRoutes",
+        }.issubset(request)
+        or request.get("format") not in {"JSON", "NDJSON"}
+        or request.get("scope") not in {"SELECTED_RECORD_TYPES", "ALL_AUTHORIZED_SUPPORTED_DATA"}
+        or not isinstance(request.get("pageSize"), int)
+        or not 1 <= request["pageSize"] <= 5000
+        or not isinstance(request.get("selectedMetricIds"), list)
+        or not isinstance(request.get("includeExerciseRoutes"), bool)
+    ):
+        raise ExternalEvidenceError("INVALID_SNAPSHOT_HEADER")
+    start, end = _timestamp(request["startTime"]), _timestamp(request["endTime"])
+    if (
+        start is None
+        or end is None
+        or start >= end
+        or not isinstance(capabilities, dict)
+        or capabilities.get("nonTransactional") is not True
+    ):
+        raise ExternalEvidenceError("INVALID_SNAPSHOT_HEADER")
+
+
+def _validate_manifest(
+    manifest: Any,
+    header: dict[str, Any],
+    records: list[dict[str, Any]],
+    issues: list[dict[str, Any]],
+) -> None:
+    required = {
+        "schema",
+        "version",
+        "snapshotId",
+        "status",
+        "completedAt",
+        "recordCount",
+        "issueCount",
+        "duplicateCount",
+        "identityCollisionCount",
+        "typeCounts",
+        "typeReports",
+        "logicalChecksumSha256",
+        "manifestChecksumSha256",
+        "artifactChecksumSha256",
+    }
+    if (
+        not isinstance(manifest, dict)
+        or set(manifest) != required
+        or manifest["schema"] != "healthmd.raw-snapshot.manifest"
+        or manifest["version"] != 1
+        or manifest["snapshotId"] != header["snapshotId"]
+        or manifest["status"] not in {"COMPLETE", "PARTIAL", "FAILED"}
+        or manifest["recordCount"] != len(records)
+        or manifest["issueCount"] != len(issues)
+        or any(
+            not isinstance(manifest[name], int) or manifest[name] < 0
+            for name in ("duplicateCount", "identityCollisionCount")
+        )
+        or not isinstance(manifest["typeCounts"], list)
+        or not isinstance(manifest["typeReports"], list)
+        or not _valid_sha(manifest["logicalChecksumSha256"])
+        or not _valid_sha(manifest["manifestChecksumSha256"])
+        or (
+            manifest["artifactChecksumSha256"] is not None
+            and not _valid_sha(manifest["artifactChecksumSha256"])
+        )
+    ):
+        raise ExternalEvidenceError("INVALID_SNAPSHOT_MANIFEST")
+    _timestamp(manifest["completedAt"])
+
+
+def _validate_issue(issue: Any) -> None:
+    if (
+        not isinstance(issue, dict)
+        or set(issue) != {"code", "message", "severity", "recordType", "retryable"}
+        or not isinstance(issue["code"], str)
+        or not isinstance(issue["message"], str)
+        or issue["severity"] not in {"INFO", "WARNING", "ERROR"}
+        or (issue["recordType"] is not None and not isinstance(issue["recordType"], str))
+        or not isinstance(issue["retryable"], bool)
+    ):
+        raise ExternalEvidenceError("INVALID_SNAPSHOT_ISSUE")
+
+
+def _validate_record(record: Any) -> dict[str, Any]:
+    required = {
+        "wireType",
+        "nativeIdentity",
+        "recordKind",
+        "source",
+        "startTime",
+        "endTime",
+        "startZoneOffsetSeconds",
+        "endZoneOffsetSeconds",
+        "metadata",
+        "fields",
+        "providerPayload",
+        "hash",
+    }
+    if (
+        not isinstance(record, dict)
+        or set(record) != required
+        or not isinstance(record["wireType"], str)
+        or not record["wireType"]
+        or not isinstance(record["nativeIdentity"], str)
+        or not record["nativeIdentity"]
+        or record["recordKind"] != "health_connect_record"
+        or not isinstance(record["source"], dict)
+        or record["source"].get("providerId") != "health_connect"
+        or record["source"].get("fidelityLevel") != "health_connect_api_projected"
+        or not isinstance(record["fields"], dict)
+        or record["providerPayload"] is not None
+        or not _valid_sha(record["hash"])
+    ):
+        raise ExternalEvidenceError("INVALID_RAW_RECORD")
+    start, end = _timestamp(record["startTime"]), _timestamp(record["endTime"])
+    if record["wireType"] == "sleep_session" and (start is None or end is None or end <= start):
+        raise ExternalEvidenceError("INVALID_RAW_RECORD")
+    return record
 
 
 def parse_health_md(raw: bytes) -> list[dict[str, Any]]:
-    """Validate the supported raw snapshot or NDJSON representation.
-
-    Health.md versions label records differently, so the adapter intentionally
-    permits ``recordType``/``type`` and either a top-level ``records`` list or
-    NDJSON.  It fails closed instead of guessing arbitrary JSON shapes.
-    """
+    """Validate only the normative ``healthmd.raw-snapshot`` v1 formats."""
     if not raw or len(raw) > 32 * 1024 * 1024:
         raise ExternalEvidenceError("UNSUPPORTED_ARTIFACT")
     try:
@@ -83,46 +241,79 @@ def parse_health_md(raw: bytes) -> list[dict[str, Any]]:
         raise ExternalEvidenceError("UNSUPPORTED_ARTIFACT") from exc
     try:
         parsed = json.loads(decoded)
-        records = parsed.get("records") if isinstance(parsed, dict) else parsed
-        if not isinstance(records, list):
-            raise ExternalEvidenceError("UNSUPPORTED_ARTIFACT")
+        if (
+            not isinstance(parsed, dict)
+            or set(parsed) != {"header", "records", "issues", "manifest"}
+            or not isinstance(parsed["records"], list)
+            or not isinstance(parsed["issues"], list)
+        ):
+            raise ExternalEvidenceError("UNSUPPORTED_ARTIFACT") from None
+        header, records, issues, manifest = (
+            parsed["header"],
+            parsed["records"],
+            parsed["issues"],
+            parsed["manifest"],
+        )
+        _validate_header(header)
+        for issue in issues:
+            _validate_issue(issue)
+        records = [_validate_record(record) for record in records]
+        _validate_manifest(manifest, header, records, issues)
+        return records
     except json.JSONDecodeError:
         try:
-            records = [json.loads(line) for line in decoded.splitlines() if line.strip()]
+            lines = decoded.splitlines()
+            if not lines or any(not line.strip() for line in lines):
+                raise ExternalEvidenceError("UNSUPPORTED_ARTIFACT") from None
+            envelopes = [json.loads(line) for line in lines]
         except json.JSONDecodeError as exc:
             raise ExternalEvidenceError("UNSUPPORTED_ARTIFACT") from exc
-    if not records or any(not isinstance(record, dict) for record in records):
-        raise ExternalEvidenceError("UNSUPPORTED_ARTIFACT")
-    for record in records:
-        if not isinstance(_first(record, "recordType", "type"), str):
-            raise ExternalEvidenceError("UNSUPPORTED_RECORD")
-    return records
+        if (
+            not isinstance(envelopes[0], dict)
+            or set(envelopes[0]) != {"kind", "header"}
+            or envelopes[0]["kind"] != "header"
+            or not isinstance(envelopes[-1], dict)
+            or set(envelopes[-1]) != {"kind", "manifest"}
+            or envelopes[-1]["kind"] != "manifest"
+        ):
+            raise ExternalEvidenceError("UNSUPPORTED_ARTIFACT") from None
+        header, manifest, records, issues = (
+            envelopes[0]["header"],
+            envelopes[-1]["manifest"],
+            [],
+            [],
+        )
+        _validate_header(header)
+        for envelope in envelopes[1:-1]:
+            if (
+                not isinstance(envelope, dict)
+                or envelope.get("kind") not in {"record", "issue"}
+                or set(envelope)
+                != ({"kind", "record"} if envelope.get("kind") == "record" else {"kind", "issue"})
+            ):
+                raise ExternalEvidenceError("UNSUPPORTED_ARTIFACT") from None
+            if envelope["kind"] == "record":
+                records.append(_validate_record(envelope["record"]))
+            else:
+                _validate_issue(envelope["issue"])
+                issues.append(envelope["issue"])
+        _validate_manifest(manifest, header, records, issues)
+        return records
 
 
 def _record_identity(
     record: dict[str, Any],
 ) -> tuple[str, str, str, str | None, str | None, str, str | None, str | None]:
-    record_type = str(_first(record, "recordType", "type")).upper()
-    metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
-    native_id = _first(record, "id", "uuid") or _first(metadata, "id", "recordId")
-    # A deterministic fallback is valid only within this adapter/source.
-    if not isinstance(native_id, str) or not native_id:
-        native_id = "fallback:" + _hash(
-            {k: v for k, v in record.items() if k not in {"lastModifiedTime", "lastModifiedAt"}}
-        )
-    start = _timestamp(_first(record, "startTime", "startAt", "time"))
-    end = _timestamp(_first(record, "endTime", "endAt"))
-    if record_type in {"SLEEPSESSION", "SLEEP_SESSION"} and (
-        start is None or end is None or end <= start
-    ):
+    record_type = str(record["wireType"]).upper()
+    metadata = record["metadata"] if isinstance(record["metadata"], dict) else {}
+    native_id = record["nativeIdentity"]
+    start = _timestamp(record["startTime"])
+    end = _timestamp(record["endTime"])
+    if record_type == "SLEEP_SESSION" and (start is None or end is None or end <= start):
         raise ExternalEvidenceError("INVALID_SLEEP_SESSION")
-    origin = _first(record, "dataOrigin", "origin") or metadata.get("dataOrigin") or {}
-    if not isinstance(origin, (dict, str)):
-        raise ExternalEvidenceError("INVALID_ORIGIN")
-    modified = _timestamp(_first(record, "lastModifiedTime", "lastModifiedAt"))
-    source_version = _first(record, "clientRecordVersion", "version")
-    if source_version is not None and not isinstance(source_version, (str, int)):
-        raise ExternalEvidenceError("INVALID_VERSION")
+    origin = {"source": record["source"], "metadata": metadata}
+    modified = _timestamp(metadata.get("lastModifiedTime")) if metadata else None
+    source_version = metadata.get("clientRecordVersionExact") if metadata else None
     return (
         native_id,
         record_type,
@@ -136,21 +327,19 @@ def _record_identity(
 
 
 def _stage_rows(record: dict[str, Any]) -> Iterable[tuple[str, str, str]]:
-    stages = _first(record, "stages", "sleepStages") or []
+    stages = record["fields"].get("stages") or []
     if not isinstance(stages, list):
         raise ExternalEvidenceError("INVALID_STAGES")
     for stage in stages:
         if not isinstance(stage, dict):
             raise ExternalEvidenceError("INVALID_STAGES")
         category = (
-            str(_first(stage, "stage", "type", "category", "stageType") or "UNKNOWN")
-            .upper()
-            .replace(" ", "_")
+            str((stage.get("stage") or {}).get("label") or "UNKNOWN").upper().replace(" ", "_")
         )
         if category not in _STAGES:
             category = "UNKNOWN"
-        start = _timestamp(_first(stage, "startTime", "startAt"))
-        end = _timestamp(_first(stage, "endTime", "endAt"))
+        start = _timestamp(stage.get("startTime"))
+        end = _timestamp(stage.get("endTime"))
         if start is None or end is None or end <= start:
             raise ExternalEvidenceError("INVALID_STAGES")
         yield category, start, end
@@ -160,8 +349,17 @@ def _sample(record: dict[str, Any], record_type: str) -> tuple[str, str, float, 
     metric_info = _METRICS.get(record_type)
     if metric_info is None:
         return None
-    observed = _timestamp(_first(record, "time", "timestamp", "startTime", "startAt"))
-    value = _first(record, "value", "bpm", "percentage", "rate")
+    fields = record["fields"]
+    if record_type == "HEART_RATE":
+        return None
+    observed = _timestamp(record["startTime"])
+    value = (
+        fields.get("beatsPerMinute")
+        if record_type == "RESTING_HEART_RATE"
+        else (fields.get("percentage") or {}).get("number")
+        if record_type == "OXYGEN_SATURATION"
+        else (fields.get("rate") or {}).get("number")
+    )
     if observed is None or not isinstance(value, (int, float)) or isinstance(value, bool):
         raise ExternalEvidenceError("INVALID_SAMPLE")
     return metric_info[1], observed, float(value), str(_first(record, "unit") or metric_info[0])
@@ -270,6 +468,33 @@ class ExternalEvidenceService:
         )
         if record_type in {"SLEEPSESSION", "SLEEP_SESSION"}:
             self._project_sleep(record, record_id, version_id, start, end, now)
+        if record_type == "HEART_RATE":
+            self.connection.execute(
+                "DELETE FROM physiological_samples WHERE external_record_id=?", (record_id,)
+            )
+            samples = record["fields"].get("samples")
+            if not isinstance(samples, list):
+                raise ExternalEvidenceError("INVALID_SAMPLE")
+            for index, sample in enumerate(samples):
+                observed, value = (
+                    _timestamp(sample.get("time")) if isinstance(sample, dict) else None,
+                    sample.get("beatsPerMinute") if isinstance(sample, dict) else None,
+                )
+                if observed is None or not isinstance(value, int) or isinstance(value, bool):
+                    raise ExternalEvidenceError("INVALID_SAMPLE")
+                self.connection.execute(
+                    "INSERT INTO physiological_samples(sample_id,external_record_id,source_version_id,metric,classification,observed_at,value,unit) VALUES(?,?,?,?,?,?,?,?)",
+                    (
+                        _id("sample", version_id, str(index)),
+                        record_id,
+                        version_id,
+                        "HEART_RATE",
+                        "MEASUREMENT",
+                        observed,
+                        value,
+                        "bpm",
+                    ),
+                )
         sample = _sample(record, record_type)
         if sample:
             self.connection.execute(
@@ -363,6 +588,20 @@ class ExternalEvidenceService:
             second = path.stat()
             if first.st_size != second.st_size or len(raw) != first.st_size:
                 continue
+            sidecar = path.with_name(f"{path.name}.sha256")
+            if sidecar.exists():
+                try:
+                    declared, spacing, filename = (
+                        sidecar.read_text(encoding="utf-8").rstrip("\n").partition("  ")
+                    )
+                    if (
+                        spacing != "  "
+                        or filename != path.name
+                        or declared != hashlib.sha256(raw).hexdigest()
+                    ):
+                        raise ExternalEvidenceError("SIDECAR_CHECKSUM_MISMATCH")
+                except UnicodeDecodeError as exc:
+                    raise ExternalEvidenceError("SIDECAR_CHECKSUM_MISMATCH") from exc
             result = self.import_artifact(raw, artifact_name=path.name)
             total = {key: total[key] + result[key] for key in total}
         return total

@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime
 import os
+from pathlib import Path
 import secrets
 from typing import Any, Final
 
@@ -29,6 +30,11 @@ from psyche_os.personal_mode.ai_working_formulation import (
     PersonalWorkingFormulationService,
 )
 from psyche_os.personal_mode.context_retrieval import PersonalContextRetrievalService
+from psyche_os.personal_mode.external_evidence import (
+    SOURCE_ID,
+    ExternalEvidenceError,
+    ExternalEvidenceService,
+)
 from psyche_os.personal_mode.lifecycle import PersonalLifecycleError
 from psyche_os.personal_mode.runtime import PersonalRuntime, PersonalRuntimeError
 from psyche_os.personal_mode.runtime_profile import PersonalRuntimePaths
@@ -82,6 +88,11 @@ PERSONAL_ALLOWED_COMMANDS: Final = frozenset(
         "ai.interview.disclosure",
         "ai.model.list",
         "ai.model.correct",
+        "external.source.status",
+        "external.source.configure",
+        "external.scan",
+        "sleep.history",
+        "sleep.delete_record",
     }
 )
 
@@ -150,7 +161,9 @@ class PersonalDesktopApplicationService:
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
         if command.startswith("ai.working_formulation") and not self._ai_enabled:
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
-        if (command.startswith("ai.interview") or command.startswith("ai.model")) and not self._interview_enabled:
+        if (
+            command.startswith("ai.interview") or command.startswith("ai.model")
+        ) and not self._interview_enabled:
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
         try:
             if command in PERSONAL_SESSION_COMMANDS:
@@ -202,6 +215,11 @@ class PersonalDesktopApplicationService:
                 "ai.interview.disclosure": self._interview_disclosure,
                 "ai.model.list": self._model_list,
                 "ai.model.correct": self._model_correct,
+                "external.source.status": self._external_source_status,
+                "external.source.configure": self._external_source_configure,
+                "external.scan": self._external_scan,
+                "sleep.history": self._sleep_history,
+                "sleep.delete_record": self._sleep_delete_record,
                 "ai.change.list": self._change_list,
                 "ai.change.control": self._change_control,
                 "ai.change.observe": self._change_observe,
@@ -218,6 +236,8 @@ class PersonalDesktopApplicationService:
             raise PersonalDesktopServiceError(exc.code) from exc
         except PersonalAIError as exc:
             raise PersonalDesktopServiceError(exc.code) from exc
+        except ExternalEvidenceError as exc:
+            raise PersonalDesktopServiceError(str(exc)) from exc
 
     def _require_session(self, token: str | None) -> None:
         if (
@@ -397,11 +417,15 @@ class PersonalDesktopApplicationService:
 
     def _change_observe(self, payload: Any) -> dict[str, Any]:
         values = _exact(payload, {"plan_id", "content", "signal"})
-        return self._interview_service().observe_change(values["plan_id"], values["content"], values["signal"])
+        return self._interview_service().observe_change(
+            values["plan_id"], values["content"], values["signal"]
+        )
 
     def _change_allow_observations(self, payload: Any) -> dict[str, Any]:
         values = _exact(payload, {"plan_id", "enabled"})
-        return self._interview_service().allow_change_observations(values["plan_id"], values["enabled"])
+        return self._interview_service().allow_change_observations(
+            values["plan_id"], values["enabled"]
+        )
 
     def _change_start_review(self, payload: Any) -> dict[str, Any]:
         values = _exact(payload, {"plan_id"})
@@ -414,6 +438,56 @@ class PersonalDesktopApplicationService:
             self._interview._consents.clear()
         self._runtime.lock()
         return {"locked": True}
+
+    def _external(self) -> ExternalEvidenceService:
+        return ExternalEvidenceService(self._runtime.reflection.connection)
+
+    def _external_source_status(self, payload: Any) -> dict[str, Any]:
+        _exact(payload, set())
+        row = self._runtime.reflection.connection.execute(
+            "SELECT label,state,inbox_path,last_imported_at FROM external_sources WHERE source_id=?",
+            (SOURCE_ID,),
+        ).fetchone()
+        return {
+            "configured": row is not None,
+            "label": row[0] if row else None,
+            "state": row[1] if row else "DISABLED",
+            "inbox_path": row[2] if row else None,
+            "last_imported_at": row[3] if row else None,
+            "nights": self._runtime.reflection.connection.execute(
+                "SELECT count(*) FROM sleep_episodes"
+            ).fetchone()[0],
+        }
+
+    def _external_source_configure(self, payload: Any) -> dict[str, Any]:
+        values = _exact(payload, {"inbox_path"})
+        inbox = values["inbox_path"]
+        if not isinstance(inbox, str) or not inbox or len(inbox) > 1024:
+            raise PersonalDesktopServiceError("INVALID_PAYLOAD")
+        self._external().configure_source(inbox_path=inbox)
+        return self._external_source_status({})
+
+    def _external_scan(self, payload: Any) -> dict[str, Any]:
+        _exact(payload, set())
+        row = self._runtime.reflection.connection.execute(
+            "SELECT inbox_path FROM external_sources WHERE source_id=?", (SOURCE_ID,)
+        ).fetchone()
+        if row is None or not isinstance(row[0], str):
+            raise PersonalDesktopServiceError("INBOX_UNAVAILABLE")
+        return self._external().scan_inbox(Path(row[0]))
+
+    def _sleep_history(self, payload: Any) -> dict[str, Any]:
+        values = _exact(payload, {"days"})
+        if not isinstance(values["days"], int) or not 1 <= values["days"] <= 30:
+            raise PersonalDesktopServiceError("INVALID_PAYLOAD")
+        return {"episodes": self._external().sleep_history(values["days"])}
+
+    def _sleep_delete_record(self, payload: Any) -> dict[str, Any]:
+        record_id = _exact(payload, {"external_record_id"})["external_record_id"]
+        if not isinstance(record_id, str) or not record_id:
+            raise PersonalDesktopServiceError("INVALID_PAYLOAD")
+        self._external().delete_external_record(record_id)
+        return {"deleted": True}
 
     def _create_session(self, payload: Any) -> dict[str, Any]:
         return self._runtime.reflection.create_session(_exact(payload, {"title"})["title"])
