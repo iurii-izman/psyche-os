@@ -232,6 +232,38 @@ def test_idempotent_versioned_import_and_projection_update() -> None:
     assert db.execute("SELECT count(*) FROM sleep_episodes").fetchone()[0] == 1
     assert db.execute("SELECT category FROM sleep_stages").fetchone()[0] == "DEEP"
     assert db.execute("SELECT count(*) FROM physiological_samples").fetchone()[0] == 5
+    episode = service.sleep_history()[0]
+    assert {sample["metric"] for sample in episode["samples"]} == {
+        "HEART_RATE",
+        "RESTING_HEART_RATE",
+        "SPO2",
+        "RESPIRATORY_RATE",
+    }
+    assert all({"metric", "observed_at", "value", "unit"} == set(sample) for sample in episode["samples"])
+
+
+def test_partial_snapshot_truth_is_persisted_with_issue_count() -> None:
+    decoded = json.loads(artifact())
+    decoded["issues"] = [
+        {
+            "code": "SYNTHETIC_PARTIAL",
+            "message": "Synthetic incomplete page for regression coverage.",
+            "severity": "WARNING",
+            "recordType": "sleep_session",
+            "retryable": True,
+        }
+    ]
+    decoded["manifest"]["status"] = "PARTIAL"
+    decoded["manifest"]["issueCount"] = 1
+    _, logical, _ = health_md_checksums(decoded["header"], decoded["records"], decoded["issues"], decoded["manifest"])
+    decoded["manifest"]["logicalChecksumSha256"] = logical
+    _, _, manifest_checksum = health_md_checksums(decoded["header"], decoded["records"], decoded["issues"], decoded["manifest"])
+    decoded["manifest"]["manifestChecksumSha256"] = manifest_checksum
+    db = connection()
+    ExternalEvidenceService(db).import_artifact(json.dumps(decoded).encode())
+    assert db.execute(
+        "SELECT snapshot_status,issue_count FROM external_import_batches"
+    ).fetchone() == ("PARTIAL", 1)
 
 
 def test_invalid_artifact_is_atomic_and_owner_deletion_closes_projections() -> None:

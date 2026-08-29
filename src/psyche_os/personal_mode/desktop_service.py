@@ -250,7 +250,6 @@ class PersonalDesktopApplicationService:
     def _status(self, payload: Any) -> dict[str, Any]:
         _exact(payload, set())
         admission = self._guard.status()
-        snapshot = self._runtime.reflection.connection.execute("SELECT snapshot_status,issue_count FROM external_import_batches WHERE source_id=? ORDER BY imported_at DESC LIMIT 1", (SOURCE_ID,)).fetchone()
         return {
             "locked": self._guard.locked,
             "setup_required": not self._runtime._paths.envelope.exists(),
@@ -465,10 +464,22 @@ class PersonalDesktopApplicationService:
                     (datetime.now(UTC).isoformat(), SOURCE_ID),
                 )
 
+    def _mark_external_error(self) -> None:
+        with self._runtime.reflection.connection:
+            self._runtime.reflection.connection.execute(
+                "UPDATE external_sources SET state='ERROR',updated_at=? WHERE source_id=?",
+                (datetime.now(UTC).isoformat(), SOURCE_ID),
+            )
+
     def _external_source_status(self, payload: Any) -> dict[str, Any]:
         _exact(payload, set())
         row = self._runtime.reflection.connection.execute(
             "SELECT label,state,inbox_path,last_imported_at FROM external_sources WHERE source_id=?",
+            (SOURCE_ID,),
+        ).fetchone()
+        snapshot = self._runtime.reflection.connection.execute(
+            "SELECT snapshot_status,issue_count FROM external_import_batches "
+            "WHERE source_id=? ORDER BY imported_at DESC,batch_id DESC LIMIT 1",
             (SOURCE_ID,),
         ).fetchone()
         return {
@@ -499,8 +510,11 @@ class PersonalDesktopApplicationService:
         ).fetchone()
         if row is None or not isinstance(row[0], str):
             raise PersonalDesktopServiceError("INBOX_UNAVAILABLE")
-        result = self._external().scan_inbox(Path(row[0]))
-        return result
+        try:
+            return self._external().scan_inbox(Path(row[0]))
+        except ExternalEvidenceError:
+            self._mark_external_error()
+            raise
 
     def _sleep_history(self, payload: Any) -> dict[str, Any]:
         values = _exact(payload, {"days"})

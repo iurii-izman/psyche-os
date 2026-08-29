@@ -1,4 +1,4 @@
-import type { ChangePlan, ExplorationView, InterviewView, ModelItem, PersonalApi, PersonalModelView, PersonalStatus, ReflectionSession, ReflectionTurn, SearchResult, SearchView } from "./personal-api";
+import type { ChangePlan, ExplorationView, InterviewView, ModelItem, PersonalApi, PersonalModelView, PersonalStatus, ReflectionSession, ReflectionTurn, SearchResult, SearchView, SleepEpisode, SleepSourceStatus } from "./personal-api";
 
 export type PreviewScenario = "ACTIVE" | "CLOSED" | "EMPTY" | "SEARCH_MANY" | "SLEEP_EMPTY" | "SLEEP_LAST_NIGHT" | "SLEEP_PARTIAL_STAGES" | "SLEEP_UPDATED_AFTER_RESYNC" | "SLEEP_14_DAY_HISTORY" | "SLEEP_IMPORT_ERROR" | "SLEEP_SOURCE_DETAILS" | "SLEEP_RICH_30_DAYS" | "INTERVIEW_ONBOARDING" | "INTERVIEW_ACTIVE" | "INTERVIEW_WITH_HISTORY" | "INTERVIEW_END_RECOMMENDED" | "INTERVIEW_RETRYABLE_FAILURE" | "INTERVIEW_PAUSED_RECONSENT" | "INTERVIEW_DISCLOSURE" | "PERSONAL_MODEL_EARLY" | "PERSONAL_MODEL_KNOWN_USER" | "PERSONAL_MODEL_COMPETING_HYPOTHESES" | "PERSONAL_MODEL_COUNTEREVIDENCE" | "PERSONAL_MODEL_REVISION" | "PERSONAL_MODEL_OWNER_CORRECTION" | "PERSONAL_MODEL_CURRENT_VS_HISTORICAL" | "PERSONAL_MODEL_CONTRADICTION" | "PERSONAL_MODEL_SOURCE_DELETED" | "PERSONAL_MODEL_RICH_20_SESSIONS" | "CHANGE_NONE" | "CHANGE_OBSERVE_PROPOSED" | "CHANGE_EXPERIMENT_PROPOSED" | "CHANGE_ACTIVE_OBSERVE" | "CHANGE_ACTIVE_EXPERIMENT_DAY_1" | "CHANGE_ACTIVE_EXPERIMENT_DAY_5" | "CHANGE_WITH_OBSERVATIONS" | "CHANGE_OBSERVATIONS_NOT_AI_ELIGIBLE" | "CHANGE_REVIEW_SUPPORTED" | "CHANGE_REVIEW_WEAKENED" | "CHANGE_REVIEW_INCONCLUSIVE" | "CHANGE_REVIEW_CONTEXT_DEPENDENT" | "CHANGE_STOPPED_BY_OWNER" | "CHANGE_EXPERIMENT_CHANGED_MODEL" | "CHANGE_RICH_HISTORY_10_PLANS";
 
@@ -284,10 +284,50 @@ export const createPersonalBrowserPreviewApi = (scenario: PreviewScenario): Pers
       target.challenges = [...target.challenges, { text: content, created_at: at(11) }];
       return clone(state.model!);
     },
-    sleepSourceStatus: async () => ({ configured: true, label: "Синтетический Health Connect", state: "ACTIVE", inbox_path: "C:\\Synthetic\\Health", last_imported_at: at(6), nights: 14 }),
-    sleepConfigureInbox: async (inboxPath) => ({ configured: true, label: "Синтетический Health Connect", state: "ACTIVE", inbox_path: inboxPath, last_imported_at: at(6), nights: 14 }),
-    sleepScan: async () => ({ records: 5, versions: 1 }),
-    sleepHistory: async () => ({ episodes: [] }),
+    sleepSourceStatus: async () => clone(previewSleepSource(scenario)),
+    sleepConfigureInbox: async (inboxPath) => ({ ...previewSleepSource(scenario), configured: true, state: "ACTIVE", inbox_path: inboxPath }),
+    sleepScan: async () => ({ records: previewSleepEpisodes(scenario).length * 5, versions: scenario === "SLEEP_UPDATED_AFTER_RESYNC" ? 1 : 0 }),
+    sleepHistory: async (days = 14) => ({ episodes: clone(previewSleepEpisodes(scenario).slice(0, days)) }),
     sleepDeleteRecord: async () => ({ deleted: true })
   };
 };
+
+const previewSleepEpisodes = (scenario: PreviewScenario): SleepEpisode[] => {
+  if (scenario === "SLEEP_EMPTY" || scenario === "SLEEP_IMPORT_ERROR" || scenario === "SLEEP_SOURCE_DETAILS") return [];
+  const count = scenario === "SLEEP_RICH_30_DAYS" ? 30 : scenario === "SLEEP_14_DAY_HISTORY" ? 14 : 1;
+  return Array.from({ length: count }, (_, index) => {
+    const night = new Date(Date.UTC(2026, 7, 29 - index, 22, 45));
+    const stamp = (minutes: number) => new Date(night.getTime() + minutes * 60_000).toISOString();
+    const startedAt = stamp(0);
+    const endedAt = stamp(465);
+    const partial = scenario === "SLEEP_PARTIAL_STAGES";
+    const updated = scenario === "SLEEP_UPDATED_AFTER_RESYNC";
+    return {
+      episode_id: `synthetic-sleep-${index + 1}`,
+      started_at: startedAt,
+      ended_at: endedAt,
+      stages: partial ? [] : [
+        { category: "LIGHT", started_at: startedAt, ended_at: stamp(145) },
+        { category: updated ? "DEEP" : "REM", started_at: stamp(145), ended_at: stamp(260) },
+        { category: "LIGHT", started_at: stamp(260), ended_at: endedAt },
+      ],
+      samples: index === 0 ? [
+        { metric: "HEART_RATE", observed_at: stamp(85), value: 52, unit: "bpm" },
+        { metric: "RESTING_HEART_RATE", observed_at: stamp(90), value: 48, unit: "bpm" },
+        { metric: "SPO2", observed_at: stamp(95), value: 97, unit: "%" },
+        { metric: "RESPIRATORY_RATE", observed_at: stamp(100), value: 14, unit: "breaths/min" },
+      ] : [],
+    };
+  });
+};
+
+const previewSleepSource = (scenario: PreviewScenario): SleepSourceStatus => ({
+  configured: scenario !== "SLEEP_EMPTY",
+  label: "Синтетический Health.md / Health Connect",
+  state: scenario === "SLEEP_IMPORT_ERROR" ? "ERROR" : scenario === "SLEEP_EMPTY" ? "DISABLED" : "ACTIVE",
+  inbox_path: scenario === "SLEEP_EMPTY" ? null : "C:\\Synthetic\\Health",
+  last_imported_at: scenario === "SLEEP_IMPORT_ERROR" ? null : at(29),
+  snapshot_status: scenario === "SLEEP_PARTIAL_STAGES" ? "PARTIAL" : "COMPLETE",
+  issue_count: scenario === "SLEEP_PARTIAL_STAGES" ? 2 : 0,
+  nights: previewSleepEpisodes(scenario).length,
+});

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+import runpy
+
 # ruff: noqa: RUF001
 import sqlite3
-import json
 
 import pytest
 
@@ -16,12 +19,22 @@ from psyche_os.personal_mode.ai_interview import (
     validate_change_delta,
     validate_interview_output,
 )
+from psyche_os.personal_mode.external_evidence import ExternalEvidenceService
 from psyche_os.personal_mode.package_format import (
     create_personal_package,
     restore_personal_package,
     verify_personal_package,
 )
-from psyche_os.personal_mode.schema import initialize_personal_v12, initialize_personal_v13, initialize_personal_v14
+from psyche_os.personal_mode.schema import (
+    initialize_personal_v12,
+    initialize_personal_v13,
+    initialize_personal_v14,
+    initialize_personal_v15,
+)
+
+imported_sleep_artifact = runpy.run_path(
+    str(Path(__file__).with_name("test_connected_sleep_evidence.py"))
+)["artifact"]
 
 
 class FakeReflection:
@@ -78,12 +91,20 @@ def create_delta(action: str, **overrides: object) -> dict[str, object]:
 
 def change_proposal() -> dict[str, object]:
     return {
-        "action": "PROPOSE", "kind": "EXPERIMENT", "target_model_aliases": ["M1"],
-        "title": "Короткая пауза после встречи", "reason": "Проверить рабочую версию.",
+        "action": "PROPOSE",
+        "kind": "EXPERIMENT",
+        "target_model_aliases": ["M1"],
+        "title": "Короткая пауза после встречи",
+        "reason": "Проверить рабочую версию.",
         "instructions": "После встречи сделать короткую паузу без новой информации.",
-        "observation_prompt": "Что произошло при переключении?", "expected_signal": "Переключаться немного легче.",
-        "counter_signal": "Разницы нет или стало хуже.", "duration_days": 5,
-        "stop_conditions": "Остановить в любой момент.", "risk_level": "LOW", "reversible": True, "self_directed": True,
+        "observation_prompt": "Что произошло при переключении?",
+        "expected_signal": "Переключаться немного легче.",
+        "counter_signal": "Разницы нет или стало хуже.",
+        "duration_days": 5,
+        "stop_conditions": "Остановить в любой момент.",
+        "risk_level": "LOW",
+        "reversible": True,
+        "self_directed": True,
     }
 
 
@@ -102,7 +123,9 @@ class FakeProvider:
         deltas, self.deltas = self.deltas, []
         aliases = [str(item["alias"]) for item in context["sources"]]
         result: dict[str, object] = {
-            "schema_version": "personal-ai-interview-output-v3" if self.change_delta is not None else "personal-ai-interview-output-v2",
+            "schema_version": "personal-ai-interview-output-v3"
+            if self.change_delta is not None
+            else "personal-ai-interview-output-v2",
             "decision": "ASK",
             "question": "В каком конкретном эпизоде это было заметно?",
             "rationale": "Чтобы проверить рабочую версию на наблюдаемом эпизоде.",
@@ -137,6 +160,44 @@ def turn_one(value: PersonalAIInterviewService, session_id: str) -> dict[str, ob
     return value.submit(session_id, "submission-1", "Синтетический ответ про встречи и отдых.")
 
 
+def test_imported_sleep_evidence_is_absent_from_all_ai_contexts_and_receipts() -> None:
+    value, reflection, provider = service([create_delta("CREATE")])
+    initialize_personal_v15(reflection.connection)
+    ExternalEvidenceService(reflection.connection).import_artifact(imported_sleep_artifact())
+
+    session_id = ready(value)
+    turn_one(value, session_id)
+    attempt_id = value.get(session_id)["attempts"][0]["attempt_id"]
+    receipt = value.disclosure(attempt_id)
+    model = value.model()
+
+    provider.change_delta = change_proposal()
+    value.submit(session_id, "plan-proposal", "Синтетический ответ для плана.")
+    plan_id = value.changes()["plans"][0]["plan_id"]
+    value.change_control(plan_id, "ACTIVATE")
+    review_session = value.start_change_review(plan_id)["interview_session_id"]
+    value.grant_consent(review_session)
+    value.request_first_question(review_session)
+
+    # The import is real (V15 raw records and physiological projections exist),
+    # but all AI paths remain restricted to approved reflection/model/change rows.
+    assert reflection.connection.execute("SELECT count(*) FROM external_records").fetchone()[0] == 5
+    transmitted = json.dumps(
+        {"provider": provider.last_context, "disclosure": receipt, "model": model},
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    for forbidden in (
+        "hc:sleep-1",
+        "HEART_RATE",
+        "RESTING_HEART_RATE",
+        "SPO2",
+        "RESPIRATORY_RATE",
+        "synthetic.zepp",
+    ):
+        assert forbidden not in transmitted
+
+
 # --- Storage / model lifecycle -------------------------------------------------
 
 
@@ -162,9 +223,12 @@ def test_create_model_item_from_valid_source_basis_is_derived() -> None:
         (derivation,),
     ).fetchall()
     assert len(sources) == 1
-    assert reflection.connection.execute(
-        "SELECT actor FROM reflection_turns WHERE turn_id=?", (sources[0][0],)
-    ).fetchone()[0] == "USER"
+    assert (
+        reflection.connection.execute(
+            "SELECT actor FROM reflection_turns WHERE turn_id=?", (sources[0][0],)
+        ).fetchone()[0]
+        == "USER"
+    )
 
 
 def test_revision_preserves_old_revision_and_current_view_resolves_newest() -> None:
@@ -184,7 +248,10 @@ def test_revision_preserves_old_revision_and_current_view_resolves_newest() -> N
     assert items[0]["current"]["text"].startswith("Общая версия не подтверждается")
     statuses = [revision["status"] for revision in items[0]["history"]]
     assert statuses == ["SUPERSEDED", "CURRENT"]
-    assert items[0]["history"][0]["text"] == "Возможно, после насыщенных встреч трудно переключиться на отдых."
+    assert (
+        items[0]["history"][0]["text"]
+        == "Возможно, после насыщенных встреч трудно переключиться на отдых."
+    )
 
 
 def test_counterevidence_is_separate_from_supporting_evidence() -> None:
@@ -242,7 +309,9 @@ def test_deleting_supporting_source_invalidates_dependent_meaning() -> None:
         (session_id,),
     ).fetchone()[0]
     with reflection.connection:
-        reflection.connection.execute("DELETE FROM reflection_turns WHERE turn_id=?", (answer_turn,))
+        reflection.connection.execute(
+            "DELETE FROM reflection_turns WHERE turn_id=?", (answer_turn,)
+        )
     item = value.model()["items"][0]
     assert item["state"] == "INVALIDATED"
     assert item["current"] is None
@@ -258,7 +327,9 @@ def test_deleted_source_cannot_be_reconstructed_from_model_or_disclosure() -> No
         (session_id,),
     ).fetchone()[0]
     with reflection.connection:
-        reflection.connection.execute("DELETE FROM reflection_turns WHERE turn_id=?", (answer_turn,))
+        reflection.connection.execute(
+            "DELETE FROM reflection_turns WHERE turn_id=?", (answer_turn,)
+        )
     # Disclosure keeps content-free attempt facts but no deleted content and
     # no transmitted model item whose lineage died with the source.
     receipt = value.disclosure(attempt_id)
@@ -270,14 +341,20 @@ def test_deleted_source_cannot_be_reconstructed_from_model_or_disclosure() -> No
 
 def test_change_proposal_requires_exact_low_risk_model_target() -> None:
     proposal = {
-        "action": "PROPOSE", "kind": "EXPERIMENT", "target_model_aliases": ["M1"],
-        "title": "Короткая пауза", "reason": "Проверить рабочую версию.",
+        "action": "PROPOSE",
+        "kind": "EXPERIMENT",
+        "target_model_aliases": ["M1"],
+        "title": "Короткая пауза",
+        "reason": "Проверить рабочую версию.",
         "instructions": "После встречи сделать короткую паузу.",
         "observation_prompt": "Что изменилось при переключении?",
         "expected_signal": "Переключаться немного легче.",
-        "counter_signal": "Разницы нет.", "duration_days": 5,
-        "stop_conditions": "Остановить в любой момент.", "risk_level": "LOW",
-        "reversible": True, "self_directed": True,
+        "counter_signal": "Разницы нет.",
+        "duration_days": 5,
+        "stop_conditions": "Остановить в любой момент.",
+        "risk_level": "LOW",
+        "reversible": True,
+        "self_directed": True,
     }
     assert validate_change_delta(proposal, {"M1"})["kind"] == "EXPERIMENT"
     proposal["risk_level"] = "MEDIUM"
@@ -290,18 +367,53 @@ def test_provider_change_proposal_schema_uses_model_aliases_not_source_aliases()
 
     class Response:
         def read(self, _limit: int) -> bytes:
-            return json.dumps({"model": "gpt-5.6-luna", "output": [{"content": [{"type": "output_text", "text": "{}"}]}]}).encode()
-        def __enter__(self) -> "Response": return self
-        def __exit__(self, *_: object) -> bool: return False
+            return json.dumps(
+                {
+                    "model": "gpt-5.6-luna",
+                    "output": [{"content": [{"type": "output_text", "text": "{}"}]}],
+                }
+            ).encode()
 
-    provider = OpenAIReflectionProvider(api_key="synthetic-key", transport=lambda request, timeout: captured.append(request) or Response())
+        def __enter__(self) -> Response:
+            return self
+
+        def __exit__(self, *_: object) -> bool:
+            return False
+
+    provider = OpenAIReflectionProvider(
+        api_key="synthetic-key",
+        transport=lambda request, timeout: captured.append(request) or Response(),
+    )
     provider.invoke_ai_interview(
         {"profile_id": "local_personal_ai_interview_openai_windows_v1", "model": "gpt-5.6-luna"},
-        {"sources": ({"alias": "S1", "content": "Synthetic source"},), "inquiry": (), "planning": (), "model": ({"alias": "M1", "kind": "HYPOTHESIS", "text": "Synthetic model", "temporal_scope": "UNCLEAR", "uncertainty": None, "supporting": [], "counterevidence": [], "state": "ACTIVE"},), "changes": ()},
+        {
+            "sources": ({"alias": "S1", "content": "Synthetic source"},),
+            "inquiry": (),
+            "planning": (),
+            "model": (
+                {
+                    "alias": "M1",
+                    "kind": "HYPOTHESIS",
+                    "text": "Synthetic model",
+                    "temporal_scope": "UNCLEAR",
+                    "uncertainty": None,
+                    "supporting": [],
+                    "counterevidence": [],
+                    "state": "ACTIVE",
+                },
+            ),
+            "changes": (),
+        },
         "synthetic-key",
     )
-    schema = json.loads(captured[0].data)["text"]["format"]["schema"]["properties"]["change_delta"]["anyOf"]
-    proposal_schema = next(item for item in schema if item.get("properties", {}).get("action", {}).get("enum") == ["PROPOSE"])
+    schema = json.loads(captured[0].data)["text"]["format"]["schema"]["properties"]["change_delta"][
+        "anyOf"
+    ]
+    proposal_schema = next(
+        item
+        for item in schema
+        if item.get("properties", {}).get("action", {}).get("enum") == ["PROPOSE"]
+    )
     assert proposal_schema["properties"]["target_model_aliases"]["items"]["enum"] == ["M1"]
     assert "S1" not in proposal_schema["properties"]["target_model_aliases"]["items"]["enum"]
     assert validate_change_delta(change_proposal(), {"M1"})["target_model_aliases"] == ["M1"]
@@ -317,9 +429,13 @@ def test_change_activation_and_observations_are_local_owner_source() -> None:
     calls = provider.calls
     value.change_control(plan["plan_id"], "ACTIVATE")
     assert provider.calls == calls
-    observation = value.observe_change(plan["plan_id"], "После паузы переключение было немного легче.", "BETTER")
+    observation = value.observe_change(
+        plan["plan_id"], "После паузы переключение было немного легче.", "BETTER"
+    )
     assert observation["source"] == "USER"
-    assert reflection.connection.execute("SELECT actor FROM reflection_turns WHERE turn_id=?", (observation["turn_id"],)).fetchone() == ("USER",)
+    assert reflection.connection.execute(
+        "SELECT actor FROM reflection_turns WHERE turn_id=?", (observation["turn_id"],)
+    ).fetchone() == ("USER",)
     assert value.changes()["plans"][0]["observations"][0]["ai_eligible"] is False
     value.allow_change_observations(plan["plan_id"], True)
     assert value.changes()["plans"][0]["observations"][0]["ai_eligible"] is True
@@ -361,9 +477,13 @@ def test_explicit_review_is_one_call_and_commits_distinct_outcomes_atomically() 
     review_session = value.start_change_review(plan_id)["interview_session_id"]
     value.grant_consent(review_session)
     provider.change_delta = {
-        "action": "REVIEW", "target_change_alias": "C1", "practical_effect": "NO_CLEAR_EFFECT",
-        "epistemic_outcome": "WEAKENED", "summary": "Практического эффекта пока не видно.",
-        "what_changed_in_understanding": "Это ослабляет рабочую версию о паузе.", "recommended_next": "COMPLETE",
+        "action": "REVIEW",
+        "target_change_alias": "C1",
+        "practical_effect": "NO_CLEAR_EFFECT",
+        "epistemic_outcome": "WEAKENED",
+        "summary": "Практического эффекта пока не видно.",
+        "what_changed_in_understanding": "Это ослабляет рабочую версию о паузе.",
+        "recommended_next": "COMPLETE",
     }
     before = provider.calls
     value.request_first_question(review_session)
@@ -386,15 +506,35 @@ def test_deleting_review_observation_reopens_only_ai_completed_plan() -> None:
     value.allow_change_observations(plan_id, True)
     review_session = value.start_change_review(plan_id)["interview_session_id"]
     value.grant_consent(review_session)
-    provider.change_delta = {"action": "REVIEW", "target_change_alias": "C1", "practical_effect": "NO_CLEAR_EFFECT", "epistemic_outcome": "WEAKENED", "summary": "Эффекта пока не видно.", "what_changed_in_understanding": "Версия ослаблена.", "recommended_next": "COMPLETE"}
+    provider.change_delta = {
+        "action": "REVIEW",
+        "target_change_alias": "C1",
+        "practical_effect": "NO_CLEAR_EFFECT",
+        "epistemic_outcome": "WEAKENED",
+        "summary": "Эффекта пока не видно.",
+        "what_changed_in_understanding": "Версия ослаблена.",
+        "recommended_next": "COMPLETE",
+    }
     value.request_first_question(review_session)
-    assert reflection.connection.execute("SELECT state,ended_at,completion_review_id FROM change_plans WHERE plan_id=?", (plan_id,)).fetchone()[0] == "COMPLETED"
+    assert (
+        reflection.connection.execute(
+            "SELECT state,ended_at,completion_review_id FROM change_plans WHERE plan_id=?",
+            (plan_id,),
+        ).fetchone()[0]
+        == "COMPLETED"
+    )
     calls = provider.calls
     with reflection.connection:
-        reflection.connection.execute("DELETE FROM reflection_turns WHERE turn_id=?", (observation["turn_id"],))
+        reflection.connection.execute(
+            "DELETE FROM reflection_turns WHERE turn_id=?", (observation["turn_id"],)
+        )
     assert provider.calls == calls
-    assert reflection.connection.execute("SELECT count(*) FROM change_reviews WHERE plan_id=?", (plan_id,)).fetchone() == (0,)
-    assert reflection.connection.execute("SELECT state,ended_at,completion_review_id FROM change_plans WHERE plan_id=?", (plan_id,)).fetchone() == ("ACTIVE", None, None)
+    assert reflection.connection.execute(
+        "SELECT count(*) FROM change_reviews WHERE plan_id=?", (plan_id,)
+    ).fetchone() == (0,)
+    assert reflection.connection.execute(
+        "SELECT state,ended_at,completion_review_id FROM change_plans WHERE plan_id=?", (plan_id,)
+    ).fetchone() == ("ACTIVE", None, None)
 
 
 def test_change_rejects_prohibited_intervention_language() -> None:
@@ -417,9 +557,13 @@ def test_v14_change_package_round_trip_preserves_nonempty_plan_observation_and_r
     review_session = value.start_change_review(plan_id)["interview_session_id"]
     value.grant_consent(review_session)
     provider.change_delta = {
-        "action": "REVIEW", "target_change_alias": "C1", "practical_effect": "NO_CLEAR_EFFECT",
-        "epistemic_outcome": "INCONCLUSIVE", "summary": "Данных пока недостаточно.",
-        "what_changed_in_understanding": "Версия пока не отделена от контекста.", "recommended_next": "COMPLETE",
+        "action": "REVIEW",
+        "target_change_alias": "C1",
+        "practical_effect": "NO_CLEAR_EFFECT",
+        "epistemic_outcome": "INCONCLUSIVE",
+        "summary": "Данных пока недостаточно.",
+        "what_changed_in_understanding": "Версия пока не отделена от контекста.",
+        "recommended_next": "COMPLETE",
     }
     value.request_first_question(review_session)
     package = create_personal_package(reflection.connection)
@@ -488,26 +632,24 @@ def test_one_provider_call_applies_question_and_model_delta_atomically() -> None
 
 
 def test_invalid_model_delta_leaves_answer_durable_without_derived_commit() -> None:
-    value, reflection, _provider = service(
-        [create_delta("CREATE", supporting=["invented-alias"])]
-    )
+    value, reflection, _provider = service([create_delta("CREATE", supporting=["invented-alias"])])
     session_id = ready(value)
     with pytest.raises(PersonalAIError, match="AI_OUTPUT_REJECTED"):
         turn_one(value, session_id)
     # USER answer stays durable as SOURCE.
-    assert (
-        reflection.connection.execute("SELECT count(*) FROM reflection_turns").fetchone()[0] == 1
-    )
+    assert reflection.connection.execute("SELECT count(*) FROM reflection_turns").fetchone()[0] == 1
     # No derived partial commit anywhere.
-    assert reflection.connection.execute(
-        "SELECT count(*) FROM personal_model_items"
-    ).fetchone()[0] == 0
-    assert reflection.connection.execute(
-        "SELECT count(*) FROM interview_questions"
-    ).fetchone()[0] == 0
-    assert reflection.connection.execute(
-        "SELECT state FROM interview_attempts"
-    ).fetchone()[0] == "FAILED"
+    assert (
+        reflection.connection.execute("SELECT count(*) FROM personal_model_items").fetchone()[0]
+        == 0
+    )
+    assert (
+        reflection.connection.execute("SELECT count(*) FROM interview_questions").fetchone()[0] == 0
+    )
+    assert (
+        reflection.connection.execute("SELECT state FROM interview_attempts").fetchone()[0]
+        == "FAILED"
+    )
 
 
 def test_hallucinated_model_alias_is_rejected() -> None:
@@ -518,9 +660,7 @@ def test_hallucinated_model_alias_is_rejected() -> None:
 
 
 def test_duplicate_conflicting_target_updates_are_rejected() -> None:
-    value, _reflection, _provider = service(
-        [create_delta("CREATE"), create_delta("CREATE")]
-    )
+    value, _reflection, _provider = service([create_delta("CREATE"), create_delta("CREATE")])
     session_id = ready(value)
     with pytest.raises(PersonalAIError, match="AI_OUTPUT_REJECTED"):
         turn_one(value, session_id)
@@ -552,9 +692,7 @@ def test_absolute_trait_wording_is_rejected() -> None:
         "summary": None,
         "next_direction": None,
         "inquiry_items": [],
-        "model_delta": [
-            create_delta("CREATE", text="Вы всегда избегаете конфликтов, это точно.")
-        ],
+        "model_delta": [create_delta("CREATE", text="Вы всегда избегаете конфликтов, это точно.")],
     }
     with pytest.raises(PersonalAIError, match="AI_OUTPUT_UNSAFE"):
         validate_interview_output(raw, {"S1"}, {"M1"})
@@ -776,7 +914,14 @@ def _fill_raw_packet(reflection: FakeReflection, session_id: str, count: int = 1
         with c:
             c.execute(
                 "INSERT INTO reflection_turns VALUES(?,?,?,?,?,?)",
-                (turn_id, source_session, 100 + index, "USER", f"2027-01-{index + 1:02d}T00:00:00+00:00", f"Синтетический наполнитель {index + 1}."),
+                (
+                    turn_id,
+                    source_session,
+                    100 + index,
+                    "USER",
+                    f"2027-01-{index + 1:02d}T00:00:00+00:00",
+                    f"Синтетический наполнитель {index + 1}.",
+                ),
             )
         turn_ids.append(turn_id)
     return turn_ids
@@ -830,9 +975,7 @@ def test_downstream_revision_lineage_covers_ancestral_source_outside_raw_packet(
     # Delete T1: R1 and R2 must both die through existing local machinery,
     # with no provider call and no reconstruction of T1.
     with reflection.connection:
-        reflection.connection.execute(
-            "DELETE FROM reflection_turns WHERE turn_id=?", (first_turn,)
-        )
+        reflection.connection.execute("DELETE FROM reflection_turns WHERE turn_id=?", (first_turn,))
     assert provider.calls == calls_after_revoke
     item = value.model()["items"][0]
     assert item["state"] == "INVALIDATED"
@@ -861,13 +1004,22 @@ def test_contest_without_text_preserves_prior_revision_immutable() -> None:
         (old_revision,),
     ).fetchall()
     value._provider.deltas = [  # type: ignore[attr-defined]
-        create_delta("CONTEST", text="", supporting=[], counterevidence=["S2"], reason="Синтетический контрпример оспаривает версию.")
+        create_delta(
+            "CONTEST",
+            text="",
+            supporting=[],
+            counterevidence=["S2"],
+            reason="Синтетический контрпример оспаривает версию.",
+        )
     ]
     value.submit(session_id, "submission-3", "Синтетический третий ответ.")
     # R1 remains row-equivalent in text and evidence set, and is historical.
-    assert reflection.connection.execute(
-        "SELECT text FROM personal_model_revisions WHERE revision_id=?", (old_revision,)
-    ).fetchone()[0] == before_text
+    assert (
+        reflection.connection.execute(
+            "SELECT text FROM personal_model_revisions WHERE revision_id=?", (old_revision,)
+        ).fetchone()[0]
+        == before_text
+    )
     assert (
         reflection.connection.execute(
             "SELECT turn_id,role FROM personal_model_revision_sources WHERE revision_id=? ORDER BY turn_id,role",
@@ -1041,7 +1193,13 @@ def test_owner_challenge_is_overlay_not_base_mutation() -> None:
     # AI CONTEST sets the BASE lifecycle state to CONTESTED.
     value.submit(session_id, "submission-2", "Синтетический второй ответ-контрпример.")
     value._provider.deltas = [  # type: ignore[attr-defined]
-        create_delta("CONTEST", text="", supporting=[], counterevidence=["S2"], reason="Синтетический контрпример оспаривает версию.")
+        create_delta(
+            "CONTEST",
+            text="",
+            supporting=[],
+            counterevidence=["S2"],
+            reason="Синтетический контрпример оспаривает версию.",
+        )
     ]
     value.submit(session_id, "submission-3", "Синтетический третий ответ.")
     assert value.model()["items"][0]["state"] == "CONTESTED"

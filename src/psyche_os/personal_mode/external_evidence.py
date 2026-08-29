@@ -413,7 +413,7 @@ class ExternalEvidenceService:
         now = _now()
         with self.connection:
             self.connection.execute(
-                "INSERT INTO external_sources(source_id,source_kind,label,state,processing_policy,inbox_path,created_at,updated_at) VALUES(?,?,?,'ACTIVE','LOCAL_ONLY',?,?,?) ON CONFLICT(source_id) DO UPDATE SET label=excluded.label,inbox_path=COALESCE(excluded.inbox_path,external_sources.inbox_path),updated_at=excluded.updated_at",
+                "INSERT INTO external_sources(source_id,source_kind,label,state,processing_policy,inbox_path,created_at,updated_at) VALUES(?,?,?,'ACTIVE','LOCAL_ONLY',?,?,?) ON CONFLICT(source_id) DO UPDATE SET label=excluded.label,state='ACTIVE',inbox_path=excluded.inbox_path,updated_at=excluded.updated_at",
                 (SOURCE_ID, SOURCE_KIND, label, inbox_path, now, now),
             )
 
