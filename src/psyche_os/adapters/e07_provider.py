@@ -443,14 +443,18 @@ class OpenAIReflectionProvider:
         inquiry = context.get("inquiry")
         planning = context.get("planning")
         model = context.get("model")
+        changes = context.get("changes", ())
         if (
             not isinstance(sources, tuple)
             or not isinstance(inquiry, tuple)
             or not isinstance(planning, tuple)
             or not isinstance(model, tuple)
+            or not isinstance(changes, tuple)
         ):
             raise ProviderUnavailableError("AI_CONTEXT_INVALID")
         aliases = [item["alias"] for item in sources]
+        model_aliases = [item["alias"] for item in model]
+        change_aliases = [item["alias"] for item in changes]
         item_schema = {
             "type": "object",
             "additionalProperties": False,
@@ -520,17 +524,16 @@ class OpenAIReflectionProvider:
                 "reason": {"type": "string"},
             },
         }
-        change_schema = {
-            "anyOf": [
-                {"type": "null"},
-                {"type": "object", "additionalProperties": False,
-                 "required": ["action", "kind", "target_model_aliases", "title", "reason", "instructions", "observation_prompt", "expected_signal", "counter_signal", "duration_days", "stop_conditions", "risk_level", "reversible", "self_directed"],
-                 "properties": {"action": {"type": "string", "enum": ["PROPOSE"]}, "kind": {"type": "string", "enum": ["OBSERVE", "EXPERIMENT"]}, "target_model_aliases": {"type": "array", "items": {"type": "string", "enum": aliases}}, "title": {"type": "string"}, "reason": {"type": "string"}, "instructions": {"type": "string"}, "observation_prompt": {"type": "string"}, "expected_signal": {"type": "string"}, "counter_signal": {"type": "string"}, "duration_days": {"type": ["integer", "null"]}, "stop_conditions": {"type": "string"}, "risk_level": {"type": "string", "enum": ["LOW"]}, "reversible": {"type": "boolean", "enum": [True]}, "self_directed": {"type": "boolean", "enum": [True]}}},
-                {"type": "object", "additionalProperties": False,
-                 "required": ["action", "target_change_alias", "practical_effect", "epistemic_outcome", "summary", "what_changed_in_understanding", "recommended_next"],
-                 "properties": {"action": {"type": "string", "enum": ["REVIEW"]}, "target_change_alias": {"type": "string"}, "practical_effect": {"type": "string", "enum": ["HELPED", "NO_CLEAR_EFFECT", "WORSE", "MIXED", "NOT_TESTED"]}, "epistemic_outcome": {"type": "string", "enum": ["SUPPORTED", "WEAKENED", "INCONCLUSIVE", "CONTEXT_DEPENDENT"]}, "summary": {"type": "string"}, "what_changed_in_understanding": {"type": "string"}, "recommended_next": {"type": "string", "enum": ["COMPLETE", "CONTINUE_OBSERVING", "RETURN_TO_INQUIRY"]}}},
-            ]
-        }
+        change_variants: list[dict[str, Any]] = [{"type": "null"}]
+        if model_aliases:
+            change_variants.append({"type": "object", "additionalProperties": False,
+                "required": ["action", "kind", "target_model_aliases", "title", "reason", "instructions", "observation_prompt", "expected_signal", "counter_signal", "duration_days", "stop_conditions", "risk_level", "reversible", "self_directed"],
+                "properties": {"action": {"type": "string", "enum": ["PROPOSE"]}, "kind": {"type": "string", "enum": ["OBSERVE", "EXPERIMENT"]}, "target_model_aliases": {"type": "array", "items": {"type": "string", "enum": model_aliases}}, "title": {"type": "string"}, "reason": {"type": "string"}, "instructions": {"type": "string"}, "observation_prompt": {"type": "string"}, "expected_signal": {"type": "string"}, "counter_signal": {"type": "string"}, "duration_days": {"type": ["integer", "null"]}, "stop_conditions": {"type": "string"}, "risk_level": {"type": "string", "enum": ["LOW"]}, "reversible": {"type": "boolean", "enum": [True]}, "self_directed": {"type": "boolean", "enum": [True]}}})
+        if change_aliases:
+            change_variants.append({"type": "object", "additionalProperties": False,
+                "required": ["action", "target_change_alias", "practical_effect", "epistemic_outcome", "summary", "what_changed_in_understanding", "recommended_next"],
+                "properties": {"action": {"type": "string", "enum": ["REVIEW"]}, "target_change_alias": {"type": "string", "enum": change_aliases}, "practical_effect": {"type": "string", "enum": ["HELPED", "NO_CLEAR_EFFECT", "WORSE", "MIXED", "NOT_TESTED"]}, "epistemic_outcome": {"type": "string", "enum": ["SUPPORTED", "WEAKENED", "INCONCLUSIVE", "CONTEXT_DEPENDENT"]}, "summary": {"type": "string"}, "what_changed_in_understanding": {"type": "string"}, "recommended_next": {"type": "string", "enum": ["COMPLETE", "CONTINUE_OBSERVING", "RETURN_TO_INQUIRY"]}}})
+        change_schema = {"anyOf": change_variants}
         schema = {
             "type": "json_schema",
             "name": "personal_ai_interview",
@@ -619,7 +622,7 @@ class OpenAIReflectionProvider:
                                     for key, value in item.items()
                                     if key in {"alias", "kind", "state", "title", "instructions", "expected_signal", "counter_signal", "duration_days", "activated_at", "review_target"}
                                 }
-                                for item in packet.get("changes", ())
+                                for item in changes
                             ],
                         },
                         ensure_ascii=False,

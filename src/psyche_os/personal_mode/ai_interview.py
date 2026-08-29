@@ -630,10 +630,15 @@ class PersonalAIInterviewService:
         c, now = self._reflection.connection, _now()
         with c:
             if c.execute("SELECT 1 FROM change_plans WHERE plan_id=? AND state='ACTIVE'", (plan_id,)).fetchone() is None: raise PersonalAIError("CHANGE_NOT_ACTIVE")
-            session = self._reflection.create_session("Наблюдения изменений")
+            existing = c.execute(
+                "SELECT t.session_id FROM change_observations o JOIN reflection_turns t ON t.turn_id=o.turn_id WHERE o.plan_id=? ORDER BY o.created_at,o.observation_id LIMIT 1",
+                (plan_id,),
+            ).fetchone()
+            session = {"session_id": str(existing[0])} if existing else self._reflection.create_session("Наблюдения изменений")
             turn_id = generate_id()
-            c.execute("INSERT INTO reflection_turns VALUES(?,?,?,?,?,?)", (turn_id, session["session_id"], 1, "USER", now, content))
-            c.execute("UPDATE reflection_sessions SET turn_count=1,updated_at=? WHERE session_id=?", (now, session["session_id"]))
+            sequence = c.execute("SELECT coalesce(max(sequence),0)+1 FROM reflection_turns WHERE session_id=?", (session["session_id"],)).fetchone()[0]
+            c.execute("INSERT INTO reflection_turns VALUES(?,?,?,?,?,?)", (turn_id, session["session_id"], sequence, "USER", now, content))
+            c.execute("UPDATE reflection_sessions SET turn_count=?,updated_at=? WHERE session_id=?", (sequence, now, session["session_id"]))
             c.execute("INSERT INTO change_observations VALUES(?,?,?,?,?)", (generate_id(), plan_id, turn_id, signal, now))
         return {"turn_id": turn_id, "plan_id": plan_id, "source": "USER"}
 
@@ -928,7 +933,10 @@ class PersonalAIInterviewService:
         ).fetchone()
         requested = str(review[0]) if review else None
         rows = self._reflection.connection.execute(
-            "SELECT plan_id,derivation_id,kind,state,title,instructions,expected_signal,counter_signal,duration_days,activated_at FROM change_plans WHERE state IN ('ACTIVE','STOPPED') ORDER BY activated_at DESC,created_at DESC,plan_id ASC"
+            "SELECT plan_id,derivation_id,kind,state,title,instructions,expected_signal,counter_signal,duration_days,activated_at FROM change_plans WHERE plan_id=? AND state IN ('ACTIVE','STOPPED') ORDER BY activated_at DESC,created_at DESC,plan_id ASC"
+            if requested else
+            "SELECT plan_id,derivation_id,kind,state,title,instructions,expected_signal,counter_signal,duration_days,activated_at FROM change_plans WHERE state='ACTIVE' ORDER BY activated_at DESC,created_at DESC,plan_id ASC",
+            (requested,) if requested else (),
         ).fetchall()
         entries: list[dict[str, Any]] = []
         chars = 0
@@ -1318,7 +1326,7 @@ class PersonalAIInterviewService:
                     if duplicate:
                         raise PersonalAIError("DUPLICATE_CHANGE_PLAN")
                     plan_id = generate_id()
-                    c.execute("INSERT INTO change_plans VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (plan_id, derivation_id, change["kind"], "PROPOSED", change["title"], change["reason"], change["instructions"], change["observation_prompt"], change["expected_signal"], change["counter_signal"], change["duration_days"], change["stop_conditions"], "LOW", 1, 1, now, None, None))
+                    c.execute("INSERT INTO change_plans VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (plan_id, derivation_id, change["kind"], "PROPOSED", change["title"], change["reason"], change["instructions"], change["observation_prompt"], change["expected_signal"], change["counter_signal"], change["duration_days"], change["stop_conditions"], "LOW", 1, 1, now, None, None, None))
                     for alias in change["target_model_aliases"]:
                         target = model_by_alias[alias]
                         c.execute("INSERT INTO change_plan_targets VALUES(?,?,?)", (plan_id, target["item_id"], target["revision_id"]))
@@ -1326,12 +1334,13 @@ class PersonalAIInterviewService:
                     plan = change_by_alias[change["target_change_alias"]]
                     if not plan["review_target"] or plan["state"] not in {"ACTIVE", "STOPPED"}:
                         raise PersonalAIError("CHANGE_REVIEW_NOT_AUTHORIZED")
+                    review_id = generate_id()
                     c.execute(
                         "INSERT INTO change_reviews VALUES(?,?,?,?,?,?,?,?,?)",
-                        (generate_id(), plan["plan_id"], derivation_id, change["practical_effect"], change["epistemic_outcome"], change["summary"], change["what_changed_in_understanding"], change["recommended_next"], now),
+                        (review_id, plan["plan_id"], derivation_id, change["practical_effect"], change["epistemic_outcome"], change["summary"], change["what_changed_in_understanding"], change["recommended_next"], now),
                     )
                     if change["recommended_next"] == "COMPLETE" and plan["state"] == "ACTIVE":
-                        c.execute("UPDATE change_plans SET state='COMPLETED',ended_at=? WHERE plan_id=?", (now, plan["plan_id"]))
+                        c.execute("UPDATE change_plans SET state='COMPLETED',ended_at=?,completion_review_id=? WHERE plan_id=?", (now, review_id, plan["plan_id"]))
             state = "END_RECOMMENDED" if value["decision"] == "END_RECOMMENDED" else "ACTIVE"
             summary_id = derivation_id if value["summary"] is not None else None
             direction_id = derivation_id if value["next_direction"] is not None else None

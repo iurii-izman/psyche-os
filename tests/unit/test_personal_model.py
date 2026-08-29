@@ -4,9 +4,11 @@ from __future__ import annotations
 
 # ruff: noqa: RUF001
 import sqlite3
+import json
 
 import pytest
 
+from psyche_os.adapters.e07_provider import OpenAIReflectionProvider
 from psyche_os.personal_mode.ai_interview import (
     MAX_MODEL_DELTA,
     PersonalAIError,
@@ -283,6 +285,28 @@ def test_change_proposal_requires_exact_low_risk_model_target() -> None:
         validate_change_delta(proposal, {"M1"})
 
 
+def test_provider_change_proposal_schema_uses_model_aliases_not_source_aliases() -> None:
+    captured: list[object] = []
+
+    class Response:
+        def read(self, _limit: int) -> bytes:
+            return json.dumps({"model": "gpt-5.6-luna", "output": [{"content": [{"type": "output_text", "text": "{}"}]}]}).encode()
+        def __enter__(self) -> "Response": return self
+        def __exit__(self, *_: object) -> bool: return False
+
+    provider = OpenAIReflectionProvider(api_key="synthetic-key", transport=lambda request, timeout: captured.append(request) or Response())
+    provider.invoke_ai_interview(
+        {"profile_id": "local_personal_ai_interview_openai_windows_v1", "model": "gpt-5.6-luna"},
+        {"sources": ({"alias": "S1", "content": "Synthetic source"},), "inquiry": (), "planning": (), "model": ({"alias": "M1", "kind": "HYPOTHESIS", "text": "Synthetic model", "temporal_scope": "UNCLEAR", "uncertainty": None, "supporting": [], "counterevidence": [], "state": "ACTIVE"},), "changes": ()},
+        "synthetic-key",
+    )
+    schema = json.loads(captured[0].data)["text"]["format"]["schema"]["properties"]["change_delta"]["anyOf"]
+    proposal_schema = next(item for item in schema if item.get("properties", {}).get("action", {}).get("enum") == ["PROPOSE"])
+    assert proposal_schema["properties"]["target_model_aliases"]["items"]["enum"] == ["M1"]
+    assert "S1" not in proposal_schema["properties"]["target_model_aliases"]["items"]["enum"]
+    assert validate_change_delta(change_proposal(), {"M1"})["target_model_aliases"] == ["M1"]
+
+
 def test_change_activation_and_observations_are_local_owner_source() -> None:
     value, reflection, provider = service([create_delta("CREATE")])
     session_id = ready(value)
@@ -299,6 +323,29 @@ def test_change_activation_and_observations_are_local_owner_source() -> None:
     assert value.changes()["plans"][0]["observations"][0]["ai_eligible"] is False
     value.allow_change_observations(plan["plan_id"], True)
     assert value.changes()["plans"][0]["observations"][0]["ai_eligible"] is True
+
+
+def test_stopped_plan_stays_out_of_normal_context_but_enters_its_explicit_review() -> None:
+    value, _reflection, provider = service([create_delta("CREATE")])
+    session_id = ready(value)
+    turn_one(value, session_id)
+    provider.change_delta = change_proposal()
+    value.submit(session_id, "proposal", "Синтетический ответ для плана.")
+    plan_id = value.changes()["plans"][0]["plan_id"]
+    calls = provider.calls
+    value.change_control(plan_id, "ACTIVATE")
+    value.change_control(plan_id, "STOP")
+    assert provider.calls == calls
+    ordinary = ready(value)
+    value.request_first_question(ordinary)
+    assert provider.last_context["changes"] == ()
+    review = value.start_change_review(plan_id)["interview_session_id"]
+    value.grant_consent(review)
+    value.request_first_question(review)
+    changes = provider.last_context["changes"]
+    assert len(changes) == 1 and changes[0]["alias"] == "C1"
+    assert changes[0]["plan_id"] == plan_id and changes[0]["state"] == "STOPPED"
+    assert changes[0]["review_target"] is True
 
 
 def test_explicit_review_is_one_call_and_commits_distinct_outcomes_atomically() -> None:
@@ -325,6 +372,29 @@ def test_explicit_review_is_one_call_and_commits_distinct_outcomes_atomically() 
     assert plan["state"] == "COMPLETED"
     assert plan["review"]["practical_effect"] == "NO_CLEAR_EFFECT"
     assert plan["review"]["epistemic_outcome"] == "WEAKENED"
+
+
+def test_deleting_review_observation_reopens_only_ai_completed_plan() -> None:
+    value, reflection, provider = service([create_delta("CREATE")])
+    session_id = ready(value)
+    turn_one(value, session_id)
+    provider.change_delta = change_proposal()
+    value.submit(session_id, "proposal", "Синтетический ответ для плана.")
+    plan_id = value.changes()["plans"][0]["plan_id"]
+    value.change_control(plan_id, "ACTIVATE")
+    observation = value.observe_change(plan_id, "Пауза не изменила переключение.", "SAME")
+    value.allow_change_observations(plan_id, True)
+    review_session = value.start_change_review(plan_id)["interview_session_id"]
+    value.grant_consent(review_session)
+    provider.change_delta = {"action": "REVIEW", "target_change_alias": "C1", "practical_effect": "NO_CLEAR_EFFECT", "epistemic_outcome": "WEAKENED", "summary": "Эффекта пока не видно.", "what_changed_in_understanding": "Версия ослаблена.", "recommended_next": "COMPLETE"}
+    value.request_first_question(review_session)
+    assert reflection.connection.execute("SELECT state,ended_at,completion_review_id FROM change_plans WHERE plan_id=?", (plan_id,)).fetchone()[0] == "COMPLETED"
+    calls = provider.calls
+    with reflection.connection:
+        reflection.connection.execute("DELETE FROM reflection_turns WHERE turn_id=?", (observation["turn_id"],))
+    assert provider.calls == calls
+    assert reflection.connection.execute("SELECT count(*) FROM change_reviews WHERE plan_id=?", (plan_id,)).fetchone() == (0,)
+    assert reflection.connection.execute("SELECT state,ended_at,completion_review_id FROM change_plans WHERE plan_id=?", (plan_id,)).fetchone() == ("ACTIVE", None, None)
 
 
 def test_change_rejects_prohibited_intervention_language() -> None:

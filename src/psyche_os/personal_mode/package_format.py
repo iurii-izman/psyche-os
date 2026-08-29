@@ -158,6 +158,7 @@ def restore_personal_package(package: dict[str, Any], connection: Any) -> None:
     (initialize_personal_v10 if version == 10 else initialize_personal_v11 if version == 11 else initialize_personal_v12 if version == 12 else initialize_personal_v13 if version == 13 else initialize_personal_v14)(connection)
     try:
         connection.execute("BEGIN IMMEDIATE")
+        connection.execute("PRAGMA defer_foreign_keys=ON")
         # V12+ initialization seeds a fail-closed policy row.  A package is the
         # authoritative logical snapshot, so remove that seed before restoring
         # its corresponding row rather than merging policy state.
