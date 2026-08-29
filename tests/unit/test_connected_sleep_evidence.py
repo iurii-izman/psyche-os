@@ -6,7 +6,11 @@ import sqlite3
 
 import pytest
 
-from psyche_os.personal_mode.external_evidence import ExternalEvidenceError, ExternalEvidenceService
+from psyche_os.personal_mode.external_evidence import (
+    ExternalEvidenceError,
+    ExternalEvidenceService,
+    health_md_checksums,
+)
 from psyche_os.personal_mode.package_format import create_personal_package, restore_personal_package
 from psyche_os.personal_mode.schema import initialize_personal_v14, initialize_personal_v15
 
@@ -43,7 +47,7 @@ def raw_record(
         },
         "fields": fields,
         "providerPayload": None,
-        "hash": "a" * 64,
+        "hash": "",
     }
 
 
@@ -73,7 +77,16 @@ def snapshot(records: list[dict[str, object]], *, ndjson: bool = False) -> bytes
             "preservesUnknownSdkFields": False,
         },
     }
-    manifest = {
+    for record in records:
+        record["hash"] = hashlib.sha256(
+            json.dumps(
+                {key: value for key, value in record.items() if key != "hash"},
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+    manifest: dict[str, object] = {
         "schema": "healthmd.raw-snapshot.manifest",
         "version": 1,
         "snapshotId": "synthetic-snapshot",
@@ -85,10 +98,14 @@ def snapshot(records: list[dict[str, object]], *, ndjson: bool = False) -> bytes
         "identityCollisionCount": 0,
         "typeCounts": [],
         "typeReports": [],
-        "logicalChecksumSha256": "b" * 64,
-        "manifestChecksumSha256": "c" * 64,
+        "logicalChecksumSha256": "",
+        "manifestChecksumSha256": "",
         "artifactChecksumSha256": None,
     }
+    _, logical, _ = health_md_checksums(header, records, [], manifest)
+    manifest["logicalChecksumSha256"] = logical
+    _, _, manifest_checksum = health_md_checksums(header, records, [], manifest)
+    manifest["manifestChecksumSha256"] = manifest_checksum
     if ndjson:
         return (
             "\n".join(
@@ -262,3 +279,67 @@ def test_sidecar_checksum_is_honored(tmp_path) -> None:
     )
     with pytest.raises(ExternalEvidenceError):
         service.scan_inbox(path.parent)
+
+
+def test_configured_inbox_survives_import_second_scan_and_restart(tmp_path) -> None:
+    path = tmp_path / "snapshot.json"
+    path.write_bytes(artifact())
+    db = connection()
+    service = ExternalEvidenceService(db)
+    service.configure_source(inbox_path=str(tmp_path))
+    assert service.scan_inbox(tmp_path)["records"] == 5
+    assert db.execute("SELECT inbox_path FROM external_sources").fetchone()[0] == str(tmp_path)
+    assert service.scan_inbox(tmp_path) == {"records": 0, "versions": 0}
+    # The same initialized persistent connection models a lock/restart cycle:
+    # only service objects are process-local; source configuration is storage.
+    restarted = ExternalEvidenceService(db)
+    assert restarted.scan_inbox(tmp_path) == {"records": 0, "versions": 0}
+    assert db.execute("SELECT inbox_path FROM external_sources").fetchone()[0] == str(tmp_path)
+
+
+def test_record_and_manifest_checksum_fail_before_any_mutation() -> None:
+    db = connection()
+    service = ExternalEvidenceService(db)
+    decoded = json.loads(artifact())
+    decoded["records"][0]["fields"]["stages"][0]["stage"]["label"] = "DEEP"
+    with pytest.raises(ExternalEvidenceError, match="RECORD_CHECKSUM_MISMATCH"):
+        service.import_artifact(json.dumps(decoded).encode())
+    assert db.execute("SELECT count(*) FROM external_sources").fetchone()[0] == 0
+    assert db.execute("SELECT count(*) FROM external_import_batches").fetchone()[0] == 0
+
+    decoded = json.loads(artifact())
+    decoded["manifest"]["logicalChecksumSha256"] = "0" * 64
+    with pytest.raises(ExternalEvidenceError, match="SNAPSHOT_CHECKSUM_MISMATCH"):
+        service.import_artifact(json.dumps(decoded).encode())
+    assert db.execute("SELECT count(*) FROM external_records").fetchone()[0] == 0
+
+
+def test_projection_failure_rolls_back_source_batch_and_records(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    db = connection()
+    service = ExternalEvidenceService(db)
+    original = service._project_sleep
+
+    def fail_after_projection(*args: object) -> None:
+        original(*args)  # type: ignore[arg-type]
+        raise ExternalEvidenceError("SYNTHETIC_PROJECTION_FAILURE")
+
+    monkeypatch.setattr(service, "_project_sleep", fail_after_projection)
+    with pytest.raises(ExternalEvidenceError, match="SYNTHETIC_PROJECTION_FAILURE"):
+        service.import_artifact(artifact())
+    for table in ("external_sources", "external_import_batches", "external_records", "external_record_versions", "sleep_episodes", "sleep_stages"):
+        assert db.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
+
+
+def test_failed_and_wrong_format_snapshots_reject() -> None:
+    decoded = json.loads(artifact())
+    decoded["manifest"]["status"] = "FAILED"
+    _, logical, _ = health_md_checksums(decoded["header"], decoded["records"], decoded["issues"], decoded["manifest"])
+    decoded["manifest"]["logicalChecksumSha256"] = logical
+    _, _, checksum = health_md_checksums(decoded["header"], decoded["records"], decoded["issues"], decoded["manifest"])
+    decoded["manifest"]["manifestChecksumSha256"] = checksum
+    with pytest.raises(ExternalEvidenceError, match="FAILED_SNAPSHOT"):
+        ExternalEvidenceService(connection()).import_artifact(json.dumps(decoded).encode())
+    decoded = json.loads(artifact())
+    decoded["header"]["request"]["format"] = "NDJSON"
+    with pytest.raises(ExternalEvidenceError, match="SNAPSHOT_FORMAT_MISMATCH"):
+        ExternalEvidenceService(connection()).import_artifact(json.dumps(decoded).encode())

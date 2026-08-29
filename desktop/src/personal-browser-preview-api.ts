@@ -283,6 +283,11 @@ export const createPersonalBrowserPreviewApi = (scenario: PreviewScenario): Pers
       target.state = "CONTESTED";
       target.challenges = [...target.challenges, { text: content, created_at: at(11) }];
       return clone(state.model!);
-    }
+    },
+    sleepSourceStatus: async () => ({ configured: true, label: "Синтетический Health Connect", state: "ACTIVE", inbox_path: "C:\\Synthetic\\Health", last_imported_at: at(6), nights: 14 }),
+    sleepConfigureInbox: async (inboxPath) => ({ configured: true, label: "Синтетический Health Connect", state: "ACTIVE", inbox_path: inboxPath, last_imported_at: at(6), nights: 14 }),
+    sleepScan: async () => ({ records: 5, versions: 1 }),
+    sleepHistory: async () => ({ episodes: [] }),
+    sleepDeleteRecord: async () => ({ deleted: true })
   };
 };

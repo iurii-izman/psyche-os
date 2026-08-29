@@ -217,6 +217,9 @@ export interface InterviewView {
   session_trail?: { actor: "PSYCHE" | "YOU"; text: string; created_at: string }[];
   derived_items?: { item_id: string; kind: string; text: string; priority: number; created_at: string }[];
 }
+export interface SleepStage { category: string; started_at: string; ended_at: string; }
+export interface SleepEpisode { episode_id: string; started_at: string; ended_at: string; stages: SleepStage[]; }
+export interface SleepSourceStatus { configured: boolean; label: string | null; state: string; inbox_path: string | null; last_imported_at: string | null; nights: number; }
 
 let sessionToken: string | null = null;
 const call = <T>(command: string, args: Record<string, unknown> = {}) =>
@@ -393,5 +396,13 @@ export const personalApi = {
   aiModelList: () => call<PersonalModelView>("desktop_ai_model_list"),
   aiModelCorrect: (itemId: string, content: string) =>
     call<PersonalModelView>("desktop_ai_model_correct", { itemId, content }),
+  sleepSourceStatus: () => call<SleepSourceStatus>("desktop_sleep_source_status"),
+  sleepConfigureInbox: (inboxPath: string) =>
+    call<SleepSourceStatus>("desktop_sleep_configure_inbox", { inboxPath }),
+  sleepScan: () => call<{ records: number; versions: number }>("desktop_sleep_scan"),
+  sleepHistory: (days = 14) =>
+    call<{ episodes: SleepEpisode[] }>("desktop_sleep_history", { days }),
+  sleepDeleteRecord: (externalRecordId: string) =>
+    call<{ deleted: boolean }>("desktop_sleep_delete_record", { externalRecordId }),
 };
 export type PersonalApi = typeof personalApi;

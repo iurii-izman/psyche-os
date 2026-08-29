@@ -25,9 +25,9 @@ _STAGES = {"AWAKE", "AWAKE_IN_BED", "LIGHT", "DEEP", "REM", "SLEEPING", "OUT_OF_
 _METRICS = {
     "HEART_RATE": ("bpm", "HEART_RATE"),
     "RESTING_HEART_RATE": ("bpm", "RESTING_HEART_RATE"),
-    "SPO2": ("percent", "SPO2"),
-    "OXYGEN_SATURATION": ("percent", "SPO2"),
-    "RESPIRATORY_RATE": ("breaths_per_min", "RESPIRATORY_RATE"),
+    "SPO2": ("%", "SPO2"),
+    "OXYGEN_SATURATION": ("%", "SPO2"),
+    "RESPIRATORY_RATE": ("breaths/min", "RESPIRATORY_RATE"),
     "RESTINGHEARTRATE": ("bpm", "RESTING_HEART_RATE"),
     "OXYGENSATURATION": ("percent", "SPO2"),
     "RESPIRATORYRATE": ("breaths_per_min", "RESPIRATORY_RATE"),
@@ -45,6 +45,22 @@ def _canonical(value: Any) -> str:
 
 def _hash(value: Any) -> str:
     return hashlib.sha256(_canonical(value).encode("utf-8")).hexdigest()
+
+
+def health_md_checksums(
+    header: dict[str, Any], records: list[dict[str, Any]], issues: list[dict[str, Any]], manifest: dict[str, Any]
+) -> tuple[list[str], str, str]:
+    """Return the normative v1 semantic checksums for a decoded snapshot.
+
+    A record hash covers the exact record object except its self-referential
+    ``hash`` member.  The logical checksum covers the decoded framing and
+    records (and is therefore format-independent); the manifest checksum
+    covers its own complete semantic payload except its self-reference.
+    """
+    record_hashes = [_hash({key: value for key, value in record.items() if key != "hash"}) for record in records]
+    logical = _hash({"header": header, "records": records, "issues": issues})
+    manifest_payload = {key: value for key, value in manifest.items() if key != "manifestChecksumSha256"}
+    return record_hashes, logical, _hash(manifest_payload)
 
 
 def _id(prefix: str, *values: str) -> str:
@@ -179,6 +195,14 @@ def _validate_manifest(
     ):
         raise ExternalEvidenceError("INVALID_SNAPSHOT_MANIFEST")
     _timestamp(manifest["completedAt"])
+    if manifest["status"] == "FAILED":
+        raise ExternalEvidenceError("FAILED_SNAPSHOT")
+    _, logical, manifest_checksum = health_md_checksums(header, records, issues, manifest)
+    if (
+        manifest["logicalChecksumSha256"] != logical
+        or manifest["manifestChecksumSha256"] != manifest_checksum
+    ):
+        raise ExternalEvidenceError("SNAPSHOT_CHECKSUM_MISMATCH")
 
 
 def _validate_issue(issue: Any) -> None:
@@ -225,13 +249,15 @@ def _validate_record(record: Any) -> dict[str, Any]:
         or not _valid_sha(record["hash"])
     ):
         raise ExternalEvidenceError("INVALID_RAW_RECORD")
+    if record["hash"] != _hash({key: value for key, value in record.items() if key != "hash"}):
+        raise ExternalEvidenceError("RECORD_CHECKSUM_MISMATCH")
     start, end = _timestamp(record["startTime"]), _timestamp(record["endTime"])
     if record["wireType"] == "sleep_session" and (start is None or end is None or end <= start):
         raise ExternalEvidenceError("INVALID_RAW_RECORD")
     return record
 
 
-def parse_health_md(raw: bytes) -> list[dict[str, Any]]:
+def parse_health_md(raw: bytes) -> tuple[list[dict[str, Any]], str]:
     """Validate only the normative ``healthmd.raw-snapshot`` v1 formats."""
     if not raw or len(raw) > 32 * 1024 * 1024:
         raise ExternalEvidenceError("UNSUPPORTED_ARTIFACT")
@@ -255,11 +281,13 @@ def parse_health_md(raw: bytes) -> list[dict[str, Any]]:
             parsed["manifest"],
         )
         _validate_header(header)
+        if header["request"]["format"] != "JSON":
+            raise ExternalEvidenceError("SNAPSHOT_FORMAT_MISMATCH")
         for issue in issues:
             _validate_issue(issue)
         records = [_validate_record(record) for record in records]
         _validate_manifest(manifest, header, records, issues)
-        return records
+        return records, str(manifest["status"])
     except json.JSONDecodeError:
         try:
             lines = decoded.splitlines()
@@ -284,6 +312,8 @@ def parse_health_md(raw: bytes) -> list[dict[str, Any]]:
             [],
         )
         _validate_header(header)
+        if header["request"]["format"] != "NDJSON":
+            raise ExternalEvidenceError("SNAPSHOT_FORMAT_MISMATCH") from None
         for envelope in envelopes[1:-1]:
             if (
                 not isinstance(envelope, dict)
@@ -298,7 +328,7 @@ def parse_health_md(raw: bytes) -> list[dict[str, Any]]:
                 _validate_issue(envelope["issue"])
                 issues.append(envelope["issue"])
         _validate_manifest(manifest, header, records, issues)
-        return records
+        return records, str(manifest["status"])
 
 
 def _record_identity(
@@ -377,19 +407,25 @@ class ExternalEvidenceService:
         now = _now()
         with self.connection:
             self.connection.execute(
-                "INSERT INTO external_sources(source_id,source_kind,label,state,processing_policy,inbox_path,created_at,updated_at) VALUES(?,?,?,'ACTIVE','LOCAL_ONLY',?,?,?) ON CONFLICT(source_id) DO UPDATE SET label=excluded.label,inbox_path=excluded.inbox_path,updated_at=excluded.updated_at",
+                "INSERT INTO external_sources(source_id,source_kind,label,state,processing_policy,inbox_path,created_at,updated_at) VALUES(?,?,?,'ACTIVE','LOCAL_ONLY',?,?,?) ON CONFLICT(source_id) DO UPDATE SET label=excluded.label,inbox_path=COALESCE(excluded.inbox_path,external_sources.inbox_path),updated_at=excluded.updated_at",
                 (SOURCE_ID, SOURCE_KIND, label, inbox_path, now, now),
             )
 
     def import_artifact(
         self, raw: bytes, *, artifact_name: str = "health-md.json"
     ) -> dict[str, int]:
-        records = parse_health_md(raw)  # validate fully before changing state
+        records, _snapshot_status = parse_health_md(raw)  # validate fully before changing state
         artifact_hash = hashlib.sha256(raw).hexdigest()
-        self.configure_source()
         now = _now()
         try:
             self.connection.execute("BEGIN IMMEDIATE")
+            # Import is allowed before a UI configuration, but creation of the
+            # default source is part of this same transaction.  In particular,
+            # an artifact can never erase an owner-selected inbox path.
+            self.connection.execute(
+                "INSERT INTO external_sources(source_id,source_kind,label,state,processing_policy,inbox_path,created_at,updated_at) VALUES(?,?,?,'ACTIVE','LOCAL_ONLY',NULL,?,?) ON CONFLICT(source_id) DO NOTHING",
+                (SOURCE_ID, SOURCE_KIND, "Amazfit / Zepp через Health Connect", now, now),
+            )
             if self.connection.execute(
                 "SELECT 1 FROM external_import_batches WHERE source_id=? AND artifact_sha256=?",
                 (SOURCE_ID, artifact_hash),

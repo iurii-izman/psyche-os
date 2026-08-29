@@ -291,6 +291,10 @@ class PersonalDesktopApplicationService:
         else:
             self._runtime.setup(secret)
         self._session_token = secrets.token_urlsafe(32)
+        # The only automatic import is a single bounded scan after an owner
+        # opens the local Personal store.  There is no listener, daemon, or
+        # filesystem access exposed to the renderer.
+        self._scan_configured_inbox()
         return {"session_token": self._session_token, "locked": False}
 
     def _ai_service(self) -> PersonalWorkingFormulationService:
@@ -442,6 +446,24 @@ class PersonalDesktopApplicationService:
     def _external(self) -> ExternalEvidenceService:
         return ExternalEvidenceService(self._runtime.reflection.connection)
 
+    def _scan_configured_inbox(self) -> None:
+        row = self._runtime.reflection.connection.execute(
+            "SELECT inbox_path FROM external_sources WHERE source_id=?", (SOURCE_ID,)
+        ).fetchone()
+        if row is None or not isinstance(row[0], str):
+            return
+        try:
+            self._external().scan_inbox(Path(row[0]))
+        except ExternalEvidenceError:
+            # A failed background scan is never a failed unlock.  The owner
+            # sees ERROR in source status and can explicitly retry after
+            # correcting the local inbox.
+            with self._runtime.reflection.connection:
+                self._runtime.reflection.connection.execute(
+                    "UPDATE external_sources SET state='ERROR',updated_at=? WHERE source_id=?",
+                    (datetime.now(UTC).isoformat(), SOURCE_ID),
+                )
+
     def _external_source_status(self, payload: Any) -> dict[str, Any]:
         _exact(payload, set())
         row = self._runtime.reflection.connection.execute(
@@ -474,7 +496,8 @@ class PersonalDesktopApplicationService:
         ).fetchone()
         if row is None or not isinstance(row[0], str):
             raise PersonalDesktopServiceError("INBOX_UNAVAILABLE")
-        return self._external().scan_inbox(Path(row[0]))
+        result = self._external().scan_inbox(Path(row[0]))
+        return result
 
     def _sleep_history(self, payload: Any) -> dict[str, Any]:
         values = _exact(payload, {"days"})

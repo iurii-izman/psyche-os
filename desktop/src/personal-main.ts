@@ -10,6 +10,8 @@ import type {
   ReflectionSession,
   SearchResult,
   SearchView,
+  SleepEpisode,
+  SleepSourceStatus,
 } from "./personal-api";
 import {
   buildPersonalLongitudinal,
@@ -25,6 +27,7 @@ type Route =
   | "search"
   | "sensemaking"
   | "longitudinal"
+  | "sleep"
   | "privacy"
   | "recovery";
 type ExplorationBundle = {
@@ -147,7 +150,9 @@ export async function mountPersonal(
     interview: InterviewView | null = null,
     interviewSessions: InterviewView[] = [],
     model: PersonalModelView | null = null,
-    changePlans: ChangePlan[] = [];
+    changePlans: ChangePlan[] = [],
+    sleepEpisodes: SleepEpisode[] = [],
+    sleepSource: SleepSourceStatus | null = null;
   let route: Route = "home",
     notice = "",
     recovery: Record<string, unknown> | null = null,
@@ -203,6 +208,8 @@ export async function mountPersonal(
     status = nextStatus;
     if (!nextStatus.locked && nextStatus.local_personal === "ADMITTED") {
       sessions = (await api.reflectionList()).sessions;
+      sleepSource = await api.sleepSourceStatus();
+      sleepEpisodes = (await api.sleepHistory(14)).episodes;
       if (nextStatus.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI") {
         const listed = await api.aiInterviewList();
         interviewSessions = listed.sessions;
@@ -264,7 +271,7 @@ export async function mountPersonal(
     }
   };
   const nav = () =>
-    `<aside class="personal-sidebar"><div class="personal-brand"><strong>PSYCHE OS</strong><span>Personal</span></div><nav class="product-nav" aria-label="Навигация Personal">${([["home", "Сегодня"], ...(status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? [["interview", "AI-сессия"] as const] : []), ["history", "История"], ["longitudinal", "Во времени"], ["search", "Поиск"], ["sensemaking", "Картина"]] as const).map(([id, label]) => `<button data-route="${id}" class="${route === id ? "active" : ""}"${route === id ? ' aria-current="page"' : ""}>${label}</button>`).join("")}<div class="nav-spacer"></div><button data-route="privacy" class="${route === "privacy" || route === "recovery" ? "active" : ""}"${route === "privacy" || route === "recovery" ? ' aria-current="page"' : ""}>Настройки</button><button id="lock">Заблокировать хранилище</button></nav></aside>`;
+    `<aside class="personal-sidebar"><div class="personal-brand"><strong>PSYCHE OS</strong><span>Personal</span></div><nav class="product-nav" aria-label="Навигация Personal">${([["home", "Сегодня"], ["sleep", "Сон"], ...(status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? [["interview", "AI-сессия"] as const] : []), ["history", "История"], ["longitudinal", "Во времени"], ["search", "Поиск"], ["sensemaking", "Картина"]] as const).map(([id, label]) => `<button data-route="${id}" class="${route === id ? "active" : ""}"${route === id ? ' aria-current="page"' : ""}>${label}</button>`).join("")}<div class="nav-spacer"></div><button data-route="privacy" class="${route === "privacy" || route === "recovery" ? "active" : ""}"${route === "privacy" || route === "recovery" ? ' aria-current="page"' : ""}>Настройки</button><button id="lock">Заблокировать хранилище</button></nav></aside>`;
   const sessionRow = (item: ReflectionSession) =>
     `<article class="session-row"><div><strong>${escape(item.title)}</strong><small>${escape(dateLabel(item.updated_at ?? item.created_at))} · ${item.turn_count} ${item.turn_count === 1 ? "запись" : "записей"}</small></div><span class="status-pill ${item.state === "ACTIVE" ? "is-active" : ""}">${item.state === "ACTIVE" ? "Активно" : "Завершено"}</span><button data-open="${escape(item.session_id)}">${item.state === "ACTIVE" ? "Продолжить" : "Открыть"}</button></article>`;
   const noticeMarkup = () =>
@@ -472,6 +479,18 @@ export async function mountPersonal(
       : "";
     return `<main class="product-shell">${nav()}<header class="session-header"><p>РАЗМЫШЛЕНИЕ</p><h1>${escape(current.title)}</h1><p>${current.state === "CLOSED" ? "Завершено — только чтение" : "Активно — можно продолжить"}</p><button data-route="history">К истории</button></header><section class="card"><h2>Что вы написали</h2>${turns.length ? turns.map((turn) => `<article class="session-turn ${sourceTurnId === turn.turn_id ? "is-source-highlight" : ""}"><strong>Вы написали · запись ${turn.sequence}</strong><small>${escape(dateLabel(turn.created_at))}</small><p>${escape(turn.content)}</p></article>`).join("") : "<p>Записей пока нет.</p>"}${current.state === "ACTIVE" ? `<form id="add-turn"><label>Продолжить <textarea id="reflection-turn" required maxlength="12000"></textarea></label><button class="primary">Добавить запись</button></form><button id="close-reflection">Завершить размышление</button>` : ""}<button id="delete-reflection" class="danger">Удалить размышление</button></section>${interviewPolicy}${selector}${preview}${explorationMarkup()}${noticeMarkup()}</main>`;
   };
+  const sleepMarkup = () => {
+    void sleepSource;
+    const latest = sleepEpisodes[0];
+    const minutes = (start: string, end: string) => Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60_000));
+    const duration = latest ? minutes(latest.started_at, latest.ended_at) : 0;
+    const stageSummary = latest ? latest.stages.reduce<Record<string, number>>((all, stage) => {
+      all[stage.category] = (all[stage.category] ?? 0) + minutes(stage.started_at, stage.ended_at);
+      return all;
+    }, {}) : {};
+    const row = (episode: SleepEpisode) => `<article class="session-row"><div><strong>${escape(dateLabel(episode.started_at))}</strong><small>${escape(episode.started_at)} → ${escape(episode.ended_at)} · ${minutes(episode.started_at, episode.ended_at)} мин</small></div></article>`;
+    return `<main class="product-shell">${nav()}<section class="product-home"><p>LOCAL HEALTH CONNECT</p><h1>Сон</h1><p>Стадии сна — оценки устройства/поставщика, а не медицинский вывод.</p></section>${latest ? `<section class="card"><h2>Последняя ночь · ${duration} мин</h2><p>${escape(latest.started_at)} → ${escape(latest.ended_at)}</p><div class="review-counts">${Object.entries(stageSummary).map(([stage, value]) => `<span>${escape(stage)} · ${value} мин</span>`).join("") || "Стадии недоступны / частичны."}</div><section class="card"><h3>Хронология стадий</h3>${latest.stages.length ? latest.stages.map((stage) => `<p>${escape(stage.category)} · ${escape(stage.started_at)} → ${escape(stage.ended_at)}</p>`).join("") : "Стадии недоступны / частичны."}</section></section>` : `<section class="card calm-empty"><h2>Данных о сне пока нет</h2><p>Выберите локальную папку Health.md в настройках, затем проверьте её. Отсутствующие показатели не заменяются нулями.</p></section>`}<section class="card"><h2>Последние 14 ночей</h2>${sleepEpisodes.length ? sleepEpisodes.map(row).join("") : "Нет импортированных ночей."}</section>${noticeMarkup()}</main>`;
+  };
   const homeMarkup = () => {
     const recent = ordered().slice(0, 5),
       bundles = sensemaking ?? [],
@@ -537,7 +556,8 @@ export async function mountPersonal(
     const outcomeCard = completedReview?.review ? `<section class="card"><p>ЧТО УЗНАЛИ В РЕАЛЬНОЙ ЖИЗНИ · AI-ВЫВОД</p><h2>${escape(completedReview.title)}</h2><p>${escape(completedReview.review.summary)}</p><p><strong>О практическом эффекте:</strong> ${effectLabel[completedReview.review.practical_effect] ?? "неясно"}</p><p><strong>О рабочей версии:</strong> ${epistemicLabel[completedReview.review.epistemic_outcome] ?? "неясно"}</p><p>${escape(completedReview.review.understanding)}</p></section>` : "";
     interviewCard = `${changeCard}${proposalCard}${reviewCard}${outcomeCard}${interviewCard}`;
     const homeLead = activeChange ? `Сейчас проверяем: ${activeChange.title}` : status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? "Что сейчас полезно исследовать?" : "Запишите то, к чему хотите вернуться.";
-    return `<main class="product-shell home-shell">${nav()}<section class="product-home compact-heading"><p>PERSONAL</p><h1>Сегодня</h1><p>${homeLead}</p></section>${interviewCard}<section class="card quick-capture"><p>БЫСТРАЯ ЗАПИСЬ</p><h2>Сохранить мысль</h2><form id="quick-capture-form"><label>Название (необязательно) <input id="quick-capture-title" maxlength="160" placeholder="Короткая заметка" autofocus /></label><label>Текст <textarea id="quick-capture-text" required maxlength="12000" placeholder="Напишите то, что хотите сохранить…"></textarea></label><button class="primary">Сохранить</button></form></section><section class="card daily-review"><div><p>КАРТИНА</p><h2>Ваши записи и выводы</h2></div><div class="review-counts"><span>${active.length} активных размышлений</span><span>${currentFormulations} текущих формулировок</span><span>${unknowns} неясного</span><span>${contradictions} противоречий</span></div><button data-route="sensemaking" class="primary">Открыть картину</button><button data-route="longitudinal">Посмотреть изменения за 30 дней</button></section><section class="card recent-card"><p>НЕДАВНЕЕ</p><h2>Ваши размышления</h2>${recent.length ? recent.map(sessionRow).join("") : "<p>Первая запись появится здесь.</p>"}<button data-route="history">Открыть историю</button></section>${noticeMarkup()}</main>`;
+    const latestSleep = sleepEpisodes[0];
+    return `<main class="product-shell home-shell">${nav()}<section class="product-home compact-heading"><p>PERSONAL</p><h1>Сегодня</h1><p>${homeLead}</p></section>${latestSleep ? `<section class="card daily-review"><p>СОН · ЛОКАЛЬНЫЙ ИМПОРТ</p><h2>Последняя ночь · ${Math.round((new Date(latestSleep.ended_at).getTime() - new Date(latestSleep.started_at).getTime()) / 60_000)} мин</h2><p>${escape(latestSleep.started_at)} → ${escape(latestSleep.ended_at)}. Стадии — оценки устройства.</p><button data-route="sleep">Подробнее</button></section>` : ""}${interviewCard}<section class="card quick-capture"><p>БЫСТРАЯ ЗАПИСЬ</p><h2>Сохранить мысль</h2><form id="quick-capture-form"><label>Название (необязательно) <input id="quick-capture-title" maxlength="160" placeholder="Короткая заметка" autofocus /></label><label>Текст <textarea id="quick-capture-text" required maxlength="12000" placeholder="Напишите то, что хотите сохранить…"></textarea></label><button class="primary">Сохранить</button></form></section><section class="card daily-review"><div><p>КАРТИНА</p><h2>Ваши записи и выводы</h2></div><div class="review-counts"><span>${active.length} активных размышлений</span><span>${currentFormulations} текущих формулировок</span><span>${unknowns} неясного</span><span>${contradictions} противоречий</span></div><button data-route="sensemaking" class="primary">Открыть картину</button><button data-route="longitudinal">Посмотреть изменения за 30 дней</button></section><section class="card recent-card"><p>НЕДАВНЕЕ</p><h2>Ваши размышления</h2>${recent.length ? recent.map(sessionRow).join("") : "<p>Первая запись появится здесь.</p>"}<button data-route="history">Открыть историю</button></section>${noticeMarkup()}</main>`;
   };
 
   const interviewMarkup = () => {
@@ -847,6 +867,8 @@ export async function mountPersonal(
         ? interviewMarkup()
         : route === "detail"
           ? detailMarkup()
+          : route === "sleep"
+            ? sleepMarkup()
           : route === "history"
             ? historyMarkup()
             : route === "search"
