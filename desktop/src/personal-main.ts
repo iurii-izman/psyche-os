@@ -208,8 +208,13 @@ export async function mountPersonal(
     status = nextStatus;
     if (!nextStatus.locked && nextStatus.local_personal === "ADMITTED") {
       sessions = (await api.reflectionList()).sessions;
-      sleepSource = await api.sleepSourceStatus();
-      sleepEpisodes = (await api.sleepHistory(14)).episodes;
+      // Existing renderer fixtures and older trusted sidecars intentionally
+      // omit the new local-only sleep surface.  Keep daily reflection usable
+      // until the matching desktop package is installed.
+      if (typeof api.sleepSourceStatus === "function" && typeof api.sleepHistory === "function") {
+        sleepSource = await api.sleepSourceStatus();
+        sleepEpisodes = (await api.sleepHistory(14)).episodes;
+      }
       if (nextStatus.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI") {
         const listed = await api.aiInterviewList();
         interviewSessions = listed.sessions;
