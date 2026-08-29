@@ -729,21 +729,36 @@ class PersonalAIInterviewService:
         """
         alias_by_turn = {item["turn_id"]: item["alias"] for item in sources}
         rows = self._reflection.connection.execute(
-            "SELECT i.item_id,i.updated_at,r.revision_id,r.kind,r.text,r.temporal_scope,r.uncertainty,r.derivation_id "
+            "SELECT i.item_id,i.state,i.updated_at,r.revision_id,r.kind,r.text,r.temporal_scope,r.uncertainty,r.derivation_id "
             "FROM personal_model_items i JOIN personal_model_revisions r ON r.item_id=i.item_id AND r.status='CURRENT' "
-            "WHERE i.state='ACTIVE' "
+            "WHERE i.state IN ('ACTIVE','CONTESTED') "
             "ORDER BY CASE r.kind WHEN 'CONTRADICTION' THEN 0 WHEN 'HYPOTHESIS' THEN 1 WHEN 'PATTERN' THEN 2 ELSE 3 END,"
             "i.updated_at DESC,i.item_id ASC"
         ).fetchall()
         entries: list[dict[str, Any]] = []
         chars = 0
-        for item_id, _updated_at, revision_id, kind, text, scope, uncertainty, derivation_id in rows:
+        for item_id, state, _updated_at, revision_id, kind, text, scope, uncertainty, derivation_id in rows:
             if len(entries) == MAX_MODEL_ITEMS:
                 break
             if chars + len(text) > MAX_MODEL_CHARS:
                 continue
             if not derivation_id or not self._derivation_eligible(str(derivation_id)):
                 continue
+            if state == "CONTESTED":
+                # An owner-challenged item may be investigated, but only when
+                # the full reconstructive owner-correction lineage is itself
+                # eligible; it is always transmitted explicitly as CONTESTED,
+                # never as unqualified current truth.  An AI-contested item
+                # without owner challenges is gated by its derivation lineage
+                # like any other model item.
+                challenge_turns = self._reflection.connection.execute(
+                    "SELECT turn_id FROM personal_model_challenges WHERE item_id=?",
+                    (item_id,),
+                ).fetchall()
+                if challenge_turns and any(
+                    self._policy_for_turn(str(row[0])) is None for row in challenge_turns
+                ):
+                    continue
             supporting: list[str] = []
             counterevidence: list[str] = []
             for turn_id, role in self._reflection.connection.execute(
@@ -757,6 +772,7 @@ class PersonalAIInterviewService:
                 "alias": f"M{len(entries) + 1}",
                 "item_id": str(item_id),
                 "revision_id": str(revision_id),
+                "state": str(state),
                 "kind": str(kind),
                 "text": str(text),
                 "temporal_scope": str(scope),
@@ -998,10 +1014,33 @@ class PersonalAIInterviewService:
                 "INSERT INTO interview_derivations VALUES(?,?,?,?)",
                 (derivation_id, attempt_id, "VALIDATED", now),
             )
+            # Materialize the complete reconstructive SOURCE lineage: the raw
+            # transmitted manifest plus every USER source behind transmitted
+            # model revisions, so deletion/privacy closure stays transitive
+            # even when an ancestral source fell outside the current raw
+            # top-N packet.  The manifest keeps meaning exactly what was
+            # transmitted; this table means what the derived meaning needs.
+            lineage: dict[str, str] = {}
             for item in sources:
+                lineage[str(item["turn_id"])] = str(item["alias"])
+            for entry in model:
+                rows = c.execute(
+                    "SELECT d.turn_id,d.alias FROM personal_model_revisions r "
+                    "JOIN interview_derivation_sources d ON d.derivation_id=r.derivation_id "
+                    "WHERE r.revision_id=? "
+                    "UNION "
+                    "SELECT s.turn_id,s.alias FROM personal_model_revisions r "
+                    "JOIN personal_model_revision_sources s ON s.revision_id=r.revision_id "
+                    "WHERE r.revision_id=? "
+                    "ORDER BY 1",
+                    (entry["revision_id"], entry["revision_id"]),
+                ).fetchall()
+                for turn_id, alias in rows:
+                    lineage.setdefault(str(turn_id), "INHERITED")
+            for turn_id, alias in lineage.items():
                 c.execute(
                     "INSERT INTO interview_derivation_sources VALUES(?,?,?)",
-                    (derivation_id, item["turn_id"], item["alias"]),
+                    (derivation_id, turn_id, alias),
                 )
             c.execute(
                 "UPDATE interview_questions SET status='SUPERSEDED' WHERE interview_session_id=? AND status='CURRENT'",
@@ -1081,6 +1120,7 @@ class PersonalAIInterviewService:
         now: str,
     ) -> None:
         """Apply the validated model delta inside the caller's transaction."""
+        attached: set[tuple[str, str, str]] = set()
         for delta in deltas:
             kind, text = delta["kind"], delta["text"]
             if delta["action"] == "CREATE":
@@ -1115,31 +1155,54 @@ class PersonalAIInterviewService:
                         (kind, now, item_id),
                     )
                 elif delta["action"] == "CONTEST":
-                    revision_id = current_revision_id
-                    if text is not None:
-                        # A contested item may be replaced by a narrowed version;
-                        # the previous revision stays inspectable either way.
-                        ordinal = c.execute(
-                            "SELECT max(ordinal) FROM personal_model_revisions WHERE item_id=?",
-                            (item_id,),
-                        ).fetchone()[0] + 1
-                        revision_id = generate_id()
-                        c.execute(
-                            "UPDATE personal_model_revisions SET status='SUPERSEDED' WHERE revision_id=? AND status='CURRENT'",
+                    # Revisions are immutable: a contest never mutates the
+                    # existing evidence set; it always creates a successor
+                    # revision and supersedes the previous one.
+                    ordinal = c.execute(
+                        "SELECT max(ordinal) FROM personal_model_revisions WHERE item_id=?",
+                        (item_id,),
+                    ).fetchone()[0] + 1
+                    revision_id = generate_id()
+                    c.execute(
+                        "UPDATE personal_model_revisions SET status='SUPERSEDED' WHERE revision_id=? AND status='CURRENT'",
+                        (current_revision_id,),
+                    )
+                    if text is None:
+                        # Unresolved challenge: carry the prior meaning forward
+                        # unchanged with its full evidence set, add the newly
+                        # supplied counterevidence, and mark the item contested.
+                        prior = c.execute(
+                            "SELECT kind,text,temporal_scope,uncertainty FROM personal_model_revisions WHERE revision_id=?",
                             (current_revision_id,),
+                        ).fetchone()
+                        kind, text = str(prior[0]), str(prior[1])
+                        c.execute(
+                            "INSERT INTO personal_model_revisions VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                            (revision_id, item_id, ordinal, kind, text, str(prior[2]), prior[3], delta["reason"], derivation_id, None, "CURRENT", now),
                         )
+                        for turn_id, alias, role in c.execute(
+                            "SELECT turn_id,alias,role FROM personal_model_revision_sources WHERE revision_id=? ORDER BY turn_id,role",
+                            (current_revision_id,),
+                        ).fetchall():
+                            attached.add((revision_id, str(turn_id), str(role)))
+                            c.execute(
+                                "INSERT INTO personal_model_revision_sources VALUES(?,?,?,?)",
+                                (revision_id, turn_id, alias, role),
+                            )
+                        c.execute(
+                            "UPDATE personal_model_items SET state='CONTESTED',updated_at=? WHERE item_id=?",
+                            (now, item_id),
+                        )
+                    else:
+                        # Narrowed replacement: validation required explicit
+                        # valid SUPPORT; the item becomes investigable again.
                         c.execute(
                             "INSERT INTO personal_model_revisions VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                             (revision_id, item_id, ordinal, kind, text, delta["temporal_scope"], delta["uncertainty"], delta["reason"], derivation_id, None, "CURRENT", now),
                         )
                         c.execute(
-                            "UPDATE personal_model_items SET kind=?,updated_at=? WHERE item_id=?",
+                            "UPDATE personal_model_items SET kind=?,state='ACTIVE',updated_at=? WHERE item_id=?",
                             (kind, now, item_id),
-                        )
-                    else:
-                        c.execute(
-                            "UPDATE personal_model_items SET updated_at=? WHERE item_id=?",
-                            (now, item_id),
                         )
                 else:  # RESOLVE
                     revision_id = current_revision_id
@@ -1150,9 +1213,13 @@ class PersonalAIInterviewService:
             if delta["action"] != "RESOLVE":
                 for role, key in (("SUPPORT", "supporting"), ("COUNTEREVIDENCE", "counterevidence")):
                     for alias in delta[key]:
+                        turn_id = str(by_alias[alias]["turn_id"])
+                        if (revision_id, turn_id, role) in attached:
+                            continue
+                        attached.add((revision_id, turn_id, role))
                         c.execute(
                             "INSERT INTO personal_model_revision_sources VALUES(?,?,?,?)",
-                            (revision_id, by_alias[alias]["turn_id"], alias, role),
+                            (revision_id, turn_id, alias, role),
                         )
 
 
@@ -1222,6 +1289,16 @@ def validate_model_delta(raw: Any, aliases: set[str], model_aliases: set[str]) -
                 text = None
             else:
                 text = _working_language(_safe(_text(text, MAX_QUESTION)))
+            if action == "CONTEST":
+                if text is None:
+                    # Unresolved challenge carries the prior evidence set;
+                    # re-specifying support would mutate immutable history.
+                    if supporting:
+                        raise PersonalAIError("AI_OUTPUT_REJECTED")
+                elif not supporting:
+                    # A narrowed replacement must be evidence-backed; it may
+                    # never create unsupported current meaning.
+                    raise PersonalAIError("AI_OUTPUT_REJECTED")
             if action == "CONTEST" and not counterevidence and not reason:
                 raise PersonalAIError("AI_OUTPUT_REJECTED")
         deltas.append(

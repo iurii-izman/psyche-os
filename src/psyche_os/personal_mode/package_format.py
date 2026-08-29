@@ -159,7 +159,7 @@ def restore_personal_package(package: dict[str, Any], connection: Any) -> None:
         if version in (12, 13):
             connection.execute("DELETE FROM interview_policy")
         connection.execute("DELETE FROM schema_migrations")
-        inventory = PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY if version == 11 else PERSONAL_V12_INVENTORY
+        inventory = PERSONAL_V10_INVENTORY if version == 10 else PERSONAL_V11_INVENTORY if version == 11 else PERSONAL_V12_INVENTORY if version == 12 else PERSONAL_V13_INVENTORY
         for table in (*(table for table in inventory if table != "schema_migrations"), "schema_migrations"):
             for row in package["tables"][table]:
                 columns = list(row)

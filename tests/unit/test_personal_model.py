@@ -13,6 +13,11 @@ from psyche_os.personal_mode.ai_interview import (
     PersonalAIInterviewService,
     validate_interview_output,
 )
+from psyche_os.personal_mode.package_format import (
+    create_personal_package,
+    restore_personal_package,
+    verify_personal_package,
+)
 from psyche_os.personal_mode.schema import initialize_personal_v12, initialize_personal_v13
 
 
@@ -405,19 +410,36 @@ def test_model_item_with_ineligible_lineage_is_not_transmitted() -> None:
     assert len(value.model()["items"]) == 1
 
 
-def test_unresolved_contradiction_is_available_to_planner_and_contested_is_not() -> None:
-    value, _reflection, provider = service(
+def test_contested_item_is_investigable_only_with_eligible_correction_lineage() -> None:
+    value, reflection, provider = service(
         [create_delta("CREATE", kind="CONTRADICTION", supporting=["S1"])]
     )
     session_id = ready(value)
     turn_one(value, session_id)
-    # The item exists after turn one; the next turn carries it as context.
     value.submit(session_id, "submission-2", "Синтетический второй ответ.")
     assert provider.last_context["model"][0]["kind"] == "CONTRADICTION"
     item_id = value.model()["items"][0]["item_id"]
     value.challenge(item_id, "Синтетическое исправление владельца.")
     value.submit(session_id, "submission-3", "Синтетический третий ответ.")
-    # Owner-corrected item is never sent as unqualified current truth.
+    # The owner correction turn has no cloud policy by default, so the
+    # owner-challenged item is never transmitted (fail closed).
+    assert provider.last_context["model"] == ()
+    correction_turn = reflection.connection.execute(
+        "SELECT turn_id FROM reflection_turns WHERE content=?",
+        ("Синтетическое исправление владельца.",),
+    ).fetchone()[0]
+    value.set_source_policy([correction_turn], True)
+    value.submit(session_id, "submission-4", "Синтетический четвёртый ответ.")
+    # With explicitly eligible correction lineage the item becomes
+    # investigable, transmitted explicitly as CONTESTED — never as
+    # unqualified current truth.
+    transmitted = provider.last_context["model"]
+    assert len(transmitted) == 1
+    assert transmitted[0]["state"] == "CONTESTED"
+    assert transmitted[0]["kind"] == "CONTRADICTION"
+    # Revoking the correction lineage closes transmission again.
+    value.set_source_policy([correction_turn], False)
+    value.submit(session_id, "submission-5", "Синтетический пятый ответ.")
     assert provider.last_context["model"] == ()
 
 
@@ -434,3 +456,314 @@ def test_disclosure_lists_transmitted_model_context_separately() -> None:
     assert model_item["kind"] == "HYPOTHESIS"
     assert model_item["text"].startswith("Возможно,")
     assert model_item["temporal_scope"] == "UNCLEAR"
+
+
+# --- Fix 1: V13 non-empty package round-trip -----------------------------------
+
+
+def _seed_non_empty_v13(connection: sqlite3.Connection) -> None:
+    """A minimal but non-empty V13 vault: model item, revisions, evidence,
+    owner challenge, and a transmitted model manifest."""
+    with connection:
+        connection.execute(
+            "INSERT INTO reflection_sessions VALUES('s1','Synthetic','ACTIVE','ENCRYPTED_LOCAL','real_personal','2026-01-01T00:00:00+00:00','2026-01-01T00:00:00+00:00',NULL,2)"
+        )
+        connection.execute(
+            "INSERT INTO reflection_turns VALUES('t1','s1',1,'USER','2026-01-01T00:00:00+00:00','Синтетический ответ-основание')"
+        )
+        connection.execute(
+            "INSERT INTO reflection_turns VALUES('t2','s1',2,'USER','2026-01-02T00:00:00+00:00','Синтетический контрпример')"
+        )
+        connection.execute(
+            "INSERT INTO interview_sessions(interview_session_id,source_session_id,state,created_at,updated_at) VALUES('i1','s1','ACTIVE','2026-01-01T00:00:00+00:00','2026-01-01T00:00:00+00:00')"
+        )
+        connection.execute(
+            "INSERT INTO interview_attempts(attempt_id,interview_session_id,purpose,provider_profile,model,config_id,schema_id,state,policy_enabled,source_item_count,source_char_count,inquiry_item_count,inquiry_char_count,context_char_count,model_item_count,model_char_count,created_at) VALUES('a1','i1','personal_ai_interview','local_personal_ai_interview_openai_windows_v1','gpt-5.6-luna','x','y','SUCCEEDED',1,1,10,0,0,10,1,20,'2026-01-03T00:00:00+00:00')"
+        )
+        connection.execute(
+            "INSERT INTO interview_attempt_manifest_items VALUES('a1','S1','t1','p1',1,10)"
+        )
+        connection.execute(
+            "INSERT INTO interview_derivations VALUES('d1','a1','VALIDATED','2026-01-03T00:00:00+00:00')"
+        )
+        connection.execute("INSERT INTO interview_derivation_sources VALUES('d1','t1','S1')")
+        connection.execute(
+            "INSERT INTO personal_model_items VALUES('m1','HYPOTHESIS','CONTESTED','2026-01-03T00:00:00+00:00','2026-01-05T00:00:00+00:00')"
+        )
+        connection.execute(
+            "INSERT INTO personal_model_revisions VALUES('r1','m1',1,'HYPOTHESIS','Возможно, синтетическая рабочая версия.','UNCLEAR',NULL,'Первая версия.','d1',NULL,'SUPERSEDED','2026-01-03T00:00:00+00:00')"
+        )
+        connection.execute(
+            "INSERT INTO personal_model_revisions VALUES('r2','m1',2,'HYPOTHESIS','Возможно, синтетическая рабочая версия.','UNCLEAR',NULL,'Оспорено: добавлен контрпример.','d1',NULL,'CURRENT','2026-01-04T00:00:00+00:00')"
+        )
+        connection.execute(
+            "INSERT INTO personal_model_revision_sources VALUES('r1','t1','S1','SUPPORT')"
+        )
+        connection.execute(
+            "INSERT INTO personal_model_revision_sources VALUES('r2','t1','S1','SUPPORT')"
+        )
+        connection.execute(
+            "INSERT INTO personal_model_revision_sources VALUES('r2','t2','S2','COUNTEREVIDENCE')"
+        )
+        connection.execute(
+            "INSERT INTO personal_model_challenges VALUES('ch1','m1','r1','t2','2026-01-05T00:00:00+00:00')"
+        )
+        connection.execute(
+            "INSERT INTO interview_attempt_model_items VALUES('a1','M1','m1','r2',1,20)"
+        )
+
+
+def test_v13_package_round_trip_preserves_non_empty_model_tables() -> None:
+    connection = sqlite3.connect(":memory:")
+    connection.execute("PRAGMA foreign_keys=ON")
+    initialize_personal_v13(connection)
+    _seed_non_empty_v13(connection)
+    package = create_personal_package(connection)
+    assert verify_personal_package(package)
+    restored = sqlite3.connect(":memory:")
+    restored.execute("PRAGMA foreign_keys=ON")
+    restore_personal_package(package, restored)
+    assert verify_personal_vault_tables(restored)
+    recreated = create_personal_package(restored)
+    assert recreated["package_checksum"] == package["package_checksum"]
+    # Exact semantic equality of every Personal Model table.
+    for table in (
+        "personal_model_items",
+        "personal_model_revisions",
+        "personal_model_revision_sources",
+        "personal_model_challenges",
+        "interview_attempt_model_items",
+    ):
+        assert (
+            connection.execute(f"SELECT * FROM {table} ORDER BY 1").fetchall()
+            == restored.execute(f"SELECT * FROM {table} ORDER BY 1").fetchall()
+        ), table
+
+
+def verify_personal_vault_tables(connection: sqlite3.Connection) -> bool:
+    from psyche_os.personal_mode.schema import PERSONAL_V13_INVENTORY
+
+    tables = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        )
+    }
+    return tables == set(PERSONAL_V13_INVENTORY)
+
+
+def test_v10_v11_v12_package_compatibility_remains_intact() -> None:
+    from psyche_os.personal_mode.package_format import (
+        PERSONAL_V11_FORMAT_VERSION,
+        PERSONAL_V12_FORMAT_VERSION,
+        PERSONAL_V13_FORMAT_VERSION,
+        verify_personal_package_structure,
+    )
+
+    v12 = sqlite3.connect(":memory:")
+    initialize_personal_v12(v12)
+    with v12:
+        v12.execute(
+            "INSERT INTO reflection_sessions VALUES('s1','Synthetic','ACTIVE','ENCRYPTED_LOCAL','real_personal','2026-01-01T00:00:00+00:00','2026-01-01T00:00:00+00:00',NULL,0)"
+        )
+    package_v12 = create_personal_package(v12)
+    assert package_v12["format_version"] == PERSONAL_V12_FORMAT_VERSION
+    assert verify_personal_package_structure(package_v12)
+    restored_v12 = sqlite3.connect(":memory:")
+    restore_personal_package(package_v12, restored_v12)
+    assert [
+        row[0]
+        for row in restored_v12.execute("SELECT version FROM schema_migrations ORDER BY version")
+    ] == [10, 11, 12]
+    assert PERSONAL_V11_FORMAT_VERSION == 4 and PERSONAL_V13_FORMAT_VERSION == 6
+
+
+# --- Fix 2: transitive model lineage -------------------------------------------
+
+
+def _fill_raw_packet(reflection: FakeReflection, session_id: str, count: int = 12) -> list[str]:
+    """Insert newer synthetic USER turns so the first answer falls outside the
+    raw top-12 provider source packet, and enable their source policies."""
+    c = reflection.connection
+    source_session = c.execute(
+        "SELECT source_session_id FROM interview_sessions WHERE interview_session_id=?",
+        (session_id,),
+    ).fetchone()[0]
+    turn_ids = []
+    for index in range(count):
+        turn_id = f"filler-turn-{index + 1}"
+        with c:
+            c.execute(
+                "INSERT INTO reflection_turns VALUES(?,?,?,?,?,?)",
+                (turn_id, source_session, 100 + index, "USER", f"2027-01-{index + 1:02d}T00:00:00+00:00", f"Синтетический наполнитель {index + 1}."),
+            )
+        turn_ids.append(turn_id)
+    return turn_ids
+
+
+def test_downstream_revision_lineage_covers_ancestral_source_outside_raw_packet() -> None:
+    value, reflection, provider = service([create_delta("CREATE")])
+    session_id = ready(value)
+    turn_one(value, session_id)
+    first_turn = reflection.connection.execute(
+        "SELECT turn_id FROM interview_submissions WHERE interview_session_id=? AND client_submission_id='submission-1'",
+        (session_id,),
+    ).fetchone()[0]
+    fillers = _fill_raw_packet(reflection, session_id, 12)
+    value.set_source_policy(fillers, True)
+    # R1 exists; the next attempt transmits it as M1 while its own source T1
+    # is no longer inside the raw top-12 packet.
+    value._provider.deltas = [  # type: ignore[attr-defined]
+        create_delta(
+            "REVISE",
+            text="Общая версия не подтверждается; паттерн может быть специфичен для встреч с зависимым результатом.",
+            supporting=["S1"],
+        )
+    ]
+    value.submit(session_id, "submission-2", "Синтетический второй ответ с уточнением.")
+    attempt_id = value.get(session_id)["attempts"][0]["attempt_id"]
+    manifest_turns = {
+        str(row[0])
+        for row in reflection.connection.execute(
+            "SELECT turn_id FROM interview_attempt_manifest_items WHERE attempt_id=?",
+            (attempt_id,),
+        )
+    }
+    assert first_turn not in manifest_turns  # raw manifest excludes T1
+    revision_id = reflection.connection.execute(
+        "SELECT revision_id FROM personal_model_revisions WHERE status='CURRENT'"
+    ).fetchone()[0]
+    derivation_turns = {
+        str(row[0])
+        for row in reflection.connection.execute(
+            "SELECT d.turn_id FROM personal_model_revisions r JOIN interview_derivation_sources d ON d.derivation_id=r.derivation_id WHERE r.revision_id=?",
+            (revision_id,),
+        )
+    }
+    assert first_turn in derivation_turns  # transitive lineage includes T1
+    # Revoke T1 eligibility: the downstream revision must fail closed.
+    value.set_source_policy([first_turn], False)
+    value.submit(session_id, "submission-3", "Синтетический третий ответ.")
+    assert provider.last_context["model"] == ()
+    calls_after_revoke = provider.calls
+    # Delete T1: R1 and R2 must both die through existing local machinery,
+    # with no provider call and no reconstruction of T1.
+    with reflection.connection:
+        reflection.connection.execute(
+            "DELETE FROM reflection_turns WHERE turn_id=?", (first_turn,)
+        )
+    assert provider.calls == calls_after_revoke
+    item = value.model()["items"][0]
+    assert item["state"] == "INVALIDATED"
+    assert item["current"] is None
+    receipt = value.disclosure(attempt_id)
+    assert all("Синтетический ответ про встречи" not in str(entry) for entry in receipt["items"])
+    assert receipt["model_items"] == []
+
+
+# --- Fix 3: immutable CONTEST lifecycle ----------------------------------------
+
+
+def test_contest_without_text_preserves_prior_revision_immutable() -> None:
+    value, reflection, _provider = service([create_delta("CREATE")])
+    session_id = ready(value)
+    turn_one(value, session_id)
+    value.submit(session_id, "submission-2", "Синтетический второй ответ-контрпример.")
+    old_revision = reflection.connection.execute(
+        "SELECT revision_id FROM personal_model_revisions WHERE status='CURRENT'"
+    ).fetchone()[0]
+    before_text = reflection.connection.execute(
+        "SELECT text FROM personal_model_revisions WHERE revision_id=?", (old_revision,)
+    ).fetchone()[0]
+    before_evidence = reflection.connection.execute(
+        "SELECT turn_id,role FROM personal_model_revision_sources WHERE revision_id=? ORDER BY turn_id,role",
+        (old_revision,),
+    ).fetchall()
+    value._provider.deltas = [  # type: ignore[attr-defined]
+        create_delta("CONTEST", text="", supporting=[], counterevidence=["S2"], reason="Синтетический контрпример оспаривает версию.")
+    ]
+    value.submit(session_id, "submission-3", "Синтетический третий ответ.")
+    # R1 remains row-equivalent in text and evidence set, and is historical.
+    assert reflection.connection.execute(
+        "SELECT text FROM personal_model_revisions WHERE revision_id=?", (old_revision,)
+    ).fetchone()[0] == before_text
+    assert (
+        reflection.connection.execute(
+            "SELECT turn_id,role FROM personal_model_revision_sources WHERE revision_id=? ORDER BY turn_id,role",
+            (old_revision,),
+        ).fetchall()
+        == before_evidence
+    )
+    assert (
+        reflection.connection.execute(
+            "SELECT status FROM personal_model_revisions WHERE revision_id=?",
+            (old_revision,),
+        ).fetchone()[0]
+        == "SUPERSEDED"
+    )
+    # R2 is current, carries the copied support plus the new counterevidence.
+    new_revision = reflection.connection.execute(
+        "SELECT revision_id FROM personal_model_revisions WHERE status='CURRENT'"
+    ).fetchone()[0]
+    assert new_revision != old_revision
+    evidence = reflection.connection.execute(
+        "SELECT role,turn_id FROM personal_model_revision_sources WHERE revision_id=?",
+        (new_revision,),
+    ).fetchall()
+    assert len(evidence) == 2
+    item = value.model()["items"][0]
+    assert item["state"] == "CONTESTED"
+    assert [revision["status"] for revision in item["history"]] == ["SUPERSEDED", "CURRENT"]
+
+
+def test_narrowed_contest_requires_support() -> None:
+    value, reflection, _provider = service([create_delta("CREATE")])
+    session_id = ready(value)
+    turn_one(value, session_id)
+    value.submit(session_id, "submission-2", "Синтетический второй ответ.")
+    value._provider.deltas = [  # type: ignore[attr-defined]
+        create_delta(
+            "CONTEST",
+            text="Суженная версия без указания опоры.",
+            supporting=[],
+            counterevidence=["S1"],
+            reason="Попытка заменить версию без опоры.",
+        )
+    ]
+    with pytest.raises(PersonalAIError, match="AI_OUTPUT_REJECTED"):
+        value.submit(session_id, "submission-3", "Синтетический третий ответ.")
+    # No unsupported current meaning was created.
+    assert (
+        reflection.connection.execute(
+            "SELECT count(*) FROM personal_model_revisions WHERE text='Суженная версия без указания опоры.'"
+        ).fetchone()[0]
+        == 0
+    )
+    assert (
+        reflection.connection.execute(
+            "SELECT count(*) FROM personal_model_revisions WHERE status='CURRENT'"
+        ).fetchone()[0]
+        == 1
+    )
+
+
+def test_contest_with_narrowed_text_becomes_evidence_backed_and_active() -> None:
+    value, _reflection, _provider = service([create_delta("CREATE")])
+    session_id = ready(value)
+    turn_one(value, session_id)
+    value.submit(session_id, "submission-2", "Синтетический второй ответ-контрпример.")
+    value._provider.deltas = [  # type: ignore[attr-defined]
+        create_delta(
+            "CONTEST",
+            text="Паттерн может быть специфичен для ситуаций с зависимым результатом.",
+            supporting=["S2"],
+            counterevidence=["S1"],
+            reason="Контрпример сузил версию; замена опёрта на новый ответ.",
+        )
+    ]
+    value.submit(session_id, "submission-3", "Синтетический третий ответ.")
+    item = value.model()["items"][0]
+    assert item["state"] == "ACTIVE"
+    assert item["current"]["text"].startswith("Паттерн может быть специфичен")
+    assert len(item["current"]["support"]) == 1
+    assert len(item["current"]["counterevidence"]) == 1
