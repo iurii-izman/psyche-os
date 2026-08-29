@@ -72,13 +72,12 @@ _V13_DDL = (
     "CREATE UNIQUE INDEX idx_personal_model_current_revision ON personal_model_revisions(item_id) WHERE status='CURRENT'",
     "CREATE TABLE personal_model_revision_sources (revision_id TEXT NOT NULL, turn_id TEXT NOT NULL, alias TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('SUPPORT','COUNTEREVIDENCE')), PRIMARY KEY(revision_id, turn_id, role), FOREIGN KEY(revision_id) REFERENCES personal_model_revisions(revision_id) ON DELETE CASCADE, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
     "CREATE TABLE personal_model_challenges (challenge_id TEXT PRIMARY KEY, item_id TEXT NOT NULL, revision_id TEXT NOT NULL, turn_id TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, FOREIGN KEY(item_id) REFERENCES personal_model_items(item_id) ON DELETE CASCADE, FOREIGN KEY(revision_id) REFERENCES personal_model_revisions(revision_id) ON DELETE CASCADE, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
-    "CREATE TABLE interview_attempt_model_items (attempt_id TEXT NOT NULL, alias TEXT NOT NULL, item_id TEXT NOT NULL, revision_id TEXT NOT NULL, ordinal INTEGER NOT NULL, char_count INTEGER NOT NULL, PRIMARY KEY(attempt_id, alias), UNIQUE(attempt_id, item_id), FOREIGN KEY(attempt_id) REFERENCES interview_attempts(attempt_id) ON DELETE CASCADE, FOREIGN KEY(item_id) REFERENCES personal_model_items(item_id) ON DELETE CASCADE, FOREIGN KEY(revision_id) REFERENCES personal_model_revisions(revision_id) ON DELETE CASCADE)",
+    "CREATE TABLE interview_attempt_model_items (attempt_id TEXT NOT NULL, alias TEXT NOT NULL, item_id TEXT NOT NULL, revision_id TEXT NOT NULL, sent_state TEXT NOT NULL CHECK(sent_state IN ('ACTIVE','CONTESTED','RESOLVED','INVALIDATED')), ordinal INTEGER NOT NULL, char_count INTEGER NOT NULL, PRIMARY KEY(attempt_id, alias), UNIQUE(attempt_id, item_id), FOREIGN KEY(attempt_id) REFERENCES interview_attempts(attempt_id) ON DELETE CASCADE, FOREIGN KEY(item_id) REFERENCES personal_model_items(item_id) ON DELETE CASCADE, FOREIGN KEY(revision_id) REFERENCES personal_model_revisions(revision_id) ON DELETE CASCADE)",
     # Losing the last supporting SOURCE invalidates the current meaning; losing
-    # counterevidence never strengthens anything automatically.
+    # counterevidence never strengthens anything automatically.  Owner
+    # challenges are an overlay: the challenge relation itself carries the
+    # owner-contested state, so no trigger mutates the base lifecycle state.
     "CREATE TRIGGER personal_model_support_lost AFTER DELETE ON personal_model_revision_sources BEGIN UPDATE personal_model_revisions SET status='INVALIDATED' WHERE revision_id=OLD.revision_id AND status='CURRENT' AND NOT EXISTS (SELECT 1 FROM personal_model_revision_sources WHERE revision_id=OLD.revision_id AND role='SUPPORT'); UPDATE personal_model_items SET state='INVALIDATED' WHERE state IN ('ACTIVE','CONTESTED') AND NOT EXISTS (SELECT 1 FROM personal_model_revisions WHERE item_id=personal_model_items.item_id AND status='CURRENT'); END",
-    # Deleting the owner correction SOURCE removes the challenge relation; the
-    # item returns to ACTIVE only when no other challenge remains.
-    "CREATE TRIGGER personal_model_challenge_deleted AFTER DELETE ON personal_model_challenges BEGIN UPDATE personal_model_items SET state='ACTIVE' WHERE item_id=OLD.item_id AND state='CONTESTED' AND NOT EXISTS (SELECT 1 FROM personal_model_challenges WHERE item_id=OLD.item_id); END",
 )
 
 # Kept public so the Personal integrity oracle has one authoritative inventory

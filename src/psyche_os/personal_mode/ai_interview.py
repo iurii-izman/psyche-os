@@ -374,11 +374,15 @@ class PersonalAIInterviewService:
             if self._derivation_eligible(str(row[4]))
         ]
         model_items = self._reflection.connection.execute(
-            "SELECT a.alias,r.kind,r.text,r.temporal_scope,r.uncertainty,i.state,r.derivation_id FROM interview_attempt_model_items a "
+            "SELECT a.alias,r.kind,r.text,r.temporal_scope,r.uncertainty,a.sent_state,r.derivation_id FROM interview_attempt_model_items a "
             "JOIN personal_model_revisions r ON r.revision_id=a.revision_id "
-            "JOIN personal_model_items i ON i.item_id=a.item_id WHERE a.attempt_id=? ORDER BY a.ordinal",
+            "WHERE a.attempt_id=? ORDER BY a.ordinal",
             (attempt_id,),
         ).fetchall()
+        # Historical truth: this section answers "what was transmitted then",
+        # using the immutable sent-state snapshot and the surviving immutable
+        # revision.  Current policy must not rewrite it; deleted content
+        # disappears through the existing FK deletion closure instead.
         result["model_items"] = [
             {
                 "alias": str(alias),
@@ -386,10 +390,9 @@ class PersonalAIInterviewService:
                 "text": str(text),
                 "temporal_scope": str(scope),
                 "uncertainty": uncertainty,
-                "state": str(state),
+                "state": str(sent_state),
             }
-            for alias, kind, text, scope, uncertainty, state, derivation_id in model_items
-            if derivation_id and self._derivation_eligible(str(derivation_id))
+            for alias, kind, text, scope, uncertainty, sent_state, _derivation_id in model_items
         ]
         return result
 
@@ -399,6 +402,13 @@ class PersonalAIInterviewService:
         for item_id, kind, state, created_at, updated_at in self._reflection.connection.execute(
             "SELECT item_id,kind,state,created_at,updated_at FROM personal_model_items ORDER BY updated_at DESC,item_id ASC"
         ).fetchall():
+            # Effective owner-facing state: an owner challenge overlays the
+            # base AI lifecycle state without mutating it.
+            challenges = self._reflection.connection.execute(
+                "SELECT count(*) FROM personal_model_challenges WHERE item_id=?",
+                (item_id,),
+            ).fetchone()[0]
+            effective_state = "CONTESTED" if challenges else str(state)
             revisions = self._reflection.connection.execute(
                 "SELECT revision_id,ordinal,kind,text,temporal_scope,uncertainty,revision_reason,derivation_id,owner_turn_id,status,created_at FROM personal_model_revisions WHERE item_id=? ORDER BY ordinal ASC",
                 (item_id,),
@@ -441,7 +451,7 @@ class PersonalAIInterviewService:
                 {
                     "item_id": str(item_id),
                     "kind": str(kind),
-                    "state": str(state),
+                    "state": effective_state,
                     "created_at": str(created_at),
                     "updated_at": str(updated_at),
                     "current": None
@@ -500,10 +510,9 @@ class PersonalAIInterviewService:
                 "INSERT INTO personal_model_challenges VALUES(?,?,?,?,?)",
                 (generate_id(), item_id, str(revision[0]), turn_id, now),
             )
-            c.execute(
-                "UPDATE personal_model_items SET state='CONTESTED',updated_at=? WHERE item_id=?",
-                (now, item_id),
-            )
+            # Owner correction is an overlay on the base AI lifecycle state:
+            # the challenge relation itself carries the owner-contested state,
+            # so the base item row is never mutated here.
         return self.model()
 
     def get(self, session_id: Any) -> dict[str, Any]:
@@ -744,21 +753,20 @@ class PersonalAIInterviewService:
                 continue
             if not derivation_id or not self._derivation_eligible(str(derivation_id)):
                 continue
-            if state == "CONTESTED":
-                # An owner-challenged item may be investigated, but only when
-                # the full reconstructive owner-correction lineage is itself
-                # eligible; it is always transmitted explicitly as CONTESTED,
-                # never as unqualified current truth.  An AI-contested item
-                # without owner challenges is gated by its derivation lineage
-                # like any other model item.
-                challenge_turns = self._reflection.connection.execute(
-                    "SELECT turn_id FROM personal_model_challenges WHERE item_id=?",
-                    (item_id,),
-                ).fetchall()
-                if challenge_turns and any(
-                    self._policy_for_turn(str(row[0])) is None for row in challenge_turns
-                ):
-                    continue
+            # Effective state: an owner challenge overlays the base AI
+            # lifecycle state.  A challenged item may be investigated, but
+            # only when the full reconstructive owner-correction lineage is
+            # itself eligible; it is always transmitted explicitly as
+            # CONTESTED, never as unqualified current truth.
+            challenge_turns = self._reflection.connection.execute(
+                "SELECT turn_id FROM personal_model_challenges WHERE item_id=?",
+                (item_id,),
+            ).fetchall()
+            if challenge_turns and any(
+                self._policy_for_turn(str(row[0])) is None for row in challenge_turns
+            ):
+                continue
+            effective_state = "CONTESTED" if challenge_turns else str(state)
             supporting: list[str] = []
             counterevidence: list[str] = []
             for turn_id, role in self._reflection.connection.execute(
@@ -772,7 +780,7 @@ class PersonalAIInterviewService:
                 "alias": f"M{len(entries) + 1}",
                 "item_id": str(item_id),
                 "revision_id": str(revision_id),
-                "state": str(state),
+                "state": effective_state,
                 "kind": str(kind),
                 "text": str(text),
                 "temporal_scope": str(scope),
@@ -927,8 +935,8 @@ class PersonalAIInterviewService:
                 )
             for ordinal, item in enumerate(model, 1):
                 c.execute(
-                    "INSERT INTO interview_attempt_model_items VALUES(?,?,?,?,?,?)",
-                    (attempt_id, item["alias"], item["item_id"], item["revision_id"], ordinal, item["char_count"]),
+                    "INSERT INTO interview_attempt_model_items VALUES(?,?,?,?,?,?,?)",
+                    (attempt_id, item["alias"], item["item_id"], item["revision_id"], item["state"], ordinal, item["char_count"]),
                 )
         manifest = {
             "attempt_id": attempt_id,
@@ -1035,8 +1043,16 @@ class PersonalAIInterviewService:
                     "ORDER BY 1",
                     (entry["revision_id"], entry["revision_id"]),
                 ).fetchall()
-                for turn_id, alias in rows:
+                for turn_id, _alias in rows:
                     lineage.setdefault(str(turn_id), "INHERITED")
+                # The transmitted state of a challenged item depends on the
+                # owner-correction SOURCE; its turns join the reconstructive
+                # lineage so downstream meaning cannot outlive the correction.
+                for (challenge_turn,) in c.execute(
+                    "SELECT turn_id FROM personal_model_challenges WHERE item_id=? ORDER BY turn_id",
+                    (entry["item_id"],),
+                ).fetchall():
+                    lineage.setdefault(str(challenge_turn), "INHERITED")
             for turn_id, alias in lineage.items():
                 c.execute(
                     "INSERT INTO interview_derivation_sources VALUES(?,?,?)",

@@ -509,7 +509,7 @@ def _seed_non_empty_v13(connection: sqlite3.Connection) -> None:
             "INSERT INTO personal_model_challenges VALUES('ch1','m1','r1','t2','2026-01-05T00:00:00+00:00')"
         )
         connection.execute(
-            "INSERT INTO interview_attempt_model_items VALUES('a1','M1','m1','r2',1,20)"
+            "INSERT INTO interview_attempt_model_items VALUES('a1','M1','m1','r2','CONTESTED',1,20)"
         )
 
 
@@ -767,3 +767,167 @@ def test_contest_with_narrowed_text_becomes_evidence_backed_and_active() -> None
     assert item["current"]["text"].startswith("Паттерн может быть специфичен")
     assert len(item["current"]["support"]) == 1
     assert len(item["current"]["counterevidence"]) == 1
+
+
+# --- Fix: owner challenge transitive lineage -----------------------------------
+
+
+def test_owner_challenge_enters_transitive_lineage() -> None:
+    value, reflection, provider = service([create_delta("CREATE")])
+    session_id = ready(value)
+    turn_one(value, session_id)
+    item_id = value.model()["items"][0]["item_id"]
+    value.challenge(item_id, "Синтетическая коррекция владельца для линии.")
+    correction_turn = reflection.connection.execute(
+        "SELECT turn_id FROM reflection_turns WHERE content=?",
+        ("Синтетическая коррекция владельца для линии.",),
+    ).fetchone()[0]
+    value.set_source_policy([correction_turn], True)
+    # Push the correction turn outside the raw top-12 packet.
+    fillers = _fill_raw_packet(reflection, session_id, 12)
+    value.set_source_policy(fillers, True)
+    value.submit(session_id, "submission-2", "Синтетический второй ответ.")
+    transmitted = provider.last_context["model"]
+    assert len(transmitted) == 1
+    assert transmitted[0]["state"] == "CONTESTED"
+    value._provider.deltas = [  # type: ignore[attr-defined]
+        create_delta(
+            "REVISE",
+            text="Общая версия не подтверждается; паттерн может быть специфичен для встреч с зависимым результатом.",
+            supporting=["S1"],
+        )
+    ]
+    value.submit(session_id, "submission-3", "Синтетический третий ответ с уточнением.")
+    attempt_id = value.get(session_id)["attempts"][0]["attempt_id"]
+    manifest_turns = {
+        str(row[0])
+        for row in reflection.connection.execute(
+            "SELECT turn_id FROM interview_attempt_manifest_items WHERE attempt_id=?",
+            (attempt_id,),
+        )
+    }
+    assert correction_turn not in manifest_turns  # not falsely raw-transmitted
+    revision_id = reflection.connection.execute(
+        "SELECT revision_id FROM personal_model_revisions WHERE status='CURRENT'"
+    ).fetchone()[0]
+    lineage_turns = {
+        str(row[0])
+        for row in reflection.connection.execute(
+            "SELECT d.turn_id FROM personal_model_revisions r JOIN interview_derivation_sources d ON d.derivation_id=r.derivation_id WHERE r.revision_id=?",
+            (revision_id,),
+        )
+    }
+    assert correction_turn in lineage_turns  # challenge lineage is transitive
+    # Revoke the correction policy: downstream meaning fails closed.
+    value.set_source_policy([correction_turn], False)
+    value.submit(session_id, "submission-4", "Синтетический четвёртый ответ.")
+    assert provider.last_context["model"] == ()
+    calls_after_revoke = provider.calls
+    # Delete the correction SOURCE: downstream meaning cannot stay valid.
+    with reflection.connection:
+        reflection.connection.execute(
+            "DELETE FROM reflection_turns WHERE turn_id=?", (correction_turn,)
+        )
+    assert provider.calls == calls_after_revoke
+    item = value.model()["items"][0]
+    assert item["state"] == "INVALIDATED"
+    assert item["current"] is None
+    receipt = value.disclosure(attempt_id)
+    assert all("коррекция владельца" not in str(entry) for entry in receipt["items"])
+
+
+# --- Fix: owner challenge overlay vs base AI lifecycle -------------------------
+
+
+def test_owner_challenge_is_overlay_not_base_mutation() -> None:
+    value, reflection, _provider = service([create_delta("CREATE")])
+    session_id = ready(value)
+    turn_one(value, session_id)
+    item_id = value.model()["items"][0]["item_id"]
+    # Base ACTIVE + owner correction -> effective CONTESTED.
+    value.challenge(item_id, "Синтетическая коррекция первая.")
+    assert value.model()["items"][0]["state"] == "CONTESTED"
+    correction_turn = reflection.connection.execute(
+        "SELECT turn_id FROM reflection_turns WHERE content=?",
+        ("Синтетическая коррекция первая.",),
+    ).fetchone()[0]
+    with reflection.connection:
+        reflection.connection.execute(
+            "DELETE FROM reflection_turns WHERE turn_id=?", (correction_turn,)
+        )
+    # Overlay removed -> base ACTIVE resurfaces.
+    assert value.model()["items"][0]["state"] == "ACTIVE"
+    # AI CONTEST sets the BASE lifecycle state to CONTESTED.
+    value.submit(session_id, "submission-2", "Синтетический второй ответ-контрпример.")
+    value._provider.deltas = [  # type: ignore[attr-defined]
+        create_delta("CONTEST", text="", supporting=[], counterevidence=["S2"], reason="Синтетический контрпример оспаривает версию.")
+    ]
+    value.submit(session_id, "submission-3", "Синтетический третий ответ.")
+    assert value.model()["items"][0]["state"] == "CONTESTED"
+    base_state = reflection.connection.execute(
+        "SELECT state FROM personal_model_items WHERE item_id=?", (item_id,)
+    ).fetchone()[0]
+    assert base_state == "CONTESTED"
+    # Owner correction on top of AI-CONTESTED base.
+    value.challenge(item_id, "Синтетическая коррекция вторая.")
+    assert value.model()["items"][0]["state"] == "CONTESTED"
+    second_turn = reflection.connection.execute(
+        "SELECT turn_id FROM reflection_turns WHERE content=?",
+        ("Синтетическая коррекция вторая.",),
+    ).fetchone()[0]
+    with reflection.connection:
+        reflection.connection.execute(
+            "DELETE FROM reflection_turns WHERE turn_id=?", (second_turn,)
+        )
+    # Deleting the overlay must NOT erase the AI-CONTESTED base state.
+    assert value.model()["items"][0]["state"] == "CONTESTED"
+
+
+# --- Fix: exact historical disclosure ------------------------------------------
+
+
+def test_disclosure_model_state_is_historical_snapshot() -> None:
+    value, reflection, _provider = service([create_delta("CREATE")])
+    session_id = ready(value)
+    turn_one(value, session_id)
+    item_id = value.model()["items"][0]["item_id"]
+    value.challenge(item_id, "Синтетическая коррекция для снимка.")
+    correction_turn = reflection.connection.execute(
+        "SELECT turn_id FROM reflection_turns WHERE content=?",
+        ("Синтетическая коррекция для снимка.",),
+    ).fetchone()[0]
+    value.set_source_policy([correction_turn], True)
+    value.submit(session_id, "submission-2", "Синтетический второй ответ.")
+    attempt_id = value.get(session_id)["attempts"][0]["attempt_id"]
+    assert value.disclosure(attempt_id)["model_items"][0]["state"] == "CONTESTED"
+    # Later local lifecycle change must not rewrite the historical receipt.
+    with reflection.connection:
+        reflection.connection.execute(
+            "DELETE FROM reflection_turns WHERE turn_id=?", (correction_turn,)
+        )
+    assert value.model()["items"][0]["state"] == "ACTIVE"
+    assert value.disclosure(attempt_id)["model_items"][0]["state"] == "CONTESTED"
+    # Later policy revocation must not hide what WAS transmitted.
+    answer_turn = reflection.connection.execute(
+        "SELECT turn_id FROM interview_submissions WHERE interview_session_id=? AND client_submission_id='submission-1'",
+        (session_id,),
+    ).fetchone()[0]
+    value.set_source_policy([answer_turn], False)
+    receipt = value.disclosure(attempt_id)
+    assert len(receipt["model_items"]) == 1
+    assert receipt["model_items"][0]["text"].startswith("Возможно,")
+    assert len(receipt["items"]) == 2  # raw manifest is historical too
+    # Deleting the required supporting source removes reconstructive content
+    # through the existing FK closure; content-free attempt facts survive.
+    with reflection.connection:
+        reflection.connection.execute(
+            "DELETE FROM reflection_turns WHERE turn_id=?", (answer_turn,)
+        )
+    receipt = value.disclosure(attempt_id)
+    assert receipt["model_items"] == []  # revision died with its derivation
+    # Deleted source and correction content is not reconstructed; the
+    # surviving transmitted turn and content-free audit facts remain.
+    assert all("Синтетический ответ про встречи" not in str(entry) for entry in receipt["items"])
+    assert all("коррекция для снимка" not in str(entry) for entry in receipt["items"])
+    assert len(receipt["items"]) == 1
+    assert receipt["state"] == "SUCCEEDED"
