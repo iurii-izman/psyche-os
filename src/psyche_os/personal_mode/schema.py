@@ -98,7 +98,7 @@ _V14_DDL = (
 # deliberately separate from reflection turns and from every AI lineage table.
 _V15_DDL = (
     "CREATE TABLE external_sources (source_id TEXT PRIMARY KEY, source_kind TEXT NOT NULL, label TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('ACTIVE','ERROR','DISABLED')), processing_policy TEXT NOT NULL CHECK(processing_policy='LOCAL_ONLY'), inbox_path TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, last_imported_at TEXT)",
-    "CREATE TABLE external_import_batches (batch_id TEXT PRIMARY KEY, source_id TEXT NOT NULL, artifact_name TEXT NOT NULL, artifact_sha256 TEXT NOT NULL, imported_at TEXT NOT NULL, record_count INTEGER NOT NULL CHECK(record_count >= 0), FOREIGN KEY(source_id) REFERENCES external_sources(source_id) ON DELETE CASCADE, UNIQUE(source_id, artifact_sha256))",
+    "CREATE TABLE external_import_batches (batch_id TEXT PRIMARY KEY, source_id TEXT NOT NULL, artifact_name TEXT NOT NULL, artifact_sha256 TEXT NOT NULL, imported_at TEXT NOT NULL, record_count INTEGER NOT NULL CHECK(record_count >= 0), snapshot_status TEXT NOT NULL DEFAULT 'COMPLETE' CHECK(snapshot_status IN ('COMPLETE','PARTIAL')), issue_count INTEGER NOT NULL DEFAULT 0 CHECK(issue_count >= 0), FOREIGN KEY(source_id) REFERENCES external_sources(source_id) ON DELETE CASCADE, UNIQUE(source_id, artifact_sha256))",
     "CREATE TABLE external_records (external_record_id TEXT PRIMARY KEY, source_id TEXT NOT NULL, native_id TEXT NOT NULL, record_type TEXT NOT NULL, origin_json TEXT NOT NULL CHECK(json_valid(origin_json)), start_at TEXT, end_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY(source_id) REFERENCES external_sources(source_id) ON DELETE CASCADE, UNIQUE(source_id, native_id, record_type))",
     "CREATE TABLE external_record_versions (version_id TEXT PRIMARY KEY, external_record_id TEXT NOT NULL, batch_id TEXT NOT NULL, ordinal INTEGER NOT NULL CHECK(ordinal > 0), payload_sha256 TEXT NOT NULL, raw_payload TEXT NOT NULL CHECK(json_valid(raw_payload)), source_modified_at TEXT, source_version TEXT, is_current INTEGER NOT NULL CHECK(is_current IN (0,1)), supersedes_version_id TEXT, imported_at TEXT NOT NULL, FOREIGN KEY(external_record_id) REFERENCES external_records(external_record_id) ON DELETE CASCADE, FOREIGN KEY(batch_id) REFERENCES external_import_batches(batch_id) ON DELETE CASCADE, FOREIGN KEY(supersedes_version_id) REFERENCES external_record_versions(version_id), UNIQUE(external_record_id, ordinal), UNIQUE(external_record_id, payload_sha256))",
     "CREATE UNIQUE INDEX idx_external_record_current_version ON external_record_versions(external_record_id) WHERE is_current=1",
@@ -242,3 +242,9 @@ def migrate_personal_v15(connection: Any) -> None:
 def initialize_personal_v15(connection: Any) -> None:
     initialize_personal_v14(connection)
     migrate_personal_v15(connection)
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(external_import_batches)")}
+    with connection:
+        if "snapshot_status" not in columns:
+            connection.execute("ALTER TABLE external_import_batches ADD COLUMN snapshot_status TEXT NOT NULL DEFAULT 'COMPLETE' CHECK(snapshot_status IN ('COMPLETE','PARTIAL'))")
+        if "issue_count" not in columns:
+            connection.execute("ALTER TABLE external_import_batches ADD COLUMN issue_count INTEGER NOT NULL DEFAULT 0 CHECK(issue_count >= 0)")

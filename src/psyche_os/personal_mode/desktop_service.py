@@ -250,6 +250,7 @@ class PersonalDesktopApplicationService:
     def _status(self, payload: Any) -> dict[str, Any]:
         _exact(payload, set())
         admission = self._guard.status()
+        snapshot = self._runtime.reflection.connection.execute("SELECT snapshot_status,issue_count FROM external_import_batches WHERE source_id=? ORDER BY imported_at DESC LIMIT 1", (SOURCE_ID,)).fetchone()
         return {
             "locked": self._guard.locked,
             "setup_required": not self._runtime._paths.envelope.exists(),
@@ -476,6 +477,8 @@ class PersonalDesktopApplicationService:
             "state": row[1] if row else "DISABLED",
             "inbox_path": row[2] if row else None,
             "last_imported_at": row[3] if row else None,
+            "snapshot_status": snapshot[0] if snapshot else None,
+            "issue_count": snapshot[1] if snapshot else None,
             "nights": self._runtime.reflection.connection.execute(
                 "SELECT count(*) FROM sleep_episodes"
             ).fetchone()[0],

@@ -263,7 +263,7 @@ def _validate_record(record: Any) -> dict[str, Any]:
     return record
 
 
-def parse_health_md(raw: bytes) -> tuple[list[dict[str, Any]], str]:
+def parse_health_md(raw: bytes) -> tuple[list[dict[str, Any]], str, int]:
     """Validate only the normative ``healthmd.raw-snapshot`` v1 formats."""
     if not raw or len(raw) > 32 * 1024 * 1024:
         raise ExternalEvidenceError("UNSUPPORTED_ARTIFACT")
@@ -293,7 +293,7 @@ def parse_health_md(raw: bytes) -> tuple[list[dict[str, Any]], str]:
             _validate_issue(issue)
         records = [_validate_record(record) for record in records]
         _validate_manifest(manifest, header, records, issues)
-        return records, str(manifest["status"])
+        return records, str(manifest["status"]), len(issues)
     except json.JSONDecodeError:
         try:
             lines = decoded.splitlines()
@@ -334,7 +334,7 @@ def parse_health_md(raw: bytes) -> tuple[list[dict[str, Any]], str]:
                 _validate_issue(envelope["issue"])
                 issues.append(envelope["issue"])
         _validate_manifest(manifest, header, records, issues)
-        return records, str(manifest["status"])
+        return records, str(manifest["status"]), len(issues)
 
 
 def _record_identity(
@@ -420,7 +420,7 @@ class ExternalEvidenceService:
     def import_artifact(
         self, raw: bytes, *, artifact_name: str = "health-md.json"
     ) -> dict[str, int]:
-        records, _snapshot_status = parse_health_md(raw)  # validate fully before changing state
+        records, snapshot_status, issue_count = parse_health_md(raw)
         artifact_hash = hashlib.sha256(raw).hexdigest()
         now = _now()
         try:
@@ -440,8 +440,8 @@ class ExternalEvidenceService:
                 return {"records": 0, "versions": 0}
             batch_id = _id("batch", SOURCE_ID, artifact_hash)
             self.connection.execute(
-                "INSERT INTO external_import_batches(batch_id,source_id,artifact_name,artifact_sha256,imported_at,record_count) VALUES(?,?,?,?,?,?)",
-                (batch_id, SOURCE_ID, artifact_name, artifact_hash, now, len(records)),
+                "INSERT INTO external_import_batches(batch_id,source_id,artifact_name,artifact_sha256,imported_at,record_count,snapshot_status,issue_count) VALUES(?,?,?,?,?,?,?,?)",
+                (batch_id, SOURCE_ID, artifact_name, artifact_hash, now, len(records), snapshot_status, issue_count),
             )
             versions = 0
             for record in records:
@@ -672,6 +672,13 @@ class ExternalEvidenceService:
                     for s in self.connection.execute(
                         "SELECT category,started_at,ended_at FROM sleep_stages WHERE observation_id=? ORDER BY started_at",
                         (r[3],),
+                    )
+                ],
+                "samples": [
+                    {"metric": sample[0], "observed_at": sample[1], "value": sample[2], "unit": sample[3]}
+                    for sample in self.connection.execute(
+                        "SELECT metric,observed_at,value,unit FROM physiological_samples WHERE observed_at>=? AND observed_at<? ORDER BY observed_at,metric",
+                        (r[1], r[2]),
                     )
                 ],
             }

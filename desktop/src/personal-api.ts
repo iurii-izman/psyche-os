@@ -218,8 +218,9 @@ export interface InterviewView {
   derived_items?: { item_id: string; kind: string; text: string; priority: number; created_at: string }[];
 }
 export interface SleepStage { category: string; started_at: string; ended_at: string; }
-export interface SleepEpisode { episode_id: string; started_at: string; ended_at: string; stages: SleepStage[]; }
-export interface SleepSourceStatus { configured: boolean; label: string | null; state: string; inbox_path: string | null; last_imported_at: string | null; nights: number; }
+export interface SleepSample { metric: "HEART_RATE" | "RESTING_HEART_RATE" | "SPO2" | "RESPIRATORY_RATE"; observed_at: string; value: number; unit: string; }
+export interface SleepEpisode { episode_id: string; started_at: string; ended_at: string; stages: SleepStage[]; samples: SleepSample[]; }
+export interface SleepSourceStatus { configured: boolean; label: string | null; state: string; inbox_path: string | null; last_imported_at: string | null; snapshot_status?: "COMPLETE" | "PARTIAL" | null; issue_count?: number | null; nights: number; }
 
 let sessionToken: string | null = null;
 const call = <T>(command: string, args: Record<string, unknown> = {}) =>
