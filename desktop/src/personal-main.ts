@@ -10,6 +10,8 @@ import type {
   ReflectionSession,
   SearchResult,
   SearchView,
+  SleepEpisode,
+  SleepSourceStatus,
 } from "./personal-api";
 import {
   buildPersonalLongitudinal,
@@ -25,6 +27,7 @@ type Route =
   | "search"
   | "sensemaking"
   | "longitudinal"
+  | "sleep"
   | "privacy"
   | "recovery";
 type ExplorationBundle = {
@@ -147,7 +150,9 @@ export async function mountPersonal(
     interview: InterviewView | null = null,
     interviewSessions: InterviewView[] = [],
     model: PersonalModelView | null = null,
-    changePlans: ChangePlan[] = [];
+    changePlans: ChangePlan[] = [],
+    sleepEpisodes: SleepEpisode[] = [],
+    sleepSource: SleepSourceStatus | null = null;
   let route: Route = "home",
     notice = "",
     recovery: Record<string, unknown> | null = null,
@@ -203,6 +208,13 @@ export async function mountPersonal(
     status = nextStatus;
     if (!nextStatus.locked && nextStatus.local_personal === "ADMITTED") {
       sessions = (await api.reflectionList()).sessions;
+      // Existing renderer fixtures and older trusted sidecars intentionally
+      // omit the new local-only sleep surface.  Keep daily reflection usable
+      // until the matching desktop package is installed.
+      if (typeof api.sleepSourceStatus === "function" && typeof api.sleepHistory === "function") {
+        sleepSource = await api.sleepSourceStatus();
+        sleepEpisodes = (await api.sleepHistory(14)).episodes;
+      }
       if (nextStatus.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI") {
         const listed = await api.aiInterviewList();
         interviewSessions = listed.sessions;
@@ -264,7 +276,7 @@ export async function mountPersonal(
     }
   };
   const nav = () =>
-    `<aside class="personal-sidebar"><div class="personal-brand"><strong>PSYCHE OS</strong><span>Personal</span></div><nav class="product-nav" aria-label="Навигация Personal">${([["home", "Сегодня"], ...(status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? [["interview", "AI-сессия"] as const] : []), ["history", "История"], ["longitudinal", "Во времени"], ["search", "Поиск"], ["sensemaking", "Картина"]] as const).map(([id, label]) => `<button data-route="${id}" class="${route === id ? "active" : ""}"${route === id ? ' aria-current="page"' : ""}>${label}</button>`).join("")}<div class="nav-spacer"></div><button data-route="privacy" class="${route === "privacy" || route === "recovery" ? "active" : ""}"${route === "privacy" || route === "recovery" ? ' aria-current="page"' : ""}>Настройки</button><button id="lock">Заблокировать хранилище</button></nav></aside>`;
+    `<aside class="personal-sidebar"><div class="personal-brand"><strong>PSYCHE OS</strong><span>Personal</span></div><nav class="product-nav" aria-label="Навигация Personal">${([["home", "Сегодня"], ["sleep", "Сон"], ...(status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? [["interview", "AI-сессия"] as const] : []), ["history", "История"], ["longitudinal", "Во времени"], ["search", "Поиск"], ["sensemaking", "Картина"]] as const).map(([id, label]) => `<button data-route="${id}" class="${route === id ? "active" : ""}"${route === id ? ' aria-current="page"' : ""}>${label}</button>`).join("")}<div class="nav-spacer"></div><button data-route="privacy" class="${route === "privacy" || route === "recovery" ? "active" : ""}"${route === "privacy" || route === "recovery" ? ' aria-current="page"' : ""}>Настройки</button><button id="lock">Заблокировать хранилище</button></nav></aside>`;
   const sessionRow = (item: ReflectionSession) =>
     `<article class="session-row"><div><strong>${escape(item.title)}</strong><small>${escape(dateLabel(item.updated_at ?? item.created_at))} · ${item.turn_count} ${item.turn_count === 1 ? "запись" : "записей"}</small></div><span class="status-pill ${item.state === "ACTIVE" ? "is-active" : ""}">${item.state === "ACTIVE" ? "Активно" : "Завершено"}</span><button data-open="${escape(item.session_id)}">${item.state === "ACTIVE" ? "Продолжить" : "Открыть"}</button></article>`;
   const noticeMarkup = () =>
@@ -472,6 +484,24 @@ export async function mountPersonal(
       : "";
     return `<main class="product-shell">${nav()}<header class="session-header"><p>РАЗМЫШЛЕНИЕ</p><h1>${escape(current.title)}</h1><p>${current.state === "CLOSED" ? "Завершено — только чтение" : "Активно — можно продолжить"}</p><button data-route="history">К истории</button></header><section class="card"><h2>Что вы написали</h2>${turns.length ? turns.map((turn) => `<article class="session-turn ${sourceTurnId === turn.turn_id ? "is-source-highlight" : ""}"><strong>Вы написали · запись ${turn.sequence}</strong><small>${escape(dateLabel(turn.created_at))}</small><p>${escape(turn.content)}</p></article>`).join("") : "<p>Записей пока нет.</p>"}${current.state === "ACTIVE" ? `<form id="add-turn"><label>Продолжить <textarea id="reflection-turn" required maxlength="12000"></textarea></label><button class="primary">Добавить запись</button></form><button id="close-reflection">Завершить размышление</button>` : ""}<button id="delete-reflection" class="danger">Удалить размышление</button></section>${interviewPolicy}${selector}${preview}${explorationMarkup()}${noticeMarkup()}</main>`;
   };
+  const sleepMarkup = () => {
+    const latest = sleepEpisodes[0];
+    const minutes = (start: string, end: string) => Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60_000));
+    const duration = latest ? minutes(latest.started_at, latest.ended_at) : 0;
+    const stageSummary = latest ? latest.stages.reduce<Record<string, number>>((all, stage) => {
+      all[stage.category] = (all[stage.category] ?? 0) + minutes(stage.started_at, stage.ended_at);
+      return all;
+    }, {}) : {};
+    const row = (episode: SleepEpisode) => `<article class="session-row"><div><strong>${escape(dateLabel(episode.started_at))}</strong><small>${escape(episode.started_at)} → ${escape(episode.ended_at)} · ${minutes(episode.started_at, episode.ended_at)} мин</small></div></article>`;
+    const samples = latest?.samples ?? [];
+    const sampleMarkup = samples.length
+      ? samples.map((sample) => `<article class="session-row"><div><strong>${escape(sample.metric)}</strong><small>${escape(sample.observed_at)} · ${escape(sample.value)} ${escape(sample.unit)}</small></div></article>`).join("")
+      : "Показатели не были импортированы для этого интервала.";
+    const provenance = sleepSource
+      ? `<section class="card"><h2>Источник и полнота</h2><dl><dt>Источник</dt><dd>${escape(sleepSource.label ?? "Health.md")}</dd><dt>Состояние</dt><dd>${escape(sleepSource.state)}</dd><dt>Последний успешный импорт</dt><dd>${escape(sleepSource.last_imported_at ?? "ещё не было")}</dd><dt>Снимок</dt><dd>${escape(sleepSource.snapshot_status ?? "нет снимка")}${sleepSource.snapshot_status === "PARTIAL" ? ` · неполный, замечаний: ${sleepSource.issue_count ?? 0}` : ""}</dd></dl>${sleepSource.snapshot_status === "PARTIAL" ? "<p class=\"derived-warning\">Частичный снимок остаётся доступным как доказательство, но часть данных могла не попасть в импорт.</p>" : ""}</section>`
+      : "";
+    return `<main class="product-shell">${nav()}<section class="product-home"><p>LOCAL HEALTH CONNECT</p><h1>Сон</h1><p>Стадии сна — оценки устройства/поставщика, а не медицинский вывод.</p></section>${latest ? `<section class="card"><h2>Последняя ночь · ${duration} мин</h2><p>${escape(latest.started_at)} → ${escape(latest.ended_at)}</p><div class="review-counts">${Object.entries(stageSummary).map(([stage, value]) => `<span>${escape(stage)} · ${value} мин</span>`).join("") || "Стадии недоступны / частичны."}</div><section class="card"><h3>Хронология стадий</h3>${latest.stages.length ? latest.stages.map((stage) => `<p>${escape(stage.category)} · ${escape(stage.started_at)} → ${escape(stage.ended_at)}</p>`).join("") : "Стадии недоступны / частичны."}</section><section class="card"><h3>Физиологические показатели во время сна</h3>${sampleMarkup}</section></section>` : `<section class="card calm-empty"><h2>Данных о сне пока нет</h2><p>Выберите локальную папку Health.md в настройках, затем проверьте её. Отсутствующие показатели не заменяются нулями.</p></section>`}<section class="card"><h2>Последние 14 ночей</h2>${sleepEpisodes.length ? sleepEpisodes.map(row).join("") : "Нет импортированных ночей."}</section>${provenance}${noticeMarkup()}</main>`;
+  };
   const homeMarkup = () => {
     const recent = ordered().slice(0, 5),
       bundles = sensemaking ?? [],
@@ -537,7 +567,8 @@ export async function mountPersonal(
     const outcomeCard = completedReview?.review ? `<section class="card"><p>ЧТО УЗНАЛИ В РЕАЛЬНОЙ ЖИЗНИ · AI-ВЫВОД</p><h2>${escape(completedReview.title)}</h2><p>${escape(completedReview.review.summary)}</p><p><strong>О практическом эффекте:</strong> ${effectLabel[completedReview.review.practical_effect] ?? "неясно"}</p><p><strong>О рабочей версии:</strong> ${epistemicLabel[completedReview.review.epistemic_outcome] ?? "неясно"}</p><p>${escape(completedReview.review.understanding)}</p></section>` : "";
     interviewCard = `${changeCard}${proposalCard}${reviewCard}${outcomeCard}${interviewCard}`;
     const homeLead = activeChange ? `Сейчас проверяем: ${activeChange.title}` : status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? "Что сейчас полезно исследовать?" : "Запишите то, к чему хотите вернуться.";
-    return `<main class="product-shell home-shell">${nav()}<section class="product-home compact-heading"><p>PERSONAL</p><h1>Сегодня</h1><p>${homeLead}</p></section>${interviewCard}<section class="card quick-capture"><p>БЫСТРАЯ ЗАПИСЬ</p><h2>Сохранить мысль</h2><form id="quick-capture-form"><label>Название (необязательно) <input id="quick-capture-title" maxlength="160" placeholder="Короткая заметка" autofocus /></label><label>Текст <textarea id="quick-capture-text" required maxlength="12000" placeholder="Напишите то, что хотите сохранить…"></textarea></label><button class="primary">Сохранить</button></form></section><section class="card daily-review"><div><p>КАРТИНА</p><h2>Ваши записи и выводы</h2></div><div class="review-counts"><span>${active.length} активных размышлений</span><span>${currentFormulations} текущих формулировок</span><span>${unknowns} неясного</span><span>${contradictions} противоречий</span></div><button data-route="sensemaking" class="primary">Открыть картину</button><button data-route="longitudinal">Посмотреть изменения за 30 дней</button></section><section class="card recent-card"><p>НЕДАВНЕЕ</p><h2>Ваши размышления</h2>${recent.length ? recent.map(sessionRow).join("") : "<p>Первая запись появится здесь.</p>"}<button data-route="history">Открыть историю</button></section>${noticeMarkup()}</main>`;
+    const latestSleep = sleepEpisodes[0];
+    return `<main class="product-shell home-shell">${nav()}<section class="product-home compact-heading"><p>PERSONAL</p><h1>Сегодня</h1><p>${homeLead}</p></section>${latestSleep ? `<section class="card daily-review"><p>СОН · ЛОКАЛЬНЫЙ ИМПОРТ</p><h2>Последняя ночь · ${Math.round((new Date(latestSleep.ended_at).getTime() - new Date(latestSleep.started_at).getTime()) / 60_000)} мин</h2><p>${escape(latestSleep.started_at)} → ${escape(latestSleep.ended_at)}. Стадии — оценки устройства.</p><button data-route="sleep">Подробнее</button></section>` : ""}${interviewCard}<section class="card quick-capture"><p>БЫСТРАЯ ЗАПИСЬ</p><h2>Сохранить мысль</h2><form id="quick-capture-form"><label>Название (необязательно) <input id="quick-capture-title" maxlength="160" placeholder="Короткая заметка" autofocus /></label><label>Текст <textarea id="quick-capture-text" required maxlength="12000" placeholder="Напишите то, что хотите сохранить…"></textarea></label><button class="primary">Сохранить</button></form></section><section class="card daily-review"><div><p>КАРТИНА</p><h2>Ваши записи и выводы</h2></div><div class="review-counts"><span>${active.length} активных размышлений</span><span>${currentFormulations} текущих формулировок</span><span>${unknowns} неясного</span><span>${contradictions} противоречий</span></div><button data-route="sensemaking" class="primary">Открыть картину</button><button data-route="longitudinal">Посмотреть изменения за 30 дней</button></section><section class="card recent-card"><p>НЕДАВНЕЕ</p><h2>Ваши размышления</h2>${recent.length ? recent.map(sessionRow).join("") : "<p>Первая запись появится здесь.</p>"}<button data-route="history">Открыть историю</button></section>${noticeMarkup()}</main>`;
   };
 
   const interviewMarkup = () => {
@@ -807,7 +838,8 @@ export async function mountPersonal(
       status?.runtime_profile === "LOCAL_PERSONAL_BOUNDED_OPENAI" ||
       status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI";
     const historyPermission = status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? `<section class="card"><p>AI-ИССЛЕДОВАНИЕ · ИСТОРИЧЕСКИЙ КОНТЕКСТ</p><h2>Какие прошлые записи AI-сессия может использовать</h2><p>${interviewEligibility === null ? "Проверяем локальные разрешения…" : `Сейчас разрешено: ${interviewEligibility} записей.`} Выберите или отзовите конкретные записи в их карточках истории. Невыбранные записи остаются локальными; разрешение действует только для этой цели и OpenAI.</p><button data-route="history">Открыть историю и выбрать записи</button></section>` : "";
-    return `<main class="product-shell">${nav()}<section class="product-home"><p>PERSONAL</p><h1>Настройки</h1><p>Состояние локального режима и инструменты восстановления.</p></section><section class="card settings-card"><p>ПРИВАТНОСТЬ И ЛОКАЛЬНЫЙ РЕЖИМ</p><h2>Ваши данные остаются под вашим контролем</h2><dl class="friendly-status"><dt>Обработка данных</dt><dd>Локально${ai ? " — по умолчанию" : ""}</dd><dt>Облачная передача</dt><dd>${ai ? "OpenAI — только после явного подтверждения" : "Отключена"}</dd><dt>Сетевые подключения</dt><dd>${ai ? "Только один подтверждённый запрос OpenAI" : "Отключены"}</dd><dt>Фоновая передача</dt><dd>Отключена</dd><dt>Телеметрия</dt><dd>Отключена</dd></dl>${ai ? `<section><h2>OpenAI</h2><p>${aiConfigured ? "Настроен" : "Не настроен"}</p><form id="ai-key-form"><label>${aiConfigured ? "Заменить ключ" : "Настроить ключ"}<input id="ai-key" type="password" required autocomplete="off" /></label><button>Сохранить ключ</button></form>${aiConfigured ? '<button id="ai-key-delete" class="danger">Удалить ключ</button>' : ""}</section>` : ""}<details><summary>Технические сведения</summary><dl><dt>Идентификатор сборки</dt><dd>${escape(status?.build_id ?? "Недоступен")}</dd><dt>Профиль</dt><dd>${escape(status?.runtime_profile)}</dd><dt>REAL_DATA_GATE</dt><dd>${escape(status?.real_data_gate)}</dd><dt>Сеть</dt><dd>${escape(status?.network)}</dd><dt>Входящий слушатель</dt><dd>${escape(status?.inbound_listener)}</dd><dt>Провайдер</dt><dd>${escape(status?.outbound_provider)}</dd></dl></details></section>${historyPermission}${noticeMarkup()}</main>`;
+    const sleepSettings = `<section class="card settings-card"><p>LOCAL HEALTH CONNECT</p><h2>Health.md · сон</h2><p>Выберите локальную папку со снимками Health.md. Импорт остаётся на устройстве; слушатель и фоновая передача отключены.</p><form id="sleep-inbox-form"><label>Папка Health.md<input id="sleep-inbox-path" required maxlength="1024" value="${escape(sleepSource?.inbox_path ?? "")}" placeholder="C:\\Папка\\Health.md" /></label><button>Сохранить папку</button></form><dl class="friendly-status"><dt>Настроенный путь</dt><dd>${escape(sleepSource?.inbox_path ?? "не настроен")}</dd><dt>Состояние источника</dt><dd>${escape(sleepSource?.state ?? "DISABLED")}</dd><dt>Последний успешный импорт</dt><dd>${escape(sleepSource?.last_imported_at ?? "ещё не было")}</dd><dt>Последний снимок</dt><dd>${escape(sleepSource?.snapshot_status ?? "нет снимка")}${sleepSource?.snapshot_status === "PARTIAL" ? ` · неполный, замечаний: ${sleepSource.issue_count ?? 0}` : ""}</dd><dt>Импортировано ночей</dt><dd>${sleepSource?.nights ?? 0}</dd></dl>${sleepSource?.snapshot_status === "PARTIAL" ? "<p class=\"derived-warning\">Частичный снимок принят как неполное доказательство; отсутствующие данные не подставляются.</p>" : ""}<button id="sleep-scan" class="primary" ${sleepSource?.configured ? "" : "disabled"}>Проверить сейчас</button></section>`;
+    return `<main class="product-shell">${nav()}<section class="product-home"><p>PERSONAL</p><h1>Настройки</h1><p>Состояние локального режима и инструменты восстановления.</p></section><section class="card settings-card"><p>ПРИВАТНОСТЬ И ЛОКАЛЬНЫЙ РЕЖИМ</p><h2>Ваши данные остаются под вашим контролем</h2><dl class="friendly-status"><dt>Обработка данных</dt><dd>Локально${ai ? " — по умолчанию" : ""}</dd><dt>Облачная передача</dt><dd>${ai ? "OpenAI — только после явного подтверждения" : "Отключена"}</dd><dt>Сетевые подключения</dt><dd>${ai ? "Только один подтверждённый запрос OpenAI" : "Отключены"}</dd><dt>Фоновая передача</dt><dd>Отключена</dd><dt>Телеметрия</dt><dd>Отключена</dd></dl>${ai ? `<section><h2>OpenAI</h2><p>${aiConfigured ? "Настроен" : "Не настроен"}</p><form id="ai-key-form"><label>${aiConfigured ? "Заменить ключ" : "Настроить ключ"}<input id="ai-key" type="password" required autocomplete="off" /></label><button>Сохранить ключ</button></form>${aiConfigured ? '<button id="ai-key-delete" class="danger">Удалить ключ</button>' : ""}</section>` : ""}<details><summary>Технические сведения</summary><dl><dt>Идентификатор сборки</dt><dd>${escape(status?.build_id ?? "Недоступен")}</dd><dt>Профиль</dt><dd>${escape(status?.runtime_profile)}</dd><dt>REAL_DATA_GATE</dt><dd>${escape(status?.real_data_gate)}</dd><dt>Сеть</dt><dd>${escape(status?.network)}</dd><dt>Входящий слушатель</dt><dd>${escape(status?.inbound_listener)}</dd><dt>Провайдер</dt><dd>${escape(status?.outbound_provider)}</dd></dl></details></section>${sleepSettings}${historyPermission}${noticeMarkup()}</main>`;
   };
   const recoveryMarkup = () =>
     `<main class="product-shell">${nav()}<section class="product-home"><p>РЕЗЕРВНОЕ КОПИРОВАНИЕ</p><h1>Восстановление и экспорт</h1><p>Инструменты работают с локальным хранилищем Personal.</p></section><div class="grid recovery-grid"><section class="card"><h2>Состояние резервного копирования</h2><p>${recovery ? `Допуск к Personal: ${escape(String(recovery.local_personal ?? "Недоступен"))}. Смена ключа: ${escape(String(recovery.rotation ?? "Недоступно"))}.` : "Состояние ещё не проверялось в этом окне."}</p><button id="recovery-status">Обновить состояние</button></section><section class="card"><h2>Создать резервную копию</h2><p>Резервная копия считается готовой только после аутентификации и отдельного проверочного восстановления.</p><form id="backup-form"><label>Секрет восстановления <input id="backup-secret" type="password" required /></label><button class="primary">Создать и проверить</button></form></section><section class="card"><h2>Экспорт владельца</h2><p>Создаёт зашифрованный экспорт, доступный только владельцу.</p><form id="export-form"><label>Секрет восстановления <input id="export-secret" type="password" required /></label><button>Экспорт владельца</button></form></section></div><section class="card recovery-verify"><h2>Проверить резервную копию</h2><p>Проверка создаёт отдельную копию и никогда не заменяет текущее хранилище автоматически. Сверьте дату и поколение: старая резервная копия может не включать поздние исправления или удаления. Удаление активных данных не удаляет уже созданные исторические резервные копии.</p><form id="restore-form"><label>Идентификатор резервной копии <input id="restore-backup-id" required /></label><label>Секрет восстановления <input id="restore-secret" type="password" required /></label><button>Проверить резервную копию</button></form></section>${noticeMarkup()}</main>`;
@@ -847,6 +879,8 @@ export async function mountPersonal(
         ? interviewMarkup()
         : route === "detail"
           ? detailMarkup()
+          : route === "sleep"
+            ? sleepMarkup()
           : route === "history"
             ? historyMarkup()
             : route === "search"
@@ -893,6 +927,24 @@ export async function mountPersonal(
           await api.aiProviderDelete();
           aiConfigured = false;
           notice = "Ключ удалён.";
+        }),
+    );
+    submit("#sleep-inbox-form", async () => {
+      const inboxPath = host
+        .querySelector<HTMLInputElement>("#sleep-inbox-path")!
+        .value.trim();
+      if (!inboxPath) return;
+      sleepSource = await api.sleepConfigureInbox(inboxPath);
+      await refresh();
+      notice = "Локальная папка Health.md сохранена.";
+    });
+    host.querySelector("#sleep-scan")?.addEventListener(
+      "click",
+      () =>
+        void act(async () => {
+          const result = await api.sleepScan();
+          await refresh();
+          notice = `Проверка завершена: записей ${result.records}, обновлений ${result.versions}.`;
         }),
     );
     submit("#quick-capture-form", async () => {

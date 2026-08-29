@@ -66,6 +66,34 @@ describe("Personal browser preview API", () => {
     expect(third.truncated).toBe(false);
   });
 
+  it("provides meaningful synthetic sleep states rather than empty aliases", async () => {
+    const lastNight = createPersonalBrowserPreviewApi("SLEEP_LAST_NIGHT");
+    const latest = (await lastNight.sleepHistory()).episodes[0];
+    expect(latest?.stages.length).toBeGreaterThan(0);
+    expect(latest?.samples.map((sample) => sample.metric)).toEqual([
+      "HEART_RATE",
+      "RESTING_HEART_RATE",
+      "SPO2",
+      "RESPIRATORY_RATE",
+    ]);
+
+    const partial = createPersonalBrowserPreviewApi("SLEEP_PARTIAL_STAGES");
+    expect((await partial.sleepSourceStatus())).toMatchObject({ snapshot_status: "PARTIAL", issue_count: 2 });
+    expect((await partial.sleepHistory()).episodes[0]?.stages).toEqual([]);
+
+    const history = createPersonalBrowserPreviewApi("SLEEP_14_DAY_HISTORY");
+    expect((await history.sleepHistory()).episodes).toHaveLength(14);
+    const rich = createPersonalBrowserPreviewApi("SLEEP_RICH_30_DAYS");
+    expect((await rich.sleepHistory(30)).episodes).toHaveLength(30);
+    const updated = createPersonalBrowserPreviewApi("SLEEP_UPDATED_AFTER_RESYNC");
+    expect((await updated.sleepHistory()).episodes[0]?.stages.some((stage) => stage.category === "DEEP")).toBe(true);
+    const error = createPersonalBrowserPreviewApi("SLEEP_IMPORT_ERROR");
+    expect((await error.sleepSourceStatus()).state).toBe("ERROR");
+    const details = createPersonalBrowserPreviewApi("SLEEP_SOURCE_DETAILS");
+    expect((await details.sleepSourceStatus()).inbox_path).toContain("Synthetic");
+    expect((await createPersonalBrowserPreviewApi("SLEEP_EMPTY").sleepHistory()).episodes).toEqual([]);
+  });
+
   it("provides the AI Interview visual states entirely in memory with no provider configuration", async () => {
     const active = createPersonalBrowserPreviewApi("INTERVIEW_WITH_HISTORY");
     expect((await active.status()).runtime_profile).toBe("LOCAL_PERSONAL_AI_INTERVIEW_OPENAI");

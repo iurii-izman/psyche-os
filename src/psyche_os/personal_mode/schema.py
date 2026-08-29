@@ -94,6 +94,21 @@ _V14_DDL = (
     "CREATE UNIQUE INDEX idx_change_one_active_experiment ON change_plans(kind) WHERE state='ACTIVE' AND kind='EXPERIMENT'",
 )
 
+# V15 adds local-only, immutable external evidence.  Imported payloads are
+# deliberately separate from reflection turns and from every AI lineage table.
+_V15_DDL = (
+    "CREATE TABLE external_sources (source_id TEXT PRIMARY KEY, source_kind TEXT NOT NULL, label TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('ACTIVE','ERROR','DISABLED')), processing_policy TEXT NOT NULL CHECK(processing_policy='LOCAL_ONLY'), inbox_path TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, last_imported_at TEXT)",
+    "CREATE TABLE external_import_batches (batch_id TEXT PRIMARY KEY, source_id TEXT NOT NULL, artifact_name TEXT NOT NULL, artifact_sha256 TEXT NOT NULL, imported_at TEXT NOT NULL, record_count INTEGER NOT NULL CHECK(record_count >= 0), snapshot_status TEXT NOT NULL DEFAULT 'COMPLETE' CHECK(snapshot_status IN ('COMPLETE','PARTIAL')), issue_count INTEGER NOT NULL DEFAULT 0 CHECK(issue_count >= 0), FOREIGN KEY(source_id) REFERENCES external_sources(source_id) ON DELETE CASCADE, UNIQUE(source_id, artifact_sha256))",
+    "CREATE TABLE external_records (external_record_id TEXT PRIMARY KEY, source_id TEXT NOT NULL, native_id TEXT NOT NULL, record_type TEXT NOT NULL, origin_json TEXT NOT NULL CHECK(json_valid(origin_json)), start_at TEXT, end_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY(source_id) REFERENCES external_sources(source_id) ON DELETE CASCADE, UNIQUE(source_id, native_id, record_type))",
+    "CREATE TABLE external_record_versions (version_id TEXT PRIMARY KEY, external_record_id TEXT NOT NULL, batch_id TEXT NOT NULL, ordinal INTEGER NOT NULL CHECK(ordinal > 0), payload_sha256 TEXT NOT NULL, raw_payload TEXT NOT NULL CHECK(json_valid(raw_payload)), source_modified_at TEXT, source_version TEXT, is_current INTEGER NOT NULL CHECK(is_current IN (0,1)), supersedes_version_id TEXT, imported_at TEXT NOT NULL, FOREIGN KEY(external_record_id) REFERENCES external_records(external_record_id) ON DELETE CASCADE, FOREIGN KEY(batch_id) REFERENCES external_import_batches(batch_id) ON DELETE CASCADE, FOREIGN KEY(supersedes_version_id) REFERENCES external_record_versions(version_id), UNIQUE(external_record_id, ordinal), UNIQUE(external_record_id, payload_sha256))",
+    "CREATE UNIQUE INDEX idx_external_record_current_version ON external_record_versions(external_record_id) WHERE is_current=1",
+    "CREATE TABLE sleep_episodes (episode_id TEXT PRIMARY KEY, started_at TEXT NOT NULL, ended_at TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE TABLE sleep_observations (observation_id TEXT PRIMARY KEY, episode_id TEXT NOT NULL, external_record_id TEXT NOT NULL UNIQUE, current_version_id TEXT NOT NULL, source_kind TEXT NOT NULL, classification TEXT NOT NULL CHECK(classification='VENDOR_DERIVED'), created_at TEXT NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY(episode_id) REFERENCES sleep_episodes(episode_id) ON DELETE CASCADE, FOREIGN KEY(external_record_id) REFERENCES external_records(external_record_id) ON DELETE CASCADE, FOREIGN KEY(current_version_id) REFERENCES external_record_versions(version_id) ON DELETE CASCADE)",
+    "CREATE TABLE sleep_stages (stage_id TEXT PRIMARY KEY, observation_id TEXT NOT NULL, source_version_id TEXT NOT NULL, category TEXT NOT NULL CHECK(category IN ('AWAKE','AWAKE_IN_BED','LIGHT','DEEP','REM','SLEEPING','OUT_OF_BED','UNKNOWN')), started_at TEXT NOT NULL, ended_at TEXT NOT NULL, FOREIGN KEY(observation_id) REFERENCES sleep_observations(observation_id) ON DELETE CASCADE, FOREIGN KEY(source_version_id) REFERENCES external_record_versions(version_id) ON DELETE CASCADE)",
+    "CREATE TABLE physiological_samples (sample_id TEXT PRIMARY KEY, external_record_id TEXT NOT NULL, source_version_id TEXT NOT NULL, metric TEXT NOT NULL CHECK(metric IN ('HEART_RATE','RESTING_HEART_RATE','SPO2','RESPIRATORY_RATE')), classification TEXT NOT NULL CHECK(classification='MEASUREMENT'), observed_at TEXT NOT NULL, value REAL NOT NULL, unit TEXT NOT NULL, FOREIGN KEY(external_record_id) REFERENCES external_records(external_record_id) ON DELETE CASCADE, FOREIGN KEY(source_version_id) REFERENCES external_record_versions(version_id) ON DELETE CASCADE)",
+    "CREATE INDEX idx_physiological_samples_interval ON physiological_samples(observed_at, metric)",
+)
+
 # Kept public so the Personal integrity oracle has one authoritative inventory
 # rather than duplicating the current schema shape.
 PERSONAL_V10_INVENTORY = (
@@ -108,6 +123,7 @@ PERSONAL_V11_INVENTORY = (*PERSONAL_V10_INVENTORY, "reflection_ai_provenance", "
 PERSONAL_V12_INVENTORY = (*PERSONAL_V11_INVENTORY, "interview_policy", "interview_sessions", "interview_submissions", "interview_source_policies", "interview_attempts", "interview_attempt_manifest_items", "interview_derivations", "interview_derivation_sources", "interview_questions", "interview_question_basis", "interview_inquiry_items", "interview_attempt_inquiry_items")
 PERSONAL_V13_INVENTORY = (*PERSONAL_V12_INVENTORY, "personal_model_items", "personal_model_revisions", "personal_model_revision_sources", "personal_model_challenges", "interview_attempt_model_items")
 PERSONAL_V14_INVENTORY = (*PERSONAL_V13_INVENTORY, "change_plans", "change_plan_targets", "change_observations", "change_reviews", "change_review_sessions", "interview_attempt_change_items")
+PERSONAL_V15_INVENTORY = (*PERSONAL_V14_INVENTORY, "external_sources", "external_import_batches", "external_records", "external_record_versions", "sleep_episodes", "sleep_observations", "sleep_stages", "physiological_samples")
 
 
 def initialize_personal_v10(connection: Any) -> None:
@@ -132,7 +148,7 @@ def initialize_personal_v10(connection: Any) -> None:
 def migrate_personal_v11(connection: Any) -> None:
     """Atomic additive provenance migration; V10 rows and bytes remain intact."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11], [10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14]):
+    if versions in ([10, 11], [10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15]):
         return
     if versions != [10]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -145,7 +161,7 @@ def migrate_personal_v11(connection: Any) -> None:
 def migrate_personal_v12(connection: Any) -> None:
     """Atomic additive AI Interview migration; historical source fails closed."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14]):
+    if versions in ([10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15]):
         return
     if versions != [10, 11]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -161,7 +177,7 @@ def migrate_personal_v12(connection: Any) -> None:
 def migrate_personal_v13(connection: Any) -> None:
     """Atomic additive Personal Model migration; no semantic backfill."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11, 12, 13], [10, 11, 12, 13, 14]):
+    if versions in ([10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15]):
         return
     if versions != [10, 11, 12]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -199,12 +215,36 @@ def initialize_personal_v13(connection: Any) -> None:
 
 def migrate_personal_v14(connection: Any) -> None:
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions == [10, 11, 12, 13, 14]: return
-    if versions != [10, 11, 12, 13]: raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
+    if versions in ([10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15]):
+        return
+    if versions != [10, 11, 12, 13]:
+        raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
     with connection:
-        for statement in _V14_DDL: connection.execute(statement)
+        for statement in _V14_DDL:
+            connection.execute(statement)
         connection.execute("INSERT INTO schema_migrations(version,label,checksum) VALUES(14,?,?)", ("pmv1_inquiry_change_v14", "personal-v14-inquiry-change"))
 
 def initialize_personal_v14(connection: Any) -> None:
     initialize_personal_v13(connection)
     migrate_personal_v14(connection)
+
+def migrate_personal_v15(connection: Any) -> None:
+    versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
+    if versions == [10, 11, 12, 13, 14, 15]:
+        return
+    if versions != [10, 11, 12, 13, 14]:
+        raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
+    with connection:
+        for statement in _V15_DDL:
+            connection.execute(statement)
+        connection.execute("INSERT INTO schema_migrations(version,label,checksum) VALUES(15,?,?)", ("pmv1_connected_evidence_sleep_v15", "personal-v15-connected-evidence"))
+
+def initialize_personal_v15(connection: Any) -> None:
+    initialize_personal_v14(connection)
+    migrate_personal_v15(connection)
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(external_import_batches)")}
+    with connection:
+        if "snapshot_status" not in columns:
+            connection.execute("ALTER TABLE external_import_batches ADD COLUMN snapshot_status TEXT NOT NULL DEFAULT 'COMPLETE' CHECK(snapshot_status IN ('COMPLETE','PARTIAL'))")
+        if "issue_count" not in columns:
+            connection.execute("ALTER TABLE external_import_batches ADD COLUMN issue_count INTEGER NOT NULL DEFAULT 0 CHECK(issue_count >= 0)")

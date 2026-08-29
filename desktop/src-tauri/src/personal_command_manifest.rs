@@ -49,4 +49,9 @@ pub const SHIPPED_COMMANDS: &[&str] = &[
     "desktop_ai_change_observe",
     "desktop_ai_change_allow_observations",
     "desktop_ai_change_start_review",
+    "desktop_sleep_source_status",
+    "desktop_sleep_configure_inbox",
+    "desktop_sleep_scan",
+    "desktop_sleep_history",
+    "desktop_sleep_delete_record",
 ];
