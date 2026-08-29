@@ -42,4 +42,6 @@ pub const SHIPPED_COMMANDS: &[&str] = &[
     "desktop_ai_interview_control",
     "desktop_ai_interview_get",
     "desktop_ai_interview_disclosure",
+    "desktop_ai_model_list",
+    "desktop_ai_model_correct",
 ];

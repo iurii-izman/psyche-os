@@ -105,4 +105,31 @@ describe("Personal browser preview API", () => {
     await expect(api.aiInterviewSourcePolicy(userTurnIds, true)).resolves.toEqual({});
     await expect(api.aiInterviewSourcePolicy(userTurnIds, false)).resolves.toEqual({});
   });
+
+  it("provides Personal Model scenarios with inspectable basis, revision history, and owner correction", async () => {
+    const rich = createPersonalBrowserPreviewApi("PERSONAL_MODEL_RICH_20_SESSIONS");
+    const model = await rich.aiModelList();
+    const kinds = new Set(model.items.map((item) => item.kind));
+    expect(kinds).toEqual(new Set(["HYPOTHESIS", "PATTERN", "CONTRADICTION", "UNKNOWN"]));
+    expect(model.items.some((item) => item.state === "CONTESTED" && item.challenges.length > 0)).toBe(true);
+    expect(model.items.some((item) => item.history.length > 1)).toBe(true);
+    for (const item of model.items) {
+      if (!item.current) continue;
+      expect(item.current.temporal_scope).toBeTruthy();
+      expect(item.current.support.length + item.current.counterevidence.length).toBeGreaterThan(0);
+    }
+
+    const revision = await rich.aiModelCorrect("rich-h1", "Синтетическое исправление владельца.");
+    expect(revision.items.find((item) => item.item_id === "rich-h1")?.state).toBe("CONTESTED");
+
+    const early = createPersonalBrowserPreviewApi("PERSONAL_MODEL_EARLY");
+    expect((await early.aiModelList()).items.every((item) => item.kind !== "PATTERN")).toBe(true);
+
+    const invalidated = createPersonalBrowserPreviewApi("PERSONAL_MODEL_SOURCE_DELETED");
+    expect((await invalidated.aiModelList()).items[0]).toMatchObject({ state: "INVALIDATED", current: null });
+
+    const disclosure = await rich.aiInterviewDisclosure("synthetic-question-attempt");
+    expect(disclosure.model_items?.length).toBeGreaterThan(0);
+    expect(disclosure.model_items?.[0]).toMatchObject({ kind: expect.any(String), text: expect.any(String), temporal_scope: expect.any(String) });
+  });
 });

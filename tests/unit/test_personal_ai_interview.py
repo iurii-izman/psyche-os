@@ -11,14 +11,14 @@ from psyche_os.personal_mode.ai_interview import (
     PersonalAIInterviewService,
     validate_interview_output,
 )
-from psyche_os.personal_mode.schema import initialize_personal_v12
+from psyche_os.personal_mode.schema import initialize_personal_v12, initialize_personal_v13
 
 
 class FakeReflection:
     def __init__(self) -> None:
         self.connection = sqlite3.connect(":memory:")
         self.connection.execute("PRAGMA foreign_keys=ON")
-        initialize_personal_v12(self.connection)
+        initialize_personal_v13(self.connection)
         self._next = 0
 
     def create_session(self, title: str) -> dict[str, str]:
@@ -68,7 +68,7 @@ class FakeProvider:
         aliases = [str(item["alias"]) for item in context["sources"]]
         if self.variant == "end":
             return {
-                "schema_version": "personal-ai-interview-output-v1",
+                "schema_version": "personal-ai-interview-output-v2",
                 "decision": "END_RECOMMENDED",
                 "question": None,
                 "rationale": "Синтетическая линия получила достаточно материала.",
@@ -78,9 +78,10 @@ class FakeProvider:
                 "inquiry_items": [
                     {"kind": "REVISIT", "text": "Синтетический вопрос для возврата", "priority": 3}
                 ],
+                "model_delta": [],
             }, "gpt-5.6-luna"
         return {
-            "schema_version": "personal-ai-interview-output-v1",
+            "schema_version": "personal-ai-interview-output-v2",
             "decision": "ASK",
             "question": "В каком конкретном эпизоде это было заметно?",
             "rationale": "Чтобы проверить общее объяснение на наблюдаемом эпизоде.",
@@ -90,6 +91,7 @@ class FakeProvider:
             "inquiry_items": [
                 {"kind": "THEME", "text": "Переход после насыщенного общения", "priority": 3}
             ],
+            "model_delta": [],
         }, "gpt-5.6-luna"
 
 
@@ -201,7 +203,7 @@ def test_v12_migration_is_additive_and_policy_defaults_closed() -> None:
 )
 def test_safety_boundary_rejects_unsafe_question_quality_output(unsafe: str) -> None:
     raw = {
-        "schema_version": "personal-ai-interview-output-v1",
+        "schema_version": "personal-ai-interview-output-v2",
         "decision": "ASK",
         "question": f"{unsafe}?",
         "rationale": "Проверить синтетический эпизод.",
@@ -209,6 +211,7 @@ def test_safety_boundary_rejects_unsafe_question_quality_output(unsafe: str) -> 
         "summary": None,
         "next_direction": None,
         "inquiry_items": [],
+        "model_delta": [],
     }
     with pytest.raises(PersonalAIError, match="AI_OUTPUT_UNSAFE"):
         validate_interview_output(raw, set())
@@ -216,7 +219,7 @@ def test_safety_boundary_rejects_unsafe_question_quality_output(unsafe: str) -> 
 
 def test_multiple_primary_questions_and_hallucinated_alias_are_rejected() -> None:
     raw = {
-        "schema_version": "personal-ai-interview-output-v1",
+        "schema_version": "personal-ai-interview-output-v2",
         "decision": "ASK",
         "question": "Что произошло? И что было дальше?",
         "rationale": "Проверить эпизод.",
@@ -224,6 +227,7 @@ def test_multiple_primary_questions_and_hallucinated_alias_are_rejected() -> Non
         "summary": None,
         "next_direction": None,
         "inquiry_items": [],
+        "model_delta": [],
     }
     with pytest.raises(PersonalAIError, match="AI_OUTPUT_REJECTED"):
         validate_interview_output(raw, {"S1"})
@@ -433,7 +437,7 @@ def test_source_deletion_clears_end_summary_and_direction_before_fk_nulling() ->
 )
 def test_neutral_symptom_and_treatment_history_questions_are_allowed(question: str) -> None:
     raw = {
-        "schema_version": "personal-ai-interview-output-v1",
+        "schema_version": "personal-ai-interview-output-v2",
         "decision": "ASK",
         "question": question,
         "rationale": "Проверить синтетический эпизод.",
@@ -441,5 +445,6 @@ def test_neutral_symptom_and_treatment_history_questions_are_allowed(question: s
         "summary": None,
         "next_direction": None,
         "inquiry_items": [],
+        "model_delta": [],
     }
     assert validate_interview_output(raw, set())["question"] == question

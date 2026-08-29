@@ -1,4 +1,4 @@
-import type { ExplorationView, ReflectionSession } from "./personal-api";
+import type { ExplorationView, PersonalModelView, ReflectionSession } from "./personal-api";
 
 export type LongitudinalPeriod = "7d" | "30d" | "all";
 export interface PersonalLongitudinalBundle { session: ReflectionSession; exploration: ExplorationView | null; }
@@ -9,6 +9,7 @@ export interface LongitudinalTheme { label: string; dimension: string; session_c
 export interface LongitudinalTimelineEvent extends LongitudinalSource { at: string; kind: string; detail: string; }
 export interface FormulationLineage extends LongitudinalSource { items: Array<ExplorationView["formulations"][number]>; }
 export interface LongitudinalChange extends LongitudinalSource { earlier: string; later: string; changed: string; }
+export interface UnderstandingChange { at: string; kind: string; earlier: string | null; later: string; changed: string; }
 export interface PersonalLongitudinalView {
   period: LongitudinalPeriod;
   sessions: PersonalLongitudinalBundle[];
@@ -19,6 +20,7 @@ export interface PersonalLongitudinalView {
   lineages: FormulationLineage[];
   unresolved: UnresolvedGroup[];
   proposed: Array<LongitudinalSource & { at: string; version: number; summary: string; ai: boolean }>;
+  understanding: UnderstandingChange[];
 }
 
 const compare = (left: string, right: string): number => left.localeCompare(right);
@@ -57,7 +59,7 @@ function lineage(bundle: PersonalLongitudinalBundle): FormulationLineage[] {
   return result;
 }
 
-export function buildPersonalLongitudinal(input: PersonalLongitudinalBundle[], period: LongitudinalPeriod, now = new Date()): PersonalLongitudinalView {
+export function buildPersonalLongitudinal(input: PersonalLongitudinalBundle[], period: LongitudinalPeriod, now = new Date(), model: PersonalModelView | null = null): PersonalLongitudinalView {
   const sessions = [...input].sort((left, right) => compare(left.session.created_at ?? "", right.session.created_at ?? "") || compare(left.session.session_id, right.session.session_id));
   const timeline: LongitudinalTimelineEvent[] = [];
   const allLineages = sessions.flatMap(lineage);
@@ -121,6 +123,20 @@ export function buildPersonalLongitudinal(input: PersonalLongitudinalBundle[], p
   const currentFormulations = sessions.flatMap((bundle) => (bundle.exploration?.formulations ?? []).filter((item) => item.status === "CURRENT" && inPeriod(formulationAt(item, bundle.session.created_at ?? ""), period, now)));
   const newUnknowns = occurrences.filter((item) => item.kind === "UNKNOWN" && inPeriod(item.at, period, now)).length;
   const proposed = sessions.flatMap((bundle) => (bundle.exploration?.formulations ?? []).filter((item) => item.status === "PROPOSED").map((item) => ({ ...source(bundle, item.supporting_turn_ids ?? []), at: itemAt(item, bundle.session.created_at ?? ""), version: item.version, summary: item.summary, ai: Boolean(item.ai_provenance) }))).sort((left, right) => compare(left.at, right.at));
+  // How PSYCHE's understanding changed: revision history of the working model.
+  // This is evolution of the model, not a claim that the person changed.
+  const understanding: UnderstandingChange[] = [];
+  for (const item of model?.items ?? []) {
+    const revisions = [...item.history].sort((left, right) => left.ordinal - right.ordinal);
+    for (let index = 1; index < revisions.length; index += 1) {
+      const earlier = revisions[index - 1]!;
+      const later = revisions[index]!;
+      understanding.push({ at: later.created_at, kind: item.kind, earlier: earlier.text, later: later.text, changed: later.revision_reason || "Рабочая версия пересмотрена с учётом новых данных." });
+    }
+    for (const challenge of item.challenges) {
+      understanding.push({ at: challenge.created_at, kind: item.kind, earlier: revisions.at(-1)?.text ?? null, later: challenge.text, changed: "Владелец оспорил рабочую версию; исправление сохранено как источник." });
+    }
+  }
   return {
     period,
     sessions,
@@ -130,6 +146,7 @@ export function buildPersonalLongitudinal(input: PersonalLongitudinalBundle[], p
     changes: changes.sort((left, right) => compare(left.later, right.later)),
     lineages: allLineages,
     unresolved: unresolvedGroups,
-    proposed
+    proposed,
+    understanding: chronological(understanding).filter((item) => inPeriod(item.at, period, now))
   };
 }

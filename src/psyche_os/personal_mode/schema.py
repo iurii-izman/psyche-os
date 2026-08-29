@@ -59,6 +59,27 @@ _V12_DDL = (
     "CREATE TABLE interview_attempt_inquiry_items (attempt_id TEXT NOT NULL, item_id TEXT NOT NULL, ordinal INTEGER NOT NULL, char_count INTEGER NOT NULL, PRIMARY KEY(attempt_id,item_id), FOREIGN KEY(attempt_id) REFERENCES interview_attempts(attempt_id) ON DELETE CASCADE, FOREIGN KEY(item_id) REFERENCES interview_inquiry_items(item_id) ON DELETE CASCADE)",
 )
 
+# V13 adds the cross-session Personal Model: stable model items with immutable
+# revisions, exact SOURCE evidence links, and owner challenges.  It is strictly
+# additive: no existing table or row changes meaning, no semantic backfill of
+# older interview inquiry items happens, and every derived row remains
+# cascade-bound to its derivation and USER source turns.
+_V13_DDL = (
+    "ALTER TABLE interview_attempts ADD COLUMN model_item_count INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE interview_attempts ADD COLUMN model_char_count INTEGER NOT NULL DEFAULT 0",
+    "CREATE TABLE personal_model_items (item_id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('HYPOTHESIS','PATTERN','CONTRADICTION','UNKNOWN')), state TEXT NOT NULL CHECK(state IN ('ACTIVE','CONTESTED','RESOLVED','INVALIDATED')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    "CREATE TABLE personal_model_revisions (revision_id TEXT PRIMARY KEY, item_id TEXT NOT NULL, ordinal INTEGER NOT NULL CHECK(ordinal > 0), kind TEXT NOT NULL CHECK(kind IN ('HYPOTHESIS','PATTERN','CONTRADICTION','UNKNOWN')), text TEXT NOT NULL CHECK(length(text) BETWEEN 1 AND 480), temporal_scope TEXT NOT NULL CHECK(temporal_scope IN ('CURRENT_STATE','CONTEXTUAL_PATTERN','CROSS_PERIOD_PATTERN','HISTORICAL_CHANGED','UNCLEAR')), uncertainty TEXT, revision_reason TEXT, derivation_id TEXT, owner_turn_id TEXT, status TEXT NOT NULL CHECK(status IN ('CURRENT','SUPERSEDED','INVALIDATED')), created_at TEXT NOT NULL, FOREIGN KEY(item_id) REFERENCES personal_model_items(item_id) ON DELETE CASCADE, FOREIGN KEY(derivation_id) REFERENCES interview_derivations(derivation_id) ON DELETE CASCADE, FOREIGN KEY(owner_turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE, UNIQUE(item_id, ordinal))",
+    "CREATE UNIQUE INDEX idx_personal_model_current_revision ON personal_model_revisions(item_id) WHERE status='CURRENT'",
+    "CREATE TABLE personal_model_revision_sources (revision_id TEXT NOT NULL, turn_id TEXT NOT NULL, alias TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('SUPPORT','COUNTEREVIDENCE')), PRIMARY KEY(revision_id, turn_id, role), FOREIGN KEY(revision_id) REFERENCES personal_model_revisions(revision_id) ON DELETE CASCADE, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
+    "CREATE TABLE personal_model_challenges (challenge_id TEXT PRIMARY KEY, item_id TEXT NOT NULL, revision_id TEXT NOT NULL, turn_id TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, FOREIGN KEY(item_id) REFERENCES personal_model_items(item_id) ON DELETE CASCADE, FOREIGN KEY(revision_id) REFERENCES personal_model_revisions(revision_id) ON DELETE CASCADE, FOREIGN KEY(turn_id) REFERENCES reflection_turns(turn_id) ON DELETE CASCADE)",
+    "CREATE TABLE interview_attempt_model_items (attempt_id TEXT NOT NULL, alias TEXT NOT NULL, item_id TEXT NOT NULL, revision_id TEXT NOT NULL, sent_state TEXT NOT NULL CHECK(sent_state IN ('ACTIVE','CONTESTED','RESOLVED','INVALIDATED')), ordinal INTEGER NOT NULL, char_count INTEGER NOT NULL, PRIMARY KEY(attempt_id, alias), UNIQUE(attempt_id, item_id), FOREIGN KEY(attempt_id) REFERENCES interview_attempts(attempt_id) ON DELETE CASCADE, FOREIGN KEY(item_id) REFERENCES personal_model_items(item_id) ON DELETE CASCADE, FOREIGN KEY(revision_id) REFERENCES personal_model_revisions(revision_id) ON DELETE CASCADE)",
+    # Losing the last supporting SOURCE invalidates the current meaning; losing
+    # counterevidence never strengthens anything automatically.  Owner
+    # challenges are an overlay: the challenge relation itself carries the
+    # owner-contested state, so no trigger mutates the base lifecycle state.
+    "CREATE TRIGGER personal_model_support_lost AFTER DELETE ON personal_model_revision_sources BEGIN UPDATE personal_model_revisions SET status='INVALIDATED' WHERE revision_id=OLD.revision_id AND status='CURRENT' AND NOT EXISTS (SELECT 1 FROM personal_model_revision_sources WHERE revision_id=OLD.revision_id AND role='SUPPORT'); UPDATE personal_model_items SET state='INVALIDATED' WHERE state IN ('ACTIVE','CONTESTED') AND NOT EXISTS (SELECT 1 FROM personal_model_revisions WHERE item_id=personal_model_items.item_id AND status='CURRENT'); END",
+)
+
 # Kept public so the Personal integrity oracle has one authoritative inventory
 # rather than duplicating the current schema shape.
 PERSONAL_V10_INVENTORY = (
@@ -71,6 +92,7 @@ PERSONAL_V10_INVENTORY = (
 )
 PERSONAL_V11_INVENTORY = (*PERSONAL_V10_INVENTORY, "reflection_ai_provenance", "reflection_ai_provenance_sources")
 PERSONAL_V12_INVENTORY = (*PERSONAL_V11_INVENTORY, "interview_policy", "interview_sessions", "interview_submissions", "interview_source_policies", "interview_attempts", "interview_attempt_manifest_items", "interview_derivations", "interview_derivation_sources", "interview_questions", "interview_question_basis", "interview_inquiry_items", "interview_attempt_inquiry_items")
+PERSONAL_V13_INVENTORY = (*PERSONAL_V12_INVENTORY, "personal_model_items", "personal_model_revisions", "personal_model_revision_sources", "personal_model_challenges", "interview_attempt_model_items")
 
 
 def initialize_personal_v10(connection: Any) -> None:
@@ -95,7 +117,7 @@ def initialize_personal_v10(connection: Any) -> None:
 def migrate_personal_v11(connection: Any) -> None:
     """Atomic additive provenance migration; V10 rows and bytes remain intact."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11], [10, 11, 12]):
+    if versions in ([10, 11], [10, 11, 12], [10, 11, 12, 13]):
         return
     if versions != [10]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -108,7 +130,7 @@ def migrate_personal_v11(connection: Any) -> None:
 def migrate_personal_v12(connection: Any) -> None:
     """Atomic additive AI Interview migration; historical source fails closed."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions == [10, 11, 12]:
+    if versions in ([10, 11, 12], [10, 11, 12, 13]):
         return
     if versions != [10, 11]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -121,6 +143,19 @@ def migrate_personal_v12(connection: Any) -> None:
         connection.execute("INSERT INTO schema_migrations(version,label,checksum) VALUES(12,?,?)", ("pmv1_personal_ai_interview_v12", "personal-v12-ai-interview"))
 
 
+def migrate_personal_v13(connection: Any) -> None:
+    """Atomic additive Personal Model migration; no semantic backfill."""
+    versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
+    if versions == [10, 11, 12, 13]:
+        return
+    if versions != [10, 11, 12]:
+        raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
+    with connection:
+        for statement in _V13_DDL:
+            connection.execute(statement)
+        connection.execute("INSERT INTO schema_migrations(version,label,checksum) VALUES(13,?,?)", ("pmv1_personal_model_v13", "personal-v13-personal-model"))
+
+
 def initialize_personal_v11(connection: Any) -> None:
     """Former current schema for exact legacy-package compatibility."""
     existing = connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()
@@ -130,9 +165,19 @@ def initialize_personal_v11(connection: Any) -> None:
 
 
 def initialize_personal_v12(connection: Any) -> None:
-    """Current Personal schema: initialize V10, then additive V11 and V12."""
+    """Former current schema: initialize V10, then additive V11 and V12."""
     existing = connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()
     if not existing:
         initialize_personal_v10(connection)
     migrate_personal_v11(connection)
     migrate_personal_v12(connection)
+
+
+def initialize_personal_v13(connection: Any) -> None:
+    """Current Personal schema: initialize V10, then additive V11..V13."""
+    existing = connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()
+    if not existing:
+        initialize_personal_v10(connection)
+    migrate_personal_v11(connection)
+    migrate_personal_v12(connection)
+    migrate_personal_v13(connection)

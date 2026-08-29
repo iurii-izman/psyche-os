@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPersonalLongitudinal, type PersonalLongitudinalBundle } from "../src/personal-longitudinal";
+import type { PersonalModelView } from "../src/personal-api";
 
 const bundle = (id: string, at: string): PersonalLongitudinalBundle => ({
   session: {
@@ -59,5 +60,31 @@ describe("Personal longitudinal projection", () => {
     expect(view.timeline).toEqual([]);
     expect(view.unresolved).toEqual([]);
     expect(JSON.stringify(view)).not.toMatch(/score|diagnos|symptom|streak/i);
+  });
+
+  it("shows how the model's understanding changed without claiming the person changed", () => {
+    const model: PersonalModelView = {
+      items: [
+        {
+          item_id: "m1",
+          kind: "HYPOTHESIS",
+          state: "ACTIVE",
+          created_at: "2026-06-01T10:00:00Z",
+          updated_at: "2026-08-10T10:00:00Z",
+          current: null,
+          challenges: [{ text: "Это было верно только для 2021–2022.", created_at: "2026-08-12T10:00:00Z" }],
+          history: [
+            { ordinal: 1, kind: "HYPOTHESIS", text: "Возможно, вы избегаете конфликтов.", temporal_scope: "UNCLEAR", revision_reason: null, status: "SUPERSEDED", created_at: "2026-06-01T10:00:00Z" },
+            { ordinal: 2, kind: "HYPOTHESIS", text: "Паттерн может быть специфичен для рабочих ситуаций.", temporal_scope: "CONTEXTUAL_PATTERN", revision_reason: "Контрпример сузил версию.", status: "CURRENT", created_at: "2026-08-10T10:00:00Z" }
+          ]
+        }
+      ]
+    };
+    const view = buildPersonalLongitudinal([], "all", now, model);
+    expect(view.understanding).toHaveLength(2);
+    expect(view.understanding[0]).toMatchObject({ earlier: "Возможно, вы избегаете конфликтов.", later: "Паттерн может быть специфичен для рабочих ситуаций.", changed: "Контрпример сузил версию." });
+    expect(view.understanding[1]?.changed).toContain("Владелец оспорил");
+    // The projection speaks about the model, never about the person's change.
+    expect(JSON.stringify(view.understanding)).not.toMatch(/вы изменились|человек изменился/i);
   });
 });
