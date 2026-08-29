@@ -3,6 +3,7 @@ import type {
   ExplorationView,
   InterviewView,
   ModelItem,
+  ChangePlan,
   PersonalApi,
   PersonalModelView,
   PersonalStatus,
@@ -145,7 +146,8 @@ export async function mountPersonal(
     exploration: ExplorationView | null = null,
     interview: InterviewView | null = null,
     interviewSessions: InterviewView[] = [],
-    model: PersonalModelView | null = null;
+    model: PersonalModelView | null = null,
+    changePlans: ChangePlan[] = [];
   let route: Route = "home",
     notice = "",
     recovery: Record<string, unknown> | null = null,
@@ -205,6 +207,7 @@ export async function mountPersonal(
         const listed = await api.aiInterviewList();
         interviewSessions = listed.sessions;
         model = await api.aiModelList();
+        changePlans = api.aiChangeList ? (await api.aiChangeList()).plans : [];
         if (!interview) {
           const selected =
             listed.sessions.find((item) => item.state !== "COMPLETED") ??
@@ -516,12 +519,24 @@ export async function mountPersonal(
             (item) => item.status === "CURRENT",
           ).length ?? 0),
         0,
-      ),
-      interviewCard =
+      );
+    let interviewCard =
         status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI"
           ? `<section class="card daily-review inquiry-primary"><p>AI-ИССЛЕДОВАНИЕ</p><h2>${interview && interview.state !== "COMPLETED" ? "Продолжить исследование" : "Начать исследование"}</h2><p>${interview?.next_direction ? `Полезно вернуться к: ${escape(interview.next_direction)}` : interview?.owner_topic ? `Продолжим выбранную тему: ${escape(interview.owner_topic)}` : "PSYCHE задаёт один вопрос за раз и постепенно проясняет важное — без анкеты и без спешки."}</p>${modelReason ? `<p class="provenance-note">${escape(modelReason)}</p>` : ""}<p class="provenance-note">Ваши ответы сохраняются локально как источники; выводы AI — рабочие предложения.</p><button data-route="interview" class="primary">${interview && interview.state !== "COMPLETED" ? "Продолжить" : "Начать AI-сессию"}</button>${!interview || interview.state === "COMPLETED" ? '<button id="home-start-topic">Есть тема, о которой хочу поговорить</button>' : '<button id="home-new-topic">Начать с другой темы</button>'}</section>`
           : "";
-    const homeLead = status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? "Что сейчас полезно исследовать?" : "Запишите то, к чему хотите вернуться.";
+    const activeChange = changePlans.find((plan) => plan.state === "ACTIVE" && plan.kind === "EXPERIMENT") ?? changePlans.find((plan) => plan.state === "ACTIVE");
+    const changeCard = activeChange ? `<section class="card daily-review"><p>СЕЙЧАС ПРОВЕРЯЕМ</p><h2>${escape(activeChange.title)}</h2><p>${escape(activeChange.instructions)}</p><form data-change-observation="${escape(activeChange.plan_id)}"><label>Что произошло?<textarea required maxlength="12000"></textarea></label><select><option value="UNCLEAR">Пока неясно</option><option value="BETTER">Стало легче</option><option value="SAME">Без разницы</option><option value="WORSE">Стало хуже</option></select><button class="primary">Записать наблюдение</button></form><button data-change-stop="${escape(activeChange.plan_id)}">Остановить</button><p class="provenance-note">Запись остаётся локальным источником, пока вы отдельно не разрешите AI-разбор.</p></section>` : "";
+    const proposedChange = changePlans.find((plan) => plan.state === "PROPOSED");
+    const proposalCard = proposedChange ? `<section class="card"><p>ПРЕДЛАГАЮ ПРОВЕРИТЬ · AI-ПРЕДЛОЖЕНИЕ</p><h2>${escape(proposedChange.title)}</h2><p>${escape(proposedChange.reason)}</p><p>${escape(proposedChange.instructions)}</p><p><strong>Ожидаемый сигнал:</strong> ${escape(proposedChange.expected_signal)}</p><p><strong>Что ослабит версию:</strong> ${escape(proposedChange.counter_signal)}</p><button class="primary" data-change-activate="${escape(proposedChange.plan_id)}">${proposedChange.kind === "OBSERVE" ? "Начать наблюдение" : "Попробовать"}</button><button data-change-dismiss="${escape(proposedChange.plan_id)}">Пока не хочу</button></section>` : "";
+    const observationCount = activeChange?.observations?.length ?? 0;
+    const eligibleObservationCount = activeChange?.observations?.filter((item) => item.ai_eligible).length ?? 0;
+    const reviewCard = activeChange && observationCount ? `<section class="card"><p>НАБЛЮДЕНИЯ · ЛОКАЛЬНО ПО УМОЛЧАНИЮ</p><h2>${observationCount} записей</h2><p>Для AI-разбора разрешено: ${eligibleObservationCount}. Будущие наблюдения не будут разрешены автоматически.</p><button data-change-observations-allow="${escape(activeChange.plan_id)}">Разрешить наблюдения для AI-разбора</button>${eligibleObservationCount ? `<button data-change-observations-revoke="${escape(activeChange.plan_id)}">Отозвать разрешение</button><button class="primary" data-change-review="${escape(activeChange.plan_id)}">Разобрать с PSYCHE</button>` : ""}</section>` : "";
+    const completedReview = changePlans.find((plan) => plan.review && plan.state === "COMPLETED");
+    const effectLabel: Record<string, string> = { HELPED: "стало легче", NO_CLEAR_EFFECT: "ясного эффекта не видно", WORSE: "стало хуже", MIXED: "эффект смешанный", NOT_TESTED: "пока не проверяли" };
+    const epistemicLabel: Record<string, string> = { SUPPORTED: "версия согласуется с наблюдениями", WEAKENED: "версия ослаблена", INCONCLUSIVE: "пока недостаточно данных", CONTEXT_DEPENDENT: "результат зависит от контекста" };
+    const outcomeCard = completedReview?.review ? `<section class="card"><p>ЧТО УЗНАЛИ В РЕАЛЬНОЙ ЖИЗНИ · AI-ВЫВОД</p><h2>${escape(completedReview.title)}</h2><p>${escape(completedReview.review.summary)}</p><p><strong>О практическом эффекте:</strong> ${effectLabel[completedReview.review.practical_effect] ?? "неясно"}</p><p><strong>О рабочей версии:</strong> ${epistemicLabel[completedReview.review.epistemic_outcome] ?? "неясно"}</p><p>${escape(completedReview.review.understanding)}</p></section>` : "";
+    interviewCard = `${changeCard}${proposalCard}${reviewCard}${outcomeCard}${interviewCard}`;
+    const homeLead = activeChange ? `Сейчас проверяем: ${activeChange.title}` : status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? "Что сейчас полезно исследовать?" : "Запишите то, к чему хотите вернуться.";
     return `<main class="product-shell home-shell">${nav()}<section class="product-home compact-heading"><p>PERSONAL</p><h1>Сегодня</h1><p>${homeLead}</p></section>${interviewCard}<section class="card quick-capture"><p>БЫСТРАЯ ЗАПИСЬ</p><h2>Сохранить мысль</h2><form id="quick-capture-form"><label>Название (необязательно) <input id="quick-capture-title" maxlength="160" placeholder="Короткая заметка" autofocus /></label><label>Текст <textarea id="quick-capture-text" required maxlength="12000" placeholder="Напишите то, что хотите сохранить…"></textarea></label><button class="primary">Сохранить</button></form></section><section class="card daily-review"><div><p>КАРТИНА</p><h2>Ваши записи и выводы</h2></div><div class="review-counts"><span>${active.length} активных размышлений</span><span>${currentFormulations} текущих формулировок</span><span>${unknowns} неясного</span><span>${contradictions} противоречий</span></div><button data-route="sensemaking" class="primary">Открыть картину</button><button data-route="longitudinal">Посмотреть изменения за 30 дней</button></section><section class="card recent-card"><p>НЕДАВНЕЕ</p><h2>Ваши размышления</h2>${recent.length ? recent.map(sessionRow).join("") : "<p>Первая запись появится здесь.</p>"}<button data-route="history">Открыть историю</button></section>${noticeMarkup()}</main>`;
   };
 
@@ -896,6 +911,65 @@ export async function mountPersonal(
       route = "home";
       notice = "Запись сохранена в истории.";
     });
+    host
+      .querySelector<HTMLFormElement>("[data-change-observation]")
+      ?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        void act(async () => {
+          const form = event.currentTarget as HTMLFormElement;
+          const content = form.querySelector<HTMLTextAreaElement>("textarea")!.value.trim();
+          if (!content) return;
+          await api.aiChangeObserve(
+            form.dataset.changeObservation!,
+            content,
+            form.querySelector<HTMLSelectElement>("select")!.value,
+          );
+          changePlans = (await api.aiChangeList()).plans;
+          notice = "Наблюдение сохранено локально как ваша запись.";
+        });
+      });
+    host.querySelector<HTMLButtonElement>("[data-change-stop]")?.addEventListener("click", (event) =>
+      void act(async () => {
+        await api.aiChangeControl((event.currentTarget as HTMLButtonElement).dataset.changeStop!, "STOP");
+        changePlans = (await api.aiChangeList()).plans;
+        notice = "Проверка остановлена. Это не является выводом о вас.";
+      }),
+    );
+    host.querySelector<HTMLButtonElement>("[data-change-activate]")?.addEventListener("click", (event) =>
+      void act(async () => {
+        await api.aiChangeControl((event.currentTarget as HTMLButtonElement).dataset.changeActivate!, "ACTIVATE");
+        changePlans = (await api.aiChangeList()).plans;
+        notice = "Проверка начата локально.";
+      }),
+    );
+    host.querySelector<HTMLButtonElement>("[data-change-dismiss]")?.addEventListener("click", (event) =>
+      void act(async () => {
+        await api.aiChangeControl((event.currentTarget as HTMLButtonElement).dataset.changeDismiss!, "DISMISS");
+        changePlans = (await api.aiChangeList()).plans;
+        notice = "Предложение отложено.";
+      }),
+    );
+    host.querySelector<HTMLButtonElement>("[data-change-observations-allow]")?.addEventListener("click", (event) =>
+      void act(async () => {
+        await api.aiChangeAllowObservations((event.currentTarget as HTMLButtonElement).dataset.changeObservationsAllow!, true);
+        changePlans = (await api.aiChangeList()).plans;
+        notice = "Точные наблюдения разрешены для AI-разбора.";
+      }),
+    );
+    host.querySelector<HTMLButtonElement>("[data-change-observations-revoke]")?.addEventListener("click", (event) =>
+      void act(async () => {
+        await api.aiChangeAllowObservations((event.currentTarget as HTMLButtonElement).dataset.changeObservationsRevoke!, false);
+        changePlans = (await api.aiChangeList()).plans;
+        notice = "Разрешение для этих наблюдений отозвано.";
+      }),
+    );
+    host.querySelector<HTMLButtonElement>("[data-change-review]")?.addEventListener("click", (event) =>
+      void act(async () => {
+        interview = await api.aiChangeStartReview((event.currentTarget as HTMLButtonElement).dataset.changeReview!);
+        route = "interview";
+        notice = "Для разбора потребуется отдельное согласие на AI-сессию.";
+      }),
+    );
     host.querySelector("#home-start-topic")?.addEventListener("click", () =>
       void act(async () => {
         const topic = window.prompt("Что вы хотите исследовать?");

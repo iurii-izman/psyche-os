@@ -44,4 +44,9 @@ pub const SHIPPED_COMMANDS: &[&str] = &[
     "desktop_ai_interview_disclosure",
     "desktop_ai_model_list",
     "desktop_ai_model_correct",
+    "desktop_ai_change_list",
+    "desktop_ai_change_control",
+    "desktop_ai_change_observe",
+    "desktop_ai_change_allow_observations",
+    "desktop_ai_change_start_review",
 ];

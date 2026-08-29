@@ -1,6 +1,6 @@
-import type { ExplorationView, InterviewView, ModelItem, PersonalApi, PersonalModelView, PersonalStatus, ReflectionSession, ReflectionTurn, SearchResult, SearchView } from "./personal-api";
+import type { ChangePlan, ExplorationView, InterviewView, ModelItem, PersonalApi, PersonalModelView, PersonalStatus, ReflectionSession, ReflectionTurn, SearchResult, SearchView } from "./personal-api";
 
-export type PreviewScenario = "ACTIVE" | "CLOSED" | "EMPTY" | "SEARCH_MANY" | "INTERVIEW_ONBOARDING" | "INTERVIEW_ACTIVE" | "INTERVIEW_WITH_HISTORY" | "INTERVIEW_END_RECOMMENDED" | "INTERVIEW_RETRYABLE_FAILURE" | "INTERVIEW_PAUSED_RECONSENT" | "INTERVIEW_DISCLOSURE" | "PERSONAL_MODEL_EARLY" | "PERSONAL_MODEL_KNOWN_USER" | "PERSONAL_MODEL_COMPETING_HYPOTHESES" | "PERSONAL_MODEL_COUNTEREVIDENCE" | "PERSONAL_MODEL_REVISION" | "PERSONAL_MODEL_OWNER_CORRECTION" | "PERSONAL_MODEL_CURRENT_VS_HISTORICAL" | "PERSONAL_MODEL_CONTRADICTION" | "PERSONAL_MODEL_SOURCE_DELETED" | "PERSONAL_MODEL_RICH_20_SESSIONS";
+export type PreviewScenario = "ACTIVE" | "CLOSED" | "EMPTY" | "SEARCH_MANY" | "INTERVIEW_ONBOARDING" | "INTERVIEW_ACTIVE" | "INTERVIEW_WITH_HISTORY" | "INTERVIEW_END_RECOMMENDED" | "INTERVIEW_RETRYABLE_FAILURE" | "INTERVIEW_PAUSED_RECONSENT" | "INTERVIEW_DISCLOSURE" | "PERSONAL_MODEL_EARLY" | "PERSONAL_MODEL_KNOWN_USER" | "PERSONAL_MODEL_COMPETING_HYPOTHESES" | "PERSONAL_MODEL_COUNTEREVIDENCE" | "PERSONAL_MODEL_REVISION" | "PERSONAL_MODEL_OWNER_CORRECTION" | "PERSONAL_MODEL_CURRENT_VS_HISTORICAL" | "PERSONAL_MODEL_CONTRADICTION" | "PERSONAL_MODEL_SOURCE_DELETED" | "PERSONAL_MODEL_RICH_20_SESSIONS" | "CHANGE_NONE" | "CHANGE_OBSERVE_PROPOSED" | "CHANGE_EXPERIMENT_PROPOSED" | "CHANGE_ACTIVE_OBSERVE" | "CHANGE_ACTIVE_EXPERIMENT_DAY_1" | "CHANGE_ACTIVE_EXPERIMENT_DAY_5" | "CHANGE_WITH_OBSERVATIONS" | "CHANGE_OBSERVATIONS_NOT_AI_ELIGIBLE" | "CHANGE_REVIEW_SUPPORTED" | "CHANGE_REVIEW_WEAKENED" | "CHANGE_REVIEW_INCONCLUSIVE" | "CHANGE_REVIEW_CONTEXT_DEPENDENT" | "CHANGE_STOPPED_BY_OWNER" | "CHANGE_EXPERIMENT_CHANGED_MODEL" | "CHANGE_RICH_HISTORY_10_PLANS";
 
 type PreviewState = {
   sessions: ReflectionSession[];
@@ -9,6 +9,7 @@ type PreviewState = {
   scenario: PreviewScenario;
   interview: InterviewView | null;
   model: PersonalModelView | null;
+  changes: ChangePlan[];
 };
 
 const at = (day: number) => `2026-08-${String(day).padStart(2, "0")}T10:00:00Z`;
@@ -171,16 +172,29 @@ const previewModel = (scenario: PreviewScenario): PersonalModelView | null => {
   ]);
 };
 
+const previewChanges = (scenario: PreviewScenario): ChangePlan[] => {
+  if (!scenario.startsWith("CHANGE_") || scenario === "CHANGE_NONE") return [];
+  const observe = scenario.includes("OBSERVE");
+  const active = scenario.includes("ACTIVE") || scenario === "CHANGE_WITH_OBSERVATIONS" || scenario === "CHANGE_OBSERVATIONS_NOT_AI_ELIGIBLE";
+  const stopped = scenario === "CHANGE_STOPPED_BY_OWNER";
+  const reviewed = scenario.startsWith("CHANGE_REVIEW_") || scenario === "CHANGE_EXPERIMENT_CHANGED_MODEL";
+  const state: ChangePlan["state"] = stopped ? "STOPPED" : reviewed ? "COMPLETED" : active ? "ACTIVE" : "PROPOSED";
+  const review = reviewed ? { practical_effect: scenario === "CHANGE_REVIEW_SUPPORTED" ? "HELPED" : scenario === "CHANGE_REVIEW_WEAKENED" ? "NO_CLEAR_EFFECT" : "MIXED", epistemic_outcome: scenario === "CHANGE_REVIEW_SUPPORTED" ? "SUPPORTED" : scenario === "CHANGE_REVIEW_WEAKENED" || scenario === "CHANGE_EXPERIMENT_CHANGED_MODEL" ? "WEAKENED" : scenario === "CHANGE_REVIEW_CONTEXT_DEPENDENT" ? "CONTEXT_DEPENDENT" : "INCONCLUSIVE", summary: "Синтетический итог реальной проверки.", understanding: "Результат уточняет рабочую версию, а не описывает человека как неизменного.", recommended_next: "COMPLETE", created_at: at(3) } : null;
+  const base: ChangePlan = { plan_id: "synthetic-change", kind: observe ? "OBSERVE" : "EXPERIMENT", state, title: observe ? "Наблюдать переход после встреч" : "Короткая пауза после встречи", reason: "Проверить синтетическую рабочую версию.", instructions: observe ? "В нескольких подходящих случаях заметить контекст и трудность перехода." : "После подходящей встречи оставить короткую паузу без новой информации.", observation_prompt: "Что произошло?", expected_signal: "Переключаться немного легче.", counter_signal: "Разницы нет или трудность остаётся.", duration_days: scenario.includes("DAY_5") ? 7 : 5, stop_conditions: "Остановить в любой момент.", created_at: at(3), activated_at: active ? at(4) : null, ended_at: stopped || reviewed ? at(8) : null, targets: [{ item_id: "synthetic-model", revision_id: "synthetic-revision", text: "Возможно, пауза влияет на переключение.", kind: "HYPOTHESIS" }], observations: scenario === "CHANGE_WITH_OBSERVATIONS" || scenario === "CHANGE_OBSERVATIONS_NOT_AI_ELIGIBLE" || reviewed ? [{ turn_id: "synthetic-observation", content: "После паузы переключение заметно не изменилось.", signal: "SAME", created_at: at(6), ai_eligible: scenario !== "CHANGE_OBSERVATIONS_NOT_AI_ELIGIBLE" }] : [], review };
+  if (scenario !== "CHANGE_RICH_HISTORY_10_PLANS") return [base];
+  return Array.from({ length: 10 }, (_, index) => ({ ...base, plan_id: `synthetic-change-${index + 1}`, title: `Синтетическая проверка ${index + 1}`, state: index === 0 ? "ACTIVE" : index % 2 ? "COMPLETED" : "STOPPED", review: index === 0 ? null : review }));
+};
+
 const clone = <T>(value: T): T => structuredClone(value);
 const session = (sessionId: string, title: string, state: "ACTIVE" | "CLOSED", turns: ReflectionTurn[], day: number): ReflectionSession => ({ session_id: sessionId, title, state, turn_count: turns.length, turns, created_at: at(day), updated_at: at(day), closed_at: state === "CLOSED" ? at(day) : null });
 
 const scenarioState = (scenario: PreviewScenario): PreviewState => {
-  if (scenario === "EMPTY") return { sessions: [], explorations: new Map(), locked: false, scenario, interview: null, model: null };
-  if (scenario === "SEARCH_MANY") { const many = session("many", "Синтетический сценарий пагинации", "ACTIVE", clone(manyTurns), 3); return { sessions: [many], explorations: new Map([[many.session_id, { context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }]]), locked: false, scenario, interview: null, model: null }; }
+  if (scenario === "EMPTY") return { sessions: [], explorations: new Map(), locked: false, scenario, interview: null, model: null, changes: previewChanges(scenario) };
+  if (scenario === "SEARCH_MANY") { const many = session("many", "Синтетический сценарий пагинации", "ACTIVE", clone(manyTurns), 3); return { sessions: [many], explorations: new Map([[many.session_id, { context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }]]), locked: false, scenario, interview: null, model: null, changes: previewChanges(scenario) }; }
   const active = session("active", "Активное размышление", "ACTIVE", clone(activeTurns), 5);
   const closed = session("closed", "Завершённое размышление", "CLOSED", clone(closedTurns), 2);
-  if (scenario === "CLOSED") return { sessions: [closed], explorations: new Map([[closed.session_id, closedExploration()]]), locked: false, scenario, interview: null, model: null };
-  return { sessions: [active, closed], explorations: new Map([[active.session_id, activeExploration()], [closed.session_id, closedExploration()]]), locked: false, scenario, interview: previewInterview(scenario), model: previewModel(scenario) };
+  if (scenario === "CLOSED") return { sessions: [closed], explorations: new Map([[closed.session_id, closedExploration()]]), locked: false, scenario, interview: null, model: null, changes: previewChanges(scenario) };
+  return { sessions: [active, closed], explorations: new Map([[active.session_id, activeExploration()], [closed.session_id, closedExploration()]]), locked: false, scenario, interview: previewInterview(scenario), model: previewModel(scenario), changes: previewChanges(scenario) };
 };
 
 const findSession = (state: PreviewState, sessionId: string) => {
@@ -214,7 +228,7 @@ export const createPersonalBrowserPreviewApi = (scenario: PreviewScenario): Pers
   const state = scenarioState(scenario);
   const getExploration = (sessionId: string) => clone(explorationFor(state, sessionId));
   return {
-    status: async () => status(state.locked, state.interview !== null || state.model !== null),
+    status: async () => status(state.locked, state.interview !== null || state.model !== null || state.changes.length > 0),
     unlock: async () => { state.locked = false; return { session_token: "synthetic-preview-only" }; },
     lock: async () => { state.locked = true; return {}; },
     reflectionCreate: async (title) => { const sessionId = `preview-${state.sessions.length + 1}`; const created = session(sessionId, title, "ACTIVE", [], 6); state.sessions.unshift(created); state.explorations.set(sessionId, { context: [], hypotheses: [], next_question: null, snapshots: [], formulations: [] }); return clone(created); },
@@ -257,6 +271,11 @@ export const createPersonalBrowserPreviewApi = (scenario: PreviewScenario): Pers
     aiInterviewDisclosure: async (attemptId) => attemptId === "synthetic-question-attempt"
       ? { state: "SUCCEEDED", items: [{ alias: "S1", content: "Синтетическая локальная запись из более раннего размышления для визуальной проверки оснований; сеть не используется.", turn_id: "closed-turn-1", created_at: at(2), session_id: "closed", session_title: "Синтетическое прошлое размышление" }], model_items: state.model ? state.model.items.filter((item) => item.current && item.state === "ACTIVE").slice(0, 2).map((item, index) => ({ alias: `M${index + 1}`, kind: item.kind, text: item.current!.text, temporal_scope: item.current!.temporal_scope, uncertainty: item.current!.uncertainty, state: item.state })) : [] }
       : { state: "SUCCEEDED", items: [{ alias: "S1", content: "Синтетическая локальная запись для визуальной проверки; сеть не используется.", turn_id: "active-turn-1", created_at: at(4), session_id: "active", session_title: "Активное синтетическое размышление" }] },
+    aiChangeList: async () => ({ plans: clone(state.changes) }),
+    aiChangeControl: async (planId, action) => { const plan = state.changes.find((item) => item.plan_id === planId); if (plan) plan.state = action === "ACTIVATE" ? "ACTIVE" : action === "STOP" ? "STOPPED" : "DISMISSED"; return { plans: clone(state.changes) }; },
+    aiChangeObserve: async (planId) => ({ turn_id: "synthetic-change-observation", plan_id: planId, source: "USER" as const }),
+    aiChangeAllowObservations: async () => ({ plans: [] }),
+    aiChangeStartReview: async () => clone(state.interview ?? previewInterview("INTERVIEW_ACTIVE")!),
     aiModelList: async () => clone(state.model ?? { items: [] }),
     aiModelCorrect: async (itemId, content) => {
       const target = state.model?.items.find((item) => item.item_id === itemId);

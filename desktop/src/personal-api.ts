@@ -190,6 +190,7 @@ export interface ModelItem {
 export interface PersonalModelView {
   items: ModelItem[];
 }
+export interface ChangePlan { plan_id: string; kind: "OBSERVE" | "EXPERIMENT"; state: "PROPOSED" | "ACTIVE" | "COMPLETED" | "STOPPED" | "DISMISSED" | "INVALIDATED"; title: string; reason: string; instructions: string; observation_prompt: string; expected_signal: string; counter_signal: string; duration_days: number | null; stop_conditions: string; created_at: string; activated_at: string | null; ended_at: string | null; targets?: { item_id: string; revision_id: string; text: string; kind: string }[]; observations?: { turn_id: string; content: string; signal: string | null; created_at: string; ai_eligible: boolean }[]; review?: { practical_effect: string; epistemic_outcome: string; summary: string; understanding: string; recommended_next: string; created_at: string } | null; }
 export interface InterviewQuestion {
   question_id: string;
   question: string;
@@ -359,6 +360,11 @@ export const personalApi = {
       action,
       topic,
     }),
+  aiChangeList: () => call<{ plans: ChangePlan[] }>("desktop_ai_change_list"),
+  aiChangeControl: (planId: string, action: "ACTIVATE" | "DISMISS" | "STOP") => call<{ plans: ChangePlan[] }>("desktop_ai_change_control", { planId, action }),
+  aiChangeObserve: (planId: string, content: string, signal: string | null) => call<{ turn_id: string; plan_id: string; source: "USER" }>("desktop_ai_change_observe", { planId, content, signal }),
+  aiChangeAllowObservations: (planId: string, enabled: boolean) => call<{ plans: ChangePlan[] }>("desktop_ai_change_allow_observations", { planId, enabled }),
+  aiChangeStartReview: (planId: string) => call<InterviewView>("desktop_ai_change_start_review", { planId }),
   aiInterviewGet: (interviewSessionId: string) =>
     call<InterviewView>("desktop_ai_interview_get", { interviewSessionId }),
   aiInterviewDisclosure: (attemptId: string) =>

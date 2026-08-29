@@ -11,6 +11,7 @@ from psyche_os.personal_mode.ai_interview import (
     MAX_MODEL_DELTA,
     PersonalAIError,
     PersonalAIInterviewService,
+    validate_change_delta,
     validate_interview_output,
 )
 from psyche_os.personal_mode.package_format import (
@@ -18,14 +19,14 @@ from psyche_os.personal_mode.package_format import (
     restore_personal_package,
     verify_personal_package,
 )
-from psyche_os.personal_mode.schema import initialize_personal_v12, initialize_personal_v13
+from psyche_os.personal_mode.schema import initialize_personal_v12, initialize_personal_v13, initialize_personal_v14
 
 
 class FakeReflection:
     def __init__(self) -> None:
         self.connection = sqlite3.connect(":memory:")
         self.connection.execute("PRAGMA foreign_keys=ON")
-        initialize_personal_v13(self.connection)
+        initialize_personal_v14(self.connection)
         self._next = 0
 
     def create_session(self, title: str) -> dict[str, str]:
@@ -73,9 +74,21 @@ def create_delta(action: str, **overrides: object) -> dict[str, object]:
     return value
 
 
+def change_proposal() -> dict[str, object]:
+    return {
+        "action": "PROPOSE", "kind": "EXPERIMENT", "target_model_aliases": ["M1"],
+        "title": "Короткая пауза после встречи", "reason": "Проверить рабочую версию.",
+        "instructions": "После встречи сделать короткую паузу без новой информации.",
+        "observation_prompt": "Что произошло при переключении?", "expected_signal": "Переключаться немного легче.",
+        "counter_signal": "Разницы нет или стало хуже.", "duration_days": 5,
+        "stop_conditions": "Остановить в любой момент.", "risk_level": "LOW", "reversible": True, "self_directed": True,
+    }
+
+
 class FakeProvider:
     def __init__(self, deltas: list[dict[str, object]] | None = None) -> None:
         self.deltas = deltas or []
+        self.change_delta: dict[str, object] | None = None
         self.calls = 0
         self.last_context: dict[str, object] = {}
 
@@ -86,8 +99,8 @@ class FakeProvider:
         self.last_context = context
         deltas, self.deltas = self.deltas, []
         aliases = [str(item["alias"]) for item in context["sources"]]
-        return {
-            "schema_version": "personal-ai-interview-output-v2",
+        result: dict[str, object] = {
+            "schema_version": "personal-ai-interview-output-v3" if self.change_delta is not None else "personal-ai-interview-output-v2",
             "decision": "ASK",
             "question": "В каком конкретном эпизоде это было заметно?",
             "rationale": "Чтобы проверить рабочую версию на наблюдаемом эпизоде.",
@@ -96,7 +109,11 @@ class FakeProvider:
             "next_direction": None,
             "inquiry_items": [],
             "model_delta": deltas,
-        }, "gpt-5.6-luna"
+        }
+        if self.change_delta is not None:
+            result["change_delta"] = self.change_delta
+            self.change_delta = None
+        return result, "gpt-5.6-luna"
 
 
 def service(
@@ -247,6 +264,100 @@ def test_deleted_source_cannot_be_reconstructed_from_model_or_disclosure() -> No
     assert all("Синтетический ответ" not in str(item) for item in receipt["items"])
     assert receipt["model_items"] == []
     assert value.model()["items"][0]["current"] is None
+
+
+def test_change_proposal_requires_exact_low_risk_model_target() -> None:
+    proposal = {
+        "action": "PROPOSE", "kind": "EXPERIMENT", "target_model_aliases": ["M1"],
+        "title": "Короткая пауза", "reason": "Проверить рабочую версию.",
+        "instructions": "После встречи сделать короткую паузу.",
+        "observation_prompt": "Что изменилось при переключении?",
+        "expected_signal": "Переключаться немного легче.",
+        "counter_signal": "Разницы нет.", "duration_days": 5,
+        "stop_conditions": "Остановить в любой момент.", "risk_level": "LOW",
+        "reversible": True, "self_directed": True,
+    }
+    assert validate_change_delta(proposal, {"M1"})["kind"] == "EXPERIMENT"
+    proposal["risk_level"] = "MEDIUM"
+    with pytest.raises(PersonalAIError):
+        validate_change_delta(proposal, {"M1"})
+
+
+def test_change_activation_and_observations_are_local_owner_source() -> None:
+    value, reflection, provider = service([create_delta("CREATE")])
+    session_id = ready(value)
+    turn_one(value, session_id)
+    provider.change_delta = change_proposal()
+    value.submit(session_id, "proposal", "Синтетический ответ для плана.")
+    plan = value.changes()["plans"][0]
+    calls = provider.calls
+    value.change_control(plan["plan_id"], "ACTIVATE")
+    assert provider.calls == calls
+    observation = value.observe_change(plan["plan_id"], "После паузы переключение было немного легче.", "BETTER")
+    assert observation["source"] == "USER"
+    assert reflection.connection.execute("SELECT actor FROM reflection_turns WHERE turn_id=?", (observation["turn_id"],)).fetchone() == ("USER",)
+    assert value.changes()["plans"][0]["observations"][0]["ai_eligible"] is False
+    value.allow_change_observations(plan["plan_id"], True)
+    assert value.changes()["plans"][0]["observations"][0]["ai_eligible"] is True
+
+
+def test_explicit_review_is_one_call_and_commits_distinct_outcomes_atomically() -> None:
+    value, _reflection, provider = service([create_delta("CREATE")])
+    session_id = ready(value)
+    turn_one(value, session_id)
+    provider.change_delta = change_proposal()
+    value.submit(session_id, "proposal", "Синтетический ответ для плана.")
+    plan_id = value.changes()["plans"][0]["plan_id"]
+    value.change_control(plan_id, "ACTIVATE")
+    value.observe_change(plan_id, "Пауза не изменила переключение.", "SAME")
+    value.allow_change_observations(plan_id, True)
+    review_session = value.start_change_review(plan_id)["interview_session_id"]
+    value.grant_consent(review_session)
+    provider.change_delta = {
+        "action": "REVIEW", "target_change_alias": "C1", "practical_effect": "NO_CLEAR_EFFECT",
+        "epistemic_outcome": "WEAKENED", "summary": "Практического эффекта пока не видно.",
+        "what_changed_in_understanding": "Это ослабляет рабочую версию о паузе.", "recommended_next": "COMPLETE",
+    }
+    before = provider.calls
+    value.request_first_question(review_session)
+    assert provider.calls == before + 1
+    plan = value.changes()["plans"][0]
+    assert plan["state"] == "COMPLETED"
+    assert plan["review"]["practical_effect"] == "NO_CLEAR_EFFECT"
+    assert plan["review"]["epistemic_outcome"] == "WEAKENED"
+
+
+def test_change_rejects_prohibited_intervention_language() -> None:
+    proposal = change_proposal()
+    proposal["instructions"] = "Изменить дозировку лекарства."
+    with pytest.raises(PersonalAIError, match="AI_OUTPUT_UNSAFE"):
+        validate_change_delta(proposal, {"M1"})
+
+
+def test_v14_change_package_round_trip_preserves_nonempty_plan_observation_and_review() -> None:
+    value, reflection, provider = service([create_delta("CREATE")])
+    session_id = ready(value)
+    turn_one(value, session_id)
+    provider.change_delta = change_proposal()
+    value.submit(session_id, "proposal", "Синтетический ответ для плана.")
+    plan_id = value.changes()["plans"][0]["plan_id"]
+    value.change_control(plan_id, "ACTIVATE")
+    value.observe_change(plan_id, "Пауза не изменила переключение.", "SAME")
+    value.allow_change_observations(plan_id, True)
+    review_session = value.start_change_review(plan_id)["interview_session_id"]
+    value.grant_consent(review_session)
+    provider.change_delta = {
+        "action": "REVIEW", "target_change_alias": "C1", "practical_effect": "NO_CLEAR_EFFECT",
+        "epistemic_outcome": "INCONCLUSIVE", "summary": "Данных пока недостаточно.",
+        "what_changed_in_understanding": "Версия пока не отделена от контекста.", "recommended_next": "COMPLETE",
+    }
+    value.request_first_question(review_session)
+    package = create_personal_package(reflection.connection)
+    assert package["schema_version"] == 14 and verify_personal_package(package)
+    restored = sqlite3.connect(":memory:")
+    restored.execute("PRAGMA foreign_keys=ON")
+    restore_personal_package(package, restored)
+    assert create_personal_package(restored)["package_checksum"] == package["package_checksum"]
 
 
 def test_deleting_owner_correction_source_removes_challenge_relation() -> None:

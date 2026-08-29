@@ -22,13 +22,19 @@ from psyche_os.policy.engine import (
 
 PROFILE_ID = "local_personal_ai_interview_openai_windows_v1"
 MODEL = "gpt-5.6-luna"
-CONFIG_ID = "personal-ai-interview-v2-model-12-8000-m6-1600"
-SCHEMA_ID = "personal-ai-interview-output-v2"
+CONFIG_ID = "personal-ai-interview-v3-change-v14-8000-m6-1600"
+SCHEMA_ID = "personal-ai-interview-output-v3"
 PURPOSE = "personal_ai_interview"
 MAX_SOURCE_ITEMS, MAX_SOURCE_CHARS, MAX_INQUIRY_ITEMS, MAX_CONTEXT_CHARS = 12, 8000, 8, 8000
 MAX_QUESTION = MAX_RATIONALE = 480
 MAX_MODEL_ITEMS, MAX_MODEL_CHARS, MAX_MODEL_DELTA = 6, 1600, 3
+MAX_CHANGE_ITEMS, MAX_CHANGE_CHARS = 2, 1600
 MODEL_KINDS = ("HYPOTHESIS", "PATTERN", "CONTRADICTION", "UNKNOWN")
+CHANGE_KINDS = ("OBSERVE", "EXPERIMENT")
+CHANGE_SIGNALS = ("BETTER", "SAME", "WORSE", "UNCLEAR", "NOT_APPLICABLE")
+PRACTICAL_EFFECTS = ("HELPED", "NO_CLEAR_EFFECT", "WORSE", "MIXED", "NOT_TESTED")
+EPISTEMIC_OUTCOMES = ("SUPPORTED", "WEAKENED", "INCONCLUSIVE", "CONTEXT_DEPENDENT")
+RECOMMENDED_NEXT = ("COMPLETE", "CONTINUE_OBSERVING", "RETURN_TO_INQUIRY")
 TEMPORAL_SCOPES = ("CURRENT_STATE", "CONTEXTUAL_PATTERN", "CROSS_PERIOD_PATTERN", "HISTORICAL_CHANGED", "UNCLEAR")
 DELTA_ACTIONS = ("CREATE", "REVISE", "CONTEST", "RESOLVE")
 _UNSAFE = (
@@ -39,6 +45,14 @@ _UNSAFE = (
     r"(?:назначаю|принимайте|дозировк\w*|medication\s+directive)",
     r"(?:вытесненн\w*\s+памят\w*|recovered\s+memory)",
     r"(?:только\s+я|i\s+need\s+you|я\s+всегда\s+рядом|i\s+am\s+always\s+here|наблюдаю\s+за|спасу\s+вас)",
+)
+_CHANGE_UNSAFE = (
+    r"(?:лекарств|медикамент|таблет|дозиров|препарат|medication|supplement|drug|substance)",
+    r"(?:голодан|fasting|диет\w*|sleep\s+depriv|лишени\w*\s+сна|опасн\w*\s+упражнен)",
+    r"(?:самоповреж|self-harm|вождени|driving|незакон|illegal|финансов\w*\s+обяз|кредит)",
+    r"(?:увольн|quit\s+(?:your\s+)?job|расставан|relationship\s+break|разрыв\s+отношен)",
+    r"(?:манипул|обман|deception|принужд|coerc|конфликт\w*\s+с\s+друг)",
+    r"(?:диагноз|diagnos|терапи\w*|treatment)",
 )
 
 
@@ -56,6 +70,12 @@ def _safe(value: str) -> str:
     if any(re.search(pattern, value, flags=re.IGNORECASE) for pattern in _UNSAFE):
         raise PersonalAIError("AI_OUTPUT_UNSAFE")
     return value
+
+
+def _safe_change(value: str) -> str:
+    if any(re.search(pattern, value, flags=re.IGNORECASE) for pattern in _CHANGE_UNSAFE):
+        raise PersonalAIError("AI_OUTPUT_UNSAFE")
+    return _safe(value)
 
 
 def _canonical_inquiry_text(value: str) -> str:
@@ -122,6 +142,8 @@ class PersonalAIInterviewService:
                 "max_model_items": MAX_MODEL_ITEMS,
                 "max_model_chars": MAX_MODEL_CHARS,
                 "max_model_delta": MAX_MODEL_DELTA,
+                "max_change_items": MAX_CHANGE_ITEMS,
+                "max_change_chars": MAX_CHANGE_CHARS,
             },
             "eligible_source_count": int(eligible),
         }
@@ -394,6 +416,16 @@ class PersonalAIInterviewService:
             }
             for alias, kind, text, scope, uncertainty, sent_state, _derivation_id in model_items
         ]
+        change_items = [] if self._reflection.connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='interview_attempt_change_items'"
+        ).fetchone() is None else self._reflection.connection.execute(
+            "SELECT a.alias,p.kind,p.title,p.instructions,p.expected_signal,p.counter_signal,a.sent_state FROM interview_attempt_change_items a JOIN change_plans p ON p.plan_id=a.plan_id WHERE a.attempt_id=? ORDER BY a.ordinal",
+            (attempt_id,),
+        ).fetchall()
+        result["change_items"] = [
+            {"alias": str(alias), "kind": str(kind), "title": str(title), "instructions": str(instructions), "expected_signal": str(expected), "counter_signal": str(counter), "state": str(state)}
+            for alias, kind, title, instructions, expected, counter, state in change_items
+        ]
         return result
 
     def model(self) -> dict[str, Any]:
@@ -514,6 +546,96 @@ class PersonalAIInterviewService:
             # the challenge relation itself carries the owner-contested state,
             # so the base item row is never mutated here.
         return self.model()
+
+    def changes(self) -> dict[str, Any]:
+        rows = self._reflection.connection.execute("SELECT plan_id,kind,state,title,reason,instructions,observation_prompt,expected_signal,counter_signal,duration_days,stop_conditions,created_at,activated_at,ended_at FROM change_plans ORDER BY created_at DESC").fetchall()
+        plans = [dict(zip(("plan_id","kind","state","title","reason","instructions","observation_prompt","expected_signal","counter_signal","duration_days","stop_conditions","created_at","activated_at","ended_at"), row, strict=True)) for row in rows]
+        for plan in plans:
+            plan["targets"] = [
+                {"item_id": str(item_id), "revision_id": str(revision_id), "text": str(text), "kind": str(kind)}
+                for item_id, revision_id, text, kind in self._reflection.connection.execute(
+                    "SELECT t.item_id,t.revision_id,r.text,r.kind FROM change_plan_targets t JOIN personal_model_revisions r ON r.revision_id=t.revision_id WHERE t.plan_id=? ORDER BY t.item_id",
+                    (plan["plan_id"],),
+                ).fetchall()
+            ]
+            plan["observations"] = [
+                {"turn_id": str(turn_id), "content": str(content), "signal": signal, "created_at": str(created_at), "ai_eligible": self._policy_for_turn(str(turn_id)) is not None}
+                for turn_id, content, signal, created_at in self._reflection.connection.execute(
+                    "SELECT t.turn_id,t.content,o.signal,o.created_at FROM change_observations o JOIN reflection_turns t ON t.turn_id=o.turn_id WHERE o.plan_id=? ORDER BY o.created_at",
+                    (plan["plan_id"],),
+                ).fetchall()
+            ]
+            review = self._reflection.connection.execute(
+                "SELECT practical_effect,epistemic_outcome,summary,understanding,recommended_next,created_at FROM change_reviews WHERE plan_id=? ORDER BY created_at DESC,review_id DESC LIMIT 1",
+                (plan["plan_id"],),
+            ).fetchone()
+            plan["review"] = None if review is None else dict(zip(("practical_effect", "epistemic_outcome", "summary", "understanding", "recommended_next", "created_at"), review, strict=True))
+        return {"plans": plans}
+
+    def allow_change_observations(self, plan_id: Any, enabled: Any) -> dict[str, Any]:
+        plan_id = _text(plan_id, 64)
+        if not isinstance(enabled, bool):
+            raise PersonalAIError("INVALID_INTERVIEW_PAYLOAD")
+        rows = self._reflection.connection.execute(
+            "SELECT turn_id FROM change_observations WHERE plan_id=? ORDER BY created_at,observation_id",
+            (plan_id,),
+        ).fetchall()
+        if not rows:
+            raise PersonalAIError("CHANGE_OBSERVATIONS_NOT_FOUND")
+        # Use the existing exact per-turn source policy, in its existing bounded batches.
+        for offset in range(0, len(rows), MAX_SOURCE_ITEMS):
+            self.set_source_policy([str(row[0]) for row in rows[offset:offset + MAX_SOURCE_ITEMS]], enabled)
+        return self.changes()
+
+    def start_change_review(self, plan_id: Any) -> dict[str, Any]:
+        plan_id = _text(plan_id, 64)
+        row = self._reflection.connection.execute(
+            "SELECT state,derivation_id FROM change_plans WHERE plan_id=?", (plan_id,)
+        ).fetchone()
+        if row is None:
+            raise PersonalAIError("CHANGE_NOT_FOUND")
+        if str(row[0]) not in {"ACTIVE", "STOPPED"}:
+            raise PersonalAIError("CHANGE_NOT_REVIEWABLE")
+        if not self._derivation_eligible(str(row[1])):
+            raise PersonalAIError("CHANGE_LINEAGE_NOT_ELIGIBLE")
+        session = self.start(f"REVIEW_CHANGE {plan_id}")
+        with self._reflection.connection:
+            self._reflection.connection.execute(
+                "INSERT INTO change_review_sessions VALUES(?,?)",
+                (session["interview_session_id"], plan_id),
+            )
+        return self.get(session["interview_session_id"])
+
+    def change_control(self, plan_id: Any, action: Any) -> dict[str, Any]:
+        plan_id, action = _text(plan_id, 64), _text(action, 16)
+        if action not in {"ACTIVATE", "DISMISS", "STOP"}: raise PersonalAIError("INVALID_INTERVIEW_PAYLOAD")
+        c, now = self._reflection.connection, _now()
+        with c:
+            row = c.execute("SELECT kind,state FROM change_plans WHERE plan_id=?", (plan_id,)).fetchone()
+            if row is None: raise PersonalAIError("CHANGE_NOT_FOUND")
+            kind, state = str(row[0]), str(row[1])
+            if action == "ACTIVATE":
+                if state != "PROPOSED": raise PersonalAIError("CHANGE_NOT_ACTIVATABLE")
+                if kind == "EXPERIMENT" and c.execute("SELECT 1 FROM change_plans WHERE kind='EXPERIMENT' AND state='ACTIVE'").fetchone(): raise PersonalAIError("ACTIVE_EXPERIMENT_EXISTS")
+                if kind == "OBSERVE" and c.execute("SELECT count(*) FROM change_plans WHERE kind='OBSERVE' AND state='ACTIVE'").fetchone()[0] >= 2: raise PersonalAIError("ACTIVE_OBSERVE_LIMIT")
+                c.execute("UPDATE change_plans SET state='ACTIVE',activated_at=? WHERE plan_id=?", (now, plan_id))
+            elif action == "DISMISS" and state == "PROPOSED": c.execute("UPDATE change_plans SET state='DISMISSED',ended_at=? WHERE plan_id=?", (now, plan_id))
+            elif action == "STOP" and state == "ACTIVE": c.execute("UPDATE change_plans SET state='STOPPED',ended_at=? WHERE plan_id=?", (now, plan_id))
+            else: raise PersonalAIError("CHANGE_NOT_ACTIONABLE")
+        return self.changes()
+
+    def observe_change(self, plan_id: Any, content: Any, signal: Any = None) -> dict[str, Any]:
+        plan_id, content = _text(plan_id, 64), _text(content, 12000)
+        if signal is not None and signal not in CHANGE_SIGNALS: raise PersonalAIError("INVALID_INTERVIEW_PAYLOAD")
+        c, now = self._reflection.connection, _now()
+        with c:
+            if c.execute("SELECT 1 FROM change_plans WHERE plan_id=? AND state='ACTIVE'", (plan_id,)).fetchone() is None: raise PersonalAIError("CHANGE_NOT_ACTIVE")
+            session = self._reflection.create_session("Наблюдения изменений")
+            turn_id = generate_id()
+            c.execute("INSERT INTO reflection_turns VALUES(?,?,?,?,?,?)", (turn_id, session["session_id"], 1, "USER", now, content))
+            c.execute("UPDATE reflection_sessions SET turn_count=1,updated_at=? WHERE session_id=?", (now, session["session_id"]))
+            c.execute("INSERT INTO change_observations VALUES(?,?,?,?,?)", (generate_id(), plan_id, turn_id, signal, now))
+        return {"turn_id": turn_id, "plan_id": plan_id, "source": "USER"}
 
     def get(self, session_id: Any) -> dict[str, Any]:
         session_id = _text(session_id, 64)
@@ -793,9 +915,47 @@ class PersonalAIInterviewService:
             chars += len(text)
         return tuple(entries)
 
+    def _change_context(self, session_id: str) -> tuple[dict[str, Any], ...]:
+        """Only current, lineage-eligible derived plans can enter a packet."""
+        if self._reflection.connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='change_review_sessions'"
+        ).fetchone() is None:
+            # Only retained legacy test/package shapes reach this branch;
+            # current runtime initialization always migrates to V14.
+            return ()
+        review = self._reflection.connection.execute(
+            "SELECT plan_id FROM change_review_sessions WHERE interview_session_id=?", (session_id,)
+        ).fetchone()
+        requested = str(review[0]) if review else None
+        rows = self._reflection.connection.execute(
+            "SELECT plan_id,derivation_id,kind,state,title,instructions,expected_signal,counter_signal,duration_days,activated_at FROM change_plans WHERE state IN ('ACTIVE','STOPPED') ORDER BY activated_at DESC,created_at DESC,plan_id ASC"
+        ).fetchall()
+        entries: list[dict[str, Any]] = []
+        chars = 0
+        for plan_id, derivation_id, kind, state, title, instructions, expected, counter, duration, activated in rows:
+            if requested and str(plan_id) != requested:
+                continue
+            if not self._derivation_eligible(str(derivation_id)):
+                continue
+            text_size = sum(len(str(value or "")) for value in (title, instructions, expected, counter))
+            if len(entries) == MAX_CHANGE_ITEMS or chars + text_size > MAX_CHANGE_CHARS:
+                continue
+            entries.append({
+                "alias": f"C{len(entries) + 1}", "plan_id": str(plan_id), "derivation_id": str(derivation_id),
+                "kind": str(kind), "state": str(state), "title": str(title), "instructions": str(instructions),
+                "expected_signal": str(expected), "counter_signal": str(counter), "duration_days": duration,
+                "activated_at": activated, "char_count": text_size,
+                "review_target": str(plan_id) == requested,
+            })
+            chars += text_size
+        if requested and not entries:
+            raise PersonalAIError("CHANGE_LINEAGE_NOT_ELIGIBLE")
+        return tuple(entries)
+
     def _select(
         self, session_id: str
     ) -> tuple[
+        tuple[dict[str, Any], ...],
         tuple[dict[str, Any], ...],
         tuple[dict[str, Any], ...],
         tuple[dict[str, Any], ...],
@@ -805,6 +965,18 @@ class PersonalAIInterviewService:
             "SELECT turn_id,content,created_at FROM (SELECT t.turn_id,t.content,t.created_at FROM interview_sessions i JOIN reflection_turns t ON t.session_id=i.source_session_id WHERE i.interview_session_id=? UNION ALL SELECT t.turn_id,t.content,t.created_at FROM reflection_turns t WHERE t.actor='USER' AND t.session_id NOT IN (SELECT source_session_id FROM interview_sessions WHERE interview_session_id=?)) ORDER BY created_at DESC,turn_id DESC",
             (session_id, session_id),
         ).fetchall()
+        review_plan = None if self._reflection.connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='change_review_sessions'"
+        ).fetchone() is None else self._reflection.connection.execute(
+            "SELECT plan_id FROM change_review_sessions WHERE interview_session_id=?", (session_id,)
+        ).fetchone()
+        if review_plan is not None:
+            observation_rows = self._reflection.connection.execute(
+                "SELECT t.turn_id,t.content,t.created_at FROM change_observations o JOIN reflection_turns t ON t.turn_id=o.turn_id WHERE o.plan_id=? ORDER BY o.created_at DESC,o.observation_id DESC",
+                (str(review_plan[0]),),
+            ).fetchall()
+            observation_ids = {str(row[0]) for row in observation_rows}
+            rows = [*observation_rows, *(row for row in rows if str(row[0]) not in observation_ids)]
         sources = []
         chars = 0
         for turn_id, content, _ in rows:
@@ -877,17 +1049,23 @@ class PersonalAIInterviewService:
             while total > MAX_CONTEXT_CHARS and group:
                 total -= len(group[-1][key]) if key == "text" else group[-1][key]
                 group.pop()
-        return tuple(sources), tuple(inquiry), tuple(planning), tuple(model)
+        changes = list(self._change_context(session_id))
+        total += sum(item["char_count"] for item in changes)
+        while total > MAX_CONTEXT_CHARS and changes:
+            total -= changes[-1]["char_count"]
+            changes.pop()
+        return tuple(sources), tuple(inquiry), tuple(planning), tuple(model), tuple(changes)
 
     def _perform(self, session_id: str, answer_turn_id: str | None) -> dict[str, Any]:
         self._require_consent(session_id)
         if not self._exists(session_id):
             raise PersonalAIError("INTERVIEW_NOT_FOUND")
-        sources, inquiry, planning, model = self._select(session_id)
+        sources, inquiry, planning, model, changes = self._select(session_id)
         source_chars = sum(x["char_count"] for x in sources)
         inquiry_chars = sum(x["char_count"] for x in inquiry)
         model_chars = sum(x["char_count"] for x in model)
-        context_chars = source_chars + inquiry_chars + model_chars + sum(len(x["text"]) for x in planning)
+        change_chars = sum(x["char_count"] for x in changes)
+        context_chars = source_chars + inquiry_chars + model_chars + change_chars + sum(len(x["text"]) for x in planning)
         attempt_id, now, c = generate_id(), _now(), self._reflection.connection
         with c:
             c.execute(
@@ -938,6 +1116,11 @@ class PersonalAIInterviewService:
                     "INSERT INTO interview_attempt_model_items VALUES(?,?,?,?,?,?,?)",
                     (attempt_id, item["alias"], item["item_id"], item["revision_id"], item["state"], ordinal, item["char_count"]),
                 )
+            for ordinal, item in enumerate(changes, 1):
+                c.execute(
+                    "INSERT INTO interview_attempt_change_items VALUES(?,?,?,?,?,?)",
+                    (attempt_id, item["alias"], item["plan_id"], item["state"], ordinal, item["char_count"]),
+                )
         manifest = {
             "attempt_id": attempt_id,
             "purpose": PURPOSE,
@@ -947,13 +1130,14 @@ class PersonalAIInterviewService:
             "schema_id": SCHEMA_ID,
             "source_aliases": [x["alias"] for x in sources],
             "model_aliases": [x["alias"] for x in model],
+            "change_aliases": [x["alias"] for x in changes],
             "max_source_items": MAX_SOURCE_ITEMS,
             "max_source_chars": MAX_SOURCE_CHARS,
             "max_model_items": MAX_MODEL_ITEMS,
             "max_model_chars": MAX_MODEL_CHARS,
             "max_context_chars": MAX_CONTEXT_CHARS,
         }
-        packet = {"sources": sources, "inquiry": inquiry, "planning": planning, "model": model}
+        packet = {"sources": sources, "inquiry": inquiry, "planning": planning, "model": model, "changes": changes}
         try:
             with c:
                 c.execute(
@@ -989,6 +1173,7 @@ class PersonalAIInterviewService:
                 raw,
                 {x["alias"] for x in sources},
                 frozenset(x["alias"] for x in model),
+                frozenset(x["alias"] for x in changes),
             )
         except PersonalAIError as exc:
             with c:
@@ -997,7 +1182,7 @@ class PersonalAIInterviewService:
                     (_now(), exc.code, attempt_id),
                 )
             raise
-        self._commit(session_id, attempt_id, sources, model, answer_turn_id, parsed, actual_model)
+        self._commit(session_id, attempt_id, sources, model, changes, answer_turn_id, parsed, actual_model)
         return self.get(session_id)
 
     def _commit(
@@ -1006,6 +1191,7 @@ class PersonalAIInterviewService:
         attempt_id: str,
         sources: tuple[dict[str, Any], ...],
         model: tuple[dict[str, Any], ...],
+        changes: tuple[dict[str, Any], ...],
         answer_turn_id: str | None,
         value: dict[str, Any],
         actual_model: str,
@@ -1013,6 +1199,7 @@ class PersonalAIInterviewService:
         now, c, derivation_id = _now(), self._reflection.connection, generate_id()
         by_alias = {x["alias"]: x for x in sources}
         model_by_alias = {x["alias"]: x for x in model}
+        change_by_alias = {x["alias"]: x for x in changes}
         with c:
             c.execute(
                 "UPDATE interview_attempts SET state='SUCCEEDED',completed_at=?,model=? WHERE attempt_id=?",
@@ -1053,6 +1240,12 @@ class PersonalAIInterviewService:
                     (entry["item_id"],),
                 ).fetchall():
                     lineage.setdefault(str(challenge_turn), "INHERITED")
+            for entry in changes:
+                for turn_id, _alias in c.execute(
+                    "SELECT turn_id,alias FROM interview_derivation_sources WHERE derivation_id=? ORDER BY turn_id",
+                    (entry["derivation_id"],),
+                ).fetchall():
+                    lineage.setdefault(str(turn_id), "INHERITED")
             for turn_id, alias in lineage.items():
                 c.execute(
                     "INSERT INTO interview_derivation_sources VALUES(?,?,?)",
@@ -1110,6 +1303,35 @@ class PersonalAIInterviewService:
                 )
                 active_items.add((item["kind"], _canonical_inquiry_text(item["text"])))
             self._apply_model_delta(c, value["model_delta"], model_by_alias, by_alias, derivation_id, now)
+            change = value.get("change_delta")
+            if change is not None:
+                if change["action"] == "PROPOSE":
+                    active_count = c.execute(
+                        "SELECT count(*) FROM change_plans WHERE kind=? AND state='ACTIVE'", (change["kind"],)
+                    ).fetchone()[0]
+                    if (change["kind"] == "EXPERIMENT" and active_count) or (change["kind"] == "OBSERVE" and active_count >= 2):
+                        raise PersonalAIError("ACTIVE_CHANGE_LIMIT")
+                    duplicate = c.execute(
+                        "SELECT 1 FROM change_plans WHERE kind=? AND lower(trim(title))=lower(trim(?)) AND state IN ('PROPOSED','ACTIVE')",
+                        (change["kind"], change["title"]),
+                    ).fetchone()
+                    if duplicate:
+                        raise PersonalAIError("DUPLICATE_CHANGE_PLAN")
+                    plan_id = generate_id()
+                    c.execute("INSERT INTO change_plans VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (plan_id, derivation_id, change["kind"], "PROPOSED", change["title"], change["reason"], change["instructions"], change["observation_prompt"], change["expected_signal"], change["counter_signal"], change["duration_days"], change["stop_conditions"], "LOW", 1, 1, now, None, None))
+                    for alias in change["target_model_aliases"]:
+                        target = model_by_alias[alias]
+                        c.execute("INSERT INTO change_plan_targets VALUES(?,?,?)", (plan_id, target["item_id"], target["revision_id"]))
+                else:
+                    plan = change_by_alias[change["target_change_alias"]]
+                    if not plan["review_target"] or plan["state"] not in {"ACTIVE", "STOPPED"}:
+                        raise PersonalAIError("CHANGE_REVIEW_NOT_AUTHORIZED")
+                    c.execute(
+                        "INSERT INTO change_reviews VALUES(?,?,?,?,?,?,?,?,?)",
+                        (generate_id(), plan["plan_id"], derivation_id, change["practical_effect"], change["epistemic_outcome"], change["summary"], change["what_changed_in_understanding"], change["recommended_next"], now),
+                    )
+                    if change["recommended_next"] == "COMPLETE" and plan["state"] == "ACTIVE":
+                        c.execute("UPDATE change_plans SET state='COMPLETED',ended_at=? WHERE plan_id=?", (now, plan["plan_id"]))
             state = "END_RECOMMENDED" if value["decision"] == "END_RECOMMENDED" else "ACTIVE"
             summary_id = derivation_id if value["summary"] is not None else None
             direction_id = derivation_id if value["next_direction"] is not None else None
@@ -1333,8 +1555,32 @@ def validate_model_delta(raw: Any, aliases: set[str], model_aliases: set[str]) -
     return deltas
 
 
+def validate_change_delta(raw: Any, model_aliases: set[str], change_aliases: set[str] = set()) -> dict[str, Any] | None:
+    if raw is None: return None
+    if not isinstance(raw, dict): raise PersonalAIError("AI_OUTPUT_REJECTED")
+    if raw.get("action") == "PROPOSE":
+        keys = {"action","kind","target_model_aliases","title","reason","instructions","observation_prompt","expected_signal","counter_signal","duration_days","stop_conditions","risk_level","reversible","self_directed"}
+        if raw.get("kind") not in CHANGE_KINDS or set(raw) != keys or not isinstance(raw["target_model_aliases"], list) or not raw["target_model_aliases"] or len(raw["target_model_aliases"]) > 3 or len(set(raw["target_model_aliases"])) != len(raw["target_model_aliases"]) or not all(x in model_aliases for x in raw["target_model_aliases"]): raise PersonalAIError("AI_OUTPUT_REJECTED")
+        if raw["risk_level"] != "LOW" or raw["reversible"] is not True or raw["self_directed"] is not True: raise PersonalAIError("AI_OUTPUT_REJECTED")
+        duration = raw["duration_days"]
+        if duration is not None and (not isinstance(duration, int) or not 1 <= duration <= 31): raise PersonalAIError("AI_OUTPUT_REJECTED")
+        result = {key: raw[key] for key in keys}
+        for key, limit in (("title",160),("reason",480),("instructions",1200),("observation_prompt",480),("expected_signal",480),("counter_signal",480),("stop_conditions",480)):
+            result[key] = _safe_change(_text(raw[key], limit))
+        return result
+    keys = {"action", "target_change_alias", "practical_effect", "epistemic_outcome", "summary", "what_changed_in_understanding", "recommended_next"}
+    if raw.get("action") != "REVIEW" or set(raw) != keys or raw["target_change_alias"] not in change_aliases or raw["practical_effect"] not in PRACTICAL_EFFECTS or raw["epistemic_outcome"] not in EPISTEMIC_OUTCOMES or raw["recommended_next"] not in RECOMMENDED_NEXT:
+        raise PersonalAIError("AI_OUTPUT_REJECTED")
+    return {
+        "action": "REVIEW", "target_change_alias": raw["target_change_alias"],
+        "practical_effect": raw["practical_effect"], "epistemic_outcome": raw["epistemic_outcome"], "recommended_next": raw["recommended_next"],
+        "summary": _safe(_text(raw["summary"], 480)),
+        "what_changed_in_understanding": _safe(_text(raw["what_changed_in_understanding"], 480)),
+    }
+
+
 def validate_interview_output(
-    raw: Any, aliases: set[str], model_aliases: frozenset[str] = frozenset()
+    raw: Any, aliases: set[str], model_aliases: frozenset[str] = frozenset(), change_aliases: frozenset[str] = frozenset()
 ) -> dict[str, Any]:
     required = {
         "schema_version",
@@ -1345,9 +1591,10 @@ def validate_interview_output(
         "summary",
         "next_direction",
         "inquiry_items",
-        "model_delta",
+        "model_delta", "change_delta",
     }
-    if not isinstance(raw, dict) or set(raw) != required or raw.get("schema_version") != SCHEMA_ID:
+    legacy = isinstance(raw, dict) and set(raw) == required - {"change_delta"} and raw.get("schema_version") == "personal-ai-interview-output-v2"
+    if not isinstance(raw, dict) or (set(raw) != required and not legacy) or raw.get("schema_version") not in {SCHEMA_ID, "personal-ai-interview-output-v2"}:
         raise PersonalAIError("AI_OUTPUT_REJECTED")
     decision = raw.get("decision")
     if (
@@ -1403,4 +1650,5 @@ def validate_interview_output(
         "next_direction": next_direction,
         "inquiry_items": items,
         "model_delta": validate_model_delta(raw["model_delta"], aliases, set(model_aliases)),
+        "change_delta": None if legacy else validate_change_delta(raw["change_delta"], set(model_aliases), set(change_aliases)),
     }
