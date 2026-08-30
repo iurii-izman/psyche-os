@@ -183,6 +183,8 @@ export interface ModelItem {
     created_at: string;
     support: ModelSourceExcerpt[];
     counterevidence: ModelSourceExcerpt[];
+    external_support?: { kind: string; label: string; started_at: string; ended_at: string; snapshot_status: string; classification: string }[];
+    external_counterevidence?: { kind: string; label: string; started_at: string; ended_at: string; snapshot_status: string; classification: string }[];
   } | null;
   challenges: { text: string; created_at: string }[];
   history: ModelRevision[];
@@ -334,8 +336,9 @@ export const personalApi = {
     call<InterviewView>("desktop_ai_interview_start", { ownerTopic }),
   aiInterviewList: () =>
     call<{ sessions: InterviewView[] }>("desktop_ai_interview_list"),
-  aiInterviewGrantConsent: (interviewSessionId: string) =>
-    call("desktop_ai_interview_grant_consent", { interviewSessionId }),
+  aiInterviewExternalPolicy: (enabled: boolean) => call("desktop_ai_interview_external_policy", { enabled }),
+  aiInterviewGrantConsent: (interviewSessionId: string, includeSleep = false) =>
+    call("desktop_ai_interview_grant_consent", { interviewSessionId, includeSleep }),
   aiInterviewRevokeConsent: (interviewSessionId: string) =>
     call("desktop_ai_interview_revoke_consent", { interviewSessionId }),
   aiInterviewFirstQuestion: (interviewSessionId: string) =>
@@ -390,6 +393,7 @@ export const personalApi = {
         uncertainty: string | null;
         state: string;
       }[];
+      external_evidence?: { alias: string; content: { start: string; end: string; duration_minutes: number; stage_minutes: Record<string, number>; snapshot_status: string }; source_label: string; raw_not_sent: boolean; physiology_not_sent: boolean }[];
     }>(
       "desktop_ai_interview_disclosure",
       { attemptId },

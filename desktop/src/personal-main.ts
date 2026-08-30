@@ -113,6 +113,8 @@ const modelExcerpt = (excerpt: {
   session_id?: string;
 }) =>
   `<article class="source-excerpt"><strong>Вы написали</strong><small>${escape(dateLabel(excerpt.created_at))}</small><p>${escape(excerpt.content)}</p>${excerpt.session_id ? `<button class="link-button" data-open-source="${escape(excerpt.session_id)}" data-turn-id="${escape(excerpt.turn_id)}">Открыть источник</button>` : ""}</article>`;
+const sleepExcerpt = (excerpt: { label: string; started_at: string; ended_at: string; snapshot_status: string }) =>
+  `<article class="source-excerpt"><strong>⌚ Сон · оценка устройства/поставщика</strong><small>${escape(excerpt.label)} · ${escape(dateLabel(excerpt.started_at))} · ${escape(excerpt.started_at)} → ${escape(excerpt.ended_at)} · ${escape(excerpt.snapshot_status)}</small></article>`;
 
 const modelCard = (item: ModelItem) => {
   const current = item.current;
@@ -125,8 +127,8 @@ const modelCard = (item: ModelItem) => {
     ? `<span class="status-pill">${escape(modelStateLabel(item.state))}</span>`
     : "";
   const basis =
-    current.support.length || current.counterevidence.length
-      ? `<details class="source-evidence"><summary>Почему эта версия · основания ${current.support.length} · не укладывается ${current.counterevidence.length}</summary>${current.support.length ? `<p class="provenance-note">Основания:</p>${current.support.map(modelExcerpt).join("")}` : ""}${current.counterevidence.length ? `<p class="provenance-note">Не укладывается в эту версию:</p>${current.counterevidence.map(modelExcerpt).join("")}` : ""}</details>`
+    current.support.length || current.counterevidence.length || current.external_support?.length || current.external_counterevidence?.length
+      ? `<details class="source-evidence"><summary>Почему эта версия</summary>${current.support.length ? `<p class="provenance-note">📝 Пользователь · основания:</p>${current.support.map(modelExcerpt).join("")}` : ""}${current.external_support?.length ? `<p class="provenance-note">⌚ Сон · оценки устройства/поставщика:</p>${current.external_support.map(sleepExcerpt).join("")}` : ""}${current.counterevidence.length ? `<p class="provenance-note">📝 Пользователь · не укладывается:</p>${current.counterevidence.map(modelExcerpt).join("")}` : ""}${current.external_counterevidence?.length ? `<p class="provenance-note">⌚ Сон · не укладывается:</p>${current.external_counterevidence.map(sleepExcerpt).join("")}` : ""}</details>`
       : "";
   const history = item.history.filter((revision) => revision.status !== "CURRENT");
   const historyMarkup = history.length
@@ -162,6 +164,7 @@ export async function mountPersonal(
     busy = false,
     aiConfigured: boolean | null = null,
     interviewEligibility: number | null = null,
+    sleepAiEnabled = false,
     sourceTurnId: string | null = null,
     showContextPack = false;
   type SearchFilters = {
@@ -220,6 +223,8 @@ export async function mountPersonal(
         interviewSessions = listed.sessions;
         model = await api.aiModelList();
         changePlans = api.aiChangeList ? (await api.aiChangeList()).plans : [];
+        const provider = await api.aiInterviewStatus() as { sleep_evidence?: { enabled?: boolean } };
+        sleepAiEnabled = provider.sleep_evidence?.enabled === true;
         if (!interview) {
           const selected =
             listed.sessions.find((item) => item.state !== "COMPLETED") ??
@@ -592,7 +597,7 @@ export async function mountPersonal(
       : "";
     const main = question
       ? `<section class="card interview-focus"><p>PSYCHE · ОДИН ВОПРОС</p><h1>${escape(question.question)}</h1><details><summary>Почему этот вопрос?</summary><p>${escape(question.rationale)}</p></details>${basis}<form id="interview-answer"><label>Ваш ответ <textarea id="interview-answer-text" required maxlength="12000"></textarea></label><button class="primary">Ответить</button></form><div class="formulation-controls"><button data-interview-control="SKIP">Пропустить</button><button data-interview-control="DECLINE">Не хочу обсуждать</button><button data-interview-control="CHANGE_TOPIC">Сменить тему</button><button data-interview-control="STOP" class="danger">Остановить</button></div></section>`
-      : `<section class="card"><p>${escape(consent)}</p><button id="${interview.consent === "ACTIVE_IN_MEMORY" ? "interview-next" : "interview-consent"}" class="primary">${interview.consent === "ACTIVE_IN_MEMORY" ? "Продолжить исследование" : "Показать согласие и продолжить"}</button></section>`;
+      : `<section class="card"><p>${escape(consent)}</p>${interview.consent === "ACTIVE_IN_MEMORY" ? "" : sleepAiEnabled ? `<label><input id="interview-include-sleep" type="checkbox"/> Включить краткие данные сна в эту сессию</label><p class="provenance-note">Только для активной сессии: до 7 нормализованных ночей; фоновых AI-вызовов нет.</p>` : `<p class="provenance-note">Данные сна: отключены глобальной настройкой. В этой сессии они не передаются.</p>`}<button id="${interview.consent === "ACTIVE_IN_MEMORY" ? "interview-next" : "interview-consent"}" class="primary">${interview.consent === "ACTIVE_IN_MEMORY" ? "Продолжить исследование" : "Показать согласие и продолжить"}</button></section>`;
     const end =
       interview.state === "END_RECOMMENDED"
         ? `<section class="card interview-result"><p>РЕКОМЕНДАЦИЯ AI · НЕ РЕШЕНИЕ ЗА ВАС</p><h2>Что стало яснее</h2><p>${escape(interview.summary ?? "Можно завершить эту линию на сейчас.")}</p><h3>Что вы рассказали</h3><p>Ваши ответы остаются отдельными локальными источниками — их можно увидеть в ходе сессии.</p><h3>Рабочие предположения · НЕ ФАКТ</h3>${(interview.derived_items ?? []).filter((item) => item.kind === "HYPOTHESIS").map((item) => `<p>${escape(item.text)}</p>`).join("") || "<p>Новых рабочих предположений не сохранено.</p>"}<h3>Противоречия / неизвестное</h3>${(interview.derived_items ?? []).filter((item) => item.kind === "CONTRADICTION" || item.kind === "UNKNOWN").map((item) => `<p>${escape(item.text)}</p>`).join("") || "<p>Новых открытых пунктов не сохранено.</p>"}<h3>К чему вернуться</h3><p>${escape(interview.next_direction ?? "Следующее направление сохранено локально.")}</p><button data-interview-control="END" class="primary">Завершить</button><button data-interview-control="CONTINUE">Продолжить</button></section>`
@@ -838,7 +843,7 @@ export async function mountPersonal(
       status?.runtime_profile === "LOCAL_PERSONAL_BOUNDED_OPENAI" ||
       status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI";
     const historyPermission = status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? `<section class="card"><p>AI-ИССЛЕДОВАНИЕ · ИСТОРИЧЕСКИЙ КОНТЕКСТ</p><h2>Какие прошлые записи AI-сессия может использовать</h2><p>${interviewEligibility === null ? "Проверяем локальные разрешения…" : `Сейчас разрешено: ${interviewEligibility} записей.`} Выберите или отзовите конкретные записи в их карточках истории. Невыбранные записи остаются локальными; разрешение действует только для этой цели и OpenAI.</p><button data-route="history">Открыть историю и выбрать записи</button></section>` : "";
-    const sleepSettings = `<section class="card settings-card"><p>LOCAL HEALTH CONNECT</p><h2>Health.md · сон</h2><p>Выберите локальную папку со снимками Health.md. Импорт остаётся на устройстве; слушатель и фоновая передача отключены.</p><form id="sleep-inbox-form"><label>Папка Health.md<input id="sleep-inbox-path" required maxlength="1024" value="${escape(sleepSource?.inbox_path ?? "")}" placeholder="C:\\Папка\\Health.md" /></label><button>Сохранить папку</button></form><dl class="friendly-status"><dt>Настроенный путь</dt><dd>${escape(sleepSource?.inbox_path ?? "не настроен")}</dd><dt>Состояние источника</dt><dd>${escape(sleepSource?.state ?? "DISABLED")}</dd><dt>Последний успешный импорт</dt><dd>${escape(sleepSource?.last_imported_at ?? "ещё не было")}</dd><dt>Последний снимок</dt><dd>${escape(sleepSource?.snapshot_status ?? "нет снимка")}${sleepSource?.snapshot_status === "PARTIAL" ? ` · неполный, замечаний: ${sleepSource.issue_count ?? 0}` : ""}</dd><dt>Импортировано ночей</dt><dd>${sleepSource?.nights ?? 0}</dd></dl>${sleepSource?.snapshot_status === "PARTIAL" ? "<p class=\"derived-warning\">Частичный снимок принят как неполное доказательство; отсутствующие данные не подставляются.</p>" : ""}<button id="sleep-scan" class="primary" ${sleepSource?.configured ? "" : "disabled"}>Проверить сейчас</button></section>`;
+    const sleepSettings = `<section class="card settings-card"><p>LOCAL HEALTH CONNECT</p><h2>Health.md · сон</h2><p>Выберите локальную папку со снимками Health.md. Импорт остаётся на устройстве; слушатель и фоновая передача отключены.</p><form id="sleep-inbox-form"><label>Папка Health.md<input id="sleep-inbox-path" required maxlength="1024" value="${escape(sleepSource?.inbox_path ?? "")}" placeholder="C:\\Папка\\Health.md" /></label><button>Сохранить папку</button></form><dl class="friendly-status"><dt>Настроенный путь</dt><dd>${escape(sleepSource?.inbox_path ?? "не настроен")}</dd><dt>Состояние источника</dt><dd>${escape(sleepSource?.state ?? "DISABLED")}</dd><dt>Последний успешный импорт</dt><dd>${escape(sleepSource?.last_imported_at ?? "ещё не было")}</dd><dt>Последний снимок</dt><dd>${escape(sleepSource?.snapshot_status ?? "нет снимка")}${sleepSource?.snapshot_status === "PARTIAL" ? ` · неполный, замечаний: ${sleepSource.issue_count ?? 0}` : ""}</dd><dt>Импортировано ночей</dt><dd>${sleepSource?.nights ?? 0}</dd></dl>${sleepSource?.snapshot_status === "PARTIAL" ? "<p class=\"derived-warning\">Частичный снимок принят как неполное доказательство; отсутствующие данные не подставляются.</p>" : ""}<button id="sleep-scan" class="primary" ${sleepSource?.configured ? "" : "disabled"}>Проверить сейчас</button></section>${status?.runtime_profile === "LOCAL_PERSONAL_AI_INTERVIEW_OPENAI" ? `<section class="card settings-card"><p>AI-ИССЛЕДОВАНИЕ · ДАННЫЕ СНА</p><h2>Разрешать AI-сессиям использовать краткие данные о сне</h2><p>Может быть передано: интервал сна, длительность, агрегированные оценки стадий устройства/поставщика, COMPLETE/PARTIAL и максимум 7 недавних ночей.</p><p>Не передаются: raw Health.md, native/source/version IDs, метаданные устройства, raw timeline стадий, HR, resting HR, SpO2 и respiratory rate.</p><label><input id="sleep-ai-policy" type="checkbox" ${sleepAiEnabled ? "checked" : ""}/> Разрешить для Personal AI Interview</label><p class="provenance-note">Изменение настройки не вызывает AI-вызовов и отменяет согласие активной сессии.</p></section>` : ""}`;
     return `<main class="product-shell">${nav()}<section class="product-home"><p>PERSONAL</p><h1>Настройки</h1><p>Состояние локального режима и инструменты восстановления.</p></section><section class="card settings-card"><p>ПРИВАТНОСТЬ И ЛОКАЛЬНЫЙ РЕЖИМ</p><h2>Ваши данные остаются под вашим контролем</h2><dl class="friendly-status"><dt>Обработка данных</dt><dd>Локально${ai ? " — по умолчанию" : ""}</dd><dt>Облачная передача</dt><dd>${ai ? "OpenAI — только после явного подтверждения" : "Отключена"}</dd><dt>Сетевые подключения</dt><dd>${ai ? "Только один подтверждённый запрос OpenAI" : "Отключены"}</dd><dt>Фоновая передача</dt><dd>Отключена</dd><dt>Телеметрия</dt><dd>Отключена</dd></dl>${ai ? `<section><h2>OpenAI</h2><p>${aiConfigured ? "Настроен" : "Не настроен"}</p><form id="ai-key-form"><label>${aiConfigured ? "Заменить ключ" : "Настроить ключ"}<input id="ai-key" type="password" required autocomplete="off" /></label><button>Сохранить ключ</button></form>${aiConfigured ? '<button id="ai-key-delete" class="danger">Удалить ключ</button>' : ""}</section>` : ""}<details><summary>Технические сведения</summary><dl><dt>Идентификатор сборки</dt><dd>${escape(status?.build_id ?? "Недоступен")}</dd><dt>Профиль</dt><dd>${escape(status?.runtime_profile)}</dd><dt>REAL_DATA_GATE</dt><dd>${escape(status?.real_data_gate)}</dd><dt>Сеть</dt><dd>${escape(status?.network)}</dd><dt>Входящий слушатель</dt><dd>${escape(status?.inbound_listener)}</dd><dt>Провайдер</dt><dd>${escape(status?.outbound_provider)}</dd></dl></details></section>${sleepSettings}${historyPermission}${noticeMarkup()}</main>`;
   };
   const recoveryMarkup = () =>
@@ -947,6 +952,11 @@ export async function mountPersonal(
           notice = `Проверка завершена: записей ${result.records}, обновлений ${result.versions}.`;
         }),
     );
+    host.querySelector<HTMLInputElement>("#sleep-ai-policy")?.addEventListener("change", (event) => void act(async () => {
+      sleepAiEnabled = (event.currentTarget as HTMLInputElement).checked;
+      await api.aiInterviewExternalPolicy(sleepAiEnabled);
+      notice = sleepAiEnabled ? "Краткие данные сна разрешены для следующего явного согласия AI-сессии." : "Данные сна отключены для AI-сессий; активное согласие отменено.";
+    }));
     submit("#quick-capture-form", async () => {
       const text = host
         .querySelector<HTMLTextAreaElement>("#quick-capture-text")!
@@ -1206,7 +1216,8 @@ export async function mountPersonal(
             )
           )
             return;
-          await api.aiInterviewGrantConsent(interview.interview_session_id);
+          const includeSleep = sleepAiEnabled && (host.querySelector<HTMLInputElement>("#interview-include-sleep")?.checked === true);
+          await api.aiInterviewGrantConsent(interview.interview_session_id, includeSleep);
           interview = await api.aiInterviewFirstQuestion(
             interview.interview_session_id,
           );
@@ -1297,8 +1308,10 @@ export async function mountPersonal(
                 button.dataset.disclosure!,
               );
               const target = host.querySelector("#interview-disclosure");
-              if (target)
-                target.innerHTML = `<h3>Исходные записи, переданные AI</h3>${receipt.items.map((item) => `<article class="source-excerpt"><strong>${escape(item.alias)}</strong><p>${escape(item.content)}</p></article>`).join("") || "<p>Исходные записи не передавались.</p>"}<h3>Рабочая модель, переданная AI</h3>${(receipt.model_items ?? []).map((item) => `<article class="source-excerpt"><strong>${escape(modelKindLabel(item.kind))}</strong><small>${escape(temporalLabel(item.temporal_scope))}</small><p>${escape(item.text)}</p></article>`).join("") || "<p>Рабочая модель не передавалась.</p>"}`;
+              if (target) {
+                const sleep = receipt.external_evidence ?? [];
+                target.innerHTML = `<h3>Исходные записи, переданные AI</h3>${receipt.items.map((item) => `<article class="source-excerpt"><strong>${escape(item.alias)}</strong><p>${escape(item.content)}</p></article>`).join("") || "<p>Исходные записи не передавались.</p>"}<h3>Данные сна</h3>${sleep.map((item) => `<article class="source-excerpt"><strong>${escape(item.alias)} · ⌚ оценка устройства/поставщика</strong><small>${escape(item.source_label)} · ${escape(item.content.start)} → ${escape(item.content.end)} · ${escape(item.content.duration_minutes)} мин · ${escape(item.content.snapshot_status)}</small><p>Стадии: ${escape(Object.entries(item.content.stage_minutes).map(([name, minutes]) => `${name} ${minutes} мин`).join(", ") || "нет доступных агрегатов")}</p></article>`).join("") || "<p>Данные сна не передавались.</p>"}${sleep.length ? "<p class=\"provenance-note\">Raw Health.md и физиологические samples не передавались.</p>" : ""}<h3>Рабочая модель, переданная AI</h3>${(receipt.model_items ?? []).map((item) => `<article class="source-excerpt"><strong>${escape(modelKindLabel(item.kind))}</strong><small>${escape(temporalLabel(item.temporal_scope))}</small><p>${escape(item.text)}</p></article>`).join("") || "<p>Рабочая модель не передавалась.</p>"}`;
+              }
             }),
         ),
       );

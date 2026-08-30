@@ -31,6 +31,7 @@ pub const SHIPPED_COMMANDS: &[&str] = &[
     "desktop_ai_formulation_execute",
     "desktop_ai_interview_status",
     "desktop_ai_interview_policy",
+    "desktop_ai_interview_external_policy",
     "desktop_ai_interview_source_policy",
     "desktop_ai_interview_start",
     "desktop_ai_interview_list",

@@ -125,6 +125,23 @@ PERSONAL_V13_INVENTORY = (*PERSONAL_V12_INVENTORY, "personal_model_items", "pers
 PERSONAL_V14_INVENTORY = (*PERSONAL_V13_INVENTORY, "change_plans", "change_plan_targets", "change_observations", "change_reviews", "change_review_sessions", "interview_attempt_change_items")
 PERSONAL_V15_INVENTORY = (*PERSONAL_V14_INVENTORY, "external_sources", "external_import_batches", "external_records", "external_record_versions", "sleep_episodes", "sleep_observations", "sleep_stages", "physiological_samples")
 
+# V16 is deliberately parallel to the USER-source interview lineage.  An E
+# alias names a small, immutable transmission view, never a reflection turn or
+# an external raw record.  Cascades from source versions remove the exact
+# sent-state and its derivations rather than attempting to reconstruct it.
+_V16_DDL = (
+    "ALTER TABLE interview_attempts ADD COLUMN external_item_count INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE interview_attempts ADD COLUMN external_char_count INTEGER NOT NULL DEFAULT 0",
+    "CREATE TABLE interview_external_policies (source_id TEXT PRIMARY KEY, policy_id TEXT NOT NULL UNIQUE, enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)), evidence_view TEXT NOT NULL CHECK(evidence_view='SLEEP_AI_FACTS_V1'), purpose TEXT NOT NULL CHECK(purpose='personal_ai_interview'), provider_profile TEXT NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY(source_id) REFERENCES external_sources(source_id) ON DELETE CASCADE)",
+    "CREATE TABLE interview_attempt_external_items (attempt_id TEXT NOT NULL, alias TEXT NOT NULL, source_version_id TEXT NOT NULL, policy_id TEXT NOT NULL, evidence_view TEXT NOT NULL CHECK(evidence_view='SLEEP_AI_FACTS_V1'), normalized_content TEXT NOT NULL CHECK(json_valid(normalized_content)), ordinal INTEGER NOT NULL, char_count INTEGER NOT NULL, PRIMARY KEY(attempt_id,alias), UNIQUE(attempt_id,source_version_id), FOREIGN KEY(attempt_id) REFERENCES interview_attempts(attempt_id) ON DELETE CASCADE, FOREIGN KEY(source_version_id) REFERENCES external_record_versions(version_id) ON DELETE CASCADE)",
+    "CREATE TABLE interview_derivation_external_sources (derivation_id TEXT NOT NULL, source_version_id TEXT NOT NULL, alias TEXT NOT NULL, PRIMARY KEY(derivation_id,source_version_id), FOREIGN KEY(derivation_id) REFERENCES interview_derivations(derivation_id) ON DELETE CASCADE, FOREIGN KEY(source_version_id) REFERENCES external_record_versions(version_id) ON DELETE CASCADE)",
+    "CREATE TRIGGER interview_derivation_external_source_deleted AFTER DELETE ON interview_derivation_external_sources BEGIN DELETE FROM interview_derivations WHERE derivation_id=OLD.derivation_id; END",
+    "CREATE TRIGGER personal_model_revision_deleted_closes_item AFTER DELETE ON personal_model_revisions BEGIN UPDATE personal_model_items SET state='INVALIDATED',updated_at=datetime('now') WHERE item_id=OLD.item_id AND state IN ('ACTIVE','CONTESTED') AND NOT EXISTS (SELECT 1 FROM personal_model_revisions WHERE item_id=OLD.item_id AND status='CURRENT'); END",
+    "CREATE TABLE interview_question_external_basis (question_id TEXT NOT NULL, alias TEXT NOT NULL, source_version_id TEXT NOT NULL, PRIMARY KEY(question_id,alias), FOREIGN KEY(question_id) REFERENCES interview_questions(question_id) ON DELETE CASCADE, FOREIGN KEY(source_version_id) REFERENCES external_record_versions(version_id) ON DELETE CASCADE)",
+    "CREATE TABLE personal_model_revision_external_sources (revision_id TEXT NOT NULL, source_version_id TEXT NOT NULL, alias TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('SUPPORT','COUNTEREVIDENCE')), PRIMARY KEY(revision_id,source_version_id,role), FOREIGN KEY(revision_id) REFERENCES personal_model_revisions(revision_id) ON DELETE CASCADE, FOREIGN KEY(source_version_id) REFERENCES external_record_versions(version_id) ON DELETE CASCADE)",
+)
+PERSONAL_V16_INVENTORY = (*PERSONAL_V15_INVENTORY, "interview_external_policies", "interview_attempt_external_items", "interview_derivation_external_sources", "interview_question_external_basis", "personal_model_revision_external_sources")
+
 
 def initialize_personal_v10(connection: Any) -> None:
     """Create or validate the exact Personal-only V10 schema, fail closed."""
@@ -148,7 +165,7 @@ def initialize_personal_v10(connection: Any) -> None:
 def migrate_personal_v11(connection: Any) -> None:
     """Atomic additive provenance migration; V10 rows and bytes remain intact."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11], [10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15]):
+    if versions in ([10, 11], [10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15], [10, 11, 12, 13, 14, 15, 16]):
         return
     if versions != [10]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -161,7 +178,7 @@ def migrate_personal_v11(connection: Any) -> None:
 def migrate_personal_v12(connection: Any) -> None:
     """Atomic additive AI Interview migration; historical source fails closed."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15]):
+    if versions in ([10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15], [10, 11, 12, 13, 14, 15, 16]):
         return
     if versions != [10, 11]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -177,7 +194,7 @@ def migrate_personal_v12(connection: Any) -> None:
 def migrate_personal_v13(connection: Any) -> None:
     """Atomic additive Personal Model migration; no semantic backfill."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15]):
+    if versions in ([10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15], [10, 11, 12, 13, 14, 15, 16]):
         return
     if versions != [10, 11, 12]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -215,7 +232,7 @@ def initialize_personal_v13(connection: Any) -> None:
 
 def migrate_personal_v14(connection: Any) -> None:
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15]):
+    if versions in ([10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15], [10, 11, 12, 13, 14, 15, 16]):
         return
     if versions != [10, 11, 12, 13]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -230,7 +247,7 @@ def initialize_personal_v14(connection: Any) -> None:
 
 def migrate_personal_v15(connection: Any) -> None:
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions == [10, 11, 12, 13, 14, 15]:
+    if versions in ([10, 11, 12, 13, 14, 15], [10, 11, 12, 13, 14, 15, 16]):
         return
     if versions != [10, 11, 12, 13, 14]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -248,3 +265,18 @@ def initialize_personal_v15(connection: Any) -> None:
             connection.execute("ALTER TABLE external_import_batches ADD COLUMN snapshot_status TEXT NOT NULL DEFAULT 'COMPLETE' CHECK(snapshot_status IN ('COMPLETE','PARTIAL'))")
         if "issue_count" not in columns:
             connection.execute("ALTER TABLE external_import_batches ADD COLUMN issue_count INTEGER NOT NULL DEFAULT 0 CHECK(issue_count >= 0)")
+
+def migrate_personal_v16(connection: Any) -> None:
+    versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
+    if versions == [10, 11, 12, 13, 14, 15, 16]:
+        return
+    if versions != [10, 11, 12, 13, 14, 15]:
+        raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
+    with connection:
+        for statement in _V16_DDL:
+            connection.execute(statement)
+        connection.execute("INSERT INTO schema_migrations(version,label,checksum) VALUES(16,?,?)", ("pmv1_external_evidence_ai_inquiry_sleep_v16", "personal-v16-external-ai-sleep"))
+
+def initialize_personal_v16(connection: Any) -> None:
+    initialize_personal_v15(connection)
+    migrate_personal_v16(connection)

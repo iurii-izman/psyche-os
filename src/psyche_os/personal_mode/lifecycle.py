@@ -30,6 +30,7 @@ from psyche_os.personal_mode.package_format import (
     PERSONAL_V13_FORMAT_VERSION,
     PERSONAL_V14_FORMAT_VERSION,
     PERSONAL_V15_FORMAT_VERSION,
+    PERSONAL_V16_FORMAT_VERSION,
     create_personal_package,
     restore_personal_package,
     verify_personal_package,
@@ -374,7 +375,7 @@ class PersonalLifecycleService:
                 package = create_personal_package(connection)
                 if package[
                     "format_version"
-                ] != PERSONAL_V15_FORMAT_VERSION or not verify_personal_package(package):
+                ] != PERSONAL_V16_FORMAT_VERSION or not verify_personal_package(package):
                     raise PersonalLifecycleError()
                 backup_id = secrets.token_hex(16)
                 bootstrap, payload = create_bootstrap(
@@ -429,7 +430,7 @@ class PersonalLifecycleService:
                 (package_root / "payload.bin").read_bytes(),
             )
             package = json.loads(raw.decode("utf-8"))
-            if not verify_personal_package(package) or package["format_version"] not in {3, PERSONAL_V11_FORMAT_VERSION, PERSONAL_V12_FORMAT_VERSION, PERSONAL_V13_FORMAT_VERSION, PERSONAL_V14_FORMAT_VERSION, PERSONAL_V15_FORMAT_VERSION}:
+            if not verify_personal_package(package) or package["format_version"] not in {3, PERSONAL_V11_FORMAT_VERSION, PERSONAL_V12_FORMAT_VERSION, PERSONAL_V13_FORMAT_VERSION, PERSONAL_V14_FORMAT_VERSION, PERSONAL_V15_FORMAT_VERSION, PERSONAL_V16_FORMAT_VERSION}:
                 raise PersonalLifecycleError()
             bootstrap = json.loads((package_root / "bootstrap.json").read_text(encoding="utf-8"))
             envelope = PersonalKeyEnvelope(

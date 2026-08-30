@@ -12,6 +12,7 @@ from typing import Any
 from psyche_os.adapters.e07_provider import ProviderTimeoutError, ProviderUnavailableError
 from psyche_os.domain.ids import PolicyId, generate_id
 from psyche_os.personal_mode.ai_working_formulation import OpenAIKeyStore, PersonalAIError
+from psyche_os.personal_mode.external_evidence import SOURCE_ID
 from psyche_os.policy.engine import (
     CloudPolicy,
     PolicyAxes,
@@ -29,6 +30,8 @@ MAX_SOURCE_ITEMS, MAX_SOURCE_CHARS, MAX_INQUIRY_ITEMS, MAX_CONTEXT_CHARS = 12, 8
 MAX_QUESTION = MAX_RATIONALE = 480
 MAX_MODEL_ITEMS, MAX_MODEL_CHARS, MAX_MODEL_DELTA = 6, 1600, 3
 MAX_CHANGE_ITEMS, MAX_CHANGE_CHARS = 2, 1600
+MAX_EXTERNAL_ITEMS, MAX_EXTERNAL_CHARS, MAX_EXTERNAL_LOOKBACK_NIGHTS = 7, 2400, 14
+SLEEP_AI_FACTS_V1 = "SLEEP_AI_FACTS_V1"
 MODEL_KINDS = ("HYPOTHESIS", "PATTERN", "CONTRADICTION", "UNKNOWN")
 CHANGE_KINDS = ("OBSERVE", "EXPERIMENT")
 CHANGE_SIGNALS = ("BETTER", "SAME", "WORSE", "UNCLEAR", "NOT_APPLICABLE")
@@ -45,6 +48,7 @@ _UNSAFE = (
     r"(?:назначаю|принимайте|дозировк\w*|medication\s+directive)",
     r"(?:вытесненн\w*\s+памят\w*|recovered\s+memory)",
     r"(?:только\s+я|i\s+need\s+you|я\s+всегда\s+рядом|i\s+am\s+always\s+here|наблюдаю\s+за|спасу\s+вас)",
+    r"(?:сон\s+вызвал|из-за\s+недосыпа|sleep\s+caused|sleep\s+leads\s+to|leads\s+to\s+your\s+psychological)",
 )
 _CHANGE_UNSAFE = (
     r"(?:лекарств|медикамент|таблет|дозиров|препарат|medication|supplement|drug|substance)",
@@ -108,6 +112,8 @@ class ConsentCapability:
     session_id: str
     provider_profile: str
     policy_generation: str
+    include_sleep: bool
+    external_policy_generation: str | None
 
 
 class PersonalAIInterviewService:
@@ -127,6 +133,7 @@ class PersonalAIInterviewService:
             "SELECT count(*) FROM interview_source_policies WHERE enabled=1 AND purpose=? AND provider_profile=?",
             (PURPOSE, PROFILE_ID),
         ).fetchone()[0]
+        external = self._external_policy()
         return {
             "provider": "OpenAI",
             "profile_id": PROFILE_ID,
@@ -146,6 +153,7 @@ class PersonalAIInterviewService:
                 "max_change_chars": MAX_CHANGE_CHARS,
             },
             "eligible_source_count": int(eligible),
+            "sleep_evidence": {"enabled": external is not None and external[0], "policy_generation": None if external is None else external[1], "evidence_view": SLEEP_AI_FACTS_V1, "max_items": MAX_EXTERNAL_ITEMS, "max_chars": MAX_EXTERNAL_CHARS, "lookback_nights": MAX_EXTERNAL_LOOKBACK_NIGHTS},
         }
 
     def set_policy(self, enabled: Any) -> dict[str, Any]:
@@ -158,6 +166,22 @@ class PersonalAIInterviewService:
             )
         if not enabled:
             self._consents.clear()
+        return self.status()
+
+    def set_external_policy(self, enabled: Any) -> dict[str, Any]:
+        if not isinstance(enabled, bool):
+            raise PersonalAIError("INVALID_INTERVIEW_PAYLOAD")
+        source = self._reflection.connection.execute("SELECT 1 FROM external_sources WHERE source_id=?", (SOURCE_ID,)).fetchone()
+        if source is None:
+            raise PersonalAIError("SLEEP_SOURCE_NOT_FOUND")
+        now = _now()
+        with self._reflection.connection:
+            self._reflection.connection.execute(
+                "INSERT INTO interview_external_policies(source_id,policy_id,enabled,evidence_view,purpose,provider_profile,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET enabled=excluded.enabled,updated_at=excluded.updated_at",
+                (SOURCE_ID, "interview-external-sleep-v1", int(enabled), SLEEP_AI_FACTS_V1, PURPOSE, PROFILE_ID, now),
+            )
+        # A changed owner scope is never silently retained by an old session.
+        self._consents.clear()
         return self.status()
 
     def set_source_policy(self, turn_ids: Any, enabled: Any) -> dict[str, Any]:
@@ -240,7 +264,7 @@ class PersonalAIInterviewService:
             ]
         }
 
-    def grant_consent(self, session_id: Any) -> dict[str, Any]:
+    def grant_consent(self, session_id: Any, include_sleep: Any = False) -> dict[str, Any]:
         session_id = _text(session_id, 64)
         if not self.status()["policy_enabled"]:
             raise PersonalAIError("AI_POLICY_DISABLED")
@@ -248,14 +272,18 @@ class PersonalAIInterviewService:
             raise PersonalAIError("AI_NOT_CONFIGURED")
         if not self._exists(session_id):
             raise PersonalAIError("INTERVIEW_NOT_FOUND")
-        self._consents[session_id] = ConsentCapability(
-            session_id, PROFILE_ID, str(self.status()["policy_generation"])
-        )
+        if not isinstance(include_sleep, bool):
+            raise PersonalAIError("INVALID_INTERVIEW_PAYLOAD")
+        external = self._external_policy()
+        if include_sleep and (external is None or not external[0]):
+            raise PersonalAIError("SLEEP_AI_POLICY_DISABLED")
+        self._consents[session_id] = ConsentCapability(session_id, PROFILE_ID, str(self.status()["policy_generation"]), include_sleep, None if external is None else external[1])
         return {
             "session_id": session_id,
             "consent": "ACTIVE_IN_MEMORY",
             "provider": "OpenAI",
             "profile_id": PROFILE_ID,
+            "sleep_evidence": "INCLUDED" if include_sleep else "NOT_INCLUDED",
             "notice": "OpenAI получит только явно разрешённые для этой цели материалы; фоновых вызовов нет.",
         }
 
@@ -386,6 +414,10 @@ class PersonalAIInterviewService:
             )
             for item in items
         ]
+        result["external_evidence"] = [] if self._reflection.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='interview_attempt_external_items'").fetchone() is None else [
+            {"alias": str(alias), "policy_id": str(policy_id), "evidence_view": str(view), "content": json.loads(content), "ordinal": int(ordinal), "char_count": int(char_count), "source_label": "Health.md → Health Connect", "raw_not_sent": True, "physiology_not_sent": True}
+            for alias, policy_id, view, content, ordinal, char_count in self._reflection.connection.execute("SELECT alias,policy_id,evidence_view,normalized_content,ordinal,char_count FROM interview_attempt_external_items WHERE attempt_id=? ORDER BY ordinal", (attempt_id,)).fetchall()
+        ]
         inquiry = self._reflection.connection.execute(
             "SELECT i.item_id,i.kind,i.text,i.priority,i.derivation_id FROM interview_attempt_inquiry_items a JOIN interview_inquiry_items i ON i.item_id=a.item_id WHERE a.attempt_id=? ORDER BY a.ordinal",
             (attempt_id,),
@@ -457,6 +489,23 @@ class PersonalAIInterviewService:
                     for turn_id, content, created, session_id in rows
                 ]
 
+            def external_excerpts(revision_id: str, role: str) -> list[dict[str, Any]]:
+                if self._reflection.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='personal_model_revision_external_sources'").fetchone() is None:
+                    return []
+                rows = self._reflection.connection.execute(
+                    "SELECT m.normalized_content FROM personal_model_revision_external_sources x JOIN interview_attempt_external_items m ON m.source_version_id=x.source_version_id WHERE x.revision_id=? AND x.role=? ORDER BY m.attempt_id,m.ordinal",
+                    (revision_id, role),
+                ).fetchall()
+                seen: set[str] = set()
+                result: list[dict[str, Any]] = []
+                for (raw,) in rows:
+                    if str(raw) in seen:
+                        continue
+                    seen.add(str(raw))
+                    facts = json.loads(str(raw))
+                    result.append({"kind": str(facts["kind"]), "label": "Health.md → Health Connect", "started_at": str(facts["start"]), "ended_at": str(facts["end"]), "duration_minutes": int(facts["duration_minutes"]), "stage_minutes": facts.get("stage_minutes", {}), "snapshot_status": str(facts["snapshot_status"]), "classification": str(facts["classification"])})
+                return result
+
             challenges = [
                 {
                     "text": str(content),
@@ -496,6 +545,8 @@ class PersonalAIInterviewService:
                         "created_at": str(current[10]),
                         "support": excerpts(str(current[0]), "SUPPORT"),
                         "counterevidence": excerpts(str(current[0]), "COUNTEREVIDENCE"),
+                        "external_support": external_excerpts(str(current[0]), "SUPPORT"),
+                        "external_counterevidence": external_excerpts(str(current[0]), "COUNTEREVIDENCE"),
                     },
                     "challenges": challenges,
                     "history": history,
@@ -751,6 +802,57 @@ class PersonalAIInterviewService:
         ):
             self._consents.pop(session_id, None)
             raise PersonalAIError("AI_POLICY_DISABLED")
+        external = self._external_policy()
+        if capability.include_sleep and (external is None or not external[0] or capability.external_policy_generation != external[1]):
+            self._consents.pop(session_id, None)
+            raise PersonalAIError("SLEEP_AI_RECONSENT_REQUIRED")
+
+    def _external_policy(self) -> tuple[bool, str] | None:
+        if self._reflection.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='interview_external_policies'").fetchone() is None:
+            return None
+        row = self._reflection.connection.execute(
+            "SELECT enabled,updated_at FROM interview_external_policies WHERE source_id=? AND evidence_view=? AND purpose=? AND provider_profile=?",
+            (SOURCE_ID, SLEEP_AI_FACTS_V1, PURPOSE, PROFILE_ID),
+        ).fetchone()
+        return None if row is None else (bool(row[0]), str(row[1]))
+
+    def _sleep_facts(self, session_id: str) -> tuple[dict[str, Any], ...]:
+        capability = self._consents.get(session_id)
+        if capability is None or not capability.include_sleep:
+            return ()
+        if self._reflection.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='interview_external_policies'").fetchone() is None:
+            return ()
+        policy = self._external_policy()
+        if policy is None or not policy[0]:
+            return ()
+        # A Change review intentionally remains USER/model/change-only.
+        if self._reflection.connection.execute("SELECT 1 FROM change_review_sessions WHERE interview_session_id=?", (session_id,)).fetchone():
+            return ()
+        rows = self._reflection.connection.execute(
+            "SELECT v.version_id,e.started_at,e.ended_at,b.snapshot_status FROM sleep_observations o JOIN sleep_episodes e ON e.episode_id=o.episode_id JOIN external_record_versions v ON v.version_id=o.current_version_id JOIN external_import_batches b ON b.batch_id=v.batch_id WHERE v.is_current=1 ORDER BY e.started_at DESC,v.version_id ASC LIMIT ?",
+            (MAX_EXTERNAL_LOOKBACK_NIGHTS,),
+        ).fetchall()
+        entries: list[dict[str, Any]] = []
+        chars = 0
+        for version_id, started, ended, snapshot_status in rows:
+            stages: dict[str, int] = {}
+            for category, stage_start, stage_end in self._reflection.connection.execute(
+                "SELECT category,started_at,ended_at FROM sleep_stages WHERE source_version_id=? ORDER BY started_at,stage_id", (version_id,)
+            ):
+                try:
+                    minutes = int((datetime.fromisoformat(str(stage_end)).astimezone(UTC) - datetime.fromisoformat(str(stage_start)).astimezone(UTC)).total_seconds() // 60)
+                except ValueError:
+                    continue
+                if minutes > 0:
+                    stages[str(category)] = stages.get(str(category), 0) + minutes
+            duration = int((datetime.fromisoformat(str(ended)).astimezone(UTC) - datetime.fromisoformat(str(started)).astimezone(UTC)).total_seconds() // 60)
+            content: dict[str, Any] = {"kind": "SLEEP_EPISODE", "classification": "VENDOR_DERIVED", "start": str(started), "end": str(ended), "duration_minutes": duration, "snapshot_status": str(snapshot_status), "stage_minutes": stages}
+            encoded = json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            if len(entries) >= MAX_EXTERNAL_ITEMS or chars + len(encoded) > MAX_EXTERNAL_CHARS:
+                continue
+            entries.append({"alias": f"E{len(entries)+1}", "source_version_id": str(version_id), "policy_id": "interview-external-sleep-v1", "evidence_view": SLEEP_AI_FACTS_V1, "content": content, "normalized_content": encoded, "char_count": len(encoded)})
+            chars += len(encoded)
+        return tuple(entries)
 
     def _upsert_policy(self, turn_id: str, enabled: bool, assigned_by: str, now: str) -> None:
         self._reflection.connection.execute(
@@ -854,7 +956,8 @@ class PersonalAIInterviewService:
             "SELECT turn_id FROM interview_derivation_sources WHERE derivation_id=?",
             (derivation_id,),
         ).fetchall()
-        return bool(rows) and all(self._policy_for_turn(str(row[0])) is not None for row in rows)
+        external = [] if self._reflection.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='interview_derivation_external_sources'").fetchone() is None else self._reflection.connection.execute("SELECT source_version_id FROM interview_derivation_external_sources WHERE derivation_id=?", (derivation_id,)).fetchall()
+        return bool(rows or external) and all(self._policy_for_turn(str(row[0])) is not None for row in rows)
 
     def _model_context(self, sources: tuple[dict[str, Any], ...]) -> tuple[dict[str, Any], ...]:
         """Bounded, eligibility-filtered Personal Model context for one packet.
@@ -1062,22 +1165,32 @@ class PersonalAIInterviewService:
         while total > MAX_CONTEXT_CHARS and changes:
             total -= changes[-1]["char_count"]
             changes.pop()
-        return tuple(sources), tuple(inquiry), tuple(planning), tuple(model), tuple(changes)
+        # External sleep facts are always added last and are always the first
+        # optional material removed.  They may never displace USER, inquiry,
+        # model, planning, or Change context.
+        external = list(self._sleep_facts(session_id))
+        total += sum(x["char_count"] for x in external)
+        while total > MAX_CONTEXT_CHARS and external:
+            total -= external[-1]["char_count"]
+            external.pop()
+        return tuple(sources), tuple(inquiry), tuple(planning), tuple(model), tuple(changes), tuple(external)
 
     def _perform(self, session_id: str, answer_turn_id: str | None) -> dict[str, Any]:
         self._require_consent(session_id)
         if not self._exists(session_id):
             raise PersonalAIError("INTERVIEW_NOT_FOUND")
-        sources, inquiry, planning, model, changes = self._select(session_id)
+        sources, inquiry, planning, model, changes, external = self._select(session_id)
         source_chars = sum(x["char_count"] for x in sources)
         inquiry_chars = sum(x["char_count"] for x in inquiry)
         model_chars = sum(x["char_count"] for x in model)
         change_chars = sum(x["char_count"] for x in changes)
-        context_chars = source_chars + inquiry_chars + model_chars + change_chars + sum(len(x["text"]) for x in planning)
+        external_chars = sum(x["char_count"] for x in external)
+        context_chars = source_chars + inquiry_chars + model_chars + change_chars + external_chars + sum(len(x["text"]) for x in planning)
         attempt_id, now, c = generate_id(), _now(), self._reflection.connection
+        has_external_schema = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='interview_attempt_external_items'").fetchone() is not None
         with c:
             c.execute(
-                "INSERT INTO interview_attempts(attempt_id,interview_session_id,answer_turn_id,purpose,provider_profile,model,config_id,schema_id,state,policy_enabled,source_item_count,source_char_count,inquiry_item_count,inquiry_char_count,context_char_count,model_item_count,model_char_count,created_at,sent_at,completed_at,error_code) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO interview_attempts(attempt_id,interview_session_id,answer_turn_id,purpose,provider_profile,model,config_id,schema_id,state,policy_enabled,source_item_count,source_char_count,inquiry_item_count,inquiry_char_count,context_char_count,model_item_count,model_char_count,created_at,sent_at,completed_at,error_code,external_item_count,external_char_count) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)" if has_external_schema else "INSERT INTO interview_attempts(attempt_id,interview_session_id,answer_turn_id,purpose,provider_profile,model,config_id,schema_id,state,policy_enabled,source_item_count,source_char_count,inquiry_item_count,inquiry_char_count,context_char_count,model_item_count,model_char_count,created_at,sent_at,completed_at,error_code) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     attempt_id,
                     session_id,
@@ -1100,7 +1213,9 @@ class PersonalAIInterviewService:
                     None,
                     None,
                     None,
-                ),
+                    len(external),
+                    external_chars,
+                ) if has_external_schema else (attempt_id, session_id, answer_turn_id, PURPOSE, PROFILE_ID, MODEL, CONFIG_ID, SCHEMA_ID, "PREPARED", 1, len(sources), source_chars, len(inquiry), inquiry_chars, context_chars, len(model), model_chars, now, None, None, None),
             )
             for ordinal, item in enumerate(sources, 1):
                 c.execute(
@@ -1129,6 +1244,8 @@ class PersonalAIInterviewService:
                     "INSERT INTO interview_attempt_change_items VALUES(?,?,?,?,?,?)",
                     (attempt_id, item["alias"], item["plan_id"], item["state"], ordinal, item["char_count"]),
                 )
+            for ordinal, item in (enumerate(external, 1) if has_external_schema else ()):
+                c.execute("INSERT INTO interview_attempt_external_items VALUES(?,?,?,?,?,?,?,?)", (attempt_id, item["alias"], item["source_version_id"], item["policy_id"], item["evidence_view"], item["normalized_content"], ordinal, item["char_count"]))
         manifest = {
             "attempt_id": attempt_id,
             "purpose": PURPOSE,
@@ -1139,13 +1256,16 @@ class PersonalAIInterviewService:
             "source_aliases": [x["alias"] for x in sources],
             "model_aliases": [x["alias"] for x in model],
             "change_aliases": [x["alias"] for x in changes],
+            "external_aliases": [x["alias"] for x in external],
             "max_source_items": MAX_SOURCE_ITEMS,
             "max_source_chars": MAX_SOURCE_CHARS,
             "max_model_items": MAX_MODEL_ITEMS,
             "max_model_chars": MAX_MODEL_CHARS,
             "max_context_chars": MAX_CONTEXT_CHARS,
+            "max_external_items": MAX_EXTERNAL_ITEMS,
+            "max_external_chars": MAX_EXTERNAL_CHARS,
         }
-        packet = {"sources": sources, "inquiry": inquiry, "planning": planning, "model": model, "changes": changes}
+        packet = {"sources": sources, "external_evidence": external, "inquiry": inquiry, "planning": planning, "model": model, "changes": changes}
         try:
             with c:
                 c.execute(
@@ -1179,9 +1299,10 @@ class PersonalAIInterviewService:
         try:
             parsed = validate_interview_output(
                 raw,
-                {x["alias"] for x in sources},
+                {x["alias"] for x in (*sources, *external)},
                 frozenset(x["alias"] for x in model),
                 frozenset(x["alias"] for x in changes),
+                frozenset(x["alias"] for x in sources),
             )
         except PersonalAIError as exc:
             with c:
@@ -1190,7 +1311,7 @@ class PersonalAIInterviewService:
                     (_now(), exc.code, attempt_id),
                 )
             raise
-        self._commit(session_id, attempt_id, sources, model, changes, answer_turn_id, parsed, actual_model)
+        self._commit(session_id, attempt_id, sources, external, model, changes, answer_turn_id, parsed, actual_model)
         return self.get(session_id)
 
     def _commit(
@@ -1198,6 +1319,7 @@ class PersonalAIInterviewService:
         session_id: str,
         attempt_id: str,
         sources: tuple[dict[str, Any], ...],
+        external: tuple[dict[str, Any], ...],
         model: tuple[dict[str, Any], ...],
         changes: tuple[dict[str, Any], ...],
         answer_turn_id: str | None,
@@ -1205,9 +1327,11 @@ class PersonalAIInterviewService:
         actual_model: str,
     ) -> None:
         now, c, derivation_id = _now(), self._reflection.connection, generate_id()
-        by_alias = {x["alias"]: x for x in sources}
+        by_alias = {x["alias"]: x for x in (*sources, *external)}
+        external_by_alias = {x["alias"]: x for x in external}
         model_by_alias = {x["alias"]: x for x in model}
         change_by_alias = {x["alias"]: x for x in changes}
+        has_external_lineage = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='interview_derivation_external_sources'").fetchone() is not None
         with c:
             c.execute(
                 "UPDATE interview_attempts SET state='SUCCEEDED',completed_at=?,model=? WHERE attempt_id=?",
@@ -1226,6 +1350,8 @@ class PersonalAIInterviewService:
             lineage: dict[str, str] = {}
             for item in sources:
                 lineage[str(item["turn_id"])] = str(item["alias"])
+            for item in external if has_external_lineage else ():
+                c.execute("INSERT INTO interview_derivation_external_sources VALUES(?,?,?)", (derivation_id, item["source_version_id"], item["alias"]))
             for entry in model:
                 rows = c.execute(
                     "SELECT d.turn_id,d.alias FROM personal_model_revisions r "
@@ -1240,6 +1366,12 @@ class PersonalAIInterviewService:
                 ).fetchall()
                 for turn_id, _alias in rows:
                     lineage.setdefault(str(turn_id), "INHERITED")
+                if has_external_lineage:
+                    for version_id, _alias in c.execute(
+                        "SELECT d.source_version_id,d.alias FROM personal_model_revisions r JOIN interview_derivation_external_sources d ON d.derivation_id=r.derivation_id WHERE r.revision_id=? UNION SELECT s.source_version_id,s.alias FROM personal_model_revisions r JOIN personal_model_revision_external_sources s ON s.revision_id=r.revision_id WHERE r.revision_id=? ORDER BY 1",
+                        (entry["revision_id"], entry["revision_id"]),
+                    ).fetchall():
+                        c.execute("INSERT OR IGNORE INTO interview_derivation_external_sources VALUES(?,?,?)", (derivation_id, version_id, "INHERITED"))
                 # The transmitted state of a challenged item depends on the
                 # owner-correction SOURCE; its turns join the reconstructive
                 # lineage so downstream meaning cannot outlive the correction.
@@ -1254,6 +1386,12 @@ class PersonalAIInterviewService:
                     (entry["derivation_id"],),
                 ).fetchall():
                     lineage.setdefault(str(turn_id), "INHERITED")
+                if has_external_lineage:
+                    for version_id, _alias in c.execute(
+                        "SELECT source_version_id,alias FROM interview_derivation_external_sources WHERE derivation_id=? ORDER BY source_version_id",
+                        (entry["derivation_id"],),
+                    ).fetchall():
+                        c.execute("INSERT OR IGNORE INTO interview_derivation_external_sources VALUES(?,?,?)", (derivation_id, version_id, "INHERITED"))
             for turn_id, alias in lineage.items():
                 c.execute(
                     "INSERT INTO interview_derivation_sources VALUES(?,?,?)",
@@ -1280,10 +1418,10 @@ class PersonalAIInterviewService:
                     ),
                 )
                 for alias in value["basis_aliases"]:
-                    c.execute(
-                        "INSERT INTO interview_question_basis VALUES(?,?,?)",
-                        (question_id, alias, by_alias[alias]["turn_id"]),
-                    )
+                    if alias.startswith("E"):
+                        c.execute("INSERT INTO interview_question_external_basis VALUES(?,?,?)", (question_id, alias, by_alias[alias]["source_version_id"]))
+                    else:
+                        c.execute("INSERT INTO interview_question_basis VALUES(?,?,?)", (question_id, alias, by_alias[alias]["turn_id"]))
             active_items = {
                 (str(kind), _canonical_inquiry_text(str(text)))
                 for kind, text in c.execute(
@@ -1310,7 +1448,7 @@ class PersonalAIInterviewService:
                     ),
                 )
                 active_items.add((item["kind"], _canonical_inquiry_text(item["text"])))
-            self._apply_model_delta(c, value["model_delta"], model_by_alias, by_alias, derivation_id, now)
+            self._apply_model_delta(c, value["model_delta"], model_by_alias, by_alias, external_by_alias, derivation_id, now)
             change = value.get("change_delta")
             if change is not None:
                 if change["action"] == "PROPOSE":
@@ -1363,6 +1501,7 @@ class PersonalAIInterviewService:
         deltas: Sequence[dict[str, Any]],
         model_by_alias: dict[str, dict[str, Any]],
         by_alias: dict[str, dict[str, Any]],
+        external_by_alias: dict[str, dict[str, Any]],
         derivation_id: str,
         now: str,
     ) -> None:
@@ -1436,6 +1575,12 @@ class PersonalAIInterviewService:
                                 "INSERT INTO personal_model_revision_sources VALUES(?,?,?,?)",
                                 (revision_id, turn_id, alias, role),
                             )
+                        if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='personal_model_revision_external_sources'").fetchone():
+                            for version_id, alias, role in c.execute(
+                                "SELECT source_version_id,alias,role FROM personal_model_revision_external_sources WHERE revision_id=? ORDER BY source_version_id,role",
+                                (current_revision_id,),
+                            ).fetchall():
+                                c.execute("INSERT INTO personal_model_revision_external_sources VALUES(?,?,?,?)", (revision_id, version_id, alias, role))
                         c.execute(
                             "UPDATE personal_model_items SET state='CONTESTED',updated_at=? WHERE item_id=?",
                             (now, item_id),
@@ -1460,6 +1605,9 @@ class PersonalAIInterviewService:
             if delta["action"] != "RESOLVE":
                 for role, key in (("SUPPORT", "supporting"), ("COUNTEREVIDENCE", "counterevidence")):
                     for alias in delta[key]:
+                        if alias in external_by_alias:
+                            c.execute("INSERT OR IGNORE INTO personal_model_revision_external_sources VALUES(?,?,?,?)", (revision_id, external_by_alias[alias]["source_version_id"], alias, role))
+                            continue
                         turn_id = str(by_alias[alias]["turn_id"])
                         if (revision_id, turn_id, role) in attached:
                             continue
@@ -1470,7 +1618,7 @@ class PersonalAIInterviewService:
                         )
 
 
-def validate_model_delta(raw: Any, aliases: set[str], model_aliases: set[str]) -> list[dict[str, Any]]:
+def validate_model_delta(raw: Any, aliases: set[str], model_aliases: set[str], user_aliases: set[str] | None = None) -> list[dict[str, Any]]:
     """Strict deterministic validation of the small declarative model delta."""
     if not isinstance(raw, list) or len(raw) > MAX_MODEL_DELTA:
         raise PersonalAIError("AI_OUTPUT_REJECTED")
@@ -1513,15 +1661,16 @@ def validate_model_delta(raw: Any, aliases: set[str], model_aliases: set[str]) -
             ):
                 raise PersonalAIError("AI_OUTPUT_REJECTED")
         supporting, counterevidence = entry["supporting"], entry["counterevidence"]
+        user_supporting = [alias for alias in supporting if user_aliases is None or alias in user_aliases]
         reason = _safe(_text(entry["reason"], 240))
         uncertainty = entry["uncertainty"]
         uncertainty = None if uncertainty in ("", None) else _safe(_text(uncertainty, 160))
         if action in {"CREATE", "REVISE"}:
             text = _working_language(_safe(_text(entry["text"], MAX_QUESTION)))
-            if not supporting:
+            if not supporting or (user_aliases is not None and not user_supporting):
                 # No model item may exist without a valid SOURCE basis.
                 raise PersonalAIError("AI_OUTPUT_REJECTED")
-            if kind == "PATTERN" and len(supporting) < 2:
+            if kind == "PATTERN" and len(user_supporting) < 2:
                 # Conservative validation: a single ordinary source cannot
                 # justify a stable pattern; the provider must use HYPOTHESIS.
                 raise PersonalAIError("AI_OUTPUT_REJECTED")
@@ -1542,7 +1691,7 @@ def validate_model_delta(raw: Any, aliases: set[str], model_aliases: set[str]) -
                     # re-specifying support would mutate immutable history.
                     if supporting:
                         raise PersonalAIError("AI_OUTPUT_REJECTED")
-                elif not supporting:
+                elif not supporting or (user_aliases is not None and not user_supporting):
                     # A narrowed replacement must be evidence-backed; it may
                     # never create unsupported current meaning.
                     raise PersonalAIError("AI_OUTPUT_REJECTED")
@@ -1589,7 +1738,7 @@ def validate_change_delta(raw: Any, model_aliases: set[str], change_aliases: set
 
 
 def validate_interview_output(
-    raw: Any, aliases: set[str], model_aliases: frozenset[str] = frozenset(), change_aliases: frozenset[str] = frozenset()
+    raw: Any, aliases: set[str], model_aliases: frozenset[str] = frozenset(), change_aliases: frozenset[str] = frozenset(), user_aliases: frozenset[str] = frozenset()
 ) -> dict[str, Any]:
     required = {
         "schema_version",
@@ -1658,6 +1807,6 @@ def validate_interview_output(
         "summary": summary,
         "next_direction": next_direction,
         "inquiry_items": items,
-        "model_delta": validate_model_delta(raw["model_delta"], aliases, set(model_aliases)),
+        "model_delta": validate_model_delta(raw["model_delta"], aliases, set(model_aliases), set(user_aliases) if user_aliases else None),
         "change_delta": None if legacy else validate_change_delta(raw["change_delta"], set(model_aliases), set(change_aliases)),
     }
