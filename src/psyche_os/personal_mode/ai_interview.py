@@ -493,10 +493,18 @@ class PersonalAIInterviewService:
                 if self._reflection.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='personal_model_revision_external_sources'").fetchone() is None:
                     return []
                 rows = self._reflection.connection.execute(
-                    "SELECT v.version_id,e.started_at,e.ended_at,b.snapshot_status FROM personal_model_revision_external_sources x JOIN external_record_versions v ON v.version_id=x.source_version_id JOIN external_records r ON r.external_record_id=v.external_record_id JOIN sleep_observations o ON o.external_record_id=r.external_record_id JOIN sleep_episodes e ON e.episode_id=o.episode_id JOIN external_import_batches b ON b.batch_id=v.batch_id WHERE x.revision_id=? AND x.role=? ORDER BY e.started_at",
+                    "SELECT m.normalized_content FROM personal_model_revision_external_sources x JOIN interview_attempt_external_items m ON m.source_version_id=x.source_version_id WHERE x.revision_id=? AND x.role=? ORDER BY m.attempt_id,m.ordinal",
                     (revision_id, role),
                 ).fetchall()
-                return [{"kind": "SLEEP_EPISODE", "label": "Health.md → Health Connect", "started_at": str(started), "ended_at": str(ended), "snapshot_status": str(snapshot), "classification": "VENDOR_DERIVED"} for _version, started, ended, snapshot in rows]
+                seen: set[str] = set()
+                result: list[dict[str, Any]] = []
+                for (raw,) in rows:
+                    if str(raw) in seen:
+                        continue
+                    seen.add(str(raw))
+                    facts = json.loads(str(raw))
+                    result.append({"kind": str(facts["kind"]), "label": "Health.md → Health Connect", "started_at": str(facts["start"]), "ended_at": str(facts["end"]), "duration_minutes": int(facts["duration_minutes"]), "stage_minutes": facts.get("stage_minutes", {}), "snapshot_status": str(facts["snapshot_status"]), "classification": str(facts["classification"])})
+                return result
 
             challenges = [
                 {
@@ -1324,6 +1332,7 @@ class PersonalAIInterviewService:
         external_by_alias = {x["alias"]: x for x in external}
         model_by_alias = {x["alias"]: x for x in model}
         change_by_alias = {x["alias"]: x for x in changes}
+        has_external_lineage = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='interview_derivation_external_sources'").fetchone() is not None
         with c:
             c.execute(
                 "UPDATE interview_attempts SET state='SUCCEEDED',completed_at=?,model=? WHERE attempt_id=?",
@@ -1342,7 +1351,7 @@ class PersonalAIInterviewService:
             lineage: dict[str, str] = {}
             for item in sources:
                 lineage[str(item["turn_id"])] = str(item["alias"])
-            for item in external:
+            for item in external if has_external_lineage else ():
                 c.execute("INSERT INTO interview_derivation_external_sources VALUES(?,?,?)", (derivation_id, item["source_version_id"], item["alias"]))
             for entry in model:
                 rows = c.execute(
@@ -1358,6 +1367,12 @@ class PersonalAIInterviewService:
                 ).fetchall()
                 for turn_id, _alias in rows:
                     lineage.setdefault(str(turn_id), "INHERITED")
+                if has_external_lineage:
+                    for version_id, _alias in c.execute(
+                        "SELECT d.source_version_id,d.alias FROM personal_model_revisions r JOIN interview_derivation_external_sources d ON d.derivation_id=r.derivation_id WHERE r.revision_id=? UNION SELECT s.source_version_id,s.alias FROM personal_model_revisions r JOIN personal_model_revision_external_sources s ON s.revision_id=r.revision_id ORDER BY 1",
+                        (entry["revision_id"], entry["revision_id"]),
+                    ).fetchall():
+                        c.execute("INSERT OR IGNORE INTO interview_derivation_external_sources VALUES(?,?,?)", (derivation_id, version_id, "INHERITED"))
                 # The transmitted state of a challenged item depends on the
                 # owner-correction SOURCE; its turns join the reconstructive
                 # lineage so downstream meaning cannot outlive the correction.
@@ -1372,6 +1387,12 @@ class PersonalAIInterviewService:
                     (entry["derivation_id"],),
                 ).fetchall():
                     lineage.setdefault(str(turn_id), "INHERITED")
+                if has_external_lineage:
+                    for version_id, _alias in c.execute(
+                        "SELECT source_version_id,alias FROM interview_derivation_external_sources WHERE derivation_id=? ORDER BY source_version_id",
+                        (entry["derivation_id"],),
+                    ).fetchall():
+                        c.execute("INSERT OR IGNORE INTO interview_derivation_external_sources VALUES(?,?,?)", (derivation_id, version_id, "INHERITED"))
             for turn_id, alias in lineage.items():
                 c.execute(
                     "INSERT INTO interview_derivation_sources VALUES(?,?,?)",
@@ -1555,6 +1576,12 @@ class PersonalAIInterviewService:
                                 "INSERT INTO personal_model_revision_sources VALUES(?,?,?,?)",
                                 (revision_id, turn_id, alias, role),
                             )
+                        if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='personal_model_revision_external_sources'").fetchone():
+                            for version_id, alias, role in c.execute(
+                                "SELECT source_version_id,alias,role FROM personal_model_revision_external_sources WHERE revision_id=? ORDER BY source_version_id,role",
+                                (current_revision_id,),
+                            ).fetchall():
+                                c.execute("INSERT INTO personal_model_revision_external_sources VALUES(?,?,?,?)", (revision_id, version_id, alias, role))
                         c.execute(
                             "UPDATE personal_model_items SET state='CONTESTED',updated_at=? WHERE item_id=?",
                             (now, item_id),
