@@ -258,6 +258,7 @@ export const createPersonalBrowserPreviewApi = (scenario: PreviewScenario): Pers
     aiFormulationExecute: async () => ({}),
     aiInterviewStatus: async () => ({ configured: true, policy_enabled: true, profile_id: "synthetic-no-network", eligible_source_count: 2 }),
     aiInterviewPolicy: async () => ({}),
+    aiInterviewExternalPolicy: async () => ({}),
     aiInterviewSourcePolicy: async () => ({}),
     aiInterviewStart: async () => { state.interview = previewInterview("INTERVIEW_ONBOARDING")!; return clone(state.interview); },
     aiInterviewList: async () => ({ sessions: state.interview ? [clone(state.interview)] : [] }),

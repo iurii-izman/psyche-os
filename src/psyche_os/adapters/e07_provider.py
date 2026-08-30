@@ -440,6 +440,7 @@ class OpenAIReflectionProvider:
         ):
             raise ProviderUnavailableError("AI_NOT_CONFIGURED")
         sources = context.get("sources")
+        external_evidence = context.get("external_evidence", ())
         inquiry = context.get("inquiry")
         planning = context.get("planning")
         model = context.get("model")
@@ -450,9 +451,10 @@ class OpenAIReflectionProvider:
             or not isinstance(planning, tuple)
             or not isinstance(model, tuple)
             or not isinstance(changes, tuple)
+            or not isinstance(external_evidence, tuple)
         ):
             raise ProviderUnavailableError("AI_CONTEXT_INVALID")
-        aliases = [item["alias"] for item in sources]
+        aliases = [item["alias"] for item in (*sources, *external_evidence)]
         model_aliases = [item["alias"] for item in model]
         change_aliases = [item["alias"] for item in changes]
         item_schema = {
@@ -591,6 +593,10 @@ class OpenAIReflectionProvider:
                             "sources": [
                                 {"alias": item["alias"], "content": item["content"]}
                                 for item in sources
+                            ],
+                            "external_evidence": [
+                                {"alias": item["alias"], **item["content"]}
+                                for item in external_evidence
                             ],
                             "inquiry": [
                                 {

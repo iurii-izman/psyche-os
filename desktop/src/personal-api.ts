@@ -334,8 +334,9 @@ export const personalApi = {
     call<InterviewView>("desktop_ai_interview_start", { ownerTopic }),
   aiInterviewList: () =>
     call<{ sessions: InterviewView[] }>("desktop_ai_interview_list"),
-  aiInterviewGrantConsent: (interviewSessionId: string) =>
-    call("desktop_ai_interview_grant_consent", { interviewSessionId }),
+  aiInterviewExternalPolicy: (enabled: boolean) => call("desktop_ai_interview_external_policy", { enabled }),
+  aiInterviewGrantConsent: (interviewSessionId: string, includeSleep = false) =>
+    call("desktop_ai_interview_grant_consent", { interviewSessionId, includeSleep }),
   aiInterviewRevokeConsent: (interviewSessionId: string) =>
     call("desktop_ai_interview_revoke_consent", { interviewSessionId }),
   aiInterviewFirstQuestion: (interviewSessionId: string) =>

@@ -9,7 +9,7 @@ from psyche_os.application.reflection_sessions import ReflectionSessionService
 from psyche_os.crypto.envelope import SensitiveBytes, derive_domain_key
 from psyche_os.personal_mode.admission import PersonalAdmissionGuard
 from psyche_os.personal_mode.runtime_profile import PersonalRuntimePaths
-from psyche_os.personal_mode.schema import initialize_personal_v15
+from psyche_os.personal_mode.schema import initialize_personal_v16
 
 
 class PersonalReflectionService:
@@ -50,8 +50,8 @@ class PersonalReflectionService:
                 self._paths.root,
                 data_mode="real_personal",
                 database_key_supplier=take_key,
-                schema_version=15,
-                schema_initializer=initialize_personal_v15,
+                schema_version=16,
+                schema_initializer=initialize_personal_v16,
                 database_filename="vault.sqlite",
             )
         return self._service

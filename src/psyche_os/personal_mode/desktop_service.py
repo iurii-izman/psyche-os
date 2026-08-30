@@ -203,6 +203,7 @@ class PersonalDesktopApplicationService:
                 "ai.interview.status": self._interview_status,
                 "ai.interview.policy": self._interview_policy,
                 "ai.interview.source_policy": self._interview_source_policy,
+                "ai.interview.external_policy": self._interview_external_policy,
                 "ai.interview.start": self._interview_start,
                 "ai.interview.list": self._interview_list,
                 "ai.interview.grant_consent": self._interview_grant_consent,
@@ -354,6 +355,9 @@ class PersonalDesktopApplicationService:
         values = _exact(payload, {"turn_ids", "enabled"})
         return self._interview_service().set_source_policy(values["turn_ids"], values["enabled"])
 
+    def _interview_external_policy(self, payload: Any) -> dict[str, Any]:
+        return self._interview_service().set_external_policy(_exact(payload, {"enabled"})["enabled"])
+
     def _interview_start(self, payload: Any) -> dict[str, Any]:
         values = _exact(payload, {"owner_topic"})
         return self._interview_service().start(values["owner_topic"])
@@ -363,9 +367,8 @@ class PersonalDesktopApplicationService:
         return self._interview_service().list()
 
     def _interview_grant_consent(self, payload: Any) -> dict[str, Any]:
-        return self._interview_service().grant_consent(
-            _exact(payload, {"interview_session_id"})["interview_session_id"]
-        )
+        values = _exact(payload, {"interview_session_id", "include_sleep"})
+        return self._interview_service().grant_consent(values["interview_session_id"], values["include_sleep"])
 
     def _interview_revoke_consent(self, payload: Any) -> dict[str, Any]:
         return self._interview_service().revoke(
