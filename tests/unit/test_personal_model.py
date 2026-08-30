@@ -30,6 +30,7 @@ from psyche_os.personal_mode.schema import (
     initialize_personal_v13,
     initialize_personal_v14,
     initialize_personal_v15,
+    initialize_personal_v16,
 )
 
 imported_sleep_artifact = runpy.run_path(
@@ -196,6 +197,62 @@ def test_imported_sleep_evidence_is_absent_from_all_ai_contexts_and_receipts() -
         "synthetic.zepp",
     ):
         assert forbidden not in transmitted
+
+
+def test_sleep_lineage_is_immutable_transitive_and_deletion_closes_model_meaning() -> None:
+    """A model's external basis stays at the sent snapshot across resyncs.
+
+    The next packet may contain a newer E alias, but a transmitted model carries
+    its exact older source version into the new derivation.  Deleting that old
+    version must close the dependent model rather than silently rewriting it.
+    """
+    value, reflection, provider = service([create_delta("CREATE", supporting=["S1", "E1"])])
+    initialize_personal_v15(reflection.connection)
+    initialize_personal_v16(reflection.connection)
+    evidence = ExternalEvidenceService(reflection.connection)
+    evidence.import_artifact(imported_sleep_artifact("light"))
+    value.set_policy(True)
+    value.set_external_policy(True)
+    session_id = value.start()["interview_session_id"]
+    value.grant_consent(session_id, include_sleep=True)
+    turn_one(value, session_id)
+
+    item_id = value.model()["items"][0]["item_id"]
+    revision_id, original_version = reflection.connection.execute(
+        "SELECT r.revision_id,x.source_version_id FROM personal_model_revisions r "
+        "JOIN personal_model_revision_external_sources x ON x.revision_id=r.revision_id "
+        "WHERE r.item_id=? AND r.status='CURRENT'",
+        (item_id,),
+    ).fetchone()
+    original_snapshot = value.model()["items"][0]["current"]["external_support"][0]
+    assert original_snapshot["stage_minutes"] == {"LIGHT": 464}
+
+    # Resync produces a newer vendor-derived projection, while the existing
+    # model continues to reference the old immutable sent snapshot.
+    evidence.import_artifact(imported_sleep_artifact("deep"))
+    provider.deltas = []
+    value.submit(session_id, "submission-2", "Второй синтетический ответ после resync.")
+    current_version = reflection.connection.execute(
+        "SELECT version_id FROM external_record_versions WHERE is_current=1 ORDER BY imported_at DESC LIMIT 1"
+    ).fetchone()[0]
+    assert current_version != original_version
+    assert value.model()["items"][0]["current"]["external_support"][0] == original_snapshot
+
+    latest_derivation = reflection.connection.execute(
+        "SELECT derivation_id FROM interview_derivations ORDER BY created_at DESC,derivation_id DESC LIMIT 1"
+    ).fetchone()[0]
+    assert reflection.connection.execute(
+        "SELECT alias FROM interview_derivation_external_sources WHERE derivation_id=? AND source_version_id=?",
+        (latest_derivation, original_version),
+    ).fetchone() == ("INHERITED",)
+
+    record_id = reflection.connection.execute(
+        "SELECT external_record_id FROM external_record_versions WHERE version_id=?", (original_version,)
+    ).fetchone()[0]
+    evidence.delete_external_record(record_id)
+    assert reflection.connection.execute(
+        "SELECT state FROM personal_model_items WHERE item_id=?", (item_id,)
+    ).fetchone() == ("INVALIDATED",)
 
 
 # --- Storage / model lifecycle -------------------------------------------------

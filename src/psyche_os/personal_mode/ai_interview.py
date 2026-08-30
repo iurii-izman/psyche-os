@@ -1213,7 +1213,6 @@ class PersonalAIInterviewService:
                     None,
                     None,
                     None,
-                    None,
                     len(external),
                     external_chars,
                 ) if has_external_schema else (attempt_id, session_id, answer_turn_id, PURPOSE, PROFILE_ID, MODEL, CONFIG_ID, SCHEMA_ID, "PREPARED", 1, len(sources), source_chars, len(inquiry), inquiry_chars, context_chars, len(model), model_chars, now, None, None, None),
@@ -1369,7 +1368,7 @@ class PersonalAIInterviewService:
                     lineage.setdefault(str(turn_id), "INHERITED")
                 if has_external_lineage:
                     for version_id, _alias in c.execute(
-                        "SELECT d.source_version_id,d.alias FROM personal_model_revisions r JOIN interview_derivation_external_sources d ON d.derivation_id=r.derivation_id WHERE r.revision_id=? UNION SELECT s.source_version_id,s.alias FROM personal_model_revisions r JOIN personal_model_revision_external_sources s ON s.revision_id=r.revision_id ORDER BY 1",
+                        "SELECT d.source_version_id,d.alias FROM personal_model_revisions r JOIN interview_derivation_external_sources d ON d.derivation_id=r.derivation_id WHERE r.revision_id=? UNION SELECT s.source_version_id,s.alias FROM personal_model_revisions r JOIN personal_model_revision_external_sources s ON s.revision_id=r.revision_id WHERE r.revision_id=? ORDER BY 1",
                         (entry["revision_id"], entry["revision_id"]),
                     ).fetchall():
                         c.execute("INSERT OR IGNORE INTO interview_derivation_external_sources VALUES(?,?,?)", (derivation_id, version_id, "INHERITED"))

@@ -109,6 +109,17 @@ describe("Personal browser preview API", () => {
     expect(basis.items[0]?.session_id).toBe("closed");
     expect(basis.items[0]?.session_title).toBeTruthy();
 
+    const sleepDisclosure = createPersonalBrowserPreviewApi("INTERVIEW_SLEEP_DISCLOSURE");
+    const sleepView = (await sleepDisclosure.aiInterviewList()).sessions[0];
+    expect(sleepView?.attempts[0]).toMatchObject({ attempt_id: "synthetic-question-attempt", state: "SUCCEEDED" });
+    expect((await sleepDisclosure.aiInterviewDisclosure("synthetic-question-attempt")).external_evidence?.[0]).toMatchObject({ alias: "E1", raw_not_sent: true, physiology_not_sent: true });
+
+    const partial = (await createPersonalBrowserPreviewApi("INTERVIEW_SLEEP_PARTIAL").aiInterviewList()).sessions[0];
+    expect(partial?.current_question?.basis_aliases).toEqual(["E1"]);
+    expect(partial?.current_question?.question).toContain("частичная");
+    const counterEvidence = (await createPersonalBrowserPreviewApi("INTERVIEW_SLEEP_COUNTEREVIDENCE").aiInterviewList()).sessions[0];
+    expect(counterEvidence?.current_question?.rationale).toContain("не объясняют психологическое состояние");
+
     const end = createPersonalBrowserPreviewApi("INTERVIEW_END_RECOMMENDED");
     expect((await end.aiInterviewList()).sessions[0]?.state).toBe("END_RECOMMENDED");
     const retry = createPersonalBrowserPreviewApi("INTERVIEW_RETRYABLE_FAILURE");

@@ -30,7 +30,20 @@ const previewInterview = (scenario: PreviewScenario): InterviewView | null => {
   const end = scenario === "INTERVIEW_END_RECOMMENDED";
   const active = scenario === "INTERVIEW_ACTIVE" || scenario === "INTERVIEW_WITH_HISTORY" || scenario === "INTERVIEW_DISCLOSURE" || scenario === "INTERVIEW_WITH_SLEEP_EVIDENCE" || scenario === "INTERVIEW_SLEEP_PARTIAL" || scenario === "INTERVIEW_SLEEP_COUNTEREVIDENCE" || scenario === "INTERVIEW_SLEEP_DISCLOSURE";
   const failure = scenario === "INTERVIEW_RETRYABLE_FAILURE";
-  return { interview_session_id: "synthetic-interview", state: end ? "END_RECOMMENDED" : scenario === "INTERVIEW_PAUSED_RECONSENT" ? "PAUSED" : "ACTIVE", owner_topic: null, summary: end ? "Сейчас полезно остановиться: новая информация почти не меняет рабочие версии." : null, next_direction: end ? "Вернуться к одному конкретному эпизоду, когда будет уместно." : null, consent: active ? "ACTIVE_IN_MEMORY" : "ABSENT", source_session_id: "active", current_question: active ? { question_id: "synthetic-question", question: scenario === "INTERVIEW_WITH_HISTORY" ? "В каком конкретном эпизоде после встречи вы заметили, что переключиться на отдых трудно?" : "Что в последнем похожем эпизоде произошло до того, как стало трудно остановиться?", rationale: "Чтобы отделить общее объяснение от наблюдаемого эпизода.", decision: "ASK", basis_aliases: scenario === "INTERVIEW_WITH_HISTORY" ? ["S1"] : [], attempt_id: "synthetic-question-attempt" } : null, attempts: failure ? [{ attempt_id: "synthetic-failed", state: "OUTCOME_UNKNOWN", answer_turn_id: "synthetic-answer", error_code: "PROVIDER_OUTCOME_UNKNOWN" }] : scenario === "INTERVIEW_DISCLOSURE" ? [{ attempt_id: "synthetic-disclosure", state: "SUCCEEDED", answer_turn_id: "synthetic-answer", error_code: null }] : [] };
+  const hasSleepEvidence = scenario === "INTERVIEW_WITH_SLEEP_EVIDENCE" || scenario === "INTERVIEW_SLEEP_PARTIAL" || scenario === "INTERVIEW_SLEEP_COUNTEREVIDENCE" || scenario === "INTERVIEW_SLEEP_DISCLOSURE";
+  const question = scenario === "INTERVIEW_WITH_HISTORY"
+    ? "В каком конкретном эпизоде после встречи вы заметили, что переключиться на отдых трудно?"
+    : scenario === "INTERVIEW_SLEEP_PARTIAL"
+      ? "Какие детали следующего дня стоит учитывать, если за ночь доступна только частичная сводка сна?"
+      : scenario === "INTERVIEW_SLEEP_COUNTEREVIDENCE"
+        ? "Что в том дне могло повлиять на самочувствие, хотя данные сна не подтверждают короткую ночь?"
+        : "Что в последнем похожем эпизоде произошло до того, как стало трудно остановиться?";
+  const rationale = scenario === "INTERVIEW_SLEEP_COUNTEREVIDENCE"
+    ? "Данные сна — только наблюдение: они не подтверждают эту версию и не объясняют психологическое состояние."
+    : scenario === "INTERVIEW_SLEEP_PARTIAL"
+      ? "Сводка сна неполна; вопрос не заполняет отсутствующие физиологические данные."
+      : "Чтобы отделить общее объяснение от наблюдаемого эпизода.";
+  return { interview_session_id: "synthetic-interview", state: end ? "END_RECOMMENDED" : scenario === "INTERVIEW_PAUSED_RECONSENT" ? "PAUSED" : "ACTIVE", owner_topic: null, summary: end ? "Сейчас полезно остановиться: новая информация почти не меняет рабочие версии." : null, next_direction: end ? "Вернуться к одному конкретному эпизоду, когда будет уместно." : null, consent: active ? "ACTIVE_IN_MEMORY" : "ABSENT", source_session_id: "active", current_question: active ? { question_id: "synthetic-question", question, rationale, decision: "ASK", basis_aliases: scenario === "INTERVIEW_WITH_HISTORY" ? ["S1"] : hasSleepEvidence ? ["E1"] : [], attempt_id: "synthetic-question-attempt" } : null, attempts: failure ? [{ attempt_id: "synthetic-failed", state: "OUTCOME_UNKNOWN", answer_turn_id: "synthetic-answer", error_code: "PROVIDER_OUTCOME_UNKNOWN" }] : scenario === "INTERVIEW_DISCLOSURE" || scenario === "INTERVIEW_SLEEP_DISCLOSURE" ? [{ attempt_id: "synthetic-question-attempt", state: "SUCCEEDED", answer_turn_id: "synthetic-answer", error_code: null }] : [] };
 };
 
 const activeTurns: ReflectionTurn[] = [

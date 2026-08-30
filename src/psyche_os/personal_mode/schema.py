@@ -165,7 +165,7 @@ def initialize_personal_v10(connection: Any) -> None:
 def migrate_personal_v11(connection: Any) -> None:
     """Atomic additive provenance migration; V10 rows and bytes remain intact."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11], [10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15]):
+    if versions in ([10, 11], [10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15], [10, 11, 12, 13, 14, 15, 16]):
         return
     if versions != [10]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -178,7 +178,7 @@ def migrate_personal_v11(connection: Any) -> None:
 def migrate_personal_v12(connection: Any) -> None:
     """Atomic additive AI Interview migration; historical source fails closed."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15]):
+    if versions in ([10, 11, 12], [10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15], [10, 11, 12, 13, 14, 15, 16]):
         return
     if versions != [10, 11]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -194,7 +194,7 @@ def migrate_personal_v12(connection: Any) -> None:
 def migrate_personal_v13(connection: Any) -> None:
     """Atomic additive Personal Model migration; no semantic backfill."""
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15]):
+    if versions in ([10, 11, 12, 13], [10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15], [10, 11, 12, 13, 14, 15, 16]):
         return
     if versions != [10, 11, 12]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -232,7 +232,7 @@ def initialize_personal_v13(connection: Any) -> None:
 
 def migrate_personal_v14(connection: Any) -> None:
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions in ([10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15]):
+    if versions in ([10, 11, 12, 13, 14], [10, 11, 12, 13, 14, 15], [10, 11, 12, 13, 14, 15, 16]):
         return
     if versions != [10, 11, 12, 13]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
@@ -247,7 +247,7 @@ def initialize_personal_v14(connection: Any) -> None:
 
 def migrate_personal_v15(connection: Any) -> None:
     versions = [row[0] for row in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-    if versions == [10, 11, 12, 13, 14, 15]:
+    if versions in ([10, 11, 12, 13, 14, 15], [10, 11, 12, 13, 14, 15, 16]):
         return
     if versions != [10, 11, 12, 13, 14]:
         raise ValueError("PERSONAL_SCHEMA_UNAVAILABLE")
