@@ -231,7 +231,9 @@ def test_sleep_lineage_is_immutable_transitive_and_deletion_closes_model_meaning
     # model continues to reference the old immutable sent snapshot.
     evidence.import_artifact(imported_sleep_artifact("deep"))
     provider.deltas = []
-    value.submit(session_id, "submission-2", "Второй синтетический ответ после resync.")
+    second_attempt_id = value.submit(
+        session_id, "submission-2", "Второй синтетический ответ после resync."
+    )["attempts"][0]["attempt_id"]
     current_version = reflection.connection.execute(
         "SELECT version_id FROM external_record_versions WHERE is_current=1 ORDER BY imported_at DESC LIMIT 1"
     ).fetchone()[0]
@@ -239,7 +241,7 @@ def test_sleep_lineage_is_immutable_transitive_and_deletion_closes_model_meaning
     assert value.model()["items"][0]["current"]["external_support"][0] == original_snapshot
 
     latest_derivation = reflection.connection.execute(
-        "SELECT derivation_id FROM interview_derivations ORDER BY created_at DESC,derivation_id DESC LIMIT 1"
+        "SELECT derivation_id FROM interview_derivations WHERE attempt_id=?", (second_attempt_id,)
     ).fetchone()[0]
     assert reflection.connection.execute(
         "SELECT alias FROM interview_derivation_external_sources WHERE derivation_id=? AND source_version_id=?",
