@@ -218,7 +218,7 @@ def test_sleep_lineage_is_immutable_transitive_and_deletion_closes_model_meaning
     turn_one(value, session_id)
 
     item_id = value.model()["items"][0]["item_id"]
-    revision_id, original_version = reflection.connection.execute(
+    _revision_id, original_version = reflection.connection.execute(
         "SELECT r.revision_id,x.source_version_id FROM personal_model_revisions r "
         "JOIN personal_model_revision_external_sources x ON x.revision_id=r.revision_id "
         "WHERE r.item_id=? AND r.status='CURRENT'",
@@ -476,6 +476,52 @@ def test_provider_change_proposal_schema_uses_model_aliases_not_source_aliases()
     assert proposal_schema["properties"]["target_model_aliases"]["items"]["enum"] == ["M1"]
     assert "S1" not in proposal_schema["properties"]["target_model_aliases"]["items"]["enum"]
     assert validate_change_delta(change_proposal(), {"M1"})["target_model_aliases"] == ["M1"]
+
+
+def test_provider_instruction_preserves_change_review_and_external_evidence_rules() -> None:
+    captured: list[object] = []
+
+    class Response:
+        def read(self, _limit: int) -> bytes:
+            return json.dumps(
+                {"model": "gpt-5.6-luna", "output": [{"content": [{"type": "output_text", "text": "{}"}]}]}
+            ).encode()
+
+        def __enter__(self) -> Response:
+            return self
+
+        def __exit__(self, *_: object) -> bool:
+            return False
+
+    OpenAIReflectionProvider(
+        api_key="synthetic-key", transport=lambda request, timeout: captured.append(request) or Response()
+    ).invoke_ai_interview(
+        {"profile_id": "local_personal_ai_interview_openai_windows_v1", "model": "gpt-5.6-luna"},
+        {
+            "sources": ({"alias": "S1", "content": "Synthetic owner source"},),
+            "external_evidence": ({"alias": "E1", "content": {"kind": "SLEEP_EPISODE"}},),
+            "inquiry": (),
+            "planning": (),
+            "model": ({"alias": "M1", "kind": "HYPOTHESIS", "text": "Synthetic model", "temporal_scope": "UNCLEAR", "uncertainty": None, "supporting": ["S1"], "counterevidence": [], "state": "ACTIVE"},),
+            "changes": ({"alias": "C1", "kind": "OBSERVE", "state": "ACTIVE", "title": "Synthetic change", "instructions": "Observe", "expected_signal": "Signal", "counter_signal": "Counter", "duration_days": None, "activated_at": None, "review_target": True},),
+        },
+        "synthetic-key",
+    )
+    instruction = json.loads(captured[0].data)["input"][0]["content"]
+    for requirement in (
+        "review_target C alias, return REVIEW only for that exact C alias",
+        "Prefer OBSERVE while evidence or context is thin; propose EXPERIMENT only when it is a small, reversible, self-directed, low-risk action",
+        "If memory is unavailable",
+        "Explicit refusal is not evidence and must be respected",
+        "S aliases are owner USER sources",
+        "E aliases are bounded vendor/device-derived external sleep evidence",
+        "An E-only question basis is allowed",
+        "CREATE requires at least one S supporting alias",
+        "REVISE replacement and replacement CONTEST each require at least one S supporting alias",
+        "A PATTERN requires at least two USER S supports; E aliases never satisfy that minimum",
+        "never claim sleep caused a psychological state",
+    ):
+        assert requirement in instruction
 
 
 def test_change_activation_and_observations_are_local_owner_source() -> None:
