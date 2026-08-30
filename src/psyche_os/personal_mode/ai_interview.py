@@ -489,6 +489,15 @@ class PersonalAIInterviewService:
                     for turn_id, content, created, session_id in rows
                 ]
 
+            def external_excerpts(revision_id: str, role: str) -> list[dict[str, Any]]:
+                if self._reflection.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='personal_model_revision_external_sources'").fetchone() is None:
+                    return []
+                rows = self._reflection.connection.execute(
+                    "SELECT v.version_id,e.started_at,e.ended_at,b.snapshot_status FROM personal_model_revision_external_sources x JOIN external_record_versions v ON v.version_id=x.source_version_id JOIN external_records r ON r.external_record_id=v.external_record_id JOIN sleep_observations o ON o.external_record_id=r.external_record_id JOIN sleep_episodes e ON e.episode_id=o.episode_id JOIN external_import_batches b ON b.batch_id=v.batch_id WHERE x.revision_id=? AND x.role=? ORDER BY e.started_at",
+                    (revision_id, role),
+                ).fetchall()
+                return [{"kind": "SLEEP_EPISODE", "label": "Health.md → Health Connect", "started_at": str(started), "ended_at": str(ended), "snapshot_status": str(snapshot), "classification": "VENDOR_DERIVED"} for _version, started, ended, snapshot in rows]
+
             challenges = [
                 {
                     "text": str(content),
@@ -528,6 +537,8 @@ class PersonalAIInterviewService:
                         "created_at": str(current[10]),
                         "support": excerpts(str(current[0]), "SUPPORT"),
                         "counterevidence": excerpts(str(current[0]), "COUNTEREVIDENCE"),
+                        "external_support": external_excerpts(str(current[0]), "SUPPORT"),
+                        "external_counterevidence": external_excerpts(str(current[0]), "COUNTEREVIDENCE"),
                     },
                     "challenges": challenges,
                     "history": history,
@@ -1141,17 +1152,19 @@ class PersonalAIInterviewService:
             while total > MAX_CONTEXT_CHARS and group:
                 total -= len(group[-1][key]) if key == "text" else group[-1][key]
                 group.pop()
-        external = list(self._sleep_facts(session_id))
-        total += sum(x["char_count"] for x in external)
-        # Sleep is deliberately lower priority than direct owner material.
-        while total > MAX_CONTEXT_CHARS and external:
-            total -= external[-1]["char_count"]
-            external.pop()
         changes = list(self._change_context(session_id))
         total += sum(item["char_count"] for item in changes)
         while total > MAX_CONTEXT_CHARS and changes:
             total -= changes[-1]["char_count"]
             changes.pop()
+        # External sleep facts are always added last and are always the first
+        # optional material removed.  They may never displace USER, inquiry,
+        # model, planning, or Change context.
+        external = list(self._sleep_facts(session_id))
+        total += sum(x["char_count"] for x in external)
+        while total > MAX_CONTEXT_CHARS and external:
+            total -= external[-1]["char_count"]
+            external.pop()
         return tuple(sources), tuple(inquiry), tuple(planning), tuple(model), tuple(changes), tuple(external)
 
     def _perform(self, session_id: str, answer_turn_id: str | None) -> dict[str, Any]:

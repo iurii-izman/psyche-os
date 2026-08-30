@@ -183,6 +183,8 @@ export interface ModelItem {
     created_at: string;
     support: ModelSourceExcerpt[];
     counterevidence: ModelSourceExcerpt[];
+    external_support?: { kind: string; label: string; started_at: string; ended_at: string; snapshot_status: string; classification: string }[];
+    external_counterevidence?: { kind: string; label: string; started_at: string; ended_at: string; snapshot_status: string; classification: string }[];
   } | null;
   challenges: { text: string; created_at: string }[];
   history: ModelRevision[];
@@ -391,6 +393,7 @@ export const personalApi = {
         uncertainty: string | null;
         state: string;
       }[];
+      external_evidence?: { alias: string; content: { start: string; end: string; duration_minutes: number; stage_minutes: Record<string, number>; snapshot_status: string }; source_label: string; raw_not_sent: boolean; physiology_not_sent: boolean }[];
     }>(
       "desktop_ai_interview_disclosure",
       { attemptId },
