@@ -41,6 +41,9 @@ const escape = (value: unknown) =>
   );
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
+const scrollToTop = () => {
+  if (!window.navigator.userAgent.toLowerCase().includes("jsdom")) window.scrollTo(0, 0);
+};
 const dateLabel = (value?: string | null) => {
   if (!value) return "Дата не указана";
   const date = new Date(value);
@@ -244,6 +247,7 @@ export async function mountPersonal(
     exploration = await api.explorationGet(id);
     sourceTurnId = turnId;
     route = "detail";
+    scrollToTop();
     render();
   };
   const loadSensemaking = async () => {
@@ -294,6 +298,7 @@ export async function mountPersonal(
           void act(async () => {
             route = button.dataset.route as Route;
             notice = "";
+            scrollToTop();
             if (
               route === "sensemaking" ||
               route === "longitudinal" ||
@@ -596,7 +601,7 @@ export async function mountPersonal(
       ? `<details class="card session-trail"><summary>Ход этой сессии · ${interview.session_trail.length}</summary>${interview.session_trail.map((item) => `<article class="session-turn ${item.actor === "PSYCHE" ? "derived" : ""}"><strong>${item.actor === "PSYCHE" ? "PSYCHE спросил" : "ВЫ ответили"}</strong><p>${escape(item.text)}</p></article>`).join("")}</details>`
       : "";
     const main = question
-      ? `<section class="card interview-focus"><p>PSYCHE · ОДИН ВОПРОС</p><h1>${escape(question.question)}</h1><details><summary>Почему этот вопрос?</summary><p>${escape(question.rationale)}</p></details>${basis}<form id="interview-answer"><label>Ваш ответ <textarea id="interview-answer-text" required maxlength="12000"></textarea></label><button class="primary">Ответить</button></form><div class="formulation-controls"><button data-interview-control="SKIP">Пропустить</button><button data-interview-control="DECLINE">Не хочу обсуждать</button><button data-interview-control="CHANGE_TOPIC">Сменить тему</button><button data-interview-control="STOP" class="danger">Остановить</button></div></section>`
+      ? `<section class="card interview-focus"><p>PSYCHE · ОДИН ВОПРОС</p><h2 class="interview-question">${escape(question.question)}</h2><details><summary>Почему этот вопрос?</summary><p>${escape(question.rationale)}</p></details>${basis}<form id="interview-answer"><label>Ваш ответ <textarea id="interview-answer-text" required maxlength="12000"></textarea></label><button class="primary">Ответить</button></form><div class="formulation-controls"><button data-interview-control="SKIP">Пропустить</button><button data-interview-control="DECLINE">Не хочу обсуждать</button><button data-interview-control="CHANGE_TOPIC">Сменить тему</button><button data-interview-control="STOP" class="danger">Остановить</button></div></section>`
       : `<section class="card"><p>${escape(consent)}</p>${interview.consent === "ACTIVE_IN_MEMORY" ? "" : sleepAiEnabled ? `<label><input id="interview-include-sleep" type="checkbox"/> Включить краткие данные сна в эту сессию</label><p class="provenance-note">Только для активной сессии: до 7 нормализованных ночей; фоновых AI-вызовов нет.</p>` : `<p class="provenance-note">Данные сна: отключены глобальной настройкой. В этой сессии они не передаются.</p>`}<button id="${interview.consent === "ACTIVE_IN_MEMORY" ? "interview-next" : "interview-consent"}" class="primary">${interview.consent === "ACTIVE_IN_MEMORY" ? "Продолжить исследование" : "Показать согласие и продолжить"}</button></section>`;
     const end =
       interview.state === "END_RECOMMENDED"
