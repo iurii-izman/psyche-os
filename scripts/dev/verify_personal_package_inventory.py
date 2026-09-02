@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -23,6 +24,14 @@ def fail(message: str) -> None:
     raise RuntimeError(message)
 
 
+def _permission_set(path: Path) -> set[str]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    permissions = value.get("permissions")
+    if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
+        fail(f"invalid capability permissions: {path.name}")
+    return set(permissions)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--installer", required=True, type=Path)
@@ -38,6 +47,15 @@ def main() -> int:
         fail("Personal emitted renderer contains a forbidden product surface")
     manifest_name = "personal_openai_command_manifest.rs" if arguments.profile in {BOUNDED_OPENAI_PROFILE, INTERVIEW_PROFILE} else "personal_command_manifest.rs"
     command_table = (ROOT / "desktop" / "src-tauri" / "src" / manifest_name).read_text(encoding="utf-8")
+    manifest_commands = {
+        f"allow-{line.replace('_', '-')}"
+        for line in command_table.split('"')
+        if line.startswith("desktop_")
+    }
+    capability_name = "personal-openai.json" if manifest_name == "personal_openai_command_manifest.rs" else "personal-local.json"
+    actual_permissions = _permission_set(ROOT / "desktop" / "src-tauri" / "capabilities" / capability_name)
+    if actual_permissions != manifest_commands:
+        fail(f"{capability_name} does not match {manifest_name}")
     if any(token in command_table for token in ("desktop_archive_", "desktop_action_")):
         fail("Personal command table contains a forbidden command")
     has_ai = "desktop_ai_" in command_table
@@ -50,6 +68,22 @@ def main() -> int:
         )
         if any(command not in command_table for command in required_commands):
             fail("Bounded OpenAI command inventory is incomplete")
+    if arguments.profile == INTERVIEW_PROFILE:
+        interview_commands = (
+            "desktop_ai_interview_status", "desktop_ai_interview_policy",
+            "desktop_ai_interview_external_policy", "desktop_ai_interview_source_policy",
+            "desktop_ai_interview_start", "desktop_ai_interview_list",
+            "desktop_ai_interview_grant_consent", "desktop_ai_interview_revoke_consent",
+            "desktop_ai_interview_first_question", "desktop_ai_interview_submit",
+            "desktop_ai_interview_retry", "desktop_ai_interview_control",
+            "desktop_ai_interview_get", "desktop_ai_interview_disclosure",
+            "desktop_ai_model_list", "desktop_ai_model_correct",
+            "desktop_ai_change_list", "desktop_ai_change_control",
+            "desktop_ai_change_observe", "desktop_ai_change_allow_observations",
+            "desktop_ai_change_start_review",
+        )
+        if any(command not in command_table for command in interview_commands):
+            fail("AI Interview command inventory is incomplete")
         provider = (ROOT / "src" / "psyche_os" / "adapters" / "e07_provider.py").read_text(encoding="utf-8")
         required_provider_invariants = (
             'endpoint = "https://api.openai.com/v1/responses"', "request.ProxyHandler({})",

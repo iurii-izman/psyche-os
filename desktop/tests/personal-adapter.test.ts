@@ -39,4 +39,11 @@ describe("Personal renderer adapters", () => {
     expect(providerReads).toEqual([]);
     expect(document.body.textContent).toContain("Сегодня");
   });
+
+  it("exposes Interview controls without the unsupported Working Formulation action", () => {
+    const renderer = source("personal-main.ts");
+    expect(renderer).toContain("status?.capabilities?.working_formulation === true");
+    expect(renderer).toContain("status?.capabilities?.interview === true");
+    expect(renderer).not.toContain("status?.capabilities?.provider === true &&\n        current.state === \"ACTIVE\"");
+  });
 });

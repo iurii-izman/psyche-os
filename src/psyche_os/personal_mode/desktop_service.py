@@ -285,6 +285,7 @@ class PersonalDesktopApplicationService:
             },
             "capabilities": {
                 "provider": self._ai_enabled or self._interview_enabled,
+                "working_formulation": self._ai_enabled,
                 "interview": self._interview_enabled,
             },
         }

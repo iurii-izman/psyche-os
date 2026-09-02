@@ -23,7 +23,11 @@ const status = (locked: boolean, interview = false): PersonalStatus => ({
   outbound_provider: interview ? "OPENAI_EXPLICIT_OPT_IN" : "NOT_CONFIGURED",
   network: interview ? "OPENAI_FOREGROUND_BOUNDED" : "OFFLINE_NO_LISTENER",
   privacy: { core_processing_location: "LOCAL", cloud_storage: "DISABLED", cloud_disclosure: interview ? "EXPLICIT_SESSION_CONSENT_OPENAI_ONLY" : "NEVER_CLOUD", telemetry: "OFF" },
-  capabilities: { provider: interview, interview },
+  capabilities: {
+    provider: interview,
+    working_formulation: false,
+    interview,
+  },
 });
 
 const previewInterview = (scenario: PreviewScenario): InterviewView | null => {

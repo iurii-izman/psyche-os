@@ -479,7 +479,7 @@ export async function mountPersonal(
         (a, b) => a.sequence - b.sequence,
       ),
       aiAvailable =
-        status?.capabilities?.provider === true &&
+        status?.capabilities?.working_formulation === true &&
         current.state === "ACTIVE" &&
         turns.length;
     const preview = aiPreview
