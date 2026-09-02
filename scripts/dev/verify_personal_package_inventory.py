@@ -10,7 +10,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 OFFLINE_PROFILE = "local_personal_evidence_reflection_windows_v1"
 BOUNDED_OPENAI_PROFILE = "local_personal_bounded_openai_reflection_windows_v1"
-FORBIDDEN_RENDERER = ("desktop_archive_", "desktop_action_", "archive.operate", "ai.")
+INTERVIEW_PROFILE = "local_personal_ai_interview_openai_windows_v1"
+FORBIDDEN_RENDERER = ("desktop_archive_", "desktop_action_", "archive.operate")
 FORBIDDEN_MODULES = (
     "psyche_os.application.action_planning", "psyche_os.backup_export",
     "psyche_os.interfaces.cli", "psyche_os.storage.migrations", "psyche_os.domain.assessments",
@@ -25,7 +26,7 @@ def fail(message: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--installer", required=True, type=Path)
-    parser.add_argument("--profile", required=True, choices=(OFFLINE_PROFILE, BOUNDED_OPENAI_PROFILE))
+    parser.add_argument("--profile", required=True, choices=(OFFLINE_PROFILE, BOUNDED_OPENAI_PROFILE, INTERVIEW_PROFILE))
     arguments = parser.parse_args()
     installer = arguments.installer.resolve()
     renderer = ROOT / "desktop" / "dist-personal"
@@ -35,13 +36,14 @@ def main() -> int:
     asset_text = "\n".join(path.read_text(encoding="utf-8") for path in sorted((renderer / "assets").glob("*.js")))
     if any(token in asset_text.lower() for token in FORBIDDEN_RENDERER):
         fail("Personal emitted renderer contains a forbidden product surface")
-    command_table = (ROOT / "desktop" / "src-tauri" / "src" / "personal_command_manifest.rs").read_text(encoding="utf-8")
+    manifest_name = "personal_openai_command_manifest.rs" if arguments.profile in {BOUNDED_OPENAI_PROFILE, INTERVIEW_PROFILE} else "personal_command_manifest.rs"
+    command_table = (ROOT / "desktop" / "src-tauri" / "src" / manifest_name).read_text(encoding="utf-8")
     if any(token in command_table for token in ("desktop_archive_", "desktop_action_")):
         fail("Personal command table contains a forbidden command")
     has_ai = "desktop_ai_" in command_table
-    if arguments.profile == OFFLINE_PROFILE and (has_ai or "openai" in asset_text.lower()):
-        fail("Offline Personal package contains bounded OpenAI capability")
-    if arguments.profile == BOUNDED_OPENAI_PROFILE:
+    if arguments.profile == OFFLINE_PROFILE and (has_ai or "desktop_ai_" in asset_text or "personal-browser-preview" in asset_text):
+        fail("Offline Personal package contains provider or preview capability")
+    if arguments.profile in {BOUNDED_OPENAI_PROFILE, INTERVIEW_PROFILE}:
         required_commands = (
             "desktop_ai_provider_status", "desktop_ai_provider_configure", "desktop_ai_provider_delete",
             "desktop_ai_formulation_prepare", "desktop_ai_formulation_execute",

@@ -26,6 +26,7 @@ export interface PersonalStatus {
       | "EXPLICIT_SESSION_CONSENT_OPENAI_ONLY";
     telemetry: "OFF";
   };
+  capabilities?: { provider: boolean; interview: boolean };
 }
 export interface ReflectionTurn {
   turn_id: string;

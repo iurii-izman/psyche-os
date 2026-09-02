@@ -122,3 +122,35 @@ input, textarea, select { width: 100%; border: 1px solid #b8c2b9; border-radius:
 .hypothesis-card > small { color: #69766d; }
 .search-more { margin: .75rem 0 .25rem; }
 @media (prefers-color-scheme: dark) { .hypothesis-card { background: #1d261e; border-color: #374639; border-left-color: #5d6f61; }.hypothesis-label, .hypothesis-field strong { color: #c3d0c5; }.hypothesis-card > small { color: #a9b8ab; } }
+
+/* The accepted Personal surface is intentionally dark in both browser preview and Tauri. */
+:root { color-scheme: dark; color: #edf2eb; background: #162019; }
+body { background: #162019; }
+h1, h2, h3, h4 { color: #f1f5ef; }
+.personal-sidebar { background: #1d2920; border-color: #314034; }
+.product-nav button { color: #d8e2d8; }
+.product-nav button.active { color: #eff8ef; background: #2d4a37; box-shadow: inset 3px 0 #78ad8b; }
+.product-home > p:first-child, .card > p, .sense-section > p:first-child, .session-header > p:first-child,
+.session-row small, .session-turn small, .card dd, .source-record small, .reported-turn small,
+.history-event small, .derived > small, .provenance-note { color: #b9c8bb; }
+.card, .sense-section, .unlock { background: #1d2820; border-color: #374639; box-shadow: none; }
+input, textarea, select { background: #172119; color: #eef3ed; border-color: #49584b; }
+button:hover { background: #2b382d; }
+.primary { color: #fff; background: #246848; border-color: #246848; }
+.primary:hover { background: #2f7a57; }
+.danger { color: #f0aaaa; border-color: #935b5b; }
+.derived, .formulation-controls { background: #202b22; }
+.result { background: #203526; border-color: #417a59; }
+.status-pill { background: #334138; color: #d2ded4; }
+.status-pill.is-active { background: #294a35; color: #bce4c6; }
+.source-excerpt { background: #19231b; border-color: #455449; }
+.is-ai-proposal { background: #352d1c; border-left-color: #c79a47; }
+.is-source-highlight { background: #203d2a; }
+.source-record, .reported-turn, .history-event, .source-evidence,
+.longitudinal-inline, .longitudinal-day, .longitudinal-event, .longitudinal-item,
+.session-turn, .session-row, .search-result { border-color: #374639; }
+.formulation-version, .hypothesis-card { background: #202b22; border-color: #374639; }
+.hypothesis-label, .hypothesis-field strong, .longitudinal-period-note, .formulation-version small { color: #c3d0c5; }
+.hypothesis-card > small { color: #a9b8ab; }
+.link-button, .settings-card summary, .related-context summary, .source-evidence summary,
+.longitudinal-item summary, .longitudinal-timeline summary { color: #9ed2aa; }

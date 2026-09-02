@@ -9,6 +9,9 @@ mod command_manifest {
 #[cfg(feature = "personal-product")]
 #[path = "src/command_manifest.rs"]
 mod full_command_manifest;
+#[cfg(feature = "personal-product")]
+#[path = "src/personal_openai_command_manifest.rs"]
+mod personal_openai_command_manifest;
 #[cfg(not(feature = "personal-product"))]
 #[path = "src/personal_command_manifest.rs"]
 mod personal_command_manifest;
@@ -110,6 +113,7 @@ fn main() {
     let commands: &'static [&'static str] = Box::leak(
         [
             command_manifest::SHIPPED_COMMANDS,
+            personal_openai_command_manifest::SHIPPED_COMMANDS,
             full_command_manifest::SHIPPED_COMMANDS,
         ]
         .concat()
