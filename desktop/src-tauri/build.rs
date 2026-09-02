@@ -1,11 +1,3 @@
-#[cfg(feature = "personal-product")]
-mod command_manifest {
-    include!("src/personal_command_manifest.rs");
-}
-#[cfg(not(feature = "personal-product"))]
-mod command_manifest {
-    include!("src/command_manifest.rs");
-}
 #[path = "src/command_manifest.rs"]
 mod full_command_manifest;
 #[path = "src/personal_openai_command_manifest.rs"]
@@ -105,13 +97,13 @@ fn main() {
     }
     // Tauri validates every checked-in capability file at build time, even when
     // that capability is not granted by the active product config.  Therefore
-    // both product command sets must be defined in both build modes.  Capability
+    // all checked-in command sets must be defined in both build modes.  Capability
     // files still decide what each runtime is actually granted.
     let commands: &'static [&'static str] = Box::leak(
         [
-            command_manifest::SHIPPED_COMMANDS,
-            personal_openai_command_manifest::SHIPPED_COMMANDS,
             full_command_manifest::SHIPPED_COMMANDS,
+            personal_openai_command_manifest::SHIPPED_COMMANDS,
+            personal_command_manifest::SHIPPED_COMMANDS,
         ]
         .concat()
         .into_boxed_slice(),
