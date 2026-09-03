@@ -27,6 +27,8 @@ describe("Personal browser preview API", () => {
     expect((await empty.reflectionList()).sessions).toEqual([]);
     expect((await empty.status()).admission_expires_at).toBeUndefined();
     expect((await empty.aiProviderStatus()).configured).toBe(false);
+    expect((await empty.sleepHistory()).episodes).toEqual([]);
+    expect((await empty.sleepSourceStatus())).toMatchObject({ configured: false, state: "DISABLED", inbox_path: null });
   });
 
   it("exercises deterministic hypothesis rendering material with truthful provenance in the ACTIVE scenario", async () => {

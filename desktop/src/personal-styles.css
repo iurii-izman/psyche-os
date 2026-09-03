@@ -57,7 +57,11 @@ input, textarea, select { width: 100%; border: 1px solid #b8c2b9; border-radius:
 .calm-empty { max-width: 42rem; color: #526157; }
 .calm-empty h2 { margin-top: 0; }
 .recovery-verify { margin-top: 1rem; max-width: 720px; }
-@media (max-width: 820px) { .product-shell { width: min(100% - 1.5rem, 1080px); }.search-form { grid-template-columns: 1fr; }.session-row { grid-template-columns: minmax(0, 1fr) auto; }.session-row button { grid-column: 1 / -1; width: max-content; }.search-result { grid-template-columns: 1fr; }.search-result button { width: max-content; } }
+.interview-question { max-width: 34ch; font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1.16; margin-top: .55rem; }
+.interview-controls { display: flex; align-items: center; justify-content: space-between; gap: .65rem 1rem; margin-top: .85rem; padding-top: .75rem; border-top: 1px solid #e1e6e0; }
+.interview-controls > div { display: flex; flex-wrap: wrap; gap: .5rem; }
+.interview-controls button { min-height: 38px; margin-top: 0; }
+@media (max-width: 820px) { .product-shell { width: min(100% - 1.5rem, 1080px); }.search-form { grid-template-columns: 1fr; }.session-row { grid-template-columns: minmax(0, 1fr) auto; }.session-row button { grid-column: 1 / -1; width: max-content; }.search-result { grid-template-columns: 1fr; }.search-result button { width: max-content; }.interview-controls { align-items: stretch; flex-direction: column; }.interview-controls > div { display: grid; grid-template-columns: 1fr; }.interview-controls > .danger { width: 100%; } }
 @media (prefers-color-scheme: dark) { .product-nav button { color: #d8e2d8; }.product-nav button.active { color: #eff8ef; background: #2d4a37; box-shadow-color: #78ad8b; }.status-pill { background: #334138; color: #d2ded4; }.status-pill.is-active { background: #294a35; color: #bce4c6; }.derived-warning, .derived-source, .search-summary, .calm-empty { color: #c3d0c5; }.settings-card details { border-color: #374639; } }
 
 /* Evidence workspace: source text and derived proposals have distinct, calm surfaces. */
