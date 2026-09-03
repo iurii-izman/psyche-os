@@ -37,6 +37,8 @@ def test_personal_release_binding_is_explicit_and_cache_safe() -> None:
     assert "cargo:rustc-env=PSYCHE_OS_PERSONAL_BUILD_ID=" in build_rs
     assert "cargo:rustc-env=PSYCHE_OS_PERSONAL_PROFILE_DIGEST=" in build_rs
     assert "Personal release builds require valid" in build_rs
+    assert 'personal_openai_command_manifest::SHIPPED_COMMANDS' in build_rs
+    assert '#[path = "src/personal_openai_command_manifest.rs"]\nmod personal_openai_command_manifest;' in build_rs
     assert 'env!("PSYCHE_OS_PERSONAL_BUILD_ID")' in product
     assert 'env!("PSYCHE_OS_PERSONAL_PROFILE_DIGEST")' in product
     assert "option_env!(\"PSYCHE_OS_PERSONAL_" not in product

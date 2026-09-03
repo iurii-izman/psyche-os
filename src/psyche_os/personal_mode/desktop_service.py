@@ -14,7 +14,6 @@ from pathlib import Path
 import secrets
 from typing import Any, Final
 
-from psyche_os.adapters.e07_provider import OpenAIReflectionProvider
 from psyche_os.application.guided_exploration import GuidedExplorationService
 from psyche_os.application.reflection_sessions import ReflectionSessionError
 from psyche_os.personal_mode.admission import (
@@ -22,13 +21,7 @@ from psyche_os.personal_mode.admission import (
     PersonalAdmissionGuard,
     PersonalNotAdmittedError,
 )
-from psyche_os.personal_mode.ai_interview import PROFILE_ID as INTERVIEW_PROFILE_ID
-from psyche_os.personal_mode.ai_interview import PersonalAIInterviewService
-from psyche_os.personal_mode.ai_working_formulation import (
-    OpenAIKeyStore,
-    PersonalAIError,
-    PersonalWorkingFormulationService,
-)
+from psyche_os.personal_mode.ai_working_formulation import PersonalAIError
 from psyche_os.personal_mode.context_retrieval import PersonalContextRetrievalService
 from psyche_os.personal_mode.external_evidence import (
     SOURCE_ID,
@@ -42,6 +35,7 @@ from psyche_os.personal_mode.runtime_profile import PersonalRuntimePaths
 PROTOCOL_VERSION: Final = "1.0"
 MAX_SECRET: Final = 256
 AI_PROFILE_ID: Final = "local_personal_bounded_openai_reflection_windows_v1"
+INTERVIEW_PROFILE_ID: Final = "local_personal_ai_interview_openai_windows_v1"
 
 PERSONAL_ALLOWED_COMMANDS: Final = frozenset(
     {
@@ -75,6 +69,7 @@ PERSONAL_ALLOWED_COMMANDS: Final = frozenset(
         "ai.working_formulation.authorize_execute",
         "ai.interview.status",
         "ai.interview.policy",
+        "ai.interview.external_policy",
         "ai.interview.source_policy",
         "ai.interview.start",
         "ai.interview.list",
@@ -88,6 +83,11 @@ PERSONAL_ALLOWED_COMMANDS: Final = frozenset(
         "ai.interview.disclosure",
         "ai.model.list",
         "ai.model.correct",
+        "ai.change.list",
+        "ai.change.control",
+        "ai.change.observe",
+        "ai.change.allow_observations",
+        "ai.change.start_review",
         "external.source.status",
         "external.source.configure",
         "external.scan",
@@ -145,8 +145,8 @@ class PersonalDesktopApplicationService:
         profile_id = os.environ.get("PSYCHE_OS_PERSONAL_PROFILE_ID")
         self._ai_enabled = profile_id == AI_PROFILE_ID
         self._interview_enabled = profile_id == INTERVIEW_PROFILE_ID
-        self._ai: PersonalWorkingFormulationService | None = None
-        self._interview: PersonalAIInterviewService | None = None
+        self._ai: Any = None
+        self._interview: Any = None
 
     def close(self) -> None:
         self._session_token = None
@@ -162,7 +162,9 @@ class PersonalDesktopApplicationService:
         if command.startswith("ai.working_formulation") and not self._ai_enabled:
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
         if (
-            command.startswith("ai.interview") or command.startswith("ai.model")
+            command.startswith("ai.interview")
+            or command.startswith("ai.model")
+            or command.startswith("ai.change")
         ) and not self._interview_enabled:
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
         try:
@@ -281,6 +283,11 @@ class PersonalDesktopApplicationService:
                 else "NEVER_CLOUD",
                 "telemetry": "OFF",
             },
+            "capabilities": {
+                "provider": self._ai_enabled or self._interview_enabled,
+                "working_formulation": self._ai_enabled,
+                "interview": self._interview_enabled,
+            },
         }
 
     def _unlock(self, payload: Any) -> dict[str, Any]:
@@ -298,14 +305,21 @@ class PersonalDesktopApplicationService:
         self._scan_configured_inbox()
         return {"session_token": self._session_token, "locked": False}
 
-    def _ai_service(self) -> PersonalWorkingFormulationService:
+    def _ai_service(self) -> Any:
         if not (self._ai_enabled or self._interview_enabled):
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
         if self._ai is None:
+            from importlib import import_module
+
+            from psyche_os.personal_mode.ai_working_formulation import (
+                OpenAIKeyStore,
+                PersonalWorkingFormulationService,
+            )
+
             self._ai = PersonalWorkingFormulationService(
                 self._runtime.reflection,
                 OpenAIKeyStore(self._runtime._paths.root),
-                OpenAIReflectionProvider(),
+                import_module("psyche_os.adapters.e07_provider").OpenAIReflectionProvider(),
             )
         return self._ai
 
@@ -333,14 +347,19 @@ class PersonalDesktopApplicationService:
         values = _exact(payload, {"interaction_id", "preview_id"})
         return self._ai_service().authorize_execute(values["interaction_id"], values["preview_id"])
 
-    def _interview_service(self) -> PersonalAIInterviewService:
+    def _interview_service(self) -> Any:
         if not self._interview_enabled:
             raise PersonalDesktopServiceError("UNKNOWN_COMMAND")
         if self._interview is None:
-            self._interview = PersonalAIInterviewService(
+            from importlib import import_module
+
+            from psyche_os.personal_mode.ai_working_formulation import OpenAIKeyStore
+
+            interview = import_module("psyche_os.personal_mode.ai_interview")
+            self._interview = interview.PersonalAIInterviewService(
                 self._runtime.reflection,
                 OpenAIKeyStore(self._runtime._paths.root),
-                OpenAIReflectionProvider(),
+                import_module("psyche_os.adapters.e07_provider").OpenAIReflectionProvider(),
             )
         return self._interview
 

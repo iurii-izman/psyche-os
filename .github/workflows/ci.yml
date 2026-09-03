@@ -87,3 +87,73 @@ jobs:
       - run: npm --prefix desktop run test:unit
       - run: cargo check --manifest-path desktop/src-tauri/Cargo.toml --locked
       - run: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked
+
+  personal-package:
+    name: Personal package (${{ matrix.label }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Offline
+            profile: local_personal_evidence_reflection_windows_v1
+          - label: Bounded OpenAI
+            profile: local_personal_bounded_openai_reflection_windows_v1
+          - label: AI Interview
+            profile: local_personal_ai_interview_openai_windows_v1
+    env:
+      PSYCHE_OS_PERSONAL_PROFILE_ID: ${{ matrix.profile }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.9.30"
+      - name: Show candidate identity
+        shell: pwsh
+        run: |
+          Write-Host "event=$env:GITHUB_EVENT_NAME"
+          Write-Host "GITHUB_SHA=$env:GITHUB_SHA"
+          Write-Host "candidate_sha=$(git rev-parse HEAD)"
+          Write-Host "personal_profile=$env:PSYCHE_OS_PERSONAL_PROFILE_ID"
+      - run: uv sync --frozen
+      - run: npm --prefix desktop ci
+      - name: Build profile-specific Personal installer
+        shell: pwsh
+        run: |
+          Push-Location desktop
+          try {
+            switch ($env:PSYCHE_OS_PERSONAL_PROFILE_ID) {
+              "local_personal_evidence_reflection_windows_v1" {
+                & .\scripts\build-personal.ps1
+              }
+              "local_personal_bounded_openai_reflection_windows_v1" {
+                & .\scripts\build-personal.ps1 -BoundedOpenAI
+              }
+              "local_personal_ai_interview_openai_windows_v1" {
+                & .\scripts\build-personal.ps1 -AIInterview
+              }
+              default {
+                throw "Unknown Personal package profile"
+              }
+            }
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
+      - name: Verify emitted Personal installer inventory
+        shell: pwsh
+        run: |
+          $bundle = Join-Path $PWD "desktop\src-tauri\target\release\bundle\nsis"
+          $installers = @(Get-ChildItem -Path $bundle -Filter "*.exe" -File -ErrorAction Stop)
+          if ($installers.Count -ne 1) {
+            throw "Expected exactly one NSIS installer, found $($installers.Count)"
+          }
+          uv run python scripts/dev/verify_personal_package_inventory.py `
+            --installer $installers[0].FullName `
+            --profile $env:PSYCHE_OS_PERSONAL_PROFILE_ID

@@ -26,15 +26,20 @@ PERSONAL_FORBIDDEN_MODULES = (
 )
 OFFLINE_PROFILE = "local_personal_evidence_reflection_windows_v1"
 BOUNDED_OPENAI_PROFILE = "local_personal_bounded_openai_reflection_windows_v1"
+INTERVIEW_PROFILE = "local_personal_ai_interview_openai_windows_v1"
 BOUNDED_OPENAI_ADAPTERS = {
     "psyche_os.adapters",
     "psyche_os.adapters.adapters",
     "psyche_os.adapters.e07_provider",
 }
+INTERVIEW_HIDDEN_IMPORTS = (
+    "psyche_os.adapters.e07_provider",
+    "psyche_os.personal_mode.ai_interview",
+)
 SYNTHETIC_FIXTURE = "psyche_os/fixtures/e03_orchid_station_v1.json"
 
 
-def _build(name: str, entrypoint: Path, *, synthetic: bool) -> Path:
+def _build(name: str, entrypoint: Path, *, synthetic: bool, hidden_imports: tuple[str, ...] = ()) -> Path:
     executable = OUTPUT / f"{name}.exe"
     if executable.exists():
         executable.unlink()
@@ -68,6 +73,8 @@ def _build(name: str, entrypoint: Path, *, synthetic: bool) -> Path:
             f"{ROOT / 'src' / 'psyche_os' / 'fixtures' / 'e03_orchid_station_v1.json'}"
             f"{os.pathsep}psyche_os/fixtures",
         ]
+    if hidden_imports:
+        command[-1:-1] = [item for module in hidden_imports for item in ("--hidden-import", module)]
     completed = subprocess.run(command, cwd=ROOT, check=False)
     if completed.returncode != 0 or not executable.is_file():
         raise RuntimeError(name)
@@ -77,7 +84,7 @@ def _build(name: str, entrypoint: Path, *, synthetic: bool) -> Path:
 def _personal_profile() -> str:
     """Return the explicit package profile, defaulting fail-closed to Offline."""
     profile = os.environ.get("PSYCHE_OS_PERSONAL_PROFILE_ID", OFFLINE_PROFILE)
-    if profile not in {OFFLINE_PROFILE, BOUNDED_OPENAI_PROFILE}:
+    if profile not in {OFFLINE_PROFILE, BOUNDED_OPENAI_PROFILE, INTERVIEW_PROFILE}:
         raise RuntimeError("unknown-personal-profile")
     return profile
 
@@ -98,7 +105,6 @@ def _verify_personal_inventory(executable: Path, profile: str) -> None:
         check=False,
         text=True,
     )
-    names = result.stdout.splitlines()
     modules = {name.strip() for name in result.stdout.splitlines()}
     if result.returncode != 0 or any(
         name.strip() == forbidden or name.strip().startswith(f"{forbidden}.")
@@ -109,7 +115,7 @@ def _verify_personal_inventory(executable: Path, profile: str) -> None:
     adapters = {name for name in modules if name == "psyche_os.adapters" or name.startswith("psyche_os.adapters.")}
     if profile == OFFLINE_PROFILE and adapters:
         raise RuntimeError("offline-personal-adapter-leakage")
-    if profile == BOUNDED_OPENAI_PROFILE and adapters != BOUNDED_OPENAI_ADAPTERS:
+    if profile in {BOUNDED_OPENAI_PROFILE, INTERVIEW_PROFILE} and not BOUNDED_OPENAI_ADAPTERS.issubset(adapters):
         raise RuntimeError("bounded-openai-adapter-inventory")
     actual = {path.name for path in OUTPUT.glob("psyche-os*sidecar*.exe")}
     expected = {f"{NAME}.exe", f"{PERSONAL_NAME}.exe"}
@@ -147,12 +153,20 @@ def main() -> int:
             ROOT / "src" / "psyche_os" / "interfaces" / "desktop_sidecar.py",
             synthetic=True,
         )
+        profile = _personal_profile()
         personal = _build(
             PERSONAL_NAME,
             ROOT / "src" / "psyche_os" / "interfaces" / "personal_desktop_sidecar.py",
             synthetic=False,
+            hidden_imports=(
+                tuple(sorted(BOUNDED_OPENAI_ADAPTERS))
+                if profile == BOUNDED_OPENAI_PROFILE
+                else INTERVIEW_HIDDEN_IMPORTS
+                if profile == INTERVIEW_PROFILE
+                else ()
+            ),
         )
-        _verify_personal_inventory(personal, _personal_profile())
+        _verify_personal_inventory(personal, profile)
         _verify_synthetic_resource(executable)
     except RuntimeError as error:
         print(f"FAIL: {error}", file=sys.stderr)

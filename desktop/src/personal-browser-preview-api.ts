@@ -22,7 +22,12 @@ const status = (locked: boolean, interview = false): PersonalStatus => ({
   inbound_listener: "NONE",
   outbound_provider: interview ? "OPENAI_EXPLICIT_OPT_IN" : "NOT_CONFIGURED",
   network: interview ? "OPENAI_FOREGROUND_BOUNDED" : "OFFLINE_NO_LISTENER",
-  privacy: { core_processing_location: "LOCAL", cloud_storage: "DISABLED", cloud_disclosure: interview ? "EXPLICIT_SESSION_CONSENT_OPENAI_ONLY" : "NEVER_CLOUD", telemetry: "OFF" }
+  privacy: { core_processing_location: "LOCAL", cloud_storage: "DISABLED", cloud_disclosure: interview ? "EXPLICIT_SESSION_CONSENT_OPENAI_ONLY" : "NEVER_CLOUD", telemetry: "OFF" },
+  capabilities: {
+    provider: interview,
+    working_formulation: false,
+    interview,
+  },
 });
 
 const previewInterview = (scenario: PreviewScenario): InterviewView | null => {
@@ -312,7 +317,7 @@ export const createPersonalBrowserPreviewApi = (scenario: PreviewScenario): Pers
 };
 
 const previewSleepEpisodes = (scenario: PreviewScenario): SleepEpisode[] => {
-  if (scenario === "SLEEP_EMPTY" || scenario === "SLEEP_IMPORT_ERROR" || scenario === "SLEEP_SOURCE_DETAILS") return [];
+  if (scenario === "EMPTY" || scenario === "SLEEP_EMPTY" || scenario === "SLEEP_IMPORT_ERROR" || scenario === "SLEEP_SOURCE_DETAILS") return [];
   const count = scenario === "SLEEP_RICH_30_DAYS" ? 30 : scenario === "SLEEP_14_DAY_HISTORY" ? 14 : 1;
   return Array.from({ length: count }, (_, index) => {
     const night = new Date(Date.UTC(2026, 7, 29 - index, 22, 45));
@@ -341,11 +346,11 @@ const previewSleepEpisodes = (scenario: PreviewScenario): SleepEpisode[] => {
 };
 
 const previewSleepSource = (scenario: PreviewScenario): SleepSourceStatus => ({
-  configured: scenario !== "SLEEP_EMPTY",
+  configured: scenario !== "EMPTY" && scenario !== "SLEEP_EMPTY",
   label: "Синтетический Health.md / Health Connect",
-  state: scenario === "SLEEP_IMPORT_ERROR" ? "ERROR" : scenario === "SLEEP_EMPTY" ? "DISABLED" : "ACTIVE",
-  inbox_path: scenario === "SLEEP_EMPTY" ? null : "C:\\Synthetic\\Health",
-  last_imported_at: scenario === "SLEEP_IMPORT_ERROR" ? null : at(29),
+  state: scenario === "SLEEP_IMPORT_ERROR" ? "ERROR" : scenario === "EMPTY" || scenario === "SLEEP_EMPTY" ? "DISABLED" : "ACTIVE",
+  inbox_path: scenario === "EMPTY" || scenario === "SLEEP_EMPTY" ? null : "C:\\Synthetic\\Health",
+  last_imported_at: scenario === "EMPTY" || scenario === "SLEEP_EMPTY" || scenario === "SLEEP_IMPORT_ERROR" ? null : at(29),
   snapshot_status: scenario === "SLEEP_PARTIAL_STAGES" ? "PARTIAL" : "COMPLETE",
   issue_count: scenario === "SLEEP_PARTIAL_STAGES" ? 2 : 0,
   nights: previewSleepEpisodes(scenario).length,
